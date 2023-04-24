@@ -6,6 +6,7 @@ from typing import Union, Tuple, List, Optional
 import pandas as pd
 from pandas import DataFrame
 pd.set_option('display.max_rows', None)
+pd.set_option('display.max_colwidth', 100)
 
 from dagflow.graph import Graph
 from dagflow.graphviz import savegraph
@@ -58,11 +59,13 @@ def model_dayabay_v0():
 		('i', 'isotope'): ('U235', 'U238', 'Pu239', 'Pu241'),
 		('b', 'background'): ('acc', 'lihe', 'fastn', 'amc', 'alphan'),
 		})
+    idx_r= index.sub('r')
+    list_reactors = idx_r.values
 
     with Graph(close=True) as g:
         storage ^= load_parameters({'path': 'ibd'      , 'load': datasource/'parameters/pdg2012.yaml'})
         storage ^= load_parameters({'path': 'detector' , 'load': datasource/'parameters/detector_nprotons_correction.yaml'})
-        storage ^= load_parameters({'path': 'reactor'  , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml'})
+        storage ^= load_parameters({'path': 'reactor'  , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml', 'replicate': list_reactors })
         storage ^= load_parameters({'path': 'eres'     , 'load': datasource/'parameters/detector_eres.yaml'})
         storage ^= load_parameters({                     'load': datasource/'parameters/baselines.yaml'})
 
@@ -74,12 +77,12 @@ def model_dayabay_v0():
     storage['parameter.normalized.eres.eres.b_stat'].value = 1
     storage['parameter.normalized.eres.eres.a_nonuniform'].value = 2
 
-    print('Everything')
-    print(storage.to_df())
+    # print('Everything')
+    # print(storage.to_df())
 
-    # print('Parameters')
-    # print(storage['parameter'].to_df())
-    #
+    print('Parameters')
+    print(storage['parameter'].to_df())
+
     # print('Parameters (latex)')
     # print(storage['parameter'].to_latex())
     #
