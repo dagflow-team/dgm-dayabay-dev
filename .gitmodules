@@ -4,4 +4,4 @@
 	branch = feature/pars-gindex
 [submodule "submodules/dictwrapper"]
 	path = submodules/dictwrapper
-	url = https://git.jinr.ru/dag-computing/dictwrapper.py.git
+	url = git@git.jinr.ru:dag-computing/dag-flow.git
