@@ -37,6 +37,8 @@ class ParametersVisitor(NestedMKDictVisitor):
     def enterdict(self, k, v):
         if not k:
             return
+        if self._path:
+            self.exitdict(self._path, None)
         self._path = k
         self._localdata = []
 
@@ -121,6 +123,7 @@ def model_dayabay_v0():
 
     with Graph(close=True) as g:
         storage ^= load_parameters({'path': 'ibd'      , 'load': datasource/'parameters/pdg2012.yaml'})
+        storage ^= load_parameters({'path': 'ibd.csc'  , 'load': datasource/'parameters/ibd_constants.yaml'})
 
         storage ^= load_parameters({                     'load': datasource/'parameters/baselines.yaml'})
 
