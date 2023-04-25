@@ -59,7 +59,7 @@ class ParametersVisitor(NestedMKDictVisitor):
     def exitdict(self, k, v):
         if self._localdata:
             self._data.append({
-                'path': f"[{'.'.join(self._path)}]"
+                'path': f"group: {'.'.join(self._path)} [{len(self._localdata)}]"
                 })
             self._data.extend(self._localdata)
             self._localdata = []
