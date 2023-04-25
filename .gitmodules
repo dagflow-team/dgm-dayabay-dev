@@ -1,0 +1,4 @@
+[submodule "submodules/dagflow"]
+	path = submodules/dagflow
+	url = https://git.jinr.ru/dag-computing/dag-flow.git
+	branch = feature/pars-gindex
