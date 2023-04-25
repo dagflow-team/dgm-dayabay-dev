@@ -79,7 +79,14 @@ class ParametersWrapper(NestedMKDict):
         if columns is None:
             columns = ['path', 'value', 'central', 'sigma', 'label']
         df = DataFrame(dct, columns=columns)
-        df.fillna('', inplace=True)
+        for key in ('central', 'sigma'):
+            if df[key].isna().all():
+                del df[key]
+            else:
+                df[key].fillna('-', inplace=True)
+
+        df['value'].fillna('-', inplace=True)
+        df['label'].fillna('', inplace=True)
         return df
 
     def to_string(self, **kwargs) -> str:
