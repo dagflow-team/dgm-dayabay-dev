@@ -19,12 +19,15 @@ from gindex import GNIndex
 class ParametersVisitor(NestedMKDictVisitor):
     __slots__ = ('_kwargs', '_data', '_localdata', '_path')
     _kwargs: dict
-    _data: list
-    _localdata: list
-    _path: tuple
+    _data: List[dict]
+    _localdata: List[dict]
+    _paths: List[Tuple[str, ...]]
+    _path: Tuple[str, ...]
+    # _npars: List[int]
 
     def __init__(self, kwargs: dict):
         self._kwargs = kwargs
+        # self._npars = []
 
     @property
     def data(self):
@@ -33,13 +36,14 @@ class ParametersVisitor(NestedMKDictVisitor):
     def start(self, dct):
         self._data = []
         self._path = ()
+        self._paths = []
+        self._localdata = []
 
     def enterdict(self, k, v):
-        if not k:
-            return
-        if self._path:
+        if self._localdata:
             self.exitdict(self._path, None)
         self._path = k
+        self._paths.append(self._path)
         self._localdata = []
 
     def visit(self, key, value):
@@ -65,7 +69,10 @@ class ParametersVisitor(NestedMKDictVisitor):
                 })
             self._data.extend(self._localdata)
             self._localdata = []
-        self._path = ()
+        if self._paths:
+            del self._paths[-1]
+
+            self._path = self._paths[-1] if self._paths else ()
 
     def stop(self, dct):
         pass
@@ -129,24 +136,25 @@ def model_dayabay_v0():
     list_reactors_isotopes = idx_ri.values
 
     with Graph(close=True) as g:
-        storage ^= load_parameters({'path': 'ibd'      , 'load': datasource/'parameters/pdg2012.yaml'})
-        storage ^= load_parameters({'path': 'ibd.csc'  , 'load': datasource/'parameters/ibd_constants.yaml'})
+        storage ^= load_parameters({'path': 'ibd'        , 'load': datasource/'parameters/pdg2012.yaml'})
+        storage ^= load_parameters({'path': 'ibd.csc'    , 'load': datasource/'parameters/ibd_constants.yaml'})
+        storage ^= load_parameters({'path': 'conversion' , 'load': datasource/'parameters/conversion_thermal_power.py'})
 
-        storage ^= load_parameters({                     'load': datasource/'parameters/baselines.yaml'})
+        storage ^= load_parameters({                       'load': datasource/'parameters/baselines.yaml'})
 
-        storage ^= load_parameters({'path': 'detector' , 'load': datasource/'parameters/detector_nprotons_correction.yaml'})
-        storage ^= load_parameters({                     'load': datasource/'parameters/detector_eres.yaml'})
+        storage ^= load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_nprotons_correction.yaml'})
+        storage ^= load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_eres.yaml'})
 
-        storage ^= load_parameters({'path': 'reactor'  , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml', 'replicate': list_reactors })
-        storage ^= load_parameters({'path': 'reactor'  , 'load': datasource/'parameters/offequilibrium_correction.yaml',     'replicate': list_reactors_isotopes })
+        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml' , 'replicate': list_reactors })
+        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/offequilibrium_correction.yaml'     , 'replicate': list_reactors_isotopes })
 
         nuisanceall = Sum('nuisance total')
         storage['stat.nuisance.all'] = nuisanceall
 
         (output for output in storage['stat.nuisance_parts'].walkvalues()) >> nuisanceall
 
-    storage['parameter.normalized.eres.b_stat'].value = 1
-    storage['parameter.normalized.eres.a_nonuniform'].value = 2
+    storage['parameter.normalized.detector.eres.b_stat'].value = 1
+    storage['parameter.normalized.detector.eres.a_nonuniform'].value = 2
 
     print('Everything')
     print(storage.to_table())
