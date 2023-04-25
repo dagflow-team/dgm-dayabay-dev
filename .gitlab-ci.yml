@@ -6,6 +6,7 @@ tests:
     stage: tests
 
     script:
+        - git submodules update --init --recursive
         - python3 -m pip install -r submodules/dagflow/requirements.txt
         - mkdir output
         - coverage run --source=. --omit=submodules/* -m pytest
