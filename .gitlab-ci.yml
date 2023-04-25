@@ -8,7 +8,7 @@ tests:
     script:
         - python3 -m pip install -r submodules/dagflow/requirements.txt
         - mkdir output
-        - coverage run --source=. --omit=subtrees/* -m pytest
+        - coverage run --source=. --omit=submodules/* -m pytest
         - coverage report
         - coverage xml
     coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
