@@ -1,6 +1,8 @@
 from dagflow.bundles.load_parameters import load_parameters
 from multikeydict.nestedmkdict import NestedMKDict
+from multikeydict.visitor import NestedMKDictVisitor
 from pathlib import Path
+from tabulate import tabulate
 
 from typing import Union, Tuple, List, Optional
 import pandas as pd
@@ -14,31 +16,80 @@ from dagflow.lib.Sum import Sum
 
 from gindex import GNIndex
 
+class ParametersVisitor(NestedMKDictVisitor):
+    __slots__ = ('_kwargs', '_data', '_localdata', '_path')
+    _kwargs: dict
+    _data: list
+    _localdata: list
+    _path: tuple
+
+    def __init__(self, kwargs: dict):
+        self._kwargs = kwargs
+
+    @property
+    def data(self):
+        return self._data
+
+    def start(self, dct):
+        self._data = []
+        self._path = ()
+
+    def enterdict(self, k, v):
+        if not k:
+            return
+        self._path = k
+        self._localdata = []
+
+    def visit(self, key, value):
+        try:
+            dct = value.to_dict(**self._kwargs)
+        except AttributeError:
+            return
+
+        subkey = key[len(self._path):]
+        subkeystr = '.'.join(subkey)
+
+        if self._path:
+            dct['path'] = f'.. {subkeystr}'
+        else:
+            dct['path'] = subkeystr
+
+        self._localdata.append(dct)
+
+    def exitdict(self, k, v):
+        if self._localdata:
+            self._data.append({
+                'path': f"[{'.'.join(self._path)}]"
+                })
+            self._data.extend(self._localdata)
+            self._localdata = []
+        self._path = ()
+
+    def stop(self, dct):
+        pass
+
 class ParametersWrapper(NestedMKDict):
     def to_dict(self, **kwargs) -> list:
-        data = []
-        for k, v in self.walkitems():
-            k = '.'.join(k)
-            try:
-                dct = v.to_dict(**kwargs)
-            except AttributeError:
-                continue
-
-            dct['path'] = k
-            data.append(dct)
-
-        return data
+        return self.visit(ParametersVisitor(kwargs)).data
 
     def to_df(self, *, columns: Optional[List[str]]=None, **kwargs) -> DataFrame:
         dct = self.to_dict(**kwargs)
         if columns is None:
             columns = ['path', 'value', 'central', 'sigma', 'label']
         df = DataFrame(dct, columns=columns)
+        df.fillna('', inplace=True)
         return df
 
-    def to_string(self, **kwargs) -> DataFrame:
+    def to_string(self, **kwargs) -> str:
         df = self.to_df()
         return df.to_string(**kwargs)
+
+    def to_table(self, *, df_kwargs: dict={}, **kwargs) -> str:
+        df = self.to_df(**df_kwargs)
+        kwargs.setdefault('headers', df.columns)
+        ret = tabulate(df, **kwargs)
+
+        return ret
 
     def to_latex(self, *, return_df: bool=False, **kwargs) -> Union[str, Tuple[str, DataFrame]]:
         df = self.to_df(label_from='latex', **kwargs)
@@ -54,13 +105,13 @@ def model_dayabay_v0():
     datasource = Path('data/dayabay-v0')
 
     index = GNIndex.from_dict({
-		('s', 'site'): ('EH1', 'EH2', 'EH3'),
-		('d', 'detector'): ('AD11', 'AD12', 'AD21', 'AD22', 'AD31', 'AD32', 'AD33', 'AD34'),
-		('p', 'period'): ('6AD', '8AD', '7AD'),
-		('r', 'reactor'): ('DB1', 'DB2', 'LA1', 'LA2', 'LA3', 'LA4'),
-		('i', 'isotope'): ('U235', 'U238', 'Pu239', 'Pu241'),
-		('b', 'background'): ('acc', 'lihe', 'fastn', 'amc', 'alphan'),
-		})
+                ('s', 'site'): ('EH1', 'EH2', 'EH3'),
+                ('d', 'detector'): ('AD11', 'AD12', 'AD21', 'AD22', 'AD31', 'AD32', 'AD33', 'AD34'),
+                ('p', 'period'): ('6AD', '8AD', '7AD'),
+                ('r', 'reactor'): ('DB1', 'DB2', 'LA1', 'LA2', 'LA3', 'LA4'),
+                ('i', 'isotope'): ('U235', 'U238', 'Pu239', 'Pu241'),
+                ('b', 'background'): ('acc', 'lihe', 'fastn', 'amc', 'alphan'),
+                })
     idx_r= index.sub('r')
     idx_rd= index.sub(('r', 'd'))
     idx_ri= index.sub(('r', 'i'))
@@ -88,10 +139,19 @@ def model_dayabay_v0():
     storage['parameter.normalized.eres.a_nonuniform'].value = 2
 
     print('Everything')
-    print(storage.to_df())
+    print(storage.to_table())
 
-    print('Parameters')
-    print(storage['parameter'].to_df())
+    print('Constants')
+    print(storage['parameter.constant'].to_table())
+
+    print('Constrained')
+    print(storage['parameter.constrained'].to_table())
+
+    print('Normalized')
+    print(storage['parameter.normalized'].to_table())
+
+    print('Stat')
+    print(storage['stat'].to_table())
 
     # print('Parameters (latex)')
     # print(storage['parameter'].to_latex())

@@ -2,3 +2,6 @@
 	path = submodules/dagflow
 	url = https://git.jinr.ru/dag-computing/dag-flow.git
 	branch = feature/pars-gindex
+[submodule "submodules/dictwrapper"]
+	path = submodules/dictwrapper
+	url = https://git.jinr.ru/dag-computing/dictwrapper.py.git
