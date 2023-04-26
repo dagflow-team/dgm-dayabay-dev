@@ -23,7 +23,7 @@ class ParametersStorage(NestedMKDict):
 
         df.insert(4, 'sigma_rel_perc', df['sigma'])
         df['sigma_rel_perc'] = df['sigma']/df['central']*100.
-        df['sigma_rel_perc'][df['central']==0] = nan
+        df['sigma_rel_perc'].mask(df['central']==0, nan, inplace=True)
 
         for key in ('central', 'sigma', 'sigma_rel_perc'):
             if df[key].isna().all():
