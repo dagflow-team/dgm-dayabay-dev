@@ -6,6 +6,7 @@ from typing import Union, Tuple, List, Optional
 from tabulate import tabulate
 from pandas import DataFrame
 
+from numpy import nan
 import pandas as pd
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', 100)
@@ -19,7 +20,12 @@ class ParametersStorage(NestedMKDict):
         if columns is None:
             columns = ['path', 'value', 'central', 'sigma', 'label']
         df = DataFrame(dct, columns=columns)
-        for key in ('central', 'sigma'):
+
+        df.insert(4, 'sigma_rel_perc', df['sigma'])
+        df['sigma_rel_perc'] = df['sigma']/df['central']*100.
+        df['sigma_rel_perc'][df['central']==0] = nan
+
+        for key in ('central', 'sigma', 'sigma_rel_perc'):
             if df[key].isna().all():
                 del df[key]
             else:
