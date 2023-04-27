@@ -11,6 +11,11 @@ import pandas as pd
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', 100)
 
+from shutil import get_terminal_size
+
+def trunc(text: str, width: int) -> str:
+    return '\n'.join(line[:width] for line in text.split('\n'))
+
 class ParametersStorage(NestedMKDict):
     def to_dict(self, **kwargs) -> list:
         return self.visit(ParametersVisitor(kwargs)).data
@@ -39,10 +44,23 @@ class ParametersStorage(NestedMKDict):
         df = self.to_df()
         return df.to_string(**kwargs)
 
-    def to_table(self, *, df_kwargs: dict={}, **kwargs) -> str:
+    def to_table(
+        self,
+        *,
+        df_kwargs: dict={},
+        truncate: Union[int, bool] = False,
+        **kwargs
+    ) -> str:
         df = self.to_df(**df_kwargs)
         kwargs.setdefault('headers', df.columns)
         ret = tabulate(df, **kwargs)
+
+        if truncate:
+            if isinstance(truncate, bool):
+                truncate = get_terminal_size().columns
+
+            return trunc(ret, width=truncate)
+
 
         return ret
 
