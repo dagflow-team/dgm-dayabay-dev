@@ -42,7 +42,7 @@ def model_dayabay_v0():
         storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml'     , 'replicate': list_reactors })
         storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_snf.yaml'                       , 'replicate': list_reactors })
         storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_offequilibrium_correction.yaml' , 'replicate': list_reactors_isotopes })
-        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_fission_fraction_scale.yaml'    , 'replicate': list_reactors })
+        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_fission_fraction_scale.yaml'    , 'replicate': list_reactors , 'replica_key_offset': 1 })
 
         nuisanceall = Sum('nuisance total')
         storage['stat.nuisance.all'] = nuisanceall
@@ -52,20 +52,24 @@ def model_dayabay_v0():
     storage['parameter.normalized.detector.eres.b_stat'].value = 1
     storage['parameter.normalized.detector.eres.a_nonuniform'].value = 2
 
+    # p1 = storage['parameter.normalized.detector.eres.b_stat']
+    # p2 = storage['parameter.constrained.detector.eres.b_stat']
+    # import IPython; IPython.embed(colors='neutral')
+
     print('Everything')
-    print(storage.to_table())
+    print(storage.to_table(truncate=True))
 
     print('Constants')
-    print(storage['parameter.constant'].to_table())
+    print(storage['parameter.constant'].to_table(truncate=True))
 
     print('Constrained')
-    print(storage['parameter.constrained'].to_table())
+    print(storage['parameter.constrained'].to_table(truncate=True))
 
     print('Normalized')
-    print(storage['parameter.normalized'].to_table())
+    print(storage['parameter.normalized'].to_table(truncate=True))
 
     print('Stat')
-    print(storage['stat'].to_table())
+    print(storage['stat'].to_table(truncate=True))
 
     # print('Parameters (latex)')
     # print(storage['parameter'].to_latex())
