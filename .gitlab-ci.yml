@@ -8,8 +8,7 @@ tests:
     variables:
         GIT_DEPTH: 1
     script:
-        - git submodule init
-        - git submodule update --init --recursive --remote
+        - git submodule update --init --recursive
         - python3 -m pip install -r submodules/dagflow/requirements.txt
         - mkdir output
         - coverage run --source=. --omit=submodules/* -m pytest
