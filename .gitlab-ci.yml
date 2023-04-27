@@ -8,6 +8,7 @@ tests:
     variables:
         GIT_DEPTH: 1
     script:
+        - git submodule sync
         - git submodule update --init --recursive
         - python3 -m pip install -r submodules/dagflow/requirements.txt
         - mkdir output
