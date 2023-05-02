@@ -1,10 +1,11 @@
 from multikeydict.nestedmkdict import NestedMKDict
 from multikeydict.visitor import NestedMKDictVisitor
 
-from typing import Union, Tuple, List, Optional
+from typing import Union, Tuple, List, Optional, Dict
 
 from tabulate import tabulate
 from pandas import DataFrame
+from LaTeXDatax import datax
 
 from numpy import nan
 import pandas as pd
@@ -17,13 +18,16 @@ def trunc(text: str, width: int) -> str:
     return '\n'.join(line[:width] for line in text.split('\n'))
 
 class ParametersStorage(NestedMKDict):
-    def to_dict(self, **kwargs) -> list:
-        return self.visit(ParametersVisitor(kwargs)).data
+    def to_list(self, **kwargs) -> list:
+        return self.visit(ParametersVisitor(kwargs)).data_list
+
+    def to_dict(self, **kwargs) -> NestedMKDict:
+        return self.visit(ParametersVisitor(kwargs)).data_dict
 
     def to_df(self, *, columns: Optional[List[str]]=None, **kwargs) -> DataFrame:
-        dct = self.to_dict(**kwargs)
+        dct = self.to_list(**kwargs)
         if columns is None:
-            columns = ['path', 'value', 'central', 'sigma', 'label']
+            columns = ['path', 'value', 'central', 'sigma', 'flags', 'label']
         df = DataFrame(dct, columns=columns)
 
         df.insert(4, 'sigma_rel_perc', df['sigma'])
@@ -37,7 +41,12 @@ class ParametersStorage(NestedMKDict):
                 df[key].fillna('-', inplace=True)
 
         df['value'].fillna('-', inplace=True)
+        df['flags'].fillna('', inplace=True)
         df['label'].fillna('', inplace=True)
+
+        if (df['flags']=='').all():
+            del df['flags']
+
         return df
 
     def to_string(self, **kwargs) -> str:
@@ -73,10 +82,17 @@ class ParametersStorage(NestedMKDict):
 
         return tex
 
+    def to_datax(self, filename: str, **kwargs) -> None:
+        data = self.to_dict(**kwargs)
+        skip = {'path', 'label', 'flags'} # TODO, add LaTeX label
+        odict = {'.'.join(k): v for k, v in data.walkitems() if not (k and k[-1] in skip)}
+        datax(filename, **odict)
+
 class ParametersVisitor(NestedMKDictVisitor):
-    __slots__ = ('_kwargs', '_data', '_localdata', '_path')
+    __slots__ = ('_kwargs', '_data_list', '_localdata', '_path')
     _kwargs: dict
-    _data: List[dict]
+    _data_list: List[dict]
+    _data_dict: NestedMKDict
     _localdata: List[dict]
     _paths: List[Tuple[str, ...]]
     _path: Tuple[str, ...]
@@ -87,11 +103,16 @@ class ParametersVisitor(NestedMKDictVisitor):
         # self._npars = []
 
     @property
-    def data(self):
-        return self._data
+    def data_list(self) -> List[dict]:
+        return self._data_list
+
+    @property
+    def data_dict(self) -> NestedMKDict:
+        return self._data_dict
 
     def start(self, dct):
-        self._data = []
+        self._data_list = []
+        self._data_dict = NestedMKDict({}, sep='.')
         self._path = ()
         self._paths = []
         self._localdata = []
@@ -119,12 +140,14 @@ class ParametersVisitor(NestedMKDictVisitor):
 
         self._localdata.append(dct)
 
+        self._data_dict[key]=dct
+
     def exitdict(self, k, v):
         if self._localdata:
-            self._data.append({
+            self._data_list.append({
                 'path': f"group: {'.'.join(self._path)} [{len(self._localdata)}]"
                 })
-            self._data.extend(self._localdata)
+            self._data_list.extend(self._localdata)
             self._localdata = []
         if self._paths:
             del self._paths[-1]
