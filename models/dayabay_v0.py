@@ -3,7 +3,7 @@ from pathlib import Path
 
 from dagflow.graph import Graph
 from dagflow.graphviz import savegraph
-from dagflow.lib.Sum import Sum
+from dagflow.lib.arithmetic import Sum
 
 from gindex import GNIndex
 
