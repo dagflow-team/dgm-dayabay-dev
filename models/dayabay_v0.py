@@ -83,4 +83,8 @@ def model_dayabay_v0():
 
     storage.to_datax('output/dayabay_v0_data.tex')
 
-    savegraph(g, "output/dayabay_v0.dot", show='all')
+    from dagflow.graphviz import GraphDot
+    GraphDot.from_graph(g, show='all').savegraph("output/dayabay_v0.dot")
+    GraphDot.from_node(storage['parameter_node.constrained.reactor.fission_fraction_scale.DB1'].constraint._norm_node, show='all', minsize=2).savegraph("output/dayabay_v0_large.dot")
+    GraphDot.from_node(storage['stat.nuisance.all'], show='all', mindepth=-1).savegraph("output/dayabay_v0_top.dot")
+
