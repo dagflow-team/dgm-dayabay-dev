@@ -48,7 +48,7 @@ def model_dayabay_v0():
         nuisanceall = Sum('nuisance total')
         storage['stat.nuisance.all'] = nuisanceall
 
-        (output for output in storage['stat.nuisance_parts'].walkvalues()) >> nuisanceall
+        (output for output in storage('stat.nuisance_parts').walkvalues()) >> nuisanceall
 
     storage['parameter.normalized.detector.eres.b_stat'].value = 1
     storage['parameter.normalized.detector.eres.a_nonuniform'].value = 2
@@ -56,14 +56,14 @@ def model_dayabay_v0():
     # p1 = storage['parameter.normalized.detector.eres.b_stat']
     # p2 = storage['parameter.constrained.detector.eres.b_stat']
 
-    constrained = storage['parameter.constrained']
-    normalized = storage['parameter.normalized']
+    constrained = storage('parameter.constrained')
+    normalized = storage('parameter.normalized')
 
     print('Everything')
     print(storage.to_table(truncate=True))
 
     print('Constants')
-    print(storage['parameter.constant'].to_table(truncate=True))
+    print(storage('parameter.constant').to_table(truncate=True))
 
     print('Constrained')
     print(constrained.to_table(truncate=True))
@@ -72,7 +72,7 @@ def model_dayabay_v0():
     print(normalized.to_table(truncate=True))
 
     print('Stat')
-    print(storage['stat'].to_table(truncate=True))
+    print(storage('stat').to_table(truncate=True))
 
     # print('Parameters (latex)')
     # print(storage['parameter'].to_latex())

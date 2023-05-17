@@ -39,31 +39,40 @@ def model_dayabay_v1():
         storage ^= load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_nprotons_correction.yaml'})
         storage ^= load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_eres.yaml'})
 
+        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_e_per_fission.yaml'})
         storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml'     , 'replicate': list_reactors })
+        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_snf.yaml'                       , 'replicate': list_reactors })
         storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_offequilibrium_correction.yaml' , 'replicate': list_reactors_isotopes })
+        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_fission_fraction_scale.yaml'    , 'replicate': list_reactors , 'replica_key_offset': 1 })
 
         nuisanceall = Sum('nuisance total')
         storage['stat.nuisance.all'] = nuisanceall
 
-        (output for output in storage['stat.nuisance_parts'].walkvalues()) >> nuisanceall
+        (output for output in storage('stat.nuisance_parts').walkvalues()) >> nuisanceall
 
     storage['parameter.normalized.detector.eres.b_stat'].value = 1
     storage['parameter.normalized.detector.eres.a_nonuniform'].value = 2
 
+    # p1 = storage['parameter.normalized.detector.eres.b_stat']
+    # p2 = storage['parameter.constrained.detector.eres.b_stat']
+
+    constrained = storage('parameter.constrained')
+    normalized = storage('parameter.normalized')
+
     print('Everything')
-    print(storage.to_table())
+    print(storage.to_table(truncate=True))
 
     print('Constants')
-    print(storage['parameter.constant'].to_table())
+    print(storage('parameter.constant').to_table(truncate=True))
 
     print('Constrained')
-    print(storage['parameter.constrained'].to_table())
+    print(constrained.to_table(truncate=True))
 
     print('Normalized')
-    print(storage['parameter.normalized'].to_table())
+    print(normalized.to_table(truncate=True))
 
     print('Stat')
-    print(storage['stat'].to_table())
+    print(storage('stat').to_table(truncate=True))
 
     # print('Parameters (latex)')
     # print(storage['parameter'].to_latex())
@@ -72,4 +81,10 @@ def model_dayabay_v1():
     # tex = storage['parameter.constant'].to_latex(columns=['path', 'value', 'label'])
     # print(tex)
 
-    savegraph(g, "output/dayabay_v0.dot", show='all')
+    storage.to_datax('output/dayabay_v1_data.tex')
+
+    from dagflow.graphviz import GraphDot
+    GraphDot.from_graph(g, show='all').savegraph("output/dayabay_v1.dot")
+    GraphDot.from_node(storage['parameter_node.constrained.reactor.fission_fraction_scale.DB1'].constraint._norm_node, show='all', minsize=2).savegraph("output/dayabay_v1_large.dot")
+    GraphDot.from_node(storage['stat.nuisance.all'], show='all', mindepth=-1).savegraph("output/dayabay_v1_top.dot")
+
