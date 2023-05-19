@@ -1,7 +1,8 @@
 from multikeydict.nestedmkdict import NestedMKDict
 from multikeydict.visitor import NestedMKDictVisitor
+from dagflow.output import Output
 
-from typing import Union, Tuple, List, Optional, Dict
+from typing import Union, Tuple, List, Optional
 
 from tabulate import tabulate
 from pandas import DataFrame
@@ -18,6 +19,23 @@ def trunc(text: str, width: int) -> str:
     return '\n'.join(line[:width] for line in text.split('\n'))
 
 class ParametersStorage(NestedMKDict):
+    def read_paths(self) -> None:
+        for key, value in self.walkitems():
+            labels = getattr(value, 'labels', None)
+            if labels is None:
+                continue
+
+            key = '.'.join(key)
+            labels.setdefault('paths', []).append(key)
+
+    def plot(self) -> None:
+        from dagflow.plot import plot_auto
+        for key, value in self.walkitems():
+            if not isinstance(value, Output):
+                continue
+
+            plot_auto(value)
+
     def to_list(self, **kwargs) -> list:
         return self.visit(ParametersVisitor(kwargs)).data_list
 
