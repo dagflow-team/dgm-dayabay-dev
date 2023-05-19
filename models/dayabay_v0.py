@@ -1,6 +1,5 @@
 from dagflow.bundles.load_parameters import load_parameters
 from pathlib import Path
-from matplotlib.pyplot import show
 
 from dagflow.graph import Graph
 from dagflow.graphviz import savegraph
@@ -63,8 +62,7 @@ def model_dayabay_v0():
         outputs['edges.energy_common']= (energy_edges:=Array("energy_edges", linspace(0, 12, 241)).outputs[0])
 
     storage.read_paths()
-    storage('outputs').plot()
-    show()
+    storage('outputs').plot(close=False, show=True)
 
     storage['parameter.normalized.detector.eres.b_stat'].value = 1
     storage['parameter.normalized.detector.eres.a_nonuniform'].value = 2

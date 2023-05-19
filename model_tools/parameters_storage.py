@@ -28,13 +28,26 @@ class ParametersStorage(NestedMKDict):
             key = '.'.join(key)
             labels.setdefault('paths', []).append(key)
 
-    def plot(self) -> None:
+    def plot(
+        self,
+        *args,
+        close: bool=True,
+        show: bool=True,
+        **kwargs
+    ) -> None:
         from dagflow.plot import plot_auto
+        if close:
+            from matplotlib.pyplot import close
+        if show:
+            from matplotlib.pyplot import show
         for key, value in self.walkitems():
             if not isinstance(value, Output):
                 continue
 
-            plot_auto(value)
+            plot_auto(value, *args, **kwargs)
+
+            if show: show()
+            if close: close()
 
     def to_list(self, **kwargs) -> list:
         return self.visit(ParametersVisitor(kwargs)).data_list
