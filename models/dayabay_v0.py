@@ -1,12 +1,11 @@
 from dagflow.bundles.load_parameters import load_parameters
 from pathlib import Path
+from matplotlib.pyplot import show
 
 from dagflow.graph import Graph
 from dagflow.graphviz import savegraph
 from dagflow.lib.arithmetic import Sum
-
 from gindex import GNIndex
-
 from model_tools.parameters_storage import ParametersStorage
 
 def model_dayabay_v0():
@@ -29,6 +28,9 @@ def model_dayabay_v0():
     list_reactors_isotopes = idx_ri.values
 
     with Graph(close=True) as g:
+        #
+        # Load parameters
+        #
         storage ^= load_parameters({'path': 'ibd'        , 'load': datasource/'parameters/pdg2012.yaml'})
         storage ^= load_parameters({'path': 'ibd.csc'    , 'load': datasource/'parameters/ibd_constants.yaml'})
         storage ^= load_parameters({'path': 'conversion' , 'load': datasource/'parameters/conversion_thermal_power.yaml'})
@@ -45,10 +47,24 @@ def model_dayabay_v0():
         storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_offequilibrium_correction.yaml' , 'replicate': list_reactors_isotopes })
         storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_fission_fraction_scale.yaml'    , 'replicate': list_reactors , 'replica_key_offset': 1 })
 
+        # Create Nuisance parameters
         nuisanceall = Sum('nuisance total')
         storage['stat.nuisance.all'] = nuisanceall
 
         (output for output in storage('stat.nuisance_parts').walkvalues()) >> nuisanceall
+
+        #
+        # Create nodes
+        #
+        nodes = storage.child('nodes')
+        outputs = storage.child('outputs')
+        from dagflow.lib.Array import Array
+        from numpy import linspace
+        outputs['edges.energy_common']= (energy_edges:=Array("energy_edges", linspace(0, 12, 241)).outputs[0])
+
+    storage.read_paths()
+    storage('outputs').plot()
+    show()
 
     storage['parameter.normalized.detector.eres.b_stat'].value = 1
     storage['parameter.normalized.detector.eres.a_nonuniform'].value = 2
