@@ -26,7 +26,7 @@ class ParametersStorage(NestedMKDict):
                 continue
 
             key = '.'.join(key)
-            labels.setdefault('paths', []).append(key)
+            labels.paths.append(key)
 
     def plot(
         self,
