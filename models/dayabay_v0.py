@@ -58,8 +58,11 @@ def model_dayabay_v0():
         nodes = storage.child('nodes')
         outputs = storage.child('outputs')
         from dagflow.lib.Array import Array
+        from dagflow.lib.View import View
         from numpy import linspace
         outputs['edges.energy_common']= (energy_edges:=Array("energy_edges", linspace(0, 12, 241)).outputs[0])
+        outputs['edges.energy_evis']=   (energy_evis:=View("energy_evis").outputs[0])
+        energy_edges >> energy_evis.node
 
     storage.read_paths()
     storage('outputs').plot(close=False, show=True)
