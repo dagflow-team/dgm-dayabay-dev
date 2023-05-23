@@ -4,6 +4,7 @@ from pathlib import Path
 from dagflow.graph import Graph
 from dagflow.graphviz import savegraph
 from dagflow.lib.arithmetic import Sum
+from dagflow.tools.schema import LoadYaml
 from gindex import GNIndex
 from model_tools.parameters_storage import ParametersStorage
 
@@ -60,8 +61,9 @@ def model_dayabay_v0():
         from dagflow.lib.Array import Array
         from dagflow.lib.View import View
         from numpy import linspace
-        outputs['edges.energy_common']= (energy_edges:=Array("energy_edges", linspace(0, 12, 241)).outputs[0])
-        outputs['edges.energy_evis']=   (energy_evis:=View("energy_evis").outputs[0])
+        labels = LoadYaml(datasource/'labels.yaml')
+        outputs['edges.energy_common']= (energy_edges:=Array("energy_edges", linspace(0, 12, 241), label=labels['energy_common']).outputs[0])
+        outputs['edges.energy_evis']=   (energy_evis:=View("energy_evis", label=labels['energy_evis']).outputs[0])
         energy_edges >> energy_evis.node
 
     storage.read_paths()
