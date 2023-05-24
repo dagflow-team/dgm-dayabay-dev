@@ -10,7 +10,7 @@ tests:
     script:
         - git submodule sync
         - git submodule update --init --recursive --depth=1
-        - python3 -m pip install -r submodules/dagflow/requirements.txt
+        - python3 -m pip install -r submodules/dagflow-reactornueosc/submodules/dag-flow/requirements.txt
         - python3 -m pip install -r requirements.txt
         - mkdir output
         - coverage run --source=. --omit=submodules/* -m pytest
