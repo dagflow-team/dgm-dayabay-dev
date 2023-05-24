@@ -6,10 +6,10 @@ from dagflow.graphviz import savegraph
 from dagflow.lib.arithmetic import Sum
 from dagflow.tools.schema import LoadYaml
 from gindex import GNIndex
-from model_tools.parameters_storage import ParametersStorage
+from dagflow.storage import NodeStorage
 
 def model_dayabay_v0():
-    storage = ParametersStorage({}, sep='.')
+    storage = NodeStorage({}, sep='.')
     datasource = Path('data/dayabay-v0')
 
     index = GNIndex.from_dict({
@@ -27,25 +27,25 @@ def model_dayabay_v0():
     list_dr = idx_rd.values
     list_reactors_isotopes = idx_ri.values
 
-    with Graph(close=True) as g:
+    with Graph(close=True) as graph, storage:
         #
         # Load parameters
         #
-        storage ^= load_parameters({'path': 'ibd'        , 'load': datasource/'parameters/pdg2012.yaml'})
-        storage ^= load_parameters({'path': 'ibd.csc'    , 'load': datasource/'parameters/ibd_constants.yaml'})
-        storage ^= load_parameters({'path': 'conversion' , 'load': datasource/'parameters/conversion_thermal_power.yaml'})
-        storage ^= load_parameters({'path': 'conversion' , 'load': datasource/'parameters/conversion_oscprob_argument.yaml'})
+        load_parameters({'path': 'ibd'        , 'load': datasource/'parameters/pdg2012.yaml'})
+        load_parameters({'path': 'ibd.csc'    , 'load': datasource/'parameters/ibd_constants.yaml'})
+        load_parameters({'path': 'conversion' , 'load': datasource/'parameters/conversion_thermal_power.yaml'})
+        load_parameters({'path': 'conversion' , 'load': datasource/'parameters/conversion_oscprob_argument.yaml'})
 
-        storage ^= load_parameters({                       'load': datasource/'parameters/baselines.yaml'})
+        load_parameters({                       'load': datasource/'parameters/baselines.yaml'})
 
-        storage ^= load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_nprotons_correction.yaml'})
-        storage ^= load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_eres.yaml'})
+        load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_nprotons_correction.yaml'})
+        load_parameters({'path': 'detector'   , 'load': datasource/'parameters/detector_eres.yaml'})
 
-        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_e_per_fission.yaml'})
-        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml'     , 'replicate': list_reactors })
-        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_snf.yaml'                       , 'replicate': list_reactors })
-        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_offequilibrium_correction.yaml' , 'replicate': list_reactors_isotopes })
-        storage ^= load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_fission_fraction_scale.yaml'    , 'replicate': list_reactors , 'replica_key_offset': 1 })
+        load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_e_per_fission.yaml'})
+        load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_thermal_power_nominal.yaml'     , 'replicate': list_reactors })
+        load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_snf.yaml'                       , 'replicate': list_reactors })
+        load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_offequilibrium_correction.yaml' , 'replicate': list_reactors_isotopes })
+        load_parameters({'path': 'reactor'    , 'load': datasource/'parameters/reactor_fission_fraction_scale.yaml'    , 'replicate': list_reactors , 'replica_key_offset': 1 })
 
         # Create Nuisance parameters
         nuisanceall = Sum('nuisance total')
@@ -103,7 +103,7 @@ def model_dayabay_v0():
     storage.to_datax('output/dayabay_v0_data.tex')
 
     from dagflow.graphviz import GraphDot
-    GraphDot.from_graph(g, show='all').savegraph("output/dayabay_v0.dot")
+    GraphDot.from_graph(graph, show='all').savegraph("output/dayabay_v0.dot")
     GraphDot.from_node(storage['parameter_node.constrained.reactor.fission_fraction_scale.DB1'].constraint._norm_node, show='all', minsize=2).savegraph("output/dayabay_v0_large.dot")
     GraphDot.from_node(storage['stat.nuisance.all'], show='all', mindepth=-1, no_forward=True).savegraph("output/dayabay_v0_nuisance.dot")
     GraphDot.from_output(storage['outputs.edges.energy_evis'], show='all', mindepth=-3, no_forward=True).savegraph("output/dayabay_v0_top.dot")

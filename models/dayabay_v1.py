@@ -7,10 +7,10 @@ from dagflow.lib.arithmetic import Sum
 
 from gindex import GNIndex
 
-from model_tools.parameters_storage import ParametersStorage
+from dagflow.storage import NodeStorage
 
 def model_dayabay_v1():
-    storage = ParametersStorage({}, sep='.')
+    storage = NodeStorage({}, sep='.')
     datasource = Path('data/dayabay-v1')
 
     index = GNIndex.from_dict({
