@@ -57,6 +57,7 @@ def model_dayabay_v0():
         # Create nodes
         #
         labels = LoadYaml(datasource/'labels.yaml')
+        outputs = storage.child('outputs')
         nodes = storage.child('nodes')
 
         from dagflow.lib.Array import Array
@@ -64,17 +65,30 @@ def model_dayabay_v0():
         from numpy import linspace
         edges_costheta=Array.make_stored("edges.costheta", linspace(0, 1, 5), label_from=labels)
         edges_energy_common=Array.make_stored("edges.energy_common", linspace(0, 12, 241), label_from=labels)
-        edges_energy_evis=View.make_stored("edges.energy_evis", label_from=labels)
-        edges_energy_enu=View.make_stored("edges.energy_enu", label_from=labels)
-        edges_energy_common >> edges_energy_evis
-        edges_energy_common >> edges_energy_enu
+        edges_energy_enu=View.make_stored("edges.energy_enu", edges_energy_common, label_from=labels)
+        edges_energy_edep=View.make_stored("edges.energy_edep", edges_energy_common, label_from=labels)
+        edges_energy_evis=View.make_stored("edges.energy_evis", edges_energy_common, label_from=labels)
+        edges_energy_erec=View.make_stored("edges.energy_erec", edges_energy_common, label_from=labels)
 
         from dagflow.lib.IntegratorGroup import IntegratorGroup
-        integration_orders_e=Array.from_value("integration.ordersx", 4, edges=edges_energy_common, label_from=labels)
+        integration_orders_edep=Array.from_value("integration.ordersx", 4, edges=edges_energy_edep, label_from=labels)
         integration_orders_costheta=Array.from_value("integration.ordersy", 4, edges=edges_costheta, label_from=labels)
         nodes['integrator'] = (integrator:=IntegratorGroup('2d'))
-        integration_orders_e >> integrator.inputs["ordersX"]
+        integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
+        outputs['integration.nodes_edep'] = (int_nodes_edep:=integrator.outputs['x'])
+        outputs['integration.nodes_costheta'] = (int_nodes_costheta:=integrator.outputs['y'])
+
+        from reactornueosc.IBDXsecO1Group import IBDXsecO1Group
+        nodes['ibd'] = (ibd:=IBDXsecO1Group())
+        ibd << storage('parameter.constant.ibd')
+        ibd << storage('parameter.constant.ibd.csc')
+        int_nodes_edep >> ibd.inputs['ee']
+        int_nodes_costheta >> ibd.inputs['costheta']
+        outputs['ibd'] = ibd.outputs['result']
+
+        ibd.outputs['result'] >> integrator
+        outputs['kinint'] = integrator.outputs['output']
 
     storage.read_paths()
     storage('outputs').plot(show_all=True)
