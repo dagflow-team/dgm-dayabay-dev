@@ -56,16 +56,28 @@ def model_dayabay_v0():
         #
         # Create nodes
         #
+        labels = LoadYaml(datasource/'labels.yaml')
+        nodes = storage.child('nodes')
+
         from dagflow.lib.Array import Array
         from dagflow.lib.View import View
         from numpy import linspace
-        labels = LoadYaml(datasource/'labels.yaml')
-        energy_common=Array.store("edges.energy_common", linspace(0, 12, 241), label_from=labels)
-        energy_evis=View.store("edges.energy_evis", label_from=labels)
-        energy_common >> energy_evis
+        edges_costheta=Array.make_stored("edges.costheta", linspace(0, 1, 5), label_from=labels)
+        edges_energy_common=Array.make_stored("edges.energy_common", linspace(0, 12, 241), label_from=labels)
+        edges_energy_evis=View.make_stored("edges.energy_evis", label_from=labels)
+        edges_energy_enu=View.make_stored("edges.energy_enu", label_from=labels)
+        edges_energy_common >> edges_energy_evis
+        edges_energy_common >> edges_energy_enu
+
+        from dagflow.lib.IntegratorGroup import IntegratorGroup
+        integration_orders_e=Array.from_value("integration.ordersx", 4, edges=edges_energy_common, label_from=labels)
+        integration_orders_costheta=Array.from_value("integration.ordersy", 4, edges=edges_costheta, label_from=labels)
+        nodes['integrator'] = (integrator:=IntegratorGroup('2d'))
+        integration_orders_e >> integrator.inputs["ordersX"]
+        integration_orders_costheta >> integrator.inputs["ordersY"]
 
     storage.read_paths()
-    storage('outputs').plot(close=False, show=True)
+    storage('outputs').plot(show_all=True)
 
     storage['parameter.normalized.detector.eres.b_stat'].value = 1
     storage['parameter.normalized.detector.eres.a_nonuniform'].value = 2
