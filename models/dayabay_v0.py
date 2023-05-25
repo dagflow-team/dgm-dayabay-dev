@@ -2,9 +2,9 @@ from dagflow.bundles.load_parameters import load_parameters
 from pathlib import Path
 
 from dagflow.graph import Graph
-from dagflow.graphviz import savegraph
 from dagflow.lib.arithmetic import Sum
 from dagflow.tools.schema import LoadYaml
+from dagflow.plot import plot_auto
 from gindex import GNIndex
 from dagflow.storage import NodeStorage
 
@@ -63,7 +63,7 @@ def model_dayabay_v0():
         from dagflow.lib.Array import Array
         from dagflow.lib.View import View
         from numpy import linspace
-        edges_costheta=Array.make_stored("edges.costheta", linspace(0, 1, 5), label_from=labels)
+        edges_costheta=Array.make_stored("edges.costheta", [-1, 1], label_from=labels)
         edges_energy_common=Array.make_stored("edges.energy_common", linspace(0, 12, 241), label_from=labels)
         edges_energy_enu=View.make_stored("edges.energy_enu", edges_energy_common, label_from=labels)
         edges_energy_edep=View.make_stored("edges.energy_edep", edges_energy_common, label_from=labels)
@@ -90,7 +90,14 @@ def model_dayabay_v0():
         ibd.outputs['result'] >> integrator
         outputs['kinint'] = integrator.outputs['output']
 
+    storage('outputs').read_labels(labels)
     storage.read_paths()
+
+    from mpl_toolkits.mplot3d import axes3d
+    from matplotlib.pyplot import subplots
+    subplots(1, 1, subplot_kw={'projection': '3d'})
+    plot_auto(storage['outputs.kinint'], method='bar3d')
+
     storage('outputs').plot(show_all=True)
 
     storage['parameter.normalized.detector.eres.b_stat'].value = 1
