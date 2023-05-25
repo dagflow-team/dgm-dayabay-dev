@@ -80,10 +80,10 @@ def model_dayabay_v0():
         outputs['integration.nodes_costheta'] = (int_nodes_costheta:=integrator.outputs['y'])
 
         from reactornueosc.IBDXsecO1Group import IBDXsecO1Group
-        nodes['ibd'] = (ibd:=IBDXsecO1Group())
+        nodes['ibd'] = (ibd:=IBDXsecO1Group(use_edep=True))
         ibd << storage('parameter.constant.ibd')
         ibd << storage('parameter.constant.ibd.csc')
-        int_nodes_edep >> ibd.inputs['ee']
+        int_nodes_edep >> ibd.inputs['edep']
         int_nodes_costheta >> ibd.inputs['costheta']
         outputs['ibd'] = ibd.outputs['result']
 
