@@ -31,6 +31,9 @@ def model_dayabay_v0():
         #
         # Load parameters
         #
+        load_parameters({'path': 'oscprob'    , 'load': datasource/'parameters/oscprob.yaml'})
+        load_parameters({'path': 'oscprob'    , 'load': datasource/'parameters/oscprob_solar.yaml'})
+
         load_parameters({'path': 'ibd'        , 'load': datasource/'parameters/pdg2012.yaml'})
         load_parameters({'path': 'ibd.csc'    , 'load': datasource/'parameters/ibd_constants.yaml'})
         load_parameters({'path': 'conversion' , 'load': datasource/'parameters/conversion_thermal_power.yaml'})

@@ -1,7 +1,3 @@
-[submodule "submodules/dagflow"]
-	path = submodules/dagflow
-	url = https://git.jinr.ru/dag-computing/dag-flow.git
-	branch = feature/pars-gindex
 [submodule "submodules/dagflow-reactornueosc"]
 	path = submodules/dagflow-reactornueosc
 	url = https://git.jinr.ru/dag-computing/dagflow-reactorenueosc.git
