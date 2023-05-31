@@ -9,7 +9,7 @@ from gindex import GNIndex
 from dagflow.storage import NodeStorage
 
 def model_dayabay_v0():
-    storage = NodeStorage({}, sep='.')
+    storage = NodeStorage()
     datasource = Path('data/dayabay-v0')
 
     index = GNIndex.from_dict({
@@ -27,7 +27,11 @@ def model_dayabay_v0():
     list_dr = idx_rd.values
     list_reactors_isotopes = idx_ri.values
 
-    with Graph(close=True) as graph, storage:
+    list_dr_unique = idx_rd.unique_values
+    idx_unique = index.unique_values
+
+    close = False
+    with Graph(close=close) as graph, storage:
         #
         # Load parameters
         #
@@ -60,8 +64,8 @@ def model_dayabay_v0():
         # Create nodes
         #
         labels = LoadYaml(datasource/'labels.yaml')
-        outputs = storage.child('outputs')
         nodes = storage.child('nodes')
+        outputs = storage.child('outputs')
 
         from dagflow.lib.Array import Array
         from dagflow.lib.View import View
@@ -76,30 +80,30 @@ def model_dayabay_v0():
         from dagflow.lib.IntegratorGroup import IntegratorGroup
         integration_orders_edep=Array.from_value("integration.ordersx", 4, edges=edges_energy_edep, label_from=labels)
         integration_orders_costheta=Array.from_value("integration.ordersy", 4, edges=edges_costheta, label_from=labels)
-        nodes['integrator'] = (integrator:=IntegratorGroup('2d'))
+        nodes['integrator'] = (integrator:=IntegratorGroup.replicate('2d', replicate=list_dr))
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
-        outputs['integration.nodes_edep'] = (int_nodes_edep:=integrator.outputs['x'])
-        outputs['integration.nodes_costheta'] = (int_nodes_costheta:=integrator.outputs['y'])
+        outputs['integration.mesh_edep'] = (int_mesh_edep:=integrator.outputs['x'])
+        outputs['integration.mesh_costheta'] = (int_mesh_costheta:=integrator.outputs['y'])
 
         from reactornueosc.IBDXsecO1Group import IBDXsecO1Group
         nodes['ibd'] = (ibd:=IBDXsecO1Group(use_edep=True))
         ibd << storage('parameter.constant.ibd')
         ibd << storage('parameter.constant.ibd.csc')
-        int_nodes_edep >> ibd.inputs['edep']
-        int_nodes_costheta >> ibd.inputs['costheta']
+        int_mesh_edep >> ibd.inputs['edep']
+        int_mesh_costheta >> ibd.inputs['costheta']
         outputs['ibd'] = ibd.outputs['result']
 
+        integrator.print()
         ibd.outputs['result'] >> integrator
-        outputs['kinint'] = integrator.outputs['output']
 
     storage('outputs').read_labels(labels)
     storage.read_paths()
+    storage.process_indices(idx_unique)
 
-    from mpl_toolkits.mplot3d import axes3d
-    from matplotlib.pyplot import subplots
-    subplots(1, 1, subplot_kw={'projection': '3d'})
-    plot_auto(storage['outputs.kinint'], method='bar3d')
+    if not close:
+        print(storage.to_table(truncate=True))
+        return
 
     storage('outputs').plot(show_all=True)
 
@@ -115,17 +119,17 @@ def model_dayabay_v0():
     print('Everything')
     print(storage.to_table(truncate=True))
 
-    print('Constants')
-    print(storage('parameter.constant').to_table(truncate=True))
-
-    print('Constrained')
-    print(constrained.to_table(truncate=True))
-
-    print('Normalized')
-    print(normalized.to_table(truncate=True))
-
-    print('Stat')
-    print(storage('stat').to_table(truncate=True))
+    # print('Constants')
+    # print(storage('parameter.constant').to_table(truncate=True))
+    #
+    # print('Constrained')
+    # print(constrained.to_table(truncate=True))
+    #
+    # print('Normalized')
+    # print(normalized.to_table(truncate=True))
+    #
+    # print('Stat')
+    # print(storage('stat').to_table(truncate=True))
 
     # print('Parameters (latex)')
     # print(storage['parameter'].to_latex())
