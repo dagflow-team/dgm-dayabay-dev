@@ -30,7 +30,7 @@ def model_dayabay_v0():
     list_dr_unique = idx_rd.unique_values
     idx_unique = index.unique_values
 
-    close = False
+    close = True
     with Graph(close=close) as graph, storage:
         #
         # Load parameters
@@ -65,6 +65,7 @@ def model_dayabay_v0():
         #
         labels = LoadYaml(datasource/'labels.yaml')
         nodes = storage.child('nodes')
+        inputs = storage.child('inputs')
         outputs = storage.child('outputs')
 
         from dagflow.lib.Array import Array
@@ -80,7 +81,7 @@ def model_dayabay_v0():
         from dagflow.lib.IntegratorGroup import IntegratorGroup
         integration_orders_edep=Array.from_value("integration.ordersx", 4, edges=edges_energy_edep, label_from=labels)
         integration_orders_costheta=Array.from_value("integration.ordersy", 4, edges=edges_costheta, label_from=labels)
-        nodes['integrator'] = (integrator:=IntegratorGroup.replicate('2d', replicate=list_dr))
+        integrator=IntegratorGroup.replicate('2d', replicate=list_dr)
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
         outputs['integration.mesh_edep'] = (int_mesh_edep:=integrator.outputs['x'])
@@ -95,11 +96,12 @@ def model_dayabay_v0():
         outputs['ibd'] = ibd.outputs['result']
 
         integrator.print()
-        ibd.outputs['result'] >> integrator
+        ibd.outputs['result'] >> inputs('kinint')
 
     storage('outputs').read_labels(labels)
+    storage('inputs').remove_connected_inputs()
     storage.read_paths()
-    storage.process_indices(idx_unique)
+    # storage.process_indices(idx_unique)
 
     if not close:
         print(storage.to_table(truncate=True))
