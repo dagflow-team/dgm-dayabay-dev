@@ -81,7 +81,7 @@ def model_dayabay_v0():
         from dagflow.lib.IntegratorGroup import IntegratorGroup
         integration_orders_edep=Array.from_value("integration.ordersx", 4, edges=edges_energy_edep, label_from=labels)
         integration_orders_costheta=Array.from_value("integration.ordersy", 4, edges=edges_costheta, label_from=labels)
-        integrator=IntegratorGroup.replicate('2d', replicate=list_dr)
+        integrator=IntegratorGroup.replicate('2d', 'kinematics_sampler', 'kinematics_integrator', replicate=list_dr)
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
         outputs['integration.mesh_edep'] = (int_mesh_edep:=integrator.outputs['x'])
@@ -96,9 +96,9 @@ def model_dayabay_v0():
         outputs['ibd'] = ibd.outputs['result']
 
         integrator.print()
-        ibd.outputs['result'] >> inputs('kinint')
+        ibd.outputs['result'] >> inputs('kinematics_integrator')
 
-    storage('outputs').read_labels(labels)
+    storage('outputs').read_labels(labels, strict=True)
     storage('inputs').remove_connected_inputs()
     storage.read_paths()
     # storage.process_indices(idx_unique)
