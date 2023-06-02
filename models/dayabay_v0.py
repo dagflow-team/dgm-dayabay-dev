@@ -25,10 +25,10 @@ def model_dayabay_v0():
     idx_rd = index.sub(("r", "d"))
     idx_ri = index.sub(("r", "i"))
 
-    list_detectors = idx_d.values
-    list_reactors = idx_r.values
-    list_reactors_detectors = idx_rd.values
-    list_reactors_isotopes = idx_ri.values
+    combinations_detectors = idx_d.values
+    combinations_reactors = idx_r.values
+    combinations_reactors_detectors = idx_rd.values
+    combinations_reactors_isotopes = idx_ri.values
 
     close = True
     with Graph(close=close) as graph, storage:
@@ -50,10 +50,10 @@ def model_dayabay_v0():
         load_parameters({"path": "detector"   , "load": datasource/"parameters/detector_eres.yaml"})
 
         load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_e_per_fission.yaml"})
-        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_thermal_power_nominal.yaml"     , "replicate": list_reactors })
-        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_snf.yaml"                       , "replicate": list_reactors })
-        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_offequilibrium_correction.yaml" , "replicate": list_reactors_isotopes })
-        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_fission_fraction_scale.yaml"    , "replicate": list_reactors , "replica_key_offset": 1 })
+        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_thermal_power_nominal.yaml"     , "replicate": combinations_reactors })
+        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_snf.yaml"                       , "replicate": combinations_reactors })
+        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_offequilibrium_correction.yaml" , "replicate": combinations_reactors_isotopes })
+        load_parameters({"path": "reactor"    , "load": datasource/"parameters/reactor_fission_fraction_scale.yaml"    , "replicate": combinations_reactors , "replica_key_offset": 1 })
 
         # Create Nuisance parameters
         nuisanceall = Sum("nuisance total")
@@ -83,7 +83,7 @@ def model_dayabay_v0():
         integration_orders_edep, _=Array.from_value("integration.ordersx", 4, edges=edges_energy_edep, label_from=labels)
         integration_orders_costheta, _=Array.from_value("integration.ordersy", 4, edges=edges_costheta, label_from=labels)
         from dagflow.lib.IntegratorGroup import IntegratorGroup
-        integrator, _=IntegratorGroup.replicate("2d", "kinematics_sampler", "kinematics_integral", replicate=list_reactors_detectors)
+        integrator, _=IntegratorGroup.replicate("2d", "kinematics_sampler", "kinematics_integral", replicate=combinations_reactors_detectors)
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
         outputs["integration.mesh_edep"] = (int_mesh_edep:=integrator.outputs["x"])
@@ -98,7 +98,7 @@ def model_dayabay_v0():
         outputs["ibd"] = ibd.outputs["result"]
 
         from reactornueosc.NueSurvivalProbability import NueSurvivalProbability
-        NueSurvivalProbability.replicate("oscprob", replicate=list_reactors_detectors, distance_unit="m")
+        NueSurvivalProbability.replicate("oscprob", replicate=combinations_reactors_detectors, distance_unit="m")
         ibd.outputs["enu"] >> inputs("oscprob.enu")
         parameters("constant.baseline") >> inputs("oscprob.L")
         nodes("oscprob") << parameters("free.oscprob")
@@ -106,10 +106,21 @@ def model_dayabay_v0():
         nodes("oscprob") << parameters("constant.oscprob")
 
         from dagflow.lib.arithmetic import Product
-        Product.replicate("kinematics_integrand", outputs("oscprob"), outputs["ibd"], replicate=list_reactors_detectors)
+        # Product.replicate("kinematics_integrand", outputs("oscprob"), outputs["ibd"], replicate=combinations_reactors_detectors)
+        Product.replicate("kinematics_integrand", replicate=combinations_reactors_detectors)
+        outputs("oscprob") >> nodes("kinematics_integrand")
+        outputs["ibd"] >> nodes("kinematics_integrand")
         outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
-        Sum.replicate("count_rate", outputs("kinematics_integral"), replicate=list_detectors)
+        from reactornueosc.InverseSquareLaw import InverseSquareLaw
+        InverseSquareLaw.replicate("baseline_factor", replicate=combinations_reactors_detectors)
+        parameters("constant.baseline") >> inputs("baseline_factor")
+
+        Product.replicate("countrate_reac", replicate=combinations_reactors_detectors)
+        outputs("kinematics_integral")>>nodes("countrate_reac")
+        outputs("baseline_factor")>>nodes("countrate_reac")
+
+        Sum.replicate("count_rate", outputs("countrate_reac"), replicate=combinations_detectors)
 
     storage("outputs").read_labels(labels, strict=True)
     storage("inputs").remove_connected_inputs()
