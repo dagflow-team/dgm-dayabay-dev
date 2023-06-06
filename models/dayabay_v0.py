@@ -6,35 +6,34 @@ from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
 from dagflow.tools.schema import LoadYaml
 from dagflow.plot import plot_auto
-from gindex import GNIndex
 from dagflow.storage import NodeStorage
+from dagflow.logger import set_level, DEBUG, SUBINFO, SUBSUBINFO
 
 from itertools import product
 
 def model_dayabay_v0():
+    set_level(SUBINFO)
+    close = True
+    strict = True
+
     storage = NodeStorage()
     datasource = Path("data/dayabay-v0")
-
-    index = GNIndex.from_dict({
-                ("s", "site"): ("EH1", "EH2", "EH3"),
-                ("d", "detector"): ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34"),
-                ("p", "period"): ("6AD", "8AD", "7AD"),
-                ("r", "reactor"): ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4"),
-                ("i", "isotope"): ("U235", "U238", "Pu239", "Pu241"),
-                ("b", "background"): ("acc", "lihe", "fastn", "amc", "alphan"),
-                })
-    idx_d = index.sub("d")
-    idx_r = index.sub("r")
-    idx_rd = index.sub(("r", "d"))
-    idx_ri = index.sub(("r", "i"))
 
     list_isotopes = ("U235", "U238", "Pu239", "Pu241")
     list_detectors = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
     list_reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
+    list_periods = ("6AD", "8AD", "7AD")
+    inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD12")]
+    list_all = list_isotopes+list_detectors+list_reactors+list_periods
+    set_all = set(list_all)
+    if len(list_all)!=len(set_all):
+        raise RuntimeError("Repeated indices")
     combinations_reactors_detectors = tuple(product(list_reactors, list_detectors))
     combinations_reactors_isotopes = tuple(product(list_reactors, list_isotopes))
+    combinations_reactors_isotopes_detectors = tuple(product(list_reactors, list_isotopes, list_detectors))
+    combinations_periods_detectors = tuple(pair for pair in product(list_periods, list_detectors) if not pair in inactive_detectors)
+    import IPython; IPython.embed(colors='neutral')
 
-    close = True
     with Graph(close=close) as graph, storage:
         #
         # Load parameters
@@ -93,7 +92,7 @@ def model_dayabay_v0():
             "kinematics_integral",
             name_x = "mesh_edep",
             name_y = "mesh_costheta",
-            replicate=combinations_reactors_detectors
+            replicate=combinations_reactors_isotopes_detectors
         )
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
@@ -145,24 +144,25 @@ def model_dayabay_v0():
         ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
 
         from dagflow.lib.arithmetic import Product
-        # Product.replicate("kinematics_integrand", outputs("oscprob"), outputs["ibd"], replicate=combinations_reactors_detectors)
-        Product.replicate("kinematics_integrand", replicate=combinations_reactors_detectors)
+        Product.replicate("kinematics_integrand", replicate=combinations_reactors_isotopes_detectors)
         outputs("oscprob") >> nodes("kinematics_integrand")
         outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
         outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
+        outputs("reactor_anue.interpolator") >> nodes("kinematics_integrand")
         outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
         from reactornueosc.InverseSquareLaw import InverseSquareLaw
         InverseSquareLaw.replicate("baseline_factor", replicate=combinations_reactors_detectors)
         parameters("constant.baseline") >> inputs("baseline_factor")
 
-        Product.replicate("countrate_reac", replicate=combinations_reactors_detectors)
+        Product.replicate("countrate_reac", replicate=combinations_reactors_isotopes_detectors)
         outputs("kinematics_integral")>>nodes("countrate_reac")
         outputs("baseline_factor")>>nodes("countrate_reac")
 
-        Sum.replicate("count_rate", outputs("countrate_reac"), replicate=list_detectors)
+        Sum.replicate("countrate", outputs("countrate_reac"), replicate=list_detectors)
 
-    storage("outputs").read_labels(labels, strict=True)
+    storage("nodes").read_labels(labels)
+    storage("outputs").read_labels(labels, strict=strict)
     storage("inputs").remove_connected_inputs()
     storage.read_paths()
     # storage.process_indices(idx_unique)
@@ -172,7 +172,13 @@ def model_dayabay_v0():
         return
 
     # storage("outputs").plot(folder='output/dayabay_v0_auto')
-    storage("outputs.oscprob").plot(show_all=True)
+    # storage("outputs.oscprob").plot(folder='output/dayabay_v0_auto')
+    # storage("outputs.countrate").plot(show_all=True)
+    # storage("outputs").plot(
+    #     folder='output/dayabay_v0_auto',
+    #     replicate=combinations_reactors_detectors,
+    #     indices = set_all
+    # )
 
     storage["parameter.normalized.detector.eres.b_stat"].value = 1
     storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
