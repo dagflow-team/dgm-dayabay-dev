@@ -77,28 +77,33 @@ def model_dayabay_v0():
         from dagflow.lib.Array import Array
         from dagflow.lib.View import View
         from numpy import linspace
-        edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1], label_from=labels)
-        edges_energy_common, _ = Array.make_stored("edges.energy_common", linspace(0, 12, 241), label_from=labels)
-        View.make_stored("edges.energy_enu", edges_energy_common, label_from=labels)
-        edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common, label_from=labels)
-        View.make_stored("edges.energy_evis", edges_energy_common, label_from=labels)
-        View.make_stored("edges.energy_erec", edges_energy_common, label_from=labels)
+        edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
+        edges_energy_common, _ = Array.make_stored("edges.energy_common", linspace(0, 12, 241))
+        View.make_stored("edges.energy_enu", edges_energy_common)
+        edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
+        View.make_stored("edges.energy_evis", edges_energy_common)
+        View.make_stored("edges.energy_erec", edges_energy_common)
 
-        integration_orders_edep, _ = Array.from_value("integration.ordersx", 4, edges=edges_energy_edep, label_from=labels)
-        integration_orders_costheta, _ = Array.from_value("integration.ordersy", 4, edges=edges_costheta, label_from=labels)
+        integration_orders_edep, _ = Array.from_value("kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
+        integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 4, edges=edges_costheta)
         from dagflow.lib.IntegratorGroup import IntegratorGroup
-        integrator, _ = IntegratorGroup.replicate("2d", "kinematics_sampler", "kinematics_integral", replicate=combinations_reactors_detectors)
+        integrator, _ = IntegratorGroup.replicate(
+            "2d",
+            "kinematics_sampler",
+            "kinematics_integral",
+            name_x = "mesh_edep",
+            name_y = "mesh_costheta",
+            replicate=combinations_reactors_detectors
+        )
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
-        outputs["integration.mesh_edep"] = (int_mesh_edep:=integrator.outputs["x"])
-        outputs["integration.mesh_costheta"] = (int_mesh_costheta:=integrator.outputs["y"])
 
         from reactornueosc.IBDXsecO1Group import IBDXsecO1Group
         ibd, _ = IBDXsecO1Group.make_stored(use_edep=True)
         ibd << storage("parameter.constant.ibd")
         ibd << storage("parameter.constant.ibd.csc")
-        int_mesh_edep >> ibd.inputs["edep"]
-        int_mesh_costheta >> ibd.inputs["costheta"]
+        outputs['kinematics_sampler.mesh_edep'] >> ibd.inputs["edep"]
+        outputs['kinematics_sampler.mesh_costheta'] >> ibd.inputs["costheta"]
 
         from reactornueosc.NueSurvivalProbability import NueSurvivalProbability
         NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations_reactors_detectors)
@@ -138,7 +143,6 @@ def model_dayabay_v0():
         outputs["reactor_anue_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"]
         outputs("reactor_anue_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
         ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
-        # outputs
 
         from dagflow.lib.arithmetic import Product
         # Product.replicate("kinematics_integrand", outputs("oscprob"), outputs["ibd"], replicate=combinations_reactors_detectors)
@@ -168,7 +172,7 @@ def model_dayabay_v0():
         return
 
     # storage("outputs").plot(folder='output/dayabay_v0_auto')
-    # storage("outputs.oscprob").plot(show_all=True)
+    storage("outputs.oscprob").plot(show_all=True)
 
     storage["parameter.normalized.detector.eres.b_stat"].value = 1
     storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
