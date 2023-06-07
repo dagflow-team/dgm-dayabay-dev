@@ -32,7 +32,6 @@ def model_dayabay_v0():
     combinations_reactors_isotopes = tuple(product(list_reactors, list_isotopes))
     combinations_reactors_isotopes_detectors = tuple(product(list_reactors, list_isotopes, list_detectors))
     combinations_periods_detectors = tuple(pair for pair in product(list_periods, list_detectors) if not pair in inactive_detectors)
-    import IPython; IPython.embed(colors='neutral')
 
     with Graph(close=close) as graph, storage:
         #
