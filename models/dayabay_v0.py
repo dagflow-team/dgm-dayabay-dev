@@ -23,7 +23,7 @@ def model_dayabay_v0():
     list_detectors = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
     list_reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
     list_periods = ("6AD", "8AD", "7AD")
-    inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD12")]
+    inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
     list_all = list_isotopes+list_detectors+list_reactors+list_periods
     set_all = set(list_all)
     if len(list_all)!=len(set_all):
@@ -56,6 +56,8 @@ def model_dayabay_v0():
         load_parameters(path="reactor",    load=datasource/"parameters/reactor_snf.yaml",                       replicate=list_reactors)
         load_parameters(path="reactor",    load=datasource/"parameters/reactor_offequilibrium_correction.yaml", replicate=combinations_reactors_isotopes)
         load_parameters(path="reactor",    load=datasource/"parameters/reactor_fission_fraction_scale.yaml",    replicate=list_reactors, replica_key_offset=1)
+
+        load_parameters(path="bkg.rate",   load=datasource/"parameters/bkg_rates.yaml")
 
         # Create Nuisance parameters
         nuisanceall = Sum("nuisance total")
