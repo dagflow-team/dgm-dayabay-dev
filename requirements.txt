@@ -1,1 +1,12 @@
+contextlib2
+coverage
 latexdatax
+numba
+numpy
+pandas
+pygraphviz
+pytest
+pytest-cov
+schema
+scipy
+tabulate
