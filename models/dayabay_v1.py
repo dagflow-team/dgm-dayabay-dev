@@ -1,4 +1,5 @@
 from dagflow.bundles.load_parameters import load_parameters
+from dagflow.bundles.load_arrays import load_arrays
 from pathlib import Path
 
 from dagflow.graph import Graph
@@ -16,7 +17,7 @@ def model_dayabay_v1():
     strict = True
 
     storage = NodeStorage()
-    datasource = Path("data/dayabay-v0")
+    datasource = Path("data/dayabay-v1")
 
     list_isotopes = ("U235", "U238", "Pu239", "Pu241")
     list_detectors = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")

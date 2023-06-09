@@ -19,19 +19,25 @@ def model_dayabay_v0():
     storage = NodeStorage()
     datasource = Path("data/dayabay-v0")
 
-    list_isotopes = ("U235", "U238", "Pu239", "Pu241")
-    list_detectors = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
-    list_reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
-    list_periods = ("6AD", "8AD", "7AD")
-    inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
-    list_all = list_isotopes+list_detectors+list_reactors+list_periods
-    set_all = set(list_all)
-    if len(list_all)!=len(set_all):
+    index, combinations = {}, {}
+    index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
+    index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
+    index["site"] = ("EH1", "EH2", "EH3")
+    index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
+    index["period"] = ("6AD", "8AD", "7AD")
+    index["background"] = ("acc", "lihe", "fastn", "alphan", 'amc')
+    index_all = index["isotope"]+index["detector"]+index["reactor"]+index["period"]
+    set_all = set(index_all)
+    if len(index_all)!=len(set_all):
         raise RuntimeError("Repeated indices")
-    combinations_reactors_detectors = tuple(product(list_reactors, list_detectors))
-    combinations_reactors_isotopes = tuple(product(list_reactors, list_isotopes))
-    combinations_reactors_isotopes_detectors = tuple(product(list_reactors, list_isotopes, list_detectors))
-    combinations_periods_detectors = tuple(pair for pair in product(list_periods, list_detectors) if not pair in inactive_detectors)
+    combinations["reactor.detector"] = tuple(product(index["reactor"], index["detector"]))
+    combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
+    combinations["reactor.isotopes_detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
+    combinations["background.detector"] = tuple(product(index["background"], index["detector"]))
+    inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
+    combinations["period.detector"] = tuple(
+        pair for pair in product(index["period"], index["detector"]) if not pair in inactive_detectors
+    )
 
     with Graph(close=close) as graph, storage:
         #
@@ -52,10 +58,10 @@ def model_dayabay_v0():
         load_parameters(path="detector",   load=datasource/"parameters/detector_eres.yaml")
 
         load_parameters(path="reactor",    load=datasource/"parameters/reactor_e_per_fission.yaml")
-        load_parameters(path="reactor",    load=datasource/"parameters/reactor_thermal_power_nominal.yaml",     replicate=list_reactors)
-        load_parameters(path="reactor",    load=datasource/"parameters/reactor_snf.yaml",                       replicate=list_reactors)
-        load_parameters(path="reactor",    load=datasource/"parameters/reactor_offequilibrium_correction.yaml", replicate=combinations_reactors_isotopes)
-        load_parameters(path="reactor",    load=datasource/"parameters/reactor_fission_fraction_scale.yaml",    replicate=list_reactors, replica_key_offset=1)
+        load_parameters(path="reactor",    load=datasource/"parameters/reactor_thermal_power_nominal.yaml",     replicate=index["reactor"])
+        load_parameters(path="reactor",    load=datasource/"parameters/reactor_snf.yaml",                       replicate=index["reactor"])
+        load_parameters(path="reactor",    load=datasource/"parameters/reactor_offequilibrium_correction.yaml", replicate=combinations["reactor.isotope"])
+        load_parameters(path="reactor",    load=datasource/"parameters/reactor_fission_fraction_scale.yaml",    replicate=index["reactor"], replica_key_offset=1)
 
         load_parameters(path="bkg.rate",   load=datasource/"parameters/bkg_rates.yaml")
 
@@ -93,7 +99,7 @@ def model_dayabay_v0():
             "kinematics_integral",
             name_x = "mesh_edep",
             name_y = "mesh_costheta",
-            replicate=combinations_reactors_isotopes_detectors
+            replicate=combinations["reactor.isotopes_detector"]
         )
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
@@ -106,7 +112,7 @@ def model_dayabay_v0():
         outputs['kinematics_sampler.mesh_costheta'] >> ibd.inputs["costheta"]
 
         from reactornueosc.NueSurvivalProbability import NueSurvivalProbability
-        NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations_reactors_detectors)
+        NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
         ibd.outputs["enu"] >> inputs("oscprob.enu")
         parameters("constant.baseline") >> inputs("oscprob.L")
         nodes("oscprob") << parameters("free.oscprob")
@@ -121,7 +127,7 @@ def model_dayabay_v0():
                     datasource/"tsv/reactor_anue_spectra_50kev/Huber_anue_spectrum_extrap_Pu241_13.0_0.05_MeV.tsv",
                     datasource/"tsv/reactor_anue_spectra_50kev/Mueller_anue_spectrum_extrap_U238_13.0_0.05_MeV.tsv"
                     ],
-                replicate = list_isotopes,
+                replicate = index["isotope"],
                 x = 'enu',
                 y = 'spec',
                 merge_x = True
@@ -130,22 +136,22 @@ def model_dayabay_v0():
         # load_arrays(
         #         name = "reactor_anue_spectrum",
         #         filenames = datasource/"hdf/anue_spectra_extrap_13.0_0.05_MeV.hdf5",
-        #         replicate = list_isotopes
+        #         replicate = index["isotope"]
         #         )
         #
         # load_arrays(
         #         name = "reactor_anue_spectrum",
         #         filenames = datasource/"root/anue_spectra_extrap_13.0_0.05_MeV.root",
-        #         replicate = list_isotopes
+        #         replicate = index["isotope"]
         #         )
         from dagflow.lib.InterpolatorGroup import InterpolatorGroup
-        interpolator, _ = InterpolatorGroup.replicate("exp", "reactor_anue.indexer", "reactor_anue.interpolator", replicate=list_isotopes)
+        interpolator, _ = InterpolatorGroup.replicate("exp", "reactor_anue.indexer", "reactor_anue.interpolator", replicate=index["isotope"])
         outputs["reactor_anue_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"]
         outputs("reactor_anue_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
         ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
 
         from dagflow.lib.arithmetic import Product
-        Product.replicate("kinematics_integrand", replicate=combinations_reactors_isotopes_detectors)
+        Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes_detector"])
         outputs("oscprob") >> nodes("kinematics_integrand")
         outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
         outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
@@ -153,14 +159,14 @@ def model_dayabay_v0():
         outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
         from reactornueosc.InverseSquareLaw import InverseSquareLaw
-        InverseSquareLaw.replicate("baseline_factor", replicate=combinations_reactors_detectors)
+        InverseSquareLaw.replicate("baseline_factor", replicate=combinations["reactor.detector"])
         parameters("constant.baseline") >> inputs("baseline_factor")
 
-        Product.replicate("countrate_reac", replicate=combinations_reactors_isotopes_detectors)
+        Product.replicate("countrate_reac", replicate=combinations["reactor.isotopes_detector"])
         outputs("kinematics_integral")>>nodes("countrate_reac")
         outputs("baseline_factor")>>nodes("countrate_reac")
 
-        Sum.replicate("countrate", outputs("countrate_reac"), replicate=list_detectors)
+        Sum.replicate("countrate", outputs("countrate_reac"), replicate=index["detector"])
 
     storage("nodes").read_labels(labels)
     storage("outputs").read_labels(labels, strict=strict)
@@ -175,11 +181,10 @@ def model_dayabay_v0():
     # storage("outputs").plot(folder='output/dayabay_v0_auto')
     # storage("outputs.oscprob").plot(folder='output/dayabay_v0_auto')
     # storage("outputs.countrate").plot(show_all=True)
-    # storage("outputs").plot(
-    #     folder='output/dayabay_v0_auto',
-    #     replicate=combinations_reactors_detectors,
-    #     indices = set_all
-    # )
+    storage("outputs").plot(
+        folder = 'output/dayabay_v0_auto',
+        overlay_priority = (index["isotope"], index["reactor"], index['background'], index["detector"])
+    )
 
     storage["parameter.normalized.detector.eres.b_stat"].value = 1
     storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
