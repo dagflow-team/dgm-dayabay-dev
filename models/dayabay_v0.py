@@ -1,5 +1,5 @@
 from dagflow.bundles.load_parameters import load_parameters
-from dagflow.bundles.load_arrays import load_arrays
+from dagflow.bundles.load_graph import load_graph
 from pathlib import Path
 
 from dagflow.graph import Graph
@@ -119,35 +119,14 @@ def model_dayabay_v0():
         nodes("oscprob") << parameters("constrained.oscprob")
         nodes("oscprob") << parameters("constant.oscprob")
 
-        load_arrays(
-                name = "reactor_anue_spectrum",
-                filenames = [
-                    datasource/"tsv/reactor_anue_spectra_50kev/Huber_anue_spectrum_extrap_U235_13.0_0.05_MeV.tsv",
-                    datasource/"tsv/reactor_anue_spectra_50kev/Huber_anue_spectrum_extrap_Pu239_13.0_0.05_MeV.tsv",
-                    datasource/"tsv/reactor_anue_spectra_50kev/Huber_anue_spectrum_extrap_Pu241_13.0_0.05_MeV.tsv",
-                    datasource/"tsv/reactor_anue_spectra_50kev/Mueller_anue_spectrum_extrap_U238_13.0_0.05_MeV.tsv"
-                    ],
-                replicate = index["isotope"],
-                x = 'enu',
-                y = 'spec',
-                merge_x = True
-                )
+        load_graph(name="reactor_anue.input_spectrum", x='enu', y='spec', load=datasource/"tsv/reactor_anue_spectra_50kev.yaml")
+        # load_graph(name="reactor_anue.input_spectrum", x='enu', y='spec', merge_x=True, filenames=datasource/"hdf/anue_spectra_extrap_13.0_0.05_MeV.hdf5", replicate=index["isotope"])
+        # load_graph(name="reactor_anue.input_spectrum", x='enu', y='spec', merge_x=True, filenames=datasource/"root/anue_spectra_extrap_13.0_0.05_MeV.root", replicate=index["isotope"])
 
-        # load_arrays(
-        #         name = "reactor_anue_spectrum",
-        #         filenames = datasource/"hdf/anue_spectra_extrap_13.0_0.05_MeV.hdf5",
-        #         replicate = index["isotope"]
-        #         )
-        #
-        # load_arrays(
-        #         name = "reactor_anue_spectrum",
-        #         filenames = datasource/"root/anue_spectra_extrap_13.0_0.05_MeV.root",
-        #         replicate = index["isotope"]
-        #         )
         from dagflow.lib.InterpolatorGroup import InterpolatorGroup
         interpolator, _ = InterpolatorGroup.replicate("exp", "reactor_anue.indexer", "reactor_anue.interpolator", replicate=index["isotope"])
-        outputs["reactor_anue_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"]
-        outputs("reactor_anue_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
+        outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"]
+        outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
         ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
 
         from dagflow.lib.arithmetic import Product

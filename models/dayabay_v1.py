@@ -1,5 +1,5 @@
 from dagflow.bundles.load_parameters import load_parameters
-from dagflow.bundles.load_arrays import load_arrays
+from dagflow.bundles.load_graph import load_graph
 from pathlib import Path
 
 from dagflow.graph import Graph
@@ -113,7 +113,7 @@ def model_dayabay_v1():
         nodes("oscprob") << parameters("constrained.oscprob")
         nodes("oscprob") << parameters("constant.oscprob")
 
-        load_arrays(
+        load_graph(
                 name = "reactor_anue_spectrum",
                 filenames = [
                     datasource/"tsv/reactor_anue_spectra_50kev/Huber_anue_spectrum_extrap_U235_13.0_0.05_MeV.tsv",
@@ -127,13 +127,13 @@ def model_dayabay_v1():
                 merge_x = True
                 )
 
-        # load_arrays(
+        # load_graph(
         #         name = "reactor_anue_spectrum",
         #         filenames = datasource/"hdf/anue_spectra_extrap_13.0_0.05_MeV.hdf5",
         #         replicate = list_isotopes
         #         )
         #
-        # load_arrays(
+        # load_graph(
         #         name = "reactor_anue_spectrum",
         #         filenames = datasource/"root/anue_spectra_extrap_13.0_0.05_MeV.root",
         #         replicate = list_isotopes
