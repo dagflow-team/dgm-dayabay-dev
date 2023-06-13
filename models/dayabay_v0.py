@@ -32,7 +32,7 @@ def model_dayabay_v0():
         raise RuntimeError("Repeated indices")
     combinations["reactor.detector"] = tuple(product(index["reactor"], index["detector"]))
     combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
-    combinations["reactor.isotopes_detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
+    combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
     combinations["background.detector"] = tuple(product(index["background"], index["detector"]))
     inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
     combinations["period.detector"] = tuple(
@@ -99,7 +99,7 @@ def model_dayabay_v0():
             "kinematics_integral",
             name_x = "mesh_edep",
             name_y = "mesh_costheta",
-            replicate=combinations["reactor.isotopes_detector"]
+            replicate=combinations["reactor.isotopes.detector"]
         )
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
@@ -130,7 +130,7 @@ def model_dayabay_v0():
         ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
 
         from dagflow.lib.arithmetic import Product
-        Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes_detector"])
+        Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
         outputs("oscprob") >> nodes("kinematics_integrand")
         outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
         outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
@@ -141,7 +141,7 @@ def model_dayabay_v0():
         InverseSquareLaw.replicate("baseline_factor", replicate=combinations["reactor.detector"])
         parameters("constant.baseline") >> inputs("baseline_factor")
 
-        Product.replicate("countrate_reac", replicate=combinations["reactor.isotopes_detector"])
+        Product.replicate("countrate_reac", replicate=combinations["reactor.isotopes.detector"])
         outputs("kinematics_integral")>>nodes("countrate_reac")
         outputs("baseline_factor")>>nodes("countrate_reac")
 
