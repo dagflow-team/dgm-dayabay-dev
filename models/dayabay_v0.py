@@ -160,10 +160,10 @@ def model_dayabay_v0():
     # storage("outputs").plot(folder='output/dayabay_v0_auto')
     # storage("outputs.oscprob").plot(folder='output/dayabay_v0_auto')
     # storage("outputs.countrate").plot(show_all=True)
-    storage("outputs").plot(
-        folder = 'output/dayabay_v0_auto',
-        overlay_priority = (index["isotope"], index["reactor"], index['background'], index["detector"])
-    )
+    # storage("outputs").plot(
+    #     folder = 'output/dayabay_v0_auto',
+    #     overlay_priority = (index["isotope"], index["reactor"], index['background'], index["detector"])
+    # )
 
     storage["parameter.normalized.detector.eres.b_stat"].value = 1
     storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
