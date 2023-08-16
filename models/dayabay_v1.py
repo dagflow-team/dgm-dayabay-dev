@@ -98,8 +98,8 @@ def model_dayabay_v1():
         integration_orders_edep >> integrator.inputs["ordersX"]
         integration_orders_costheta >> integrator.inputs["ordersY"]
 
-        from reactornueosc.IBDXsecO1Group import IBDXsecO1Group
-        ibd, _ = IBDXsecO1Group.make_stored(use_edep=True)
+        from reactornueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
+        ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
         ibd << storage("parameter.constant.ibd")
         ibd << storage("parameter.constant.ibd.csc")
         outputs['kinematics_sampler.mesh_edep'] >> ibd.inputs["edep"]
