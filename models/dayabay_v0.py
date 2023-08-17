@@ -8,6 +8,8 @@ from dagflow.tools.schema import LoadYaml
 from dagflow.storage import NodeStorage
 from dagflow.logger import set_level, DEBUG, SUBINFO, SUBSUBINFO
 
+from multikeydict.nestedmkdict import NestedMKDict
+
 from itertools import product
 
 from typing import Optional
@@ -27,7 +29,7 @@ class model_dayabay_v0():
     _strict: bool
     _close: bool
 
-    def __init__(self, *, strict: bool=False, close: bool=True):
+    def __init__(self, *, strict: bool=True, close: bool=True):
         self._strict = strict
         self._close = close
 
@@ -172,9 +174,17 @@ class model_dayabay_v0():
 
             Sum.replicate("countrate", outputs("countrate_reac"), replicate=index["detector"])
 
-        storage("nodes").read_labels(labels)
-        storage("outputs").read_labels(labels, strict=self._strict)
+        processed_keys_set = set()
+        storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
+        storage("outputs").read_labels(labels, processed_keys_set=processed_keys_set)
         storage("inputs").remove_connected_inputs()
         storage.read_paths(index=index)
         graph.build_index_dict(index)
+
+        labels_mk = NestedMKDict(labels, sep=".")
+        if self._strict:
+            for key in processed_keys_set:
+                labels_mk.delete_with_parents(key)
+            if labels_mk:
+                raise RuntimeError(f"The following label groups were not used: {tuple(labels.keys())}")
 
