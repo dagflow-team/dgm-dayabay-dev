@@ -59,16 +59,17 @@ def test_dayabay_v0():
 		graph,
 		show="all"
 	).savegraph("output/dayabay_v0.dot")
-	# GraphDot.from_graph(
-	# 	graph,
-	# 	show="all",
-	# 	filter = {
-	# 		'reactor': [0],
-	# 		'detector': [0],
-	# 		'isotope': [0],
-	# 		'period': [0],
-	# 	}
-	# ).savegraph("output/dayabay_v0_reduced.dot")
+	GraphDot.from_graph(
+		graph,
+		show="all",
+		filter = {
+			'reactor': [0],
+			'detector': [0],
+			'isotope': [0],
+			'period': [0],
+			'background': [0],
+		}
+	).savegraph("output/dayabay_v0_reduced.dot")
 	GraphDot.from_node(
 		storage["stat.nuisance.all"],
 		show="all",

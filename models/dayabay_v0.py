@@ -175,6 +175,6 @@ class model_dayabay_v0():
         storage("nodes").read_labels(labels)
         storage("outputs").read_labels(labels, strict=self._strict)
         storage("inputs").remove_connected_inputs()
-        # storage.read_paths(index=index)
-        storage.read_paths()
+        storage.read_paths(index=index)
+        graph.build_index_dict(index)
 
