@@ -27,7 +27,7 @@ class model_dayabay_v0():
     _strict: bool
     _close: bool
 
-    def __init__(self, *, strict: bool=True, close: bool=True):
+    def __init__(self, *, strict: bool=False, close: bool=True):
         self._strict = strict
         self._close = close
 
