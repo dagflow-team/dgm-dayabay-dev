@@ -1,5 +1,6 @@
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.bundles.load_graph import load_graph
+from dagflow.bundles.load_array import load_array
 from pathlib import Path
 
 from dagflow.graph import Graph
@@ -173,6 +174,15 @@ class model_dayabay_v0():
             outputs("baseline_factor")>>nodes("countrate_reac")
 
             Sum.replicate("countrate", outputs("countrate_reac"), replicate=index["detector"])
+
+            load_array(name="detector.iav.matrix_in", filename=datasource/"tsv/detector_IAV_matrix_P14A_LS.tsv")
+            # load_array(name="detector.iav.matrix_in", filename=datasource/"root/detector_IAV_matrix_P14A_LS.root", object="iav_matrix")
+            # load_array(name="detector.iav.matrix_in", filename=datasource/"hdf5/detector_IAV_matrix_P14A_LS.hdf5", object="iav_matrix")
+
+            from dagflow.lib.NormalizeMatrix import NormalizeMatrix
+            NormalizeMatrix.replicate("detector.iav.matrix")
+            outputs["detector.iav.matrix_in"] >> nodes["detector.iav.matrix"]
+
 
         processed_keys_set = set()
         storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
