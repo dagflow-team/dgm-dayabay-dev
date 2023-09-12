@@ -3,12 +3,18 @@ from models.dayabay_v0 import model_dayabay_v0
 from dagflow.plot import plot_auto
 
 def test_dayabay_v0():
-	model = model_dayabay_v0()
+	model = model_dayabay_v0(close=True)
 
 	graph = model.graph
 	storage = model.storage
 
 	if not graph.closed:
+		print('Nodes')
+		print(storage('nodes').to_table(truncate=True))
+		print('Outputs')
+		print(storage('outputs').to_table(truncate=True))
+		print('Not connected inputs')
+		print(storage('inputs').to_table(truncate=True))
 		return
 
 	print(storage.to_table(truncate=True))
