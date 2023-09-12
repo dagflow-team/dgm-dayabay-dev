@@ -276,10 +276,10 @@ class model_dayabay_v0:
 
             load_array(
                 name="detector.iav.matrix_raw",
-                filename=datasource / "tsv/detector_IAV_matrix_P14A_LS.tsv",
+                filenames=datasource / "tsv/detector_IAV_matrix_P14A_LS.tsv",
             )
-            # load_array(name="detector.iav.matrix_raw", filename=datasource/"root/detector_IAV_matrix_P14A_LS.root", object="iav_matrix")
-            # load_array(name="detector.iav.matrix_raw", filename=datasource/"hdf5/detector_IAV_matrix_P14A_LS.hdf5", object="iav_matrix")
+            # load_array(name="detector.iav.matrix_raw", filenames=datasource/"root/detector_IAV_matrix_P14A_LS.root", object="iav_matrix")
+            # load_array(name="detector.iav.matrix_raw", filenames=datasource/"hdf5/detector_IAV_matrix_P14A_LS.hdf5", object="iav_matrix")
 
             from dagflow.lib.NormalizeMatrix import NormalizeMatrix
 
@@ -291,6 +291,14 @@ class model_dayabay_v0:
             VectorMatrixProduct.replicate("countrate.iav", replicate=index["detector"])
             outputs["detector.iav.matrix"] >> inputs("countrate.iav.matrix")
             outputs("countrate.raw") >> inputs("countrate.iav.vector")
+
+            # VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
+            # # outputs["detector.lsnl.matrix"] >> inputs("countrate.lsnl.matrix")
+            # outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
+            #
+            # VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
+            # # outputs["detector.erec.matrix"] >> inputs("countrate.erec.matrix")
+            # outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
 
         processed_keys_set = set()
         storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
