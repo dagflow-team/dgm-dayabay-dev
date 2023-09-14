@@ -14,11 +14,11 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 
 class model_dayabay_v0:
-    __slots__ = ("storage", "graph", "_datasource", "_sourcetype", "_strict", "_close")
+    __slots__ = ("storage", "graph", "_path_data", "_sourcetype", "_strict", "_close")
 
     storage: NodeStorage
     graph: Optional[Graph]
-    _datasource: Path
+    _path_data: Path
     _sourcetype: Literal["tsv", "hdf", "root"]
     _strict: bool
     _close: bool
@@ -37,49 +37,32 @@ class model_dayabay_v0:
 
         self.graph = None
         self.storage = NodeStorage()
-        self._datasource = Path("data/dayabay-v0")
+        self._path_data = Path("data/dayabay-v0")
         self._sourcetype = sourcetype
 
         self.build()
 
     def build(self):
         storage = self.storage
-        datasource = self._datasource
+        path_data = self._path_data
 
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
-        index["detector"] = (
-            "AD11",
-            "AD12",
-            "AD21",
-            "AD22",
-            "AD31",
-            "AD32",
-            "AD33",
-            "AD34",
-        )
+        index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["period"] = ("6AD", "8AD", "7AD")
         index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
-        index_all = (
-            index["isotope"] + index["detector"] + index["reactor"] + index["period"]
-        )
+        index_all = (index["isotope"] + index["detector"] + index["reactor"] + index["period"])
         set_all = set(index_all)
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
-        combinations["reactor.detector"] = tuple(
-            product(index["reactor"], index["detector"])
-        )
-        combinations["reactor.isotope"] = tuple(
-            product(index["reactor"], index["isotope"])
-        )
-        combinations["reactor.isotopes.detector"] = tuple(
-            product(index["reactor"], index["isotope"], index["detector"])
-        )
-        combinations["background.detector"] = tuple(
-            product(index["background"], index["detector"])
-        )
+
+        combinations["reactor.detector"] = tuple(product(index["reactor"], index["detector"]))
+        combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
+        combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
+        combinations["background.detector"] = tuple(product(index["background"], index["detector"]))
+
         inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
         combinations["period.detector"] = tuple(
             pair
@@ -87,86 +70,52 @@ class model_dayabay_v0:
             if not pair in inactive_detectors
         )
 
+        path_parameters = path_data / 'parameters'
+        path_arrays = path_data / self._sourcetype
         with Graph(close=self._close) as graph, storage:
             self.graph = graph
             #
             # Load parameters
             #
-            load_parameters(path="oscprob", load=datasource / "parameters/oscprob.yaml")
-            load_parameters(
-                path="oscprob",
-                load=datasource / "parameters/oscprob_solar.yaml",
-                joint_nuisance=True,
-            )
-            load_parameters(
-                path="oscprob", load=datasource / "parameters/oscprob_constants.yaml"
+            load_parameters(path="oscprob",    load=path_parameters/"oscprob.yaml")
+            load_parameters(path="oscprob",    load=path_parameters/"oscprob_solar.yaml", joint_nuisance=True)
+            load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml"
             )
 
-            load_parameters(path="ibd", load=datasource / "parameters/pdg2012.yaml")
-            load_parameters(
-                path="ibd.csc", load=datasource / "parameters/ibd_constants.yaml"
+            load_parameters(path="ibd",        load=path_parameters/"pdg2012.yaml")
+            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml"
             )
-            load_parameters(
-                path="conversion",
-                load=datasource / "parameters/conversion_thermal_power.yaml",
-            )
-            load_parameters(
-                path="conversion",
-                load=datasource / "parameters/conversion_oscprob_argument.yaml",
+            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.yaml")
+            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
+
+            load_parameters(                   load=path_parameters/"baselines.yaml")
+
+            load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
+            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml"
             )
 
-            load_parameters(load=datasource / "parameters/baselines.yaml")
+            load_parameters(path="reactor",    load=path_parameters/"reactor_e_per_fission.yaml")
+            load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
+                            replicate=index["reactor"])
+            load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
+                            replicate=index["reactor"])
+            load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
+                            replicate=combinations["reactor.isotope"])
+            load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
+                            replicate=index["reactor"], replica_key_offset=1)
 
-            load_parameters(
-                path="detector",
-                load=datasource / "parameters/detector_nprotons_correction.yaml",
-            )
-            load_parameters(
-                path="detector", load=datasource / "parameters/detector_eres.yaml"
-            )
-
-            load_parameters(
-                path="reactor",
-                load=datasource / "parameters/reactor_e_per_fission.yaml",
-            )
-            load_parameters(
-                path="reactor",
-                load=datasource / "parameters/reactor_thermal_power_nominal.yaml",
-                replicate=index["reactor"],
-            )
-            load_parameters(
-                path="reactor",
-                load=datasource / "parameters/reactor_snf.yaml",
-                replicate=index["reactor"],
-            )
-            load_parameters(
-                path="reactor",
-                load=datasource / "parameters/reactor_offequilibrium_correction.yaml",
-                replicate=combinations["reactor.isotope"],
-            )
-            load_parameters(
-                path="reactor",
-                load=datasource / "parameters/reactor_fission_fraction_scale.yaml",
-                replicate=index["reactor"],
-                replica_key_offset=1,
-            )
-
-            load_parameters(
-                path="bkg.rate", load=datasource / "parameters/bkg_rates.yaml"
-            )
+            load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
 
             # Create Nuisance parameters
             nuisanceall = Sum("nuisance total")
             storage["stat.nuisance.all"] = nuisanceall
 
-            (
-                output for output in storage("stat.nuisance_parts").walkvalues()
-            ) >> nuisanceall
+            storage("stat.nuisance_parts").walkvalues() >> nuisanceall
 
             #
             # Create nodes
             #
-            labels = LoadYaml(datasource / "labels.yaml")
+            labels = LoadYaml(path_data / "labels.yaml")
             parameters = storage("parameter")
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
@@ -232,7 +181,7 @@ class model_dayabay_v0:
                 x="enu",
                 y="spec",
                 merge_x=True,
-                load=datasource / self._sourcetype / "reactor_anue_spectra_50kev.yaml",
+                load=path_arrays/"reactor_anue_spectra_50kev.yaml",
                 replicate=index["isotope"],
             )
 
@@ -283,9 +232,10 @@ class model_dayabay_v0:
             )
 
             load_array(
-                name="detector.iav.matrix_raw",
-                filenames=datasource / self._sourcetype / "detector_IAV_matrix_P14A_LS.tsv",
-                replicate="iav_matrix"
+                name="detector.iav",
+                filenames=path_arrays/"detector_IAV_matrix_P14A_LS.tsv",
+                replicate=("matrix_raw",),
+                objects={"matrix_raw": "iav_matrix"},
             )
 
             from dagflow.lib.NormalizeMatrix import NormalizeMatrix
