@@ -4,6 +4,7 @@ from typing import Literal, Optional
 
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
+from dagflow.bundles.load_graph_data import load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
@@ -219,15 +220,26 @@ class model_dayabay_v0:
             outputs["detector.iav.matrix"] >> inputs("countrate.iav.matrix")
             outputs("countrate.raw") >> inputs("countrate.iav.vector")
 
-            load_graph(
-                name="detector.lsnl.curves",
+            load_graph_data(
+                name="detector.lsnl.curves_coarse",
                 x="edep",
                 y="flsnl",
                 merge_x=True,
                 filenames=path_arrays/"detector_LSNL_curves_Jan2022_newE_v1/detector_LSNL_curves_Jan2022_newE_v1_{key}.tsv",
                 replicate=index["lsnl"],
             )
-            #
+            Array.from_storage('data.detector.lsnl.curves_coarse', storage)
+
+            # from scipy.interpolate import interp1d
+            # data_lsnl = storage('data.detector.lsnl')
+            # data_lsnl_coarse = data_lsnl('curves_coarse')
+            # data_lsnl_fine = data_lsnl.child('curves_fine')
+            # lsnl_x_coarse = data_lsnl_coarse['edep']
+            # from numpy import linspace
+            # lsnl_x_fine = linspace(lsnl_x_coarse)
+            # for y_coarse in data_lsnl_coarse('flsnl'):
+
+
             # VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
             # # outputs["detector.lsnl.matrix"] >> inputs("countrate.lsnl.matrix")
             # outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
