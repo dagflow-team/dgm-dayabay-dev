@@ -1,6 +1,6 @@
 from itertools import product
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
@@ -14,15 +14,22 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 
 class model_dayabay_v0:
-    __slots__ = ("storage", "graph", "_datasource", "_strict", "_close")
+    __slots__ = ("storage", "graph", "_datasource", "_sourcetype", "_strict", "_close")
 
     storage: NodeStorage
     graph: Optional[Graph]
     _datasource: Path
+    _sourcetype: Literal["tsv", "hdf", "root"]
     _strict: bool
     _close: bool
 
-    def __init__(self, *, strict: bool = True, close: bool = True):
+    def __init__(
+        self,
+        *,
+        sourcetype: Literal["tsv", "hdf", "root"] = "tsv",
+        strict: bool = True,
+        close: bool = True,
+    ):
         self._strict = strict
         self._close = close
 
@@ -31,6 +38,7 @@ class model_dayabay_v0:
         self.graph = None
         self.storage = NodeStorage()
         self._datasource = Path("data/dayabay-v0")
+        self._sourcetype = sourcetype
 
         self.build()
 
@@ -223,10 +231,10 @@ class model_dayabay_v0:
                 name="reactor_anue.input_spectrum",
                 x="enu",
                 y="spec",
-                load=datasource / "tsv/reactor_anue_spectra_50kev.yaml",
+                merge_x=True,
+                load=datasource / self._sourcetype / "reactor_anue_spectra_50kev.yaml",
+                replicate=index["isotope"],
             )
-            # load_graph(name="reactor_anue.input_spectrum", x='enu', y='spec', merge_x=True, filenames=datasource/"hdf/anue_spectra_extrap_13.0_0.05_MeV.hdf5", replicate=index["isotope"])
-            # load_graph(name="reactor_anue.input_spectrum", x='enu', y='spec', merge_x=True, filenames=datasource/"root/anue_spectra_extrap_13.0_0.05_MeV.root", replicate=index["isotope"])
 
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
 
@@ -276,10 +284,9 @@ class model_dayabay_v0:
 
             load_array(
                 name="detector.iav.matrix_raw",
-                filenames=datasource / "tsv/detector_IAV_matrix_P14A_LS.tsv",
+                filenames=datasource / self._sourcetype / "detector_IAV_matrix_P14A_LS.tsv",
+                replicate="iav_matrix"
             )
-            # load_array(name="detector.iav.matrix_raw", filenames=datasource/"root/detector_IAV_matrix_P14A_LS.root", object="iav_matrix")
-            # load_array(name="detector.iav.matrix_raw", filenames=datasource/"hdf5/detector_IAV_matrix_P14A_LS.hdf5", object="iav_matrix")
 
             from dagflow.lib.NormalizeMatrix import NormalizeMatrix
 
