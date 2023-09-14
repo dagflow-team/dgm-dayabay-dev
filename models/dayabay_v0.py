@@ -53,6 +53,7 @@ class model_dayabay_v0:
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["period"] = ("6AD", "8AD", "7AD")
         index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
+        index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index_all = (index["isotope"] + index["detector"] + index["reactor"] + index["period"])
         set_all = set(index_all)
         if len(index_all) != len(set_all):
@@ -125,27 +126,19 @@ class model_dayabay_v0:
 
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
-
             edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
             edges_energy_common, _ = Array.make_stored(
                 "edges.energy_common", linspace(0, 12, 241)
             )
             View.make_stored("edges.energy_enu", edges_energy_common)
-            edges_energy_edep, _ = View.make_stored(
-                "edges.energy_edep", edges_energy_common
-            )
+            edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
             View.make_stored("edges.energy_evis", edges_energy_common)
             View.make_stored("edges.energy_erec", edges_energy_common)
 
-            integration_orders_edep, _ = Array.from_value(
-                "kinematics_sampler.ordersx", 5, edges=edges_energy_edep
-            )
-            integration_orders_costheta, _ = Array.from_value(
-                "kinematics_sampler.ordersy", 4, edges=edges_costheta
-            )
+            integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
+            integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 4, edges=edges_costheta)
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
-
             integrator, _ = IntegratorGroup.replicate(
                 "2d",
                 "kinematics_sampler",
@@ -158,7 +151,6 @@ class model_dayabay_v0:
             integration_orders_costheta >> integrator.inputs["ordersY"]
 
             from reactornueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
-
             ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
             ibd << storage("parameter.constant.ibd")
             ibd << storage("parameter.constant.ibd.csc")
@@ -166,10 +158,7 @@ class model_dayabay_v0:
             outputs["kinematics_sampler.mesh_costheta"] >> ibd.inputs["costheta"]
 
             from reactornueosc.NueSurvivalProbability import NueSurvivalProbability
-
-            NueSurvivalProbability.replicate(
-                "oscprob", distance_unit="m", replicate=combinations["reactor.detector"]
-            )
+            NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
             ibd.outputs["enu"] >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
             nodes("oscprob") << parameters("free.oscprob")
@@ -186,28 +175,18 @@ class model_dayabay_v0:
             )
 
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
-
             interpolator, _ = InterpolatorGroup.replicate(
                 "exp",
                 "reactor_anue.indexer",
                 "reactor_anue.interpolator",
                 replicate=index["isotope"],
             )
-            (
-                outputs["reactor_anue.input_spectrum.enu"]
-                >> inputs["reactor_anue.interpolator.xcoarse"]
-            )
-            outputs("reactor_anue.input_spectrum.spec") >> inputs(
-                "reactor_anue.interpolator.ycoarse"
-            )
+            (outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"])
+            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
             ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
 
             from dagflow.lib.arithmetic import Product
-
-            Product.replicate(
-                "kinematics_integrand",
-                replicate=combinations["reactor.isotopes.detector"],
-            )
+            Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
             outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
             outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
@@ -215,21 +194,14 @@ class model_dayabay_v0:
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
             from reactornueosc.InverseSquareLaw import InverseSquareLaw
-
-            InverseSquareLaw.replicate(
-                "baseline_factor", replicate=combinations["reactor.detector"]
-            )
+            InverseSquareLaw.replicate("baseline_factor", replicate=combinations["reactor.detector"])
             parameters("constant.baseline") >> inputs("baseline_factor")
 
-            Product.replicate(
-                "countrate_reac", replicate=combinations["reactor.isotopes.detector"]
-            )
+            Product.replicate("countrate_reac", replicate=combinations["reactor.isotopes.detector"])
             outputs("kinematics_integral") >> nodes("countrate_reac")
             outputs("baseline_factor") >> nodes("countrate_reac")
 
-            Sum.replicate(
-                "countrate.raw", outputs("countrate_reac"), replicate=index["detector"]
-            )
+            Sum.replicate("countrate.raw", outputs("countrate_reac"), replicate=index["detector"])
 
             load_array(
                 name="detector.iav",
@@ -239,16 +211,23 @@ class model_dayabay_v0:
             )
 
             from dagflow.lib.NormalizeMatrix import NormalizeMatrix
-
             NormalizeMatrix.replicate("detector.iav.matrix")
             outputs["detector.iav.matrix_raw"] >> nodes["detector.iav.matrix"]
 
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
-
             VectorMatrixProduct.replicate("countrate.iav", replicate=index["detector"])
             outputs["detector.iav.matrix"] >> inputs("countrate.iav.matrix")
             outputs("countrate.raw") >> inputs("countrate.iav.vector")
 
+            load_graph(
+                name="detector.lsnl.curves",
+                x="edep",
+                y="flsnl",
+                merge_x=True,
+                filenames=path_arrays/"detector_LSNL_curves_Jan2022_newE_v1/detector_LSNL_curves_Jan2022_newE_v1_{key}.tsv",
+                replicate=index["lsnl"],
+            )
+            #
             # VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
             # # outputs["detector.lsnl.matrix"] >> inputs("countrate.lsnl.matrix")
             # outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
