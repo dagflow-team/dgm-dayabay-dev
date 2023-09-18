@@ -253,6 +253,7 @@ class model_dayabay_v0:
             # TODO:
             # - LSNL weights
             # - escale per AD
+            # - Monotonize
             Sum.replicate("detector.lsnl.curves.evis", outputs("detector.lsnl.curves.evis_parts"))
             InterpolatorGroup.replicate(
                 method = "linear",
@@ -274,19 +275,16 @@ class model_dayabay_v0:
             outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolator_bwd.ycoarse")
             edges_energy_evis >> inputs["detector.lsnl.interpolator_bwd.xfine"]
 
-            # from scipy.interpolate import interp1d
-            # data_lsnl = storage('data.detector.lsnl')
-            # data_lsnl_coarse = data_lsnl('curves_coarse')
-            # data_lsnl_fine = data_lsnl.child('curves_fine')
-            # lsnl_x_coarse = data_lsnl_coarse['edep']
-            # from numpy import linspace
-            # lsnl_x_fine = linspace(lsnl_x_coarse)
-            # for y_coarse in data_lsnl_coarse('flsnl'):
+            from reactornueosc.AxisDistortionMatrix import AxisDistortionMatrix
+            AxisDistortionMatrix.replicate("detector.lsnl.matrix", replicate=index["detector"])
+            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            outputs("detector.lsnl.interpolator_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
+            outputs("detector.lsnl.interpolator_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
-            # VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
-            # # outputs["detector.lsnl.matrix"] >> inputs("countrate.lsnl.matrix")
-            # outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
-            #
+            VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
+            outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
+            outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
+
             # VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
             # # outputs["detector.erec.matrix"] >> inputs("countrate.erec.matrix")
             # outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
