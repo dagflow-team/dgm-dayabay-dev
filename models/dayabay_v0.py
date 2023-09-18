@@ -47,6 +47,7 @@ class model_dayabay_v0:
         storage = self.storage
         path_data = self._path_data
 
+        # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
@@ -55,6 +56,7 @@ class model_dayabay_v0:
         index["period"] = ("6AD", "8AD", "7AD")
         index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
+        index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
         index_all = (index["isotope"] + index["detector"] + index["reactor"] + index["period"])
         set_all = set(index_all)
         if len(index_all) != len(set_all):
@@ -71,10 +73,12 @@ class model_dayabay_v0:
             for pair in product(index["period"], index["detector"])
             if not pair in inactive_detectors
         )
+        # fmt: on
 
-        path_parameters = path_data / 'parameters'
+        path_parameters = path_data / "parameters"
         path_arrays = path_data / self._sourcetype
         with Graph(close=self._close) as graph, storage:
+            # fmt: off
             self.graph = graph
             #
             # Load parameters
@@ -107,6 +111,7 @@ class model_dayabay_v0:
                             replicate=index["reactor"], replica_key_offset=1)
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
+            # fmt: on
 
             # Create Nuisance parameters
             nuisanceall = Sum("nuisance total")
@@ -123,6 +128,7 @@ class model_dayabay_v0:
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
 
+            # fmt: off
             from numpy import linspace
 
             from dagflow.lib.Array import Array
@@ -133,7 +139,7 @@ class model_dayabay_v0:
             )
             View.make_stored("edges.energy_enu", edges_energy_common)
             edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
-            View.make_stored("edges.energy_evis", edges_energy_common)
+            edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
             View.make_stored("edges.energy_erec", edges_energy_common)
 
             integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
@@ -144,9 +150,9 @@ class model_dayabay_v0:
                 "2d",
                 "kinematics_sampler",
                 "kinematics_integral",
-                name_x="mesh_edep",
-                name_y="mesh_costheta",
-                replicate=combinations["reactor.isotopes.detector"],
+                name_x = "mesh_edep",
+                name_y = "mesh_costheta",
+                replicate = combinations["reactor.isotopes.detector"],
             )
             integration_orders_edep >> integrator.inputs["ordersX"]
             integration_orders_costheta >> integrator.inputs["ordersY"]
@@ -158,7 +164,8 @@ class model_dayabay_v0:
             outputs["kinematics_sampler.mesh_edep"] >> ibd.inputs["edep"]
             outputs["kinematics_sampler.mesh_costheta"] >> ibd.inputs["costheta"]
 
-            from reactornueosc.NueSurvivalProbability import NueSurvivalProbability
+            from reactornueosc.NueSurvivalProbability import \
+                NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
             ibd.outputs["enu"] >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
@@ -167,20 +174,20 @@ class model_dayabay_v0:
             nodes("oscprob") << parameters("constant.oscprob")
 
             load_graph(
-                name="reactor_anue.input_spectrum",
-                x="enu",
-                y="spec",
-                merge_x=True,
-                load=path_arrays/"reactor_anue_spectra_50kev.yaml",
-                replicate=index["isotope"],
+                name = "reactor_anue.input_spectrum",
+                x = "enu",
+                y = "spec",
+                merge_x = True,
+                load = path_arrays/"reactor_anue_spectra_50kev.yaml",
+                replicate = index["isotope"],
             )
 
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
-            interpolator, _ = InterpolatorGroup.replicate(
-                "exp",
-                "reactor_anue.indexer",
-                "reactor_anue.interpolator",
-                replicate=index["isotope"],
+            InterpolatorGroup.replicate(
+                method = "exp",
+                name_indexer = "reactor_anue.indexer",
+                name_interpolator = "reactor_anue.interpolator",
+                replicate = index["isotope"],
             )
             (outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"])
             outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
@@ -202,13 +209,13 @@ class model_dayabay_v0:
             outputs("kinematics_integral") >> nodes("countrate_reac")
             outputs("baseline_factor") >> nodes("countrate_reac")
 
-            Sum.replicate("countrate.raw", outputs("countrate_reac"), replicate=index["detector"])
+            Sum.replicate("countrate.raw", outputs("countrate_reac"), replicate = index["detector"])
 
             load_array(
-                name="detector.iav",
-                filenames=path_arrays/"detector_IAV_matrix_P14A_LS.tsv",
-                replicate=("matrix_raw",),
-                objects={"matrix_raw": "iav_matrix"},
+                name = "detector.iav",
+                filenames = path_arrays/"detector_IAV_matrix_P14A_LS.tsv",
+                replicate = ("matrix_raw",),
+                objects = {"matrix_raw": "iav_matrix"},
             )
 
             from dagflow.lib.NormalizeMatrix import NormalizeMatrix
@@ -221,14 +228,51 @@ class model_dayabay_v0:
             outputs("countrate.raw") >> inputs("countrate.iav.vector")
 
             load_graph_data(
-                name="detector.lsnl.curves_coarse",
-                x="edep",
-                y="flsnl",
-                merge_x=True,
-                filenames=path_arrays/"detector_LSNL_curves_Jan2022_newE_v1/detector_LSNL_curves_Jan2022_newE_v1_{key}.tsv",
-                replicate=index["lsnl"],
+                name = "detector.lsnl.curves",
+                x = "edep",
+                y = "evis_parts",
+                merge_x = True,
+                filenames = path_arrays/"detector_LSNL_curves_Jan2022_newE_v1/detector_LSNL_curves_Jan2022_newE_v1_{key}.tsv",
+                replicate = index["lsnl"],
             )
-            Array.from_storage('data.detector.lsnl.curves_coarse', storage)
+            from reactornueosc.bundles.refine_lsnl_data import refine_lsnl_data
+            refine_lsnl_data(
+                storage("data.detector.lsnl.curves"),
+                edepname = 'edep',
+                nominalname = 'evis_parts.nominal',
+                refine_times = 4,
+                newmin = 0.5,
+                newmax = 12.1
+            )
+            Array.from_storage(
+                "detector.lsnl.curves",
+                storage("data"),
+                meshname = "edep",
+                remove_used_arrays = True
+            )
+            # TODO:
+            # - LSNL weights
+            # - escale per AD
+            Sum.replicate("detector.lsnl.curves.evis", outputs("detector.lsnl.curves.evis_parts"))
+            InterpolatorGroup.replicate(
+                method = "linear",
+                name_indexer = "detector.lsnl.indexer_fwd",
+                name_interpolator = "detector.lsnl.interpolator_fwd",
+                replicate = index["detector"]
+            )
+            outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolator_fwd.xcoarse"]
+            outputs["detector.lsnl.curves.evis"] >> inputs("detector.lsnl.interpolator_fwd.ycoarse")
+            edges_energy_edep >> inputs["detector.lsnl.interpolator_fwd.xfine"]
+
+            InterpolatorGroup.replicate(
+                method = "linear",
+                name_indexer = "detector.lsnl.indexer_bwd",
+                name_interpolator = "detector.lsnl.interpolator_bwd",
+                replicate = index["detector"]
+            )
+            outputs["detector.lsnl.curves.evis"] >> inputs["detector.lsnl.interpolator_bwd.xcoarse"]
+            outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolator_bwd.ycoarse")
+            edges_energy_evis >> inputs["detector.lsnl.interpolator_bwd.xfine"]
 
             # from scipy.interpolate import interp1d
             # data_lsnl = storage('data.detector.lsnl')
@@ -239,7 +283,6 @@ class model_dayabay_v0:
             # lsnl_x_fine = linspace(lsnl_x_coarse)
             # for y_coarse in data_lsnl_coarse('flsnl'):
 
-
             # VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
             # # outputs["detector.lsnl.matrix"] >> inputs("countrate.lsnl.matrix")
             # outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
@@ -247,6 +290,8 @@ class model_dayabay_v0:
             # VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
             # # outputs["detector.erec.matrix"] >> inputs("countrate.erec.matrix")
             # outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
+
+            # fmt: on
 
         processed_keys_set = set()
         storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
