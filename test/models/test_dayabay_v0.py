@@ -22,6 +22,9 @@ def test_dayabay_v0():
         return
 
     print(storage.to_table(truncate=True))
+    if len(storage("inputs"))>0:
+        print("Not connected inputs")
+        print(storage("inputs").to_table(truncate=True))
 
     # storage("outputs").plot(folder='output/dayabay_v0_auto')
     # storage("outputs.oscprob").plot(folder='output/dayabay_v0_auto')
@@ -31,17 +34,17 @@ def test_dayabay_v0():
     #     overlay_priority = (index["isotope"], index["reactor"], index['background'], index["detector"])
     # )
 
-    storage["parameter.normalized.detector.eres.b_stat"].value = 1
-    storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
-
-    # p1 = storage["parameter.normalized.detector.eres.b_stat"]
-    # p2 = storage["parameter.constrained.detector.eres.b_stat"]
-
-    constrained = storage("parameter.constrained")
-    normalized = storage("parameter.normalized")
-
-    print("Everything")
-    print(storage.to_table(truncate=True))
+    # storage["parameter.normalized.detector.eres.b_stat"].value = 1
+    # storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
+    #
+    # # p1 = storage["parameter.normalized.detector.eres.b_stat"]
+    # # p2 = storage["parameter.constrained.detector.eres.b_stat"]
+    #
+    # constrained = storage("parameter.constrained")
+    # normalized = storage("parameter.normalized")
+    #
+    # print("Everything")
+    # print(storage.to_table(truncate=True))
 
     # print("Constants")
     # print(storage("parameter.constant").to_table(truncate=True))

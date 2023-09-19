@@ -77,7 +77,7 @@ class model_dayabay_v0:
 
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self._sourcetype
-        with Graph(close=self._close) as graph, storage:
+        with Graph(close=self._close, strict=self._strict) as graph, storage:
             # fmt: off
             self.graph = graph
             #
@@ -285,9 +285,9 @@ class model_dayabay_v0:
             outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
             outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
 
-            # VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
-            # # outputs["detector.erec.matrix"] >> inputs("countrate.erec.matrix")
-            # outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
+            VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
+            # outputs["detector.erec.matrix"] >> inputs("countrate.erec.matrix")
+            outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
 
             # fmt: on
 
