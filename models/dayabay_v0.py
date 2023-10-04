@@ -235,7 +235,7 @@ class model_dayabay_v0:
                 filenames = path_arrays/"detector_LSNL_curves_Jan2022_newE_v1/detector_LSNL_curves_Jan2022_newE_v1_{key}.tsv",
                 replicate = index["lsnl"],
             )
-            from reactornueosc.bundles.refine_lsnl_data import refine_lsnl_data
+            from detector.bundles.refine_lsnl_data import refine_lsnl_data
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
@@ -275,7 +275,7 @@ class model_dayabay_v0:
             outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolator_bwd.ycoarse")
             edges_energy_evis >> inputs["detector.lsnl.interpolator_bwd.xfine"]
 
-            from reactornueosc.AxisDistortionMatrix import AxisDistortionMatrix
+            from detector.AxisDistortionMatrix import AxisDistortionMatrix
             AxisDistortionMatrix.replicate("detector.lsnl.matrix", replicate=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
             outputs("detector.lsnl.interpolator_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
@@ -285,7 +285,7 @@ class model_dayabay_v0:
             outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
             outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
 
-            from reactornueosc.EnergyResolution import EnergyResolution
+            from detector.EnergyResolution import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
             nodes["detector.eres.sigma_rel"] << parameters("constrained.detector.eres")
             outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
