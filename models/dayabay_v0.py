@@ -285,16 +285,16 @@ class model_dayabay_v0:
             outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
             outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
 
-            from detector.EnergyResolution import EnergyResolution
-            EnergyResolution.replicate(path="detector.eres")
-            nodes["detector.eres.sigma_rel"] << parameters("constrained.detector.eres")
-            outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
-            outputs["edges.energy_evis"] >> inputs["detector.eres.e_edges"]
-
-            VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
-            outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
-            outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
-
+            # from detector.EnergyResolution import EnergyResolution
+            # EnergyResolution.replicate(path="detector.eres")
+            # nodes["detector.eres.sigma_rel"] << parameters("constrained.detector.eres")
+            # # outputs["detector.eres.sigma_rel"] >> inputs("detector.eres.sigma_rel")
+            # outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
+            # outputs["edges.energy_evis"] >> inputs["detector.eres.e_edges"]
+            #
+            # VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
+            # outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
+            # outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
 
             # fmt: on
 
