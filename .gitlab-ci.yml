@@ -9,8 +9,8 @@ tests:
         GIT_DEPTH: 1
     script:
         - git submodule sync
-        - git submodule update --init --recursive --depth=1
-        - python3 -m pip install -r submodules/dagflow-reactornueosc/submodules/dag-flow/requirements.txt
+        - git submodule update --init --recursive --depth=1 -- submodules/dag-flow
+        - git submodule update --init --depth=1 -- submodules/dagflow-reactornueosc submodules/dagflow-detector
         - python3 -m pip install -r requirements.txt
         - mkdir output
         - coverage run --source=. --omit=submodules/* -m pytest
