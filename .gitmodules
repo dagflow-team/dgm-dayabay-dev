@@ -1,6 +1,9 @@
-[submodule "submodules/dagflow-reactornueosc"]
+[submodule "dagflow-reactornueosc"]
 	path = submodules/dagflow-reactornueosc
 	url = https://git.jinr.ru/dag-computing/dagflow-reactorenueosc.git
 [submodule "dagflow-detector"]
 	path = submodules/dagflow-detector
 	url = https://git.jinr.ru/dag-computing/dagflow-detector.git
+[submodule "dag-flow"]
+	path = submodules/dag-flow
+	url = https://git.jinr.ru/dag-computing/dag-flow.git
