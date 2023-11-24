@@ -3,10 +3,13 @@
 from argparse import Namespace
 
 from dagflow.graph import Graph
+from dagflow.logger import set_level, SUBSUBINFO, SUBINFO
 from dagflow.plot import plot_auto
 from dagflow.storage import NodeStorage
 from models.dayabay_v0 import model_dayabay_v0
 
+set_level(SUBINFO)
+# set_level(SUBSUBINFO)
 
 def main(opts: Namespace) -> None:
     model = model_dayabay_v0(close=True, strict=False, source_type=opts.source_type)

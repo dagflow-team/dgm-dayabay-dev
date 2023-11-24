@@ -34,7 +34,7 @@ class model_dayabay_v0:
         self._strict = strict
         self._close = close
 
-        set_level(SUBINFO)
+        # set_level(SUBINFO)
 
         self.graph = None
         self.storage = NodeStorage()
