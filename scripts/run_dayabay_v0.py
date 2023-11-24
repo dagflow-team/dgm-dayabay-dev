@@ -9,7 +9,7 @@ from models.dayabay_v0 import model_dayabay_v0
 
 
 def main(opts: Namespace) -> None:
-    model = model_dayabay_v0(close=True, strict=False)
+    model = model_dayabay_v0(close=True, strict=False, source_type=opts.source_type)
 
     graph = model.graph
     storage = model.storage
@@ -100,6 +100,13 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    # parser.add_argument('input')
+    parser.add_argument(
+        "-s",
+        "--source-type",
+        "--source",
+        choices=("tsv", "hdf", "root", "npz"),
+        default="tsv",
+        help="Data source type",
+    )
 
     main(parser.parse_args())

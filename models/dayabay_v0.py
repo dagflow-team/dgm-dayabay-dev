@@ -20,14 +20,14 @@ class model_dayabay_v0:
     storage: NodeStorage
     graph: Optional[Graph]
     _path_data: Path
-    _sourcetype: Literal["tsv", "hdf", "root"]
+    _sourcetype: Literal["tsv", "hdf", "root", "npz"]
     _strict: bool
     _close: bool
 
     def __init__(
         self,
         *,
-        sourcetype: Literal["tsv", "hdf", "root"] = "tsv",
+        source_type: Literal["tsv", "hdf", "root", "npz"] = "tsv",
         strict: bool = True,
         close: bool = True,
     ):
@@ -39,7 +39,7 @@ class model_dayabay_v0:
         self.graph = None
         self.storage = NodeStorage()
         self._path_data = Path("data/dayabay-v0")
-        self._sourcetype = sourcetype
+        self._sourcetype = source_type
 
         self.build()
 
