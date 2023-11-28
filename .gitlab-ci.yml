@@ -9,9 +9,9 @@ tests:
         GIT_DEPTH: 1
     script:
         - git submodule sync
-        - git submodule update --init --recursive --depth=1 -- submodules/dag-flow
-        - git submodule update --init --depth=1 -- submodules/dagflow-reactornueosc submodules/dagflow-detector
-        - git clone --depth=1 git@git.jinr.ru:dag-computing/dayabay-data-all.git data
+        - git submodule update --init --recursive --depth=$GIT_DEPTH -- submodules/dag-flow
+        - git submodule update --init --depth=$GIT_DEPTH -- submodules/dagflow-reactornueosc submodules/dagflow-detector
+        - git clone --depth=$GIT_DEPTH https://dayabay-model=ci:"$DATA_TOKEN"@git.jinr.ru/dag-computing/dayabay-data-all.git data
         - python3 -m pip install -r requirements.txt
         - mkdir output
         - coverage run --source=. --omit=submodules/* -m pytest
