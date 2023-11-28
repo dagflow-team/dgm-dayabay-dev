@@ -11,7 +11,7 @@ The model of the Daya Bay experiment.
 
 ## Data
 
-The data is located in a restricted repository, to enable it use:
+The data is located in a [restricted repository](https://git.jinr.ru/dag-computing/dayabay-data-all), to enable it use:
 
 ```sh
 git clone git@git.jinr.ru:dag-computing/dayabay-data-all.git data
