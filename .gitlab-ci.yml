@@ -8,7 +8,7 @@ tests:
     variables:
         GIT_DEPTH: 1
     script:
-        - apt-get install git-lfs
+        - sudo apt-get install git-lfs
         - git lfs install --skip-repo
         - git submodule sync
         - git submodule update --init --recursive --depth=$GIT_DEPTH -- submodules/dag-flow
