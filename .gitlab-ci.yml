@@ -8,6 +8,7 @@ tests:
     variables:
         GIT_DEPTH: 1
     script:
+        - git lfs install --skip-repo
         - git submodule sync
         - git submodule update --init --recursive --depth=$GIT_DEPTH -- submodules/dag-flow
         - git submodule update --init --depth=$GIT_DEPTH -- submodules/dagflow-reactornueosc submodules/dagflow-detector
