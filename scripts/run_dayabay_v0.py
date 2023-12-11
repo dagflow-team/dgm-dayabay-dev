@@ -33,7 +33,9 @@ def main(opts: Namespace) -> None:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate=True))
 
-    # storage("outputs").plot(folder='output/dayabay_v0_auto')
+    if opts.plot_all:
+        storage("outputs").plot(folder=opts.plot_all)
+
     # storage("outputs.oscprob").plot(folder='output/dayabay_v0_auto')
     # storage("outputs.countrate").plot(show_all=True)
     # storage("outputs").plot(
@@ -111,5 +113,6 @@ if __name__ == "__main__":
         default="tsv",
         help="Data source type",
     )
+    parser.add_argument('--plot-all', help='plot all the nodes toe the folder', metavar='folder')
 
     main(parser.parse_args())
