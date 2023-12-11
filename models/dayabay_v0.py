@@ -154,8 +154,8 @@ class model_dayabay_v0:
                 name_y = "mesh_costheta",
                 replicate = combinations["reactor.isotopes.detector"],
             )
-            integration_orders_edep >> integrator.inputs["ordersX"]
-            integration_orders_costheta >> integrator.inputs["ordersY"]
+            integration_orders_edep >> integrator("ordersX")
+            integration_orders_costheta >> integrator("ordersY")
 
             from reactornueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
             ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
