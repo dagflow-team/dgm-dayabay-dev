@@ -128,19 +128,25 @@ class model_dayabay_v0:
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
 
-            # fmt: off
-            from numpy import linspace
+            from numpy import arange, concatenate, linspace
 
+            in_edges_fine = linspace(0, 12, 241)
+            in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+
+            # fmt: off
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
             edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
             edges_energy_common, _ = Array.make_stored(
-                "edges.energy_common", linspace(0, 12, 241)
+                "edges.energy_common", in_edges_fine
+            )
+            edges_energy_final, _ = Array.make_stored(
+                "edges.energy_final", in_edges_final
             )
             View.make_stored("edges.energy_enu", edges_energy_common)
             edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
             edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
-            View.make_stored("edges.energy_erec", edges_energy_common)
+            edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
             integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
             integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 4, edges=edges_costheta)
@@ -293,6 +299,12 @@ class model_dayabay_v0:
             VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
             outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
             outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
+
+            from detector.Rebin import Rebin
+            Rebin.replicate("detector.rebin_matrix", "countrate.final", replicate=index["detector"])
+            edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
+            edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
+            outputs("countrate.erec") >> inputs("countrate.final")
 
             # fmt: on
 
