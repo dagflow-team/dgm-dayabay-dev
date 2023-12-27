@@ -306,6 +306,21 @@ class model_dayabay_v0:
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
             outputs("countrate.erec") >> inputs("countrate.final")
 
+            from statistics.Chi2 import Chi2
+            Chi2.replicate("statistic.stat.chi2p", replicate_inputs=index["detector"])
+            outputs("countrate.final") >> inputs("statistic.stat.chi2p.data")
+            outputs("countrate.final") >> inputs("statistic.stat.chi2p.theory")
+            outputs("countrate.final") >> inputs("statistic.stat.chi2p.errors")
+
+            from statistics.CNPStat import CNPStat
+            CNPStat.replicate("statistic.staterr.cnp", replicate_inputs=index["detector"], replicate=index["detector"])
+            outputs("countrate.final") >> inputs("statistic.staterr.cnp.data")
+            outputs("countrate.final") >> inputs("statistic.staterr.cnp.theory")
+
+            Chi2.replicate("statistic.stat.chi2cnp", replicate_inputs=index["detector"])
+            outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.data")
+            outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.theory")
+            outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
             # fmt: on
 
         processed_keys_set = set()

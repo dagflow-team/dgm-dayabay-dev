@@ -102,6 +102,9 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
     GraphDot.from_output(
         storage["outputs.edges.energy_evis"], show="all", mindepth=-3, no_forward=True
     ).savegraph("output/dayabay_v0_top.dot")
+    GraphDot.from_output(
+        storage["outputs.statistic.stat.chi2p"], show="all", mindepth=-1, no_forward=True
+    ).savegraph("output/dayabay_v0_stat.dot")
 
 
 if __name__ == "__main__":
