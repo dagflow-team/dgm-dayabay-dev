@@ -113,20 +113,18 @@ class model_dayabay_v0:
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
 
-            # Create Nuisance parameters
-            nuisanceall = Sum("nuisance total")
-            storage["stat.nuisance.all"] = nuisanceall
+            nodes = storage.child("nodes")
+            inputs = storage.child("inputs")
+            outputs = storage.child("outputs")
 
-            storage("stat.nuisance_parts").walkvalues() >> nuisanceall
+            # Create Nuisance parameters
+            Sum.replicate("statistic.nuisance.all", outputs("statistic.nuisance.parts"))
 
             #
             # Create nodes
             #
             labels = LoadYaml(path_data / "labels.yaml")
             parameters = storage("parameter")
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
 
             from numpy import arange, concatenate, linspace
 
@@ -321,6 +319,9 @@ class model_dayabay_v0:
             outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.data")
             outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
+
+            Sum.replicate("statistic.full.chi2p", outputs["statistic.stat.chi2p"], outputs["statistic.nuisance.all"])
+            Sum.replicate("statistic.full.chi2cnp", outputs["statistic.stat.chi2cnp"], outputs["statistic.nuisance.all"])
             # fmt: on
 
         processed_keys_set = set()
