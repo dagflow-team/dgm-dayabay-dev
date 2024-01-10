@@ -1,6 +1,6 @@
 from itertools import product
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Mapping, Optional, Sequence
 
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
@@ -15,11 +15,20 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 
 class model_dayabay_v0:
-    __slots__ = ("storage", "graph", "_path_data", "_sourcetype", "_strict", "_close")
+    __slots__ = (
+        "storage",
+        "graph",
+        "_override_indices",
+        "_path_data",
+        "_sourcetype",
+        "_strict",
+        "_close",
+    )
 
     storage: NodeStorage
     graph: Optional[Graph]
     _path_data: Path
+    _override_indices: Mapping[str, Sequence[str]]
     _sourcetype: Literal["tsv", "hdf", "root", "npz"]
     _strict: bool
     _close: bool
@@ -30,6 +39,7 @@ class model_dayabay_v0:
         source_type: Literal["tsv", "hdf", "root", "npz"] = "tsv",
         strict: bool = True,
         close: bool = True,
+        override_indices: Mapping[str, Sequence[str]] = {},
     ):
         self._strict = strict
         self._close = close
@@ -40,6 +50,7 @@ class model_dayabay_v0:
         self.storage = NodeStorage()
         self._path_data = Path("data/dayabay-v0")
         self._sourcetype = source_type
+        self._override_indices = override_indices
 
         self.build()
 
@@ -57,6 +68,9 @@ class model_dayabay_v0:
         index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
+
+        index.update(self._override_indices)
+
         index_all = (index["isotope"] + index["detector"] + index["reactor"] + index["period"])
         set_all = set(index_all)
         if len(index_all) != len(set_all):
@@ -304,19 +318,28 @@ class model_dayabay_v0:
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
             outputs("countrate.erec") >> inputs("countrate.final")
 
+            from statistics.MonteCarlo import MonteCarlo
+            MonteCarlo.replicate(
+                name="pseudo.data",
+                mode="asimov",
+                replicate=index["detector"],
+                replicate_inputs=index["detector"]
+            )
+            outputs("countrate.final") >> inputs("pseudo.data.input")
+
             from statistics.Chi2 import Chi2
             Chi2.replicate("statistic.stat.chi2p", replicate_inputs=index["detector"])
-            outputs("countrate.final") >> inputs("statistic.stat.chi2p.data")
+            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
             outputs("countrate.final") >> inputs("statistic.stat.chi2p.theory")
-            outputs("countrate.final") >> inputs("statistic.stat.chi2p.errors")
+            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
             from statistics.CNPStat import CNPStat
             CNPStat.replicate("statistic.staterr.cnp", replicate_inputs=index["detector"], replicate=index["detector"])
-            outputs("countrate.final") >> inputs("statistic.staterr.cnp.data")
+            outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
             outputs("countrate.final") >> inputs("statistic.staterr.cnp.theory")
 
             Chi2.replicate("statistic.stat.chi2cnp", replicate_inputs=index["detector"])
-            outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.data")
+            outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
             outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 

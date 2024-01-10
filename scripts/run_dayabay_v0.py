@@ -13,8 +13,12 @@ set_level(SUBINFO)
 
 
 def main(opts: Namespace) -> None:
+    override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
     model = model_dayabay_v0(
-        close=opts.close, strict=opts.strict, source_type=opts.source_type
+        close=opts.close,
+        strict=opts.strict,
+        source_type=opts.source_type,
+        override_indices=override_indices,
     )
 
     graph = model.graph
@@ -97,13 +101,19 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         },
     ).savegraph("output/dayabay_v0_reduced.dot")
     GraphDot.from_node(
-        storage["nodes.statistic.nuisance.all"], show="all", mindepth=-1, no_forward=True
+        storage["nodes.statistic.nuisance.all"],
+        show="all",
+        mindepth=-1,
+        no_forward=True,
     ).savegraph("output/dayabay_v0_nuisance.dot")
     GraphDot.from_output(
         storage["outputs.edges.energy_evis"], show="all", mindepth=-3, no_forward=True
     ).savegraph("output/dayabay_v0_top.dot")
     GraphDot.from_output(
-        storage["outputs.statistic.stat.chi2p"], show="all", mindepth=-1, no_forward=True
+        storage["outputs.statistic.stat.chi2p"],
+        show="all",
+        mindepth=-1,
+        no_forward=True,
     ).savegraph("output/dayabay_v0_stat.dot")
 
 
@@ -127,6 +137,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--no-strict", action="store_false", dest="strict", help="Disable strict mode"
+    )
+    parser.add_argument(
+        "-i",
+        "--index",
+        nargs="+",
+        action="append",
+        default=[],
+        help="override index",
+        metavar=("index", "value1"),
     )
 
     main(parser.parse_args())
