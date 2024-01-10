@@ -61,6 +61,7 @@ class model_dayabay_v0:
         # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
+        index["isotope_offeq"] = ("U235", "U238", "Pu239")
         index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
@@ -78,6 +79,7 @@ class model_dayabay_v0:
 
         combinations["reactor.detector"] = tuple(product(index["reactor"], index["detector"]))
         combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
+        combinations["reactor.isotope_offeq"] = tuple(product(index["reactor"], index["isotope_offeq"]))
         combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
         combinations["background.detector"] = tuple(product(index["background"], index["detector"]))
 
@@ -111,8 +113,11 @@ class model_dayabay_v0:
             load_parameters(                   load=path_parameters/"baselines.yaml")
 
             load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml"
-            )
+            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
+            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml", 
+                            replicate=index["lsnl_nuisance"])
+            load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml", 
+                            replicate=index["detector"])
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_e_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
@@ -120,7 +125,7 @@ class model_dayabay_v0:
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
-                            replicate=combinations["reactor.isotope"])
+                            replicate=combinations["reactor.isotope_offeq"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
                             replicate=index["reactor"], replica_key_offset=1)
 
