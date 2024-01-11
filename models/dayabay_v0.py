@@ -1,6 +1,6 @@
 from itertools import product
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Mapping, Optional, Sequence
 
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
@@ -15,11 +15,20 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 
 class model_dayabay_v0:
-    __slots__ = ("storage", "graph", "_path_data", "_sourcetype", "_strict", "_close")
+    __slots__ = (
+        "storage",
+        "graph",
+        "_override_indices",
+        "_path_data",
+        "_sourcetype",
+        "_strict",
+        "_close",
+    )
 
     storage: NodeStorage
     graph: Optional[Graph]
     _path_data: Path
+    _override_indices: Mapping[str, Sequence[str]]
     _sourcetype: Literal["tsv", "hdf", "root", "npz"]
     _strict: bool
     _close: bool
@@ -30,6 +39,7 @@ class model_dayabay_v0:
         source_type: Literal["tsv", "hdf", "root", "npz"] = "tsv",
         strict: bool = True,
         close: bool = True,
+        override_indices: Mapping[str, Sequence[str]] = {},
     ):
         self._strict = strict
         self._close = close
@@ -40,6 +50,7 @@ class model_dayabay_v0:
         self.storage = NodeStorage()
         self._path_data = Path("data/dayabay-v0")
         self._sourcetype = source_type
+        self._override_indices = override_indices
 
         self.build()
 
@@ -50,6 +61,7 @@ class model_dayabay_v0:
         # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
+        index["isotope_offeq"] = ("U235", "U238", "Pu239")
         index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
@@ -57,6 +69,9 @@ class model_dayabay_v0:
         index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
+
+        index.update(self._override_indices)
+
         index_all = (index["isotope"] + index["detector"] + index["reactor"] + index["period"])
         set_all = set(index_all)
         if len(index_all) != len(set_all):
@@ -64,6 +79,7 @@ class model_dayabay_v0:
 
         combinations["reactor.detector"] = tuple(product(index["reactor"], index["detector"]))
         combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
+        combinations["reactor.isotope_offeq"] = tuple(product(index["reactor"], index["isotope_offeq"]))
         combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
         combinations["background.detector"] = tuple(product(index["background"], index["detector"]))
 
@@ -97,8 +113,11 @@ class model_dayabay_v0:
             load_parameters(                   load=path_parameters/"baselines.yaml")
 
             load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml"
-            )
+            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
+            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml", 
+                            replicate=index["lsnl_nuisance"])
+            load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml", 
+                            replicate=index["detector"])
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_e_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
@@ -106,41 +125,45 @@ class model_dayabay_v0:
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
-                            replicate=combinations["reactor.isotope"])
+                            replicate=combinations["reactor.isotope_offeq"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
                             replicate=index["reactor"], replica_key_offset=1)
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
 
-            # Create Nuisance parameters
-            nuisanceall = Sum("nuisance total")
-            storage["stat.nuisance.all"] = nuisanceall
+            nodes = storage.child("nodes")
+            inputs = storage.child("inputs")
+            outputs = storage.child("outputs")
 
-            storage("stat.nuisance_parts").walkvalues() >> nuisanceall
+            # Create Nuisance parameters
+            Sum.replicate("statistic.nuisance.all", outputs("statistic.nuisance.parts"))
 
             #
             # Create nodes
             #
             labels = LoadYaml(path_data / "labels.yaml")
             parameters = storage("parameter")
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
+
+            from numpy import arange, concatenate, linspace
+
+            in_edges_fine = linspace(0, 12, 241)
+            in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
 
             # fmt: off
-            from numpy import linspace
-
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
             edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
             edges_energy_common, _ = Array.make_stored(
-                "edges.energy_common", linspace(0, 12, 241)
+                "edges.energy_common", in_edges_fine
+            )
+            edges_energy_final, _ = Array.make_stored(
+                "edges.energy_final", in_edges_final
             )
             View.make_stored("edges.energy_enu", edges_energy_common)
             edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
             edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
-            View.make_stored("edges.energy_erec", edges_energy_common)
+            edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
             integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
             integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 4, edges=edges_costheta)
@@ -294,6 +317,39 @@ class model_dayabay_v0:
             outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
             outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
 
+            from detector.Rebin import Rebin
+            Rebin.replicate("detector.rebin_matrix", "countrate.final", replicate=index["detector"])
+            edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
+            edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
+            outputs("countrate.erec") >> inputs("countrate.final")
+
+            from statistics.MonteCarlo import MonteCarlo
+            MonteCarlo.replicate(
+                name="pseudo.data",
+                mode="asimov",
+                replicate=index["detector"],
+                replicate_inputs=index["detector"]
+            )
+            outputs("countrate.final") >> inputs("pseudo.data.input")
+
+            from statistics.Chi2 import Chi2
+            Chi2.replicate("statistic.stat.chi2p", replicate_inputs=index["detector"])
+            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
+            outputs("countrate.final") >> inputs("statistic.stat.chi2p.theory")
+            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
+
+            from statistics.CNPStat import CNPStat
+            CNPStat.replicate("statistic.staterr.cnp", replicate_inputs=index["detector"], replicate=index["detector"])
+            outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
+            outputs("countrate.final") >> inputs("statistic.staterr.cnp.theory")
+
+            Chi2.replicate("statistic.stat.chi2cnp", replicate_inputs=index["detector"])
+            outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
+            outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.theory")
+            outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
+
+            Sum.replicate("statistic.full.chi2p", outputs["statistic.stat.chi2p"], outputs["statistic.nuisance.all"])
+            Sum.replicate("statistic.full.chi2cnp", outputs["statistic.stat.chi2cnp"], outputs["statistic.nuisance.all"])
             # fmt: on
 
         processed_keys_set = set()
