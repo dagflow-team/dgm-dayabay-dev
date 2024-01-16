@@ -8,7 +8,6 @@ from dagflow.bundles.load_graph_data import load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
-from dagflow.logger import DEBUG, SUBINFO, SUBSUBINFO, set_level
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -20,7 +19,7 @@ class model_dayabay_v0:
         "graph",
         "_override_indices",
         "_path_data",
-        "_sourcetype",
+        "_source_type",
         "_strict",
         "_close",
     )
@@ -29,7 +28,7 @@ class model_dayabay_v0:
     graph: Optional[Graph]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
-    _sourcetype: Literal["tsv", "hdf", "root", "npz"]
+    _source_type: Literal["tsv", "hdf", "root", "npz"]
     _strict: bool
     _close: bool
 
@@ -44,12 +43,10 @@ class model_dayabay_v0:
         self._strict = strict
         self._close = close
 
-        # set_level(SUBINFO)
-
         self.graph = None
         self.storage = NodeStorage()
         self._path_data = Path("data/dayabay-v0")
-        self._sourcetype = source_type
+        self._source_type = source_type
         self._override_indices = override_indices
 
         self.build()
@@ -61,7 +58,7 @@ class model_dayabay_v0:
         # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
-        index["isotope_offeq"] = ("U235", "U238", "Pu239")
+        index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
         index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
@@ -92,7 +89,7 @@ class model_dayabay_v0:
         # fmt: on
 
         path_parameters = path_data / "parameters"
-        path_arrays = path_data / self._sourcetype
+        path_arrays = path_data / self._source_type
         with Graph(close=self._close, strict=self._strict) as graph, storage:
             # fmt: off
             self.graph = graph
@@ -217,6 +214,24 @@ class model_dayabay_v0:
             outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
             ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
 
+            load_graph(
+                name = "reactor_anue.snf",
+                x = "enu",
+                y = "snf_correction",
+                merge_x = True,
+                load = path_arrays/"snf_correction.yaml",
+                replicate = index["reactor"],
+            )
+
+            load_graph(
+                name = "reactor_anue.offequilibrium",
+                x = "enu",
+                y = "offequilibrium_correction",
+                merge_x = True,
+                load = path_arrays/"offequilibrium_correction.yaml",
+                replicate = index["isotope_offeq"],
+            )
+
             from dagflow.lib.arithmetic import Product
             Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
@@ -240,7 +255,7 @@ class model_dayabay_v0:
 
             load_array(
                 name = "detector.iav",
-                filenames = path_arrays/"detector_IAV_matrix_P14A_LS.tsv",
+                filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
                 replicate = ("matrix_raw",),
                 objects = {"matrix_raw": "iav_matrix"},
             )
