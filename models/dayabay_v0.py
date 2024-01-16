@@ -12,6 +12,7 @@ from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
+SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
 class model_dayabay_v0:
     __slots__ = (
@@ -28,14 +29,14 @@ class model_dayabay_v0:
     graph: Optional[Graph]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
-    _source_type: Literal["tsv", "hdf", "root", "npz"]
+    _source_type: SourceTypes
     _strict: bool
     _close: bool
 
     def __init__(
         self,
         *,
-        source_type: Literal["tsv", "hdf", "root", "npz"] = "tsv",
+        source_type: SourceTypes = "tsv",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -112,9 +113,9 @@ class model_dayabay_v0:
 
             load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml", 
+            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
                             replicate=index["lsnl_nuisance"])
-            load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml", 
+            load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml",
                             replicate=index["detector"])
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_e_per_fission.yaml")

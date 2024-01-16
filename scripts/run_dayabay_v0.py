@@ -125,7 +125,7 @@ if __name__ == "__main__":
         "-s",
         "--source-type",
         "--source",
-        choices=("tsv", "hdf", "root", "npz"),
+        choices=("tsv", "hdf5", "root", "npz"),
         default="tsv",
         help="Data source type",
     )
