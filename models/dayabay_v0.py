@@ -275,9 +275,10 @@ class model_dayabay_v0:
                 x = "edep",
                 y = "evis_parts",
                 merge_x = True,
-                filenames = path_arrays/"detector_LSNL_curves_Jan2022_newE_v1/detector_LSNL_curves_Jan2022_newE_v1_{key}.tsv",
+                filenames = path_arrays/f"detector_LSNL_curves_Jan2022_newE_v1.{self._source_type}",
                 replicate = index["lsnl"],
             )
+
             from detector.bundles.refine_lsnl_data import refine_lsnl_data
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
