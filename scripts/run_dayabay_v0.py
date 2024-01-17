@@ -130,7 +130,7 @@ if __name__ == "__main__":
         help="Data source type",
     )
     parser.add_argument(
-        "--plot-all", help="plot all the nodes toe the folder", metavar="folder"
+        "--plot-all", help="plot all the nodes to the folder", metavar="folder"
     )
     parser.add_argument(
         "--no-close", action="store_false", dest="close", help="Do not close the graph"
