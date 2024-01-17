@@ -7,12 +7,13 @@ tests:
 
     variables:
         GIT_DEPTH: 1
+        DATA_BRANCH: data/reactor
     script:
         - git lfs install --skip-repo
         - git submodule sync
         - git submodule update --init --recursive --depth=$GIT_DEPTH -- submodules/dag-flow
         - git submodule update --init --depth=$GIT_DEPTH -- submodules/dagflow-reactornueosc submodules/dagflow-detector submodules/dagflow-statistics
-        - git clone --depth=$GIT_DEPTH https://dayabay-model=ci:"$DATA_TOKEN"@git.jinr.ru/dag-computing/dayabay-data-all.git data
+        - git clone --branch $DATA_BRANCH --depth=$GIT_DEPTH https://dayabay-model=ci:"$DATA_TOKEN"@git.jinr.ru/dag-computing/dayabay-data-all.git data
         - python3 -m pip install -r requirements.txt
         - mkdir output
         - coverage run --source=. --omit=submodules/* -m pytest
