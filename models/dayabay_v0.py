@@ -207,38 +207,56 @@ class model_dayabay_v0:
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
             InterpolatorGroup.replicate(
                 method = "exp",
-                name_indexer = "reactor_anue.indexer",
-                name_interpolator = "reactor_anue.interpolator",
+                name_indexer = "reactor_anue.spec_indexer",
+                name_interpolator = "reactor_anue.spec_interpolator",
                 replicate = index["isotope"],
             )
-            (outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"])
-            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
+            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolator.xcoarse"]
+            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolator.ycoarse")
+            ibd.outputs["enu"] >> inputs["reactor_anue.spec_interpolator.xfine"]
 
             load_graph(
-                name = "reactor_anue.snf",
+                name = "reactor_snf_anue.correction_input",
                 x = "enu",
                 y = "snf_correction",
                 merge_x = True,
                 load = path_arrays/"snf_correction.yaml",
                 replicate = index["reactor"],
             )
+            InterpolatorGroup.replicate(
+                method = "linear",
+                name_indexer = "reactor_snf_anue.correction_indexer",
+                name_interpolator = "reactor_snf_anue.correction_interpolator",
+                replicate = index["reactor"],
+            )
+            outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolator.xcoarse"]
+            outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolator.ycoarse")
+            ibd.outputs["enu"] >> inputs["reactor_snf_anue.correction_interpolator.xfine"]
 
             load_graph(
-                name = "reactor_anue.offequilibrium",
+                name = "reactor_offequilibrium_anue.correction_input",
                 x = "enu",
                 y = "offequilibrium_correction",
                 merge_x = True,
                 load = path_arrays/"offequilibrium_correction.yaml",
                 replicate = index["isotope_offeq"],
             )
+            InterpolatorGroup.replicate(
+                method = "linear",
+                name_indexer = "reactor_offequilibrium_anue.correction_indexer",
+                name_interpolator = "reactor_offequilibrium_anue.correction_interpolator",
+                replicate = index["isotope_offeq"],
+            )
+            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xcoarse"]
+            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolator.ycoarse")
+            ibd.outputs["enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xfine"]
 
             from dagflow.lib.arithmetic import Product
             Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
             outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
             outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
-            outputs("reactor_anue.interpolator") >> nodes("kinematics_integrand")
+            outputs("reactor_anue.spec_interpolator") >> nodes("kinematics_integrand")
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
             from reactornueosc.InverseSquareLaw import InverseSquareLaw
