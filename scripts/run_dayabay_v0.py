@@ -91,15 +91,26 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
     GraphDot.from_graph(graph, show="all").savegraph("output/dayabay_v0.dot")
     GraphDot.from_graph(
         graph,
-        show="all",
+        show=["type", "mark", "label", "path"],
         filter={
             "reactor": [0],
-            "detector": [0, 1],
+            "detector": [0],
             "isotope": [0],
             "period": [0],
             "background": [0],
         },
     ).savegraph("output/dayabay_v0_reduced.dot")
+    GraphDot.from_graph(
+        graph,
+        show="all",
+        filter={
+            "reactor": [0],
+            "detector": [0],
+            "isotope": [0],
+            "period": [0],
+            "background": [0],
+        },
+    ).savegraph("output/dayabay_v0_reduced_full.dot")
     GraphDot.from_node(
         storage["nodes.statistic.nuisance.all"],
         show="all",
@@ -113,6 +124,13 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         storage["outputs.statistic.stat.chi2p"],
         show="all",
         mindepth=-1,
+        filter={
+            "reactor": [0],
+            "detector": [0],
+            "isotope": [0],
+            "period": [0],
+            "background": [0],
+        },
         no_forward=True,
     ).savegraph("output/dayabay_v0_stat.dot")
 
