@@ -262,28 +262,30 @@ class model_dayabay_v0:
 
             from dagflow.lib.arithmetic import Product
             Product.replicate(
-                    "reactor_anue.spec_corrected_offeq_nominal",
+                    "reactor_anue.spec_part_offeq_nominal",
                     outputs("reactor_anue.spec_nominal"),
                     outputs("reactor_offequilibrium_anue.correction_interpolator"),
+                    allow_skip_inputs = True, # U238
                     replicate=index["isotope_offeq"],
                     )
-            # Product.replicate(
-            #         "reactor_anue.spec_corrected_offeq_scaled",
-            #         # parameters("all.reactor.offequilibrium_scale"),
-            #         # outputs("reactor_anue.spec_corrected_offeq_nominal"),
-            #         replicate=combinations["reactor.isotope_offeq"],
-            #         )
+            Product.replicate(
+                    "reactor_anue.spec_part_offeq_scaled",
+                    parameters("all.reactor.offequilibrium_scale"),
+                    outputs("reactor_anue.spec_part_offeq_nominal"),
+                    allow_skip_inputs = True, # U238
+                    replicate=combinations["reactor.isotope_offeq"],
+                    )
 
             from dagflow.lib.arithmetic import Product
             Product.replicate(
-                    "reactor_anue.spec_corrected_snf_nominal",
+                    "reactor_anue.spec_part_snf_nominal",
                     outputs("reactor_snf_anue.correction_interpolator"),
                     replicate=index["reactor"],
                     )
             Product.replicate(
-                    "reactor_anue.spec_corrected_snf_scaled",
+                    "reactor_anue.spec_part_snf_scaled",
                     parameters("all.reactor.snf_scale"),
-                    outputs("reactor_anue.spec_corrected_snf_nominal"),
+                    outputs("reactor_anue.spec_part_snf_nominal"),
                     replicate=index["reactor"],
                     )
 
