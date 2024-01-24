@@ -118,13 +118,14 @@ class model_dayabay_v0:
             load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml",
                             replicate=index["detector"])
 
-            load_parameters(path="reactor",    load=path_parameters/"reactor_e_per_fission.yaml")
+            load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
                             replicate=combinations["reactor.isotope_offeq"])
+            load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
                             replicate=index["reactor"], replica_key_offset=1)
 
@@ -260,6 +261,9 @@ class model_dayabay_v0:
             )
             outputs("reactor_anue.spec_interpolator") >> inputs("reactor_anue.spec_nominal")
 
+            #
+            # Offequilibrium part
+            # 
             from dagflow.lib.arithmetic import Product
             Product.replicate(
                     "reactor_anue.spec_part_offeq_nominal",
@@ -276,6 +280,9 @@ class model_dayabay_v0:
                     replicate=combinations["reactor.isotope_offeq"],
                     )
 
+            #
+            # SNF part
+            #
             from dagflow.lib.arithmetic import Product
             Product.replicate(
                     "reactor_anue.spec_part_snf_nominal",
@@ -288,7 +295,20 @@ class model_dayabay_v0:
                     outputs("reactor_anue.spec_part_snf_nominal"),
                     replicate=index["reactor"],
                     )
+            
+            #
+            # Neutrino rate
+            #
+            Product.replicate(
+                    "reactor.energy_per_fission_weighted",
+                    parameters("all.reactor.energy_per_fission"),
+                    parameters("all.reactor.fission_fraction_snf"),
+                    replicate=index["isotope"],
+                    )
 
+            #
+            # Integration
+            #
             Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
             outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
