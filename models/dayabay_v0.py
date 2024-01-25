@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from itertools import product
 from pathlib import Path
-from typing import Literal, Mapping, Optional, Sequence
+from typing import Literal, Mapping, Optional
 
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
@@ -8,11 +9,11 @@ from dagflow.bundles.load_graph_data import load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
-from dagflow.logger import DEBUG, SUBINFO, SUBSUBINFO, set_level
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
+SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
 class model_dayabay_v0:
     __slots__ = (
@@ -20,7 +21,7 @@ class model_dayabay_v0:
         "graph",
         "_override_indices",
         "_path_data",
-        "_sourcetype",
+        "_source_type",
         "_strict",
         "_close",
     )
@@ -29,14 +30,14 @@ class model_dayabay_v0:
     graph: Optional[Graph]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
-    _sourcetype: Literal["tsv", "hdf", "root", "npz"]
+    _source_type: SourceTypes
     _strict: bool
     _close: bool
 
     def __init__(
         self,
         *,
-        source_type: Literal["tsv", "hdf", "root", "npz"] = "tsv",
+        source_type: SourceTypes = "tsv",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -44,12 +45,10 @@ class model_dayabay_v0:
         self._strict = strict
         self._close = close
 
-        # set_level(SUBINFO)
-
         self.graph = None
         self.storage = NodeStorage()
         self._path_data = Path("data/dayabay-v0")
-        self._sourcetype = source_type
+        self._source_type = source_type
         self._override_indices = override_indices
 
         self.build()
@@ -61,7 +60,7 @@ class model_dayabay_v0:
         # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
-        index["isotope_offeq"] = ("U235", "U238", "Pu239")
+        index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
         index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
@@ -92,7 +91,7 @@ class model_dayabay_v0:
         # fmt: on
 
         path_parameters = path_data / "parameters"
-        path_arrays = path_data / self._sourcetype
+        path_arrays = path_data / self._source_type
         with Graph(close=self._close, strict=self._strict) as graph, storage:
             # fmt: off
             self.graph = graph
@@ -111,21 +110,23 @@ class model_dayabay_v0:
             load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
 
             load_parameters(                   load=path_parameters/"baselines.yaml")
+            load_parameters(                   load=path_parameters/"baselines_snf.yaml")
 
             load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml", 
+            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
                             replicate=index["lsnl_nuisance"])
-            load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml", 
+            load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml",
                             replicate=index["detector"])
 
-            load_parameters(path="reactor",    load=path_parameters/"reactor_e_per_fission.yaml")
+            load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
                             replicate=combinations["reactor.isotope_offeq"])
+            load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
                             replicate=index["reactor"], replica_key_offset=1)
 
@@ -208,25 +209,120 @@ class model_dayabay_v0:
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
             InterpolatorGroup.replicate(
                 method = "exp",
-                name_indexer = "reactor_anue.indexer",
-                name_interpolator = "reactor_anue.interpolator",
+                name_indexer = "reactor_anue.spec_indexer",
+                name_interpolator = "reactor_anue.spec_interpolator",
                 replicate = index["isotope"],
             )
-            (outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.interpolator.xcoarse"])
-            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_anue.interpolator.xfine"]
+            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolator.xcoarse"]
+            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolator.ycoarse")
+            ibd.outputs["enu"] >> inputs["reactor_anue.spec_interpolator.xfine"]
 
+            load_graph(
+                name = "reactor_offequilibrium_anue.correction_input",
+                x = "enu",
+                y = "offequilibrium_correction",
+                merge_x = True,
+                load = path_arrays/"offequilibrium_correction.yaml",
+                replicate = index["isotope_offeq"],
+            )
+            InterpolatorGroup.replicate(
+                method = "linear",
+                name_indexer = "reactor_offequilibrium_anue.correction_indexer",
+                name_interpolator = "reactor_offequilibrium_anue.correction_interpolator",
+                replicate = index["isotope_offeq"],
+            )
+            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xcoarse"]
+            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolator.ycoarse")
+            ibd.outputs["enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xfine"]
+
+            load_graph(
+                name = "reactor_snf_anue.correction_input",
+                x = "enu",
+                y = "snf_correction",
+                merge_x = True,
+                load = path_arrays/"snf_correction.yaml",
+                replicate = index["reactor"],
+            )
+            InterpolatorGroup.replicate(
+                method = "linear",
+                name_indexer = "reactor_snf_anue.correction_indexer",
+                name_interpolator = "reactor_snf_anue.correction_interpolator",
+                replicate = index["reactor"],
+            )
+            outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolator.xcoarse"]
+            outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolator.ycoarse")
+            ibd.outputs["enu"] >> inputs["reactor_snf_anue.correction_interpolator.xfine"]
+
+            from statistics.MonteCarlo import MonteCarlo
+            MonteCarlo.replicate(
+                name="reactor_anue.spec_nominal",
+                mode="asimov",
+                replicate=index["isotope"],
+                replicate_inputs=index["isotope"]
+            )
+            outputs("reactor_anue.spec_interpolator") >> inputs("reactor_anue.spec_nominal")
+
+            #
+            # Offequilibrium part
+            #
             from dagflow.lib.arithmetic import Product
+            Product.replicate(
+                    "reactor_anue.spec_part_offeq_nominal",
+                    outputs("reactor_anue.spec_nominal"),
+                    outputs("reactor_offequilibrium_anue.correction_interpolator"),
+                    allow_skip_inputs = True, # U238
+                    replicate=index["isotope_offeq"],
+                    )
+            Product.replicate(
+                    "reactor_anue.spec_part_offeq_scaled",
+                    parameters("all.reactor.offequilibrium_scale"),
+                    outputs("reactor_anue.spec_part_offeq_nominal"),
+                    allow_skip_inputs = True, # U238
+                    replicate=combinations["reactor.isotope_offeq"],
+                    )
+
+            #
+            # SNF part
+            #
+            from dagflow.lib.arithmetic import Product
+            Product.replicate(
+                    "reactor_anue.spec_part_snf_nominal",
+                    outputs("reactor_snf_anue.correction_interpolator"),
+                    replicate=index["reactor"],
+                    )
+            Product.replicate(
+                    "reactor_anue.spec_part_snf_scaled",
+                    parameters("all.reactor.snf_scale"),
+                    outputs("reactor_anue.spec_part_snf_nominal"),
+                    replicate=index["reactor"],
+                    )
+
+            #
+            # Neutrino rate
+            #
+            Product.replicate(
+                    "reactor.energy_per_fission_weighted",
+                    parameters("all.reactor.energy_per_fission"),
+                    parameters("all.reactor.fission_fraction_snf"),
+                    replicate=index["isotope"],
+                    )
+
+            #
+            # Integration
+            #
             Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
             outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
             outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
-            outputs("reactor_anue.interpolator") >> nodes("kinematics_integrand")
+            outputs("reactor_anue.spec_interpolator") >> nodes("kinematics_integrand")
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
             from reactornueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate("baseline_factor", replicate=combinations["reactor.detector"])
             parameters("constant.baseline") >> inputs("baseline_factor")
+
+            InverseSquareLaw.replicate("baseline_factor_snf", replicate=combinations["reactor.detector"])
+            parameters("constant.baseline_snf") >> inputs("baseline_factor_snf")
 
             Product.replicate("countrate_reac", replicate=combinations["reactor.isotopes.detector"])
             outputs("kinematics_integral") >> nodes("countrate_reac")
@@ -236,7 +332,7 @@ class model_dayabay_v0:
 
             load_array(
                 name = "detector.iav",
-                filenames = path_arrays/"detector_IAV_matrix_P14A_LS.tsv",
+                filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
                 replicate = ("matrix_raw",),
                 objects = {"matrix_raw": "iav_matrix"},
             )
@@ -255,9 +351,10 @@ class model_dayabay_v0:
                 x = "edep",
                 y = "evis_parts",
                 merge_x = True,
-                filenames = path_arrays/"detector_LSNL_curves_Jan2022_newE_v1/detector_LSNL_curves_Jan2022_newE_v1_{key}.tsv",
+                filenames = path_arrays/f"detector_LSNL_curves_Jan2022_newE_v1.{self._source_type}",
                 replicate = index["lsnl"],
             )
+
             from detector.bundles.refine_lsnl_data import refine_lsnl_data
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
