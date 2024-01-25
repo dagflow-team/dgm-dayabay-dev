@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from itertools import product
 from pathlib import Path
-from typing import Literal, Mapping, Optional, Sequence
+from typing import Literal, Mapping, Optional
 
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
@@ -263,7 +264,7 @@ class model_dayabay_v0:
 
             #
             # Offequilibrium part
-            # 
+            #
             from dagflow.lib.arithmetic import Product
             Product.replicate(
                     "reactor_anue.spec_part_offeq_nominal",
@@ -295,7 +296,7 @@ class model_dayabay_v0:
                     outputs("reactor_anue.spec_part_snf_nominal"),
                     replicate=index["reactor"],
                     )
-            
+
             #
             # Neutrino rate
             #
