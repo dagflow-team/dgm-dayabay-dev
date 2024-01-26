@@ -15,6 +15,7 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
+
 class model_dayabay_v0:
     __slots__ = (
         "storage",
@@ -24,6 +25,7 @@ class model_dayabay_v0:
         "_source_type",
         "_strict",
         "_close",
+        "_spectrum_correction_mode"
     )
 
     storage: NodeStorage
@@ -33,6 +35,7 @@ class model_dayabay_v0:
     _source_type: SourceTypes
     _strict: bool
     _close: bool
+    _spectrum_correction_mode: Literal["linear", "exponential"]
 
     def __init__(
         self,
@@ -41,6 +44,7 @@ class model_dayabay_v0:
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
+        spectrum_correction_mode: Literal["linear", "exponential"] = "exponential"
     ):
         self._strict = strict
         self._close = close
@@ -50,6 +54,7 @@ class model_dayabay_v0:
         self._path_data = Path("data/dayabay-v0")
         self._source_type = source_type
         self._override_indices = override_indices
+        self._spectrum_correction_mode = spectrum_correction_mode
 
         self.build()
 
@@ -68,6 +73,7 @@ class model_dayabay_v0:
         index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
+        index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(30))
 
         index.update(self._override_indices)
 
@@ -89,6 +95,8 @@ class model_dayabay_v0:
             if not pair in inactive_detectors
         )
         # fmt: on
+
+        spectrum_correction_is_exponential = self._spectrum_correction_mode == "exponential"
 
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self._source_type
@@ -132,6 +140,27 @@ class model_dayabay_v0:
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
+
+            if spectrum_correction_is_exponential:
+                load_parameters(
+                    format="value",
+                    state="variable",
+                    parameters={"reactor_anue_spectrum": 0.0},
+                    labels={
+                        "reactor_anue_spectrum": "Reactor antineutrino spectrum correction (exp)"
+                    },
+                    replicate=index["spec"],
+                )
+            else:
+                load_parameters(
+                    format="value",
+                    state="variable",
+                    parameters={"reactor_anue_spectrum": 1.0},
+                    labels={
+                        "reactor_anue_spectrum": "Reactor antineutrino spectrum correction"
+                    },
+                    replicate=index["spec"],
+                )
 
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
@@ -296,15 +325,47 @@ class model_dayabay_v0:
                     outputs("reactor_anue.spec_part_snf_nominal"),
                     replicate=index["reactor"],
                     )
+            
+            #
+            # Correction part
+            #
+            from dagflow.lib import Exp
+            from dagflow.lib.Concatenation import Concatenation
+
+            if spectrum_correction_is_exponential:
+                Concatenation.replicate(
+                        "reactor_anue.spec_free_correction_input",
+                        parameters("all.reactor_anue_spectrum")
+                        )
+                Exp.replicate(
+                        "reactor_anue.spec_free_correction",
+                        outputs["reactor_anue.spec_free_correction_input"]
+                        )
+            else:
+                Concatenation.replicate(
+                        "reactor_anue.spec_free_correction",
+                        parameters("all.reactor_anue_spectrum")
+                        )
 
             #
             # Neutrino rate
             #
             Product.replicate(
-                    "reactor.energy_per_fission_weighted",
+                    "reactor.energy_per_fission_snf_weighted",
                     parameters("all.reactor.energy_per_fission"),
                     parameters("all.reactor.fission_fraction_snf"),
                     replicate=index["isotope"],
+                    )
+            Sum.replicate(
+                    "reactor.energy_per_fission_snf_average",
+                    outputs("reactor.energy_per_fission_snf_weighted")
+                    )
+            Product.replicate(
+                    "reactor.thermal_power_weighted_MeV",
+                    parameters("all.reactor.nominal_thermal_power"),
+                    parameters("all.reactor.fission_fraction_snf"),
+                    parameters["all.conversion.reactorPowerConversion"],
+                    replicate=combinations["reactor.isotope"],
                     )
 
             #
