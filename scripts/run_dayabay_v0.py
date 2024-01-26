@@ -19,6 +19,7 @@ def main(opts: Namespace) -> None:
         strict=opts.strict,
         source_type=opts.source_type,
         override_indices=override_indices,
+        spectrum_correction_mode=opts.spec
     )
 
     graph = model.graph
@@ -150,13 +151,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--plot-all", help="plot all the nodes to the folder", metavar="folder"
     )
-    parser.add_argument(
+
+    graph = parser.add_argument_group("graph", "graph related options")
+    graph.add_argument(
         "--no-close", action="store_false", dest="close", help="Do not close the graph"
     )
-    parser.add_argument(
+    graph.add_argument(
         "--no-strict", action="store_false", dest="strict", help="Disable strict mode"
     )
-    parser.add_argument(
+    graph.add_argument(
         "-i",
         "--index",
         nargs="+",
@@ -165,5 +168,8 @@ if __name__ == "__main__":
         help="override index",
         metavar=("index", "value1"),
     )
+
+    model = parser.add_argument_group("model", "model related options")
+    model.add_argument("--spec", choices=("linear", "exponential"), help="antineutrino spectrum correction mode")
 
     main(parser.parse_args())
