@@ -3,6 +3,8 @@ from itertools import product
 from pathlib import Path
 from typing import Literal, Mapping, Optional
 
+from numpy import ndarray
+
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
 from dagflow.bundles.load_graph_data import load_graph_data
@@ -25,7 +27,7 @@ class model_dayabay_v0:
         "_source_type",
         "_strict",
         "_close",
-        "_spectrum_correction_mode"
+        "_spectrum_correction_mode",
     )
 
     storage: NodeStorage
@@ -44,7 +46,7 @@ class model_dayabay_v0:
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
-        spectrum_correction_mode: Literal["linear", "exponential"] = "exponential"
+        spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
     ):
         self._strict = strict
         self._close = close
@@ -62,6 +64,17 @@ class model_dayabay_v0:
         storage = self.storage
         path_data = self._path_data
 
+        path_parameters = path_data / "parameters"
+        path_arrays = path_data / self._source_type
+
+        from dagflow.tools.schema import LoadPy
+
+        antineutrino_model_edges = LoadPy(
+            path_parameters / "reactor_antineutrino_spectrum_edges.py",
+            variable="edges",
+            type=ndarray,
+        )
+
         # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
@@ -73,7 +86,7 @@ class model_dayabay_v0:
         index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
-        index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(30))
+        index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges)))
 
         index.update(self._override_indices)
 
@@ -96,10 +109,10 @@ class model_dayabay_v0:
         )
         # fmt: on
 
-        spectrum_correction_is_exponential = self._spectrum_correction_mode == "exponential"
+        spectrum_correction_is_exponential = (
+            self._spectrum_correction_mode == "exponential"
+        )
 
-        path_parameters = path_data / "parameters"
-        path_arrays = path_data / self._source_type
         with Graph(close=self._close, strict=self._strict) as graph, storage:
             # fmt: off
             self.graph = graph
@@ -141,26 +154,34 @@ class model_dayabay_v0:
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
 
+            labels = {  # TODO, not propagated
+                "reactor_anue_spectrum": {
+                    name: f"Edge {i:02d} ({edge:.2f} MeV) Reactor antineutrino spectrum correction"
+                    for i, (name, edge) in enumerate(
+                        zip(index["spec"], antineutrino_model_edges)
+                    )
+                }
+            }
             if spectrum_correction_is_exponential:
-                load_parameters(
-                    format="value",
-                    state="variable",
-                    parameters={"reactor_anue_spectrum": 0.0},
-                    labels={
-                        "reactor_anue_spectrum": "Reactor antineutrino spectrum correction (exp)"
-                    },
-                    replicate=index["spec"],
-                )
+                reactor_anue_spectrum_correction_central_value = 0.0
+                labels = {
+                    "reactor_anue_spectrum": f"Reactor antineutrino spectrum correction (exp)"
+                }
             else:
-                load_parameters(
-                    format="value",
-                    state="variable",
-                    parameters={"reactor_anue_spectrum": 1.0},
-                    labels={
-                        "reactor_anue_spectrum": "Reactor antineutrino spectrum correction"
-                    },
-                    replicate=index["spec"],
-                )
+                reactor_anue_spectrum_correction_central_value = 1.0
+                labels = {
+                    "reactor_anue_spectrum": f"Reactor antineutrino spectrum correction (linear)"
+                }
+
+            load_parameters(
+                format="value",
+                state="variable",
+                parameters={
+                    "reactor_anue_spectrum": reactor_anue_spectrum_correction_central_value
+                },
+                labels=labels,
+                replicate=index["spec"],
+            )
 
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
@@ -329,6 +350,8 @@ class model_dayabay_v0:
             #
             # Correction part
             #
+            Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
+
             from dagflow.lib import Exp
             from dagflow.lib.Concatenation import Concatenation
 
@@ -346,6 +369,8 @@ class model_dayabay_v0:
                         "reactor_anue.spec_free_correction",
                         parameters("all.reactor_anue_spectrum")
                         )
+            outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
+
 
             #
             # Neutrino rate
