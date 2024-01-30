@@ -261,12 +261,12 @@ class model_dayabay_v0:
             InterpolatorGroup.replicate(
                 method = "exp",
                 name_indexer = "reactor_anue.spec_indexer",
-                name_interpolator = "reactor_anue.spec_interpolator",
+                name_interpolator = "reactor_anue.spec_interpolated",
                 replicate = index["isotope"],
             )
-            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolator.xcoarse"]
-            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolator.ycoarse")
-            kinematic_integrator_enu >> inputs["reactor_anue.spec_interpolator.xfine"]
+            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolated.xcoarse"]
+            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_interpolated.xfine"]
 
             load_graph(
                 name = "reactor_offequilibrium_anue.correction_input",
@@ -279,12 +279,12 @@ class model_dayabay_v0:
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "reactor_offequilibrium_anue.correction_indexer",
-                name_interpolator = "reactor_offequilibrium_anue.correction_interpolator",
+                name_interpolator = "reactor_offequilibrium_anue.correction_interpolated",
                 replicate = index["isotope_offeq"],
             )
-            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xcoarse"]
-            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolator.ycoarse")
-            kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_interpolator.xfine"]
+            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolated.xcoarse"]
+            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_interpolated.xfine"]
 
             load_graph(
                 name = "reactor_snf_anue.correction_input",
@@ -297,12 +297,12 @@ class model_dayabay_v0:
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "reactor_snf_anue.correction_indexer",
-                name_interpolator = "reactor_snf_anue.correction_interpolator",
+                name_interpolator = "reactor_snf_anue.correction_interpolated",
                 replicate = index["reactor"],
             )
-            outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolator.xcoarse"]
-            outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolator.ycoarse")
-            kinematic_integrator_enu >> inputs["reactor_snf_anue.correction_interpolator.xfine"]
+            outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolated.xcoarse"]
+            outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_snf_anue.correction_interpolated.xfine"]
 
             from statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
@@ -311,7 +311,7 @@ class model_dayabay_v0:
                 replicate=index["isotope"],
                 replicate_inputs=index["isotope"]
             )
-            outputs("reactor_anue.spec_interpolator") >> inputs("reactor_anue.spec_nominal")
+            outputs("reactor_anue.spec_interpolated") >> inputs("reactor_anue.spec_nominal")
 
             #
             # Offequilibrium part
@@ -320,7 +320,7 @@ class model_dayabay_v0:
             Product.replicate(
                     "reactor_anue.spec_part_offeq_nominal",
                     outputs("reactor_anue.spec_nominal"),
-                    outputs("reactor_offequilibrium_anue.correction_interpolator"),
+                    outputs("reactor_offequilibrium_anue.correction_interpolated"),
                     allow_skip_inputs = True, # U238
                     replicate=index["isotope_offeq"],
                     )
@@ -338,7 +338,7 @@ class model_dayabay_v0:
             from dagflow.lib.arithmetic import Product
             Product.replicate(
                     "reactor_anue.spec_part_snf_nominal",
-                    outputs("reactor_snf_anue.correction_interpolator"),
+                    outputs("reactor_snf_anue.correction_interpolated"),
                     replicate=index["reactor"],
                     )
             Product.replicate(
@@ -349,7 +349,7 @@ class model_dayabay_v0:
                     )
             
             #
-            # Correction part
+            # Free antineutrino spectrum correction
             #
             Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
 
@@ -375,12 +375,28 @@ class model_dayabay_v0:
             InterpolatorGroup.replicate(
                 method = "exp",
                 name_indexer = "reactor_anue.spec_free_correction_indexer",
-                name_interpolator = "reactor_anue.spec_free_correction_interpolator"
+                name_interpolator = "reactor_anue.spec_free_correction_interpolated"
             )
-            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_interpolator.xcoarse"]
-            outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_interpolator.ycoarse"]
-            kinematic_integrator_enu >> inputs["reactor_anue.spec_free_correction_interpolator.xfine"]
+            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_interpolated.xcoarse"]
+            outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_interpolated.ycoarse"]
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_free_correction_interpolated.xfine"]
 
+            #
+            # Antineutrino spectrum with corrections
+            #
+            Product.replicate(
+                    "reactor_anue.spec_part_main",
+                    outputs("reactor_anue.spec_interpolated"),
+                    outputs["reactor_anue.spec_free_correction_interpolated"],
+                    replicate=index["isotope"],
+                    )
+
+            Sum.replicate(
+                    "reactor_anue.spec_part_core",
+                    outputs("reactor_anue.spec_part_main"),
+                    outputs("reactor_anue.spec_part_offeq_scaled"),
+                    replicate=combinations["reactor.isotope"],
+                    )
 
             #
             # Neutrino rate
@@ -410,7 +426,7 @@ class model_dayabay_v0:
             outputs("oscprob") >> nodes("kinematics_integrand")
             outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
             outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
-            outputs("reactor_anue.spec_interpolator") >> nodes("kinematics_integrand")
+            outputs("reactor_anue.spec_interpolated") >> nodes("kinematics_integrand")
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
             from reactornueosc.InverseSquareLaw import InverseSquareLaw
@@ -474,27 +490,27 @@ class model_dayabay_v0:
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "detector.lsnl.indexer_fwd",
-                name_interpolator = "detector.lsnl.interpolator_fwd",
+                name_interpolator = "detector.lsnl.interpolated_fwd",
                 replicate = index["detector"]
             )
-            outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolator_fwd.xcoarse"]
-            outputs["detector.lsnl.curves.evis"] >> inputs("detector.lsnl.interpolator_fwd.ycoarse")
-            edges_energy_edep >> inputs["detector.lsnl.interpolator_fwd.xfine"]
+            outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolated_fwd.xcoarse"]
+            outputs["detector.lsnl.curves.evis"] >> inputs("detector.lsnl.interpolated_fwd.ycoarse")
+            edges_energy_edep >> inputs["detector.lsnl.interpolated_fwd.xfine"]
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "detector.lsnl.indexer_bwd",
-                name_interpolator = "detector.lsnl.interpolator_bwd",
+                name_interpolator = "detector.lsnl.interpolated_bwd",
                 replicate = index["detector"]
             )
-            outputs["detector.lsnl.curves.evis"] >> inputs["detector.lsnl.interpolator_bwd.xcoarse"]
-            outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolator_bwd.ycoarse")
-            edges_energy_evis >> inputs["detector.lsnl.interpolator_bwd.xfine"]
+            outputs["detector.lsnl.curves.evis"] >> inputs["detector.lsnl.interpolated_bwd.xcoarse"]
+            outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolated_bwd.ycoarse")
+            edges_energy_evis >> inputs["detector.lsnl.interpolated_bwd.xfine"]
 
             from detector.AxisDistortionMatrix import AxisDistortionMatrix
             AxisDistortionMatrix.replicate("detector.lsnl.matrix", replicate=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
-            outputs("detector.lsnl.interpolator_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
-            outputs("detector.lsnl.interpolator_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
+            outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
+            outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
             VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
             outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
