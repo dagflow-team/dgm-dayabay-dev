@@ -237,11 +237,12 @@ class model_dayabay_v0:
             ibd << storage("parameter.constant.ibd.csc")
             outputs["kinematics_sampler.mesh_edep"] >> ibd.inputs["edep"]
             outputs["kinematics_sampler.mesh_costheta"] >> ibd.inputs["costheta"]
+            kinematic_integrator_enu = ibd.outputs["enu"]
 
             from reactornueosc.NueSurvivalProbability import \
                 NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
-            ibd.outputs["enu"] >> inputs("oscprob.enu")
+            kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
             nodes("oscprob") << parameters("free.oscprob")
             nodes("oscprob") << parameters("constrained.oscprob")
@@ -265,7 +266,7 @@ class model_dayabay_v0:
             )
             outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolator.xcoarse"]
             outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_anue.spec_interpolator.xfine"]
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_interpolator.xfine"]
 
             load_graph(
                 name = "reactor_offequilibrium_anue.correction_input",
@@ -283,7 +284,7 @@ class model_dayabay_v0:
             )
             outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xcoarse"]
             outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xfine"]
+            kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_interpolator.xfine"]
 
             load_graph(
                 name = "reactor_snf_anue.correction_input",
@@ -301,7 +302,7 @@ class model_dayabay_v0:
             )
             outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolator.xcoarse"]
             outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_snf_anue.correction_interpolator.xfine"]
+            kinematic_integrator_enu >> inputs["reactor_snf_anue.correction_interpolator.xfine"]
 
             from statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
@@ -370,6 +371,15 @@ class model_dayabay_v0:
                         parameters("all.reactor_anue_spectrum")
                         )
             outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
+
+            InterpolatorGroup.replicate(
+                method = "exp",
+                name_indexer = "reactor_anue.spec_free_correction_indexer",
+                name_interpolator = "reactor_anue.spec_free_correction_interpolator"
+            )
+            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_interpolator.xcoarse"]
+            outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_interpolator.ycoarse"]
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_free_correction_interpolator.xfine"]
 
 
             #
