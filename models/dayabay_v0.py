@@ -66,6 +66,7 @@ class model_dayabay_v0:
 
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self._source_type
+        path_root = path_data / "root"
 
         from dagflow.tools.schema import LoadPy
 
@@ -83,9 +84,9 @@ class model_dayabay_v0:
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["period"] = ("6AD", "8AD", "7AD")
-        index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
+        index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muondecay')
         index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges)))
 
         index.update(self._override_indices)
@@ -99,7 +100,7 @@ class model_dayabay_v0:
         combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
         combinations["reactor.isotope_offeq"] = tuple(product(index["reactor"], index["isotope_offeq"]))
         combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
-        combinations["background.detector"] = tuple(product(index["background"], index["detector"]))
+        combinations["bkg.detector"] = tuple(product(index["bkg"], index["detector"]))
 
         inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
         combinations["period.detector"] = tuple(
@@ -365,12 +366,13 @@ class model_dayabay_v0:
                         "reactor_anue.spec_free_correction",
                         outputs["reactor_anue.spec_free_correction_input"]
                         )
+                outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
             else:
                 Concatenation.replicate(
                         "reactor_anue.spec_free_correction",
                         parameters("all.reactor_anue_spectrum")
                         )
-            outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
+                outputs["reactor_anue.spec_free_correction"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
 
             InterpolatorGroup.replicate(
                 method = "exp",
@@ -442,6 +444,9 @@ class model_dayabay_v0:
 
             Sum.replicate("countrate.raw", outputs("countrate_reac"), replicate = index["detector"])
 
+            # 
+            # Detector effects
+            #
             load_array(
                 name = "detector.iav",
                 filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
@@ -532,6 +537,24 @@ class model_dayabay_v0:
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
             outputs("countrate.erec") >> inputs("countrate.final")
 
+            #
+            # Backgrounds
+            #
+            from dagflow.bundles.load_hist import load_hist
+            load_hist(
+                name = "bkg.lihe",
+                x = "erec",
+                y = "spectrum_shape",
+                merge_x = True,
+                normalize = True,
+                filenames = path_root/"bkg_SYSU_input_by_period_6AD.root",
+                replicate = index["detector"],
+                objects = lambda d: f"DYB_fastNeutron_expected_spectrum_EH{d[-2]}_AD{d[-1]}"
+            )
+
+            #
+            # Statistic
+            #
             from statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="pseudo.data",
