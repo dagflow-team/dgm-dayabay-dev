@@ -348,7 +348,7 @@ class model_dayabay_v0:
                     outputs("reactor_anue.spec_part_snf_nominal"),
                     replicate=index["reactor"],
                     )
-            
+
             #
             # Free antineutrino spectrum correction
             #
@@ -444,7 +444,7 @@ class model_dayabay_v0:
 
             Sum.replicate("countrate.raw", outputs("countrate_reac"), replicate = index["detector"])
 
-            # 
+            #
             # Detector effects
             #
             load_array(
@@ -547,8 +547,9 @@ class model_dayabay_v0:
                 y = "spectrum_shape",
                 merge_x = True,
                 normalize = True,
-                filenames = path_root/"bkg_SYSU_input_by_period_6AD.root",
+                filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
                 replicate = index["detector"],
+                replicate_files = index["period"],
                 objects = lambda d: f"DYB_fastNeutron_expected_spectrum_EH{d[-2]}_AD{d[-1]}"
             )
 
