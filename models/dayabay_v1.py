@@ -6,7 +6,7 @@ from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
 from dagflow.tools.schema import LoadYaml
 from dagflow.storage import NodeStorage
-from dagflow.logger import set_level, DEBUG, SUBINFO, SUBSUBINFO
+from dagflow.logger import set_level, DEBUG, INFO1, INFO2
 
 from multikeydict.nestedmkdict import NestedMKDict
 
@@ -33,7 +33,7 @@ class model_dayabay_v1():
         self._strict = strict
         self._close = close
 
-        set_level(SUBINFO)
+        set_level(INFO1)
 
         self.graph = None
         self.storage = NodeStorage()

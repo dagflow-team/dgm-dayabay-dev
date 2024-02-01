@@ -3,16 +3,20 @@
 from argparse import Namespace
 
 from dagflow.graph import Graph
-from dagflow.logger import SUBINFO, SUBSUBINFO, set_level
-from dagflow.plot import plot_auto
+from dagflow.logger import INFO1, INFO2, INFO3
+from dagflow.logger import set_level
+# from dagflow.plot import plot_auto
 from dagflow.storage import NodeStorage
 from models.dayabay_v0 import model_dayabay_v0
 
-set_level(SUBINFO)
-# set_level(SUBSUBINFO)
-
+set_level(INFO1)
 
 def main(opts: Namespace) -> None:
+    if opts.verbose:
+        if opts.verbose>3:
+            opts.verbose = 3
+        set_level(globals()[f"INFO{opts.verbose}"])
+
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
     model = model_dayabay_v0(
         close=opts.close,
@@ -140,6 +144,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
+    parser.add_argument('-v', '--verbose', default=0, action='count', help='verbosity level')
     parser.add_argument(
         "-s",
         "--source-type",
