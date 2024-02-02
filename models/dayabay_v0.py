@@ -86,7 +86,8 @@ class model_dayabay_v0:
         index["period"] = ("6AD", "8AD", "7AD")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
-        index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muondecay')
+        # index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muon')
+        index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan')
         index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges)))
 
         index.update(self._override_indices)
@@ -103,6 +104,7 @@ class model_dayabay_v0:
         combinations["bkg.detector"] = tuple(product(index["bkg"], index["detector"]))
 
         inactive_detectors = (("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11"))
+        # unused_backgrounds = (("6AD", "muon"), ("8AD", "muon"))
         combinations["period.detector"] = tuple(
             pair
             for pair in product(index["period"], index["detector"])
@@ -251,13 +253,12 @@ class model_dayabay_v0:
 
             load_graph(
                 name = "reactor_anue.input_spectrum",
+                filenames = path_arrays / f"reactor_anue_spectra_50kev.{self._source_type}",
                 x = "enu",
                 y = "spec",
                 merge_x = True,
-                load = path_arrays/"reactor_anue_spectra_50kev.yaml",
                 replicate = index["isotope"],
             )
-
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
             InterpolatorGroup.replicate(
                 method = "exp",
@@ -274,9 +275,10 @@ class model_dayabay_v0:
                 x = "enu",
                 y = "offequilibrium_correction",
                 merge_x = True,
-                load = path_arrays/"offequilibrium_correction.yaml",
+                filenames = path_arrays / f"offequilibrium_correction.{self._source_type}",
                 replicate = index["isotope_offeq"],
             )
+
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "reactor_offequilibrium_anue.correction_indexer",
@@ -292,7 +294,7 @@ class model_dayabay_v0:
                 x = "enu",
                 y = "snf_correction",
                 merge_x = True,
-                load = path_arrays/"snf_correction.yaml",
+                filenames = path_arrays / f"snf_correction.{self._source_type}",
                 replicate = index["reactor"],
             )
             InterpolatorGroup.replicate(
@@ -541,17 +543,25 @@ class model_dayabay_v0:
             # Backgrounds
             #
             from dagflow.bundles.load_hist import load_hist
+            bkg_names = {
+                'acc': "accidental",
+                'lihe': "lithium9",
+                'fastn': "fastNeutron",
+                'amc': "amCSource",
+                'alphan': "carbonAlpha",
+                'muon': "muonRelated"
+            }
             load_hist(
-                name = "bkg.lihe",
+                name = "bkg",
                 x = "erec",
                 y = "spectrum_shape",
                 merge_x = True,
                 normalize = True,
                 filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
-                replicate = index["detector"],
                 replicate_files = index["period"],
+                replicate = combinations["bkg.detector"],
                 skip = inactive_detectors,
-                objects = lambda d: f"DYB_fastNeutron_expected_spectrum_EH{d[-2]}_AD{d[-1]}"
+                objects = lambda _, idx: f"DYB_{bkg_names[idx[1]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
             )
 
             #
