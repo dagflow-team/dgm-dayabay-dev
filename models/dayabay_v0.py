@@ -102,7 +102,7 @@ class model_dayabay_v0:
         combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
         combinations["bkg.detector"] = tuple(product(index["bkg"], index["detector"]))
 
-        inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
+        inactive_detectors = (("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11"))
         combinations["period.detector"] = tuple(
             pair
             for pair in product(index["period"], index["detector"])
@@ -550,6 +550,7 @@ class model_dayabay_v0:
                 filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
                 replicate = index["detector"],
                 replicate_files = index["period"],
+                skip = inactive_detectors,
                 objects = lambda d: f"DYB_fastNeutron_expected_spectrum_EH{d[-2]}_AD{d[-1]}"
             )
 
