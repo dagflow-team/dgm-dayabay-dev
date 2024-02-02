@@ -40,51 +40,16 @@ def main(opts: Namespace) -> None:
         plot_graph(graph, storage)
         return
 
-    print(storage.to_table(truncate=True))
+    if opts.print_all:
+        print(storage.to_table(truncate=True))
+    for source in opts.print:
+        print(storage(source).to_table(truncate=True))
     if len(storage("inputs")) > 0:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate=True))
 
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
-
-    # storage("outputs.oscprob").plot(folder='output/dayabay_v0_auto')
-    # storage("outputs.countrate").plot(show_all=True)
-    # storage("outputs").plot(
-    #     folder = 'output/dayabay_v0_auto',
-    #     overlay_priority = (index["isotope"], index["reactor"], index['background'], index["detector"])
-    # )
-
-    # storage["parameter.normalized.detector.eres.b_stat"].value = 1
-    # storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
-    #
-    # # p1 = storage["parameter.normalized.detector.eres.b_stat"]
-    # # p2 = storage["parameter.constrained.detector.eres.b_stat"]
-    #
-    # constrained = storage("parameter.constrained")
-    # normalized = storage("parameter.normalized")
-    #
-    # print("Everything")
-    # print(storage.to_table(truncate=True))
-
-    # print("Constants")
-    # print(storage("parameter.constant").to_table(truncate=True))
-    #
-    # print("Constrained")
-    # print(constrained.to_table(truncate=True))
-    #
-    # print("Normalized")
-    # print(normalized.to_table(truncate=True))
-    #
-    # print("Stat")
-    # print(storage("stat").to_table(truncate=True))
-
-    # print("Parameters (latex)")
-    # print(storage["parameter"].to_latex())
-    #
-    # print("Constants (latex)")
-    # tex = storage["parameter.constant"].to_latex(columns=["path", "value", "label"])
-    # print(tex)
 
     storage.to_datax("output/dayabay_v0_data.tex")
     plot_graph(graph, storage)
@@ -156,6 +121,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--plot-all", help="plot all the nodes to the folder", metavar="folder"
     )
+
+    storage = parser.add_argument_group("storage", "storage related options")
+    parser.add_argument("-P", "--print-all", action="store_true", help="print all")
+    parser.add_argument("-p", "--print", action="append", default=[], help="print all")
 
     graph = parser.add_argument_group("graph", "graph related options")
     graph.add_argument(
