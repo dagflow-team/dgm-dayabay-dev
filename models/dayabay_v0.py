@@ -234,7 +234,7 @@ class model_dayabay_v0:
             integration_orders_edep >> integrator("ordersX")
             integration_orders_costheta >> integrator("ordersY")
 
-            from reactornueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
+            from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
             ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
             ibd << storage("parameter.constant.ibd")
             ibd << storage("parameter.constant.ibd.csc")
@@ -242,8 +242,8 @@ class model_dayabay_v0:
             outputs["kinematics_sampler.mesh_costheta"] >> ibd.inputs["costheta"]
             kinematic_integrator_enu = ibd.outputs["enu"]
 
-            from reactornueosc.NueSurvivalProbability import \
-                NueSurvivalProbability
+            from dgf_reactoranueosc.NueSurvivalProbability import \
+                    NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
             kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
@@ -307,7 +307,7 @@ class model_dayabay_v0:
             outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_snf_anue.correction_interpolated.xfine"]
 
-            from statistics.MonteCarlo import MonteCarlo
+            from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="reactor_anue.spec_nominal",
                 mode="asimov",
@@ -433,7 +433,7 @@ class model_dayabay_v0:
             outputs("reactor_anue.spec_interpolated") >> nodes("kinematics_integrand")
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
-            from reactornueosc.InverseSquareLaw import InverseSquareLaw
+            from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate("baseline_factor", replicate=combinations["reactor.detector"])
             parameters("constant.baseline") >> inputs("baseline_factor")
 
@@ -474,7 +474,7 @@ class model_dayabay_v0:
                 replicate = index["lsnl"],
             )
 
-            from detector.bundles.refine_lsnl_data import refine_lsnl_data
+            from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
@@ -513,7 +513,7 @@ class model_dayabay_v0:
             outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolated_bwd.ycoarse")
             edges_energy_evis >> inputs["detector.lsnl.interpolated_bwd.xfine"]
 
-            from detector.AxisDistortionMatrix import AxisDistortionMatrix
+            from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
             AxisDistortionMatrix.replicate("detector.lsnl.matrix", replicate=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
             outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
@@ -523,7 +523,7 @@ class model_dayabay_v0:
             outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
             outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
 
-            from detector.EnergyResolution import EnergyResolution
+            from dgf_detector.EnergyResolution import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
             nodes["detector.eres.sigma_rel"] << parameters("constrained.detector.eres")
             outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
@@ -533,7 +533,7 @@ class model_dayabay_v0:
             outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
             outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
 
-            from detector.Rebin import Rebin
+            from dgf_detector.Rebin import Rebin
             Rebin.replicate("detector.rebin_matrix", "countrate.final", replicate=index["detector"])
             edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
@@ -567,7 +567,7 @@ class model_dayabay_v0:
             #
             # Statistic
             #
-            from statistics.MonteCarlo import MonteCarlo
+            from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="pseudo.data",
                 mode="asimov",
@@ -576,13 +576,13 @@ class model_dayabay_v0:
             )
             outputs("countrate.final") >> inputs("pseudo.data.input")
 
-            from statistics.Chi2 import Chi2
+            from dgf_statistics.Chi2 import Chi2
             Chi2.replicate("statistic.stat.chi2p", replicate_inputs=index["detector"])
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
             outputs("countrate.final") >> inputs("statistic.stat.chi2p.theory")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
-            from statistics.CNPStat import CNPStat
+            from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate("statistic.staterr.cnp", replicate_inputs=index["detector"], replicate=index["detector"])
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
             outputs("countrate.final") >> inputs("statistic.staterr.cnp.theory")
