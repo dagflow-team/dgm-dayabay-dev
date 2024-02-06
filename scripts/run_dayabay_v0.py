@@ -1,24 +1,30 @@
 #!/usr/bin/env python
-
 from argparse import Namespace
 
 from dagflow.graph import Graph
-from dagflow.logger import SUBINFO, SUBSUBINFO, set_level
-from dagflow.plot import plot_auto
+from dagflow.logger import INFO1
+from dagflow.logger import INFO2
+from dagflow.logger import INFO3
+from dagflow.logger import set_level
 from dagflow.storage import NodeStorage
+
 from models.dayabay_v0 import model_dayabay_v0
+# from dagflow.plot import plot_auto
 
-set_level(SUBINFO)
-# set_level(SUBSUBINFO)
-
+set_level(INFO1)
 
 def main(opts: Namespace) -> None:
+    if opts.verbose:
+        opts.verbose = min(opts.verbose, 3)
+        set_level(globals()[f"INFO{opts.verbose}"])
+
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
     model = model_dayabay_v0(
         close=opts.close,
         strict=opts.strict,
         source_type=opts.source_type,
         override_indices=override_indices,
+        spectrum_correction_mode=opts.spec
     )
 
     graph = model.graph
@@ -35,51 +41,16 @@ def main(opts: Namespace) -> None:
         plot_graph(graph, storage)
         return
 
-    print(storage.to_table(truncate=True))
+    if opts.print_all:
+        print(storage.to_table(truncate=True))
+    for source in opts.print:
+        print(storage(source).to_table(truncate=True))
     if len(storage("inputs")) > 0:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate=True))
 
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
-
-    # storage("outputs.oscprob").plot(folder='output/dayabay_v0_auto')
-    # storage("outputs.countrate").plot(show_all=True)
-    # storage("outputs").plot(
-    #     folder = 'output/dayabay_v0_auto',
-    #     overlay_priority = (index["isotope"], index["reactor"], index['background'], index["detector"])
-    # )
-
-    # storage["parameter.normalized.detector.eres.b_stat"].value = 1
-    # storage["parameter.normalized.detector.eres.a_nonuniform"].value = 2
-    #
-    # # p1 = storage["parameter.normalized.detector.eres.b_stat"]
-    # # p2 = storage["parameter.constrained.detector.eres.b_stat"]
-    #
-    # constrained = storage("parameter.constrained")
-    # normalized = storage("parameter.normalized")
-    #
-    # print("Everything")
-    # print(storage.to_table(truncate=True))
-
-    # print("Constants")
-    # print(storage("parameter.constant").to_table(truncate=True))
-    #
-    # print("Constrained")
-    # print(constrained.to_table(truncate=True))
-    #
-    # print("Normalized")
-    # print(normalized.to_table(truncate=True))
-    #
-    # print("Stat")
-    # print(storage("stat").to_table(truncate=True))
-
-    # print("Parameters (latex)")
-    # print(storage["parameter"].to_latex())
-    #
-    # print("Constants (latex)")
-    # tex = storage["parameter.constant"].to_latex(columns=["path", "value", "label"])
-    # print(tex)
 
     storage.to_datax("output/dayabay_v0_data.tex")
     plot_graph(graph, storage)
@@ -139,6 +110,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
+    parser.add_argument('-v', '--verbose', default=0, action='count', help='verbosity level')
     parser.add_argument(
         "-s",
         "--source-type",
@@ -150,13 +122,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--plot-all", help="plot all the nodes to the folder", metavar="folder"
     )
-    parser.add_argument(
+
+    storage = parser.add_argument_group("storage", "storage related options")
+    parser.add_argument("-P", "--print-all", action="store_true", help="print all")
+    parser.add_argument("-p", "--print", action="append", default=[], help="print all")
+
+    graph = parser.add_argument_group("graph", "graph related options")
+    graph.add_argument(
         "--no-close", action="store_false", dest="close", help="Do not close the graph"
     )
-    parser.add_argument(
+    graph.add_argument(
         "--no-strict", action="store_false", dest="strict", help="Disable strict mode"
     )
-    parser.add_argument(
+    graph.add_argument(
         "-i",
         "--index",
         nargs="+",
@@ -165,5 +143,8 @@ if __name__ == "__main__":
         help="override index",
         metavar=("index", "value1"),
     )
+
+    model = parser.add_argument_group("model", "model related options")
+    model.add_argument("--spec", choices=("linear", "exponential"), help="antineutrino spectrum correction mode")
 
     main(parser.parse_args())

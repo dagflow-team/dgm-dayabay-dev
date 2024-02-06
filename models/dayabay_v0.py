@@ -1,7 +1,9 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from itertools import product
 from pathlib import Path
-from typing import Literal, Mapping, Optional
+from typing import Literal
+
+from numpy import ndarray
 
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph
@@ -15,6 +17,7 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
+
 class model_dayabay_v0:
     __slots__ = (
         "storage",
@@ -24,15 +27,17 @@ class model_dayabay_v0:
         "_source_type",
         "_strict",
         "_close",
+        "_spectrum_correction_mode",
     )
 
     storage: NodeStorage
-    graph: Optional[Graph]
+    graph: Graph | None
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
     _source_type: SourceTypes
     _strict: bool
     _close: bool
+    _spectrum_correction_mode: Literal["linear", "exponential"]
 
     def __init__(
         self,
@@ -41,6 +46,7 @@ class model_dayabay_v0:
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
+        spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
     ):
         self._strict = strict
         self._close = close
@@ -50,12 +56,25 @@ class model_dayabay_v0:
         self._path_data = Path("data/dayabay-v0")
         self._source_type = source_type
         self._override_indices = override_indices
+        self._spectrum_correction_mode = spectrum_correction_mode
 
         self.build()
 
     def build(self):
         storage = self.storage
         path_data = self._path_data
+
+        path_parameters = path_data / "parameters"
+        path_arrays = path_data / self._source_type
+        path_root = path_data / "root"
+
+        from dagflow.tools.schema import LoadPy
+
+        antineutrino_model_edges = LoadPy(
+            path_parameters / "reactor_antineutrino_spectrum_edges.py",
+            variable="edges",
+            type=ndarray,
+        )
 
         # fmt: off
         index, combinations = {}, {}
@@ -65,9 +84,11 @@ class model_dayabay_v0:
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["period"] = ("6AD", "8AD", "7AD")
-        index["background"] = ("acc", "lihe", "fastn", "alphan", "amc")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
+        # index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muon')
+        index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan')
+        index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges)))
 
         index.update(self._override_indices)
 
@@ -80,18 +101,21 @@ class model_dayabay_v0:
         combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
         combinations["reactor.isotope_offeq"] = tuple(product(index["reactor"], index["isotope_offeq"]))
         combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
-        combinations["background.detector"] = tuple(product(index["background"], index["detector"]))
+        combinations["bkg.detector"] = tuple(product(index["bkg"], index["detector"]))
 
-        inactive_detectors = [("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11")]
+        inactive_detectors = (("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11"))
+        # unused_backgrounds = (("6AD", "muon"), ("8AD", "muon"))
         combinations["period.detector"] = tuple(
             pair
             for pair in product(index["period"], index["detector"])
-            if not pair in inactive_detectors
+            if pair not in inactive_detectors
         )
         # fmt: on
 
-        path_parameters = path_data / "parameters"
-        path_arrays = path_data / self._source_type
+        spectrum_correction_is_exponential = (
+            self._spectrum_correction_mode == "exponential"
+        )
+
         with Graph(close=self._close, strict=self._strict) as graph, storage:
             # fmt: off
             self.graph = graph
@@ -132,6 +156,35 @@ class model_dayabay_v0:
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
+
+            labels = {  # TODO, not propagated
+                "reactor_anue_spectrum": {
+                    name: f"Edge {i:02d} ({edge:.2f} MeV) Reactor antineutrino spectrum correction"
+                    for i, (name, edge) in enumerate(
+                        zip(index["spec"], antineutrino_model_edges)
+                    )
+                }
+            }
+            if spectrum_correction_is_exponential:
+                reactor_anue_spectrum_correction_central_value = 0.0
+                labels = {
+                    "reactor_anue_spectrum": "Reactor antineutrino spectrum correction (exp)"
+                }
+            else:
+                reactor_anue_spectrum_correction_central_value = 1.0
+                labels = {
+                    "reactor_anue_spectrum": "Reactor antineutrino spectrum correction (linear)"
+                }
+
+            load_parameters(
+                format="value",
+                state="variable",
+                parameters={
+                    "reactor_anue_spectrum": reactor_anue_spectrum_correction_central_value
+                },
+                labels=labels,
+                replicate=index["spec"],
+            )
 
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
@@ -181,17 +234,18 @@ class model_dayabay_v0:
             integration_orders_edep >> integrator("ordersX")
             integration_orders_costheta >> integrator("ordersY")
 
-            from reactornueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
+            from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
             ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
             ibd << storage("parameter.constant.ibd")
             ibd << storage("parameter.constant.ibd.csc")
             outputs["kinematics_sampler.mesh_edep"] >> ibd.inputs["edep"]
             outputs["kinematics_sampler.mesh_costheta"] >> ibd.inputs["costheta"]
+            kinematic_integrator_enu = ibd.outputs["enu"]
 
-            from reactornueosc.NueSurvivalProbability import \
-                NueSurvivalProbability
+            from dgf_reactoranueosc.NueSurvivalProbability import \
+                    NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
-            ibd.outputs["enu"] >> inputs("oscprob.enu")
+            kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
             nodes("oscprob") << parameters("free.oscprob")
             nodes("oscprob") << parameters("constrained.oscprob")
@@ -199,68 +253,68 @@ class model_dayabay_v0:
 
             load_graph(
                 name = "reactor_anue.input_spectrum",
+                filenames = path_arrays / f"reactor_anue_spectra_50kev.{self._source_type}",
                 x = "enu",
                 y = "spec",
                 merge_x = True,
-                load = path_arrays/"reactor_anue_spectra_50kev.yaml",
                 replicate = index["isotope"],
             )
-
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
             InterpolatorGroup.replicate(
                 method = "exp",
                 name_indexer = "reactor_anue.spec_indexer",
-                name_interpolator = "reactor_anue.spec_interpolator",
+                name_interpolator = "reactor_anue.spec_interpolated",
                 replicate = index["isotope"],
             )
-            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolator.xcoarse"]
-            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_anue.spec_interpolator.xfine"]
+            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolated.xcoarse"]
+            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_interpolated.xfine"]
 
             load_graph(
                 name = "reactor_offequilibrium_anue.correction_input",
                 x = "enu",
                 y = "offequilibrium_correction",
                 merge_x = True,
-                load = path_arrays/"offequilibrium_correction.yaml",
+                filenames = path_arrays / f"offequilibrium_correction.{self._source_type}",
                 replicate = index["isotope_offeq"],
             )
+
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "reactor_offequilibrium_anue.correction_indexer",
-                name_interpolator = "reactor_offequilibrium_anue.correction_interpolator",
+                name_interpolator = "reactor_offequilibrium_anue.correction_interpolated",
                 replicate = index["isotope_offeq"],
             )
-            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xcoarse"]
-            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolator.xfine"]
+            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolated.xcoarse"]
+            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_interpolated.xfine"]
 
             load_graph(
                 name = "reactor_snf_anue.correction_input",
                 x = "enu",
                 y = "snf_correction",
                 merge_x = True,
-                load = path_arrays/"snf_correction.yaml",
+                filenames = path_arrays / f"snf_correction.{self._source_type}",
                 replicate = index["reactor"],
             )
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "reactor_snf_anue.correction_indexer",
-                name_interpolator = "reactor_snf_anue.correction_interpolator",
+                name_interpolator = "reactor_snf_anue.correction_interpolated",
                 replicate = index["reactor"],
             )
-            outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolator.xcoarse"]
-            outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolator.ycoarse")
-            ibd.outputs["enu"] >> inputs["reactor_snf_anue.correction_interpolator.xfine"]
+            outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolated.xcoarse"]
+            outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_snf_anue.correction_interpolated.xfine"]
 
-            from statistics.MonteCarlo import MonteCarlo
+            from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="reactor_anue.spec_nominal",
                 mode="asimov",
                 replicate=index["isotope"],
                 replicate_inputs=index["isotope"]
             )
-            outputs("reactor_anue.spec_interpolator") >> inputs("reactor_anue.spec_nominal")
+            outputs("reactor_anue.spec_interpolated") >> inputs("reactor_anue.spec_nominal")
 
             #
             # Offequilibrium part
@@ -269,7 +323,7 @@ class model_dayabay_v0:
             Product.replicate(
                     "reactor_anue.spec_part_offeq_nominal",
                     outputs("reactor_anue.spec_nominal"),
-                    outputs("reactor_offequilibrium_anue.correction_interpolator"),
+                    outputs("reactor_offequilibrium_anue.correction_interpolated"),
                     allow_skip_inputs = True, # U238
                     replicate=index["isotope_offeq"],
                     )
@@ -287,7 +341,7 @@ class model_dayabay_v0:
             from dagflow.lib.arithmetic import Product
             Product.replicate(
                     "reactor_anue.spec_part_snf_nominal",
-                    outputs("reactor_snf_anue.correction_interpolator"),
+                    outputs("reactor_snf_anue.correction_interpolated"),
                     replicate=index["reactor"],
                     )
             Product.replicate(
@@ -298,13 +352,75 @@ class model_dayabay_v0:
                     )
 
             #
+            # Free antineutrino spectrum correction
+            #
+            Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
+
+            from dagflow.lib import Exp
+            from dagflow.lib.Concatenation import Concatenation
+
+            if spectrum_correction_is_exponential:
+                Concatenation.replicate(
+                        "reactor_anue.spec_free_correction_input",
+                        parameters("all.reactor_anue_spectrum")
+                        )
+                Exp.replicate(
+                        "reactor_anue.spec_free_correction",
+                        outputs["reactor_anue.spec_free_correction_input"]
+                        )
+                outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
+            else:
+                Concatenation.replicate(
+                        "reactor_anue.spec_free_correction",
+                        parameters("all.reactor_anue_spectrum")
+                        )
+                outputs["reactor_anue.spec_free_correction"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
+
+            InterpolatorGroup.replicate(
+                method = "exp",
+                name_indexer = "reactor_anue.spec_free_correction_indexer",
+                name_interpolator = "reactor_anue.spec_free_correction_interpolated"
+            )
+            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_interpolated.xcoarse"]
+            outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_interpolated.ycoarse"]
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_free_correction_interpolated.xfine"]
+
+            #
+            # Antineutrino spectrum with corrections
+            #
+            Product.replicate(
+                    "reactor_anue.spec_part_main",
+                    outputs("reactor_anue.spec_interpolated"),
+                    outputs["reactor_anue.spec_free_correction_interpolated"],
+                    replicate=index["isotope"],
+                    )
+
+            Sum.replicate(
+                    "reactor_anue.spec_part_core",
+                    outputs("reactor_anue.spec_part_main"),
+                    outputs("reactor_anue.spec_part_offeq_scaled"),
+                    replicate=combinations["reactor.isotope"],
+                    )
+
+            #
             # Neutrino rate
             #
             Product.replicate(
-                    "reactor.energy_per_fission_weighted",
+                    "reactor.energy_per_fission_snf_weighted",
                     parameters("all.reactor.energy_per_fission"),
                     parameters("all.reactor.fission_fraction_snf"),
                     replicate=index["isotope"],
+                    )
+            Sum.replicate(
+                    "reactor.energy_per_fission_snf_average",
+                    outputs("reactor.energy_per_fission_snf_weighted")
+                    )
+            Product.replicate(
+                    "reactor.thermal_power_weighted_MeV",
+                    parameters("all.reactor.nominal_thermal_power"),
+                    parameters("all.reactor.fission_fraction_snf"),
+                    parameters["all.conversion.reactorPowerConversion"],
+                    replicate=combinations["reactor.isotope"],
                     )
 
             #
@@ -314,10 +430,10 @@ class model_dayabay_v0:
             outputs("oscprob") >> nodes("kinematics_integrand")
             outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
             outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
-            outputs("reactor_anue.spec_interpolator") >> nodes("kinematics_integrand")
+            outputs("reactor_anue.spec_interpolated") >> nodes("kinematics_integrand")
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
-            from reactornueosc.InverseSquareLaw import InverseSquareLaw
+            from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate("baseline_factor", replicate=combinations["reactor.detector"])
             parameters("constant.baseline") >> inputs("baseline_factor")
 
@@ -330,6 +446,9 @@ class model_dayabay_v0:
 
             Sum.replicate("countrate.raw", outputs("countrate_reac"), replicate = index["detector"])
 
+            #
+            # Detector effects
+            #
             load_array(
                 name = "detector.iav",
                 filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
@@ -355,7 +474,7 @@ class model_dayabay_v0:
                 replicate = index["lsnl"],
             )
 
-            from detector.bundles.refine_lsnl_data import refine_lsnl_data
+            from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
@@ -378,33 +497,33 @@ class model_dayabay_v0:
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "detector.lsnl.indexer_fwd",
-                name_interpolator = "detector.lsnl.interpolator_fwd",
+                name_interpolator = "detector.lsnl.interpolated_fwd",
                 replicate = index["detector"]
             )
-            outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolator_fwd.xcoarse"]
-            outputs["detector.lsnl.curves.evis"] >> inputs("detector.lsnl.interpolator_fwd.ycoarse")
-            edges_energy_edep >> inputs["detector.lsnl.interpolator_fwd.xfine"]
+            outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolated_fwd.xcoarse"]
+            outputs["detector.lsnl.curves.evis"] >> inputs("detector.lsnl.interpolated_fwd.ycoarse")
+            edges_energy_edep >> inputs["detector.lsnl.interpolated_fwd.xfine"]
             InterpolatorGroup.replicate(
                 method = "linear",
                 name_indexer = "detector.lsnl.indexer_bwd",
-                name_interpolator = "detector.lsnl.interpolator_bwd",
+                name_interpolator = "detector.lsnl.interpolated_bwd",
                 replicate = index["detector"]
             )
-            outputs["detector.lsnl.curves.evis"] >> inputs["detector.lsnl.interpolator_bwd.xcoarse"]
-            outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolator_bwd.ycoarse")
-            edges_energy_evis >> inputs["detector.lsnl.interpolator_bwd.xfine"]
+            outputs["detector.lsnl.curves.evis"] >> inputs["detector.lsnl.interpolated_bwd.xcoarse"]
+            outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolated_bwd.ycoarse")
+            edges_energy_evis >> inputs["detector.lsnl.interpolated_bwd.xfine"]
 
-            from detector.AxisDistortionMatrix import AxisDistortionMatrix
+            from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
             AxisDistortionMatrix.replicate("detector.lsnl.matrix", replicate=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
-            outputs("detector.lsnl.interpolator_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
-            outputs("detector.lsnl.interpolator_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
+            outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
+            outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
             VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
             outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
             outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
 
-            from detector.EnergyResolution import EnergyResolution
+            from dgf_detector.EnergyResolution import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
             nodes["detector.eres.sigma_rel"] << parameters("constrained.detector.eres")
             outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
@@ -414,13 +533,41 @@ class model_dayabay_v0:
             outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
             outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
 
-            from detector.Rebin import Rebin
+            from dgf_detector.Rebin import Rebin
             Rebin.replicate("detector.rebin_matrix", "countrate.final", replicate=index["detector"])
             edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
             outputs("countrate.erec") >> inputs("countrate.final")
 
-            from statistics.MonteCarlo import MonteCarlo
+            #
+            # Backgrounds
+            #
+            from dagflow.bundles.load_hist import load_hist
+            bkg_names = {
+                'acc': "accidental",
+                'lihe': "lithium9",
+                'fastn': "fastNeutron",
+                'amc': "amCSource",
+                'alphan': "carbonAlpha",
+                'muon': "muonRelated"
+            }
+            load_hist(
+                name = "bkg",
+                x = "erec",
+                y = "spectrum_shape",
+                merge_x = True,
+                normalize = True,
+                filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
+                replicate_files = index["period"],
+                replicate = combinations["bkg.detector"],
+                skip = inactive_detectors,
+                objects = lambda _, idx: f"DYB_{bkg_names[idx[1]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
+            )
+
+            #
+            # Statistic
+            #
+            from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="pseudo.data",
                 mode="asimov",
@@ -429,13 +576,13 @@ class model_dayabay_v0:
             )
             outputs("countrate.final") >> inputs("pseudo.data.input")
 
-            from statistics.Chi2 import Chi2
+            from dgf_statistics.Chi2 import Chi2
             Chi2.replicate("statistic.stat.chi2p", replicate_inputs=index["detector"])
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
             outputs("countrate.final") >> inputs("statistic.stat.chi2p.theory")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
-            from statistics.CNPStat import CNPStat
+            from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate("statistic.staterr.cnp", replicate_inputs=index["detector"], replicate=index["detector"])
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
             outputs("countrate.final") >> inputs("statistic.staterr.cnp.theory")
