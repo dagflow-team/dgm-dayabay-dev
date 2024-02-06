@@ -15,8 +15,7 @@ set_level(INFO1)
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        if opts.verbose>3:
-            opts.verbose = 3
+        opts.verbose = min(opts.verbose, 3)
         set_level(globals()[f"INFO{opts.verbose}"])
 
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}

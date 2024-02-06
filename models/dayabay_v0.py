@@ -108,7 +108,7 @@ class model_dayabay_v0:
         combinations["period.detector"] = tuple(
             pair
             for pair in product(index["period"], index["detector"])
-            if not pair in inactive_detectors
+            if pair not in inactive_detectors
         )
         # fmt: on
 
@@ -168,12 +168,12 @@ class model_dayabay_v0:
             if spectrum_correction_is_exponential:
                 reactor_anue_spectrum_correction_central_value = 0.0
                 labels = {
-                    "reactor_anue_spectrum": f"Reactor antineutrino spectrum correction (exp)"
+                    "reactor_anue_spectrum": "Reactor antineutrino spectrum correction (exp)"
                 }
             else:
                 reactor_anue_spectrum_correction_central_value = 1.0
                 labels = {
-                    "reactor_anue_spectrum": f"Reactor antineutrino spectrum correction (linear)"
+                    "reactor_anue_spectrum": "Reactor antineutrino spectrum correction (linear)"
                 }
 
             load_parameters(
