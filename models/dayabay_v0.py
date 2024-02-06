@@ -1,7 +1,7 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from itertools import product
 from pathlib import Path
-from typing import Literal, Mapping, Optional
+from typing import Literal
 
 from numpy import ndarray
 
@@ -31,7 +31,7 @@ class model_dayabay_v0:
     )
 
     storage: NodeStorage
-    graph: Optional[Graph]
+    graph: Graph | None
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
     _source_type: SourceTypes

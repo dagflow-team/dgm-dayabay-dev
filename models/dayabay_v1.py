@@ -1,18 +1,15 @@
-from dagflow.bundles.load_parameters import load_parameters
-from dagflow.bundles.load_graph import load_graph
+from itertools import product
 from pathlib import Path
 
+from dagflow.bundles.load_graph import load_graph
+from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
-from dagflow.tools.schema import LoadYaml
+from dagflow.logger import DEBUG, INFO1, INFO2, set_level
 from dagflow.storage import NodeStorage
-from dagflow.logger import set_level, DEBUG, INFO1, INFO2
-
+from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
-from itertools import product
-
-from typing import Optional
 
 class model_dayabay_v1():
     __slots__ = (
@@ -24,7 +21,7 @@ class model_dayabay_v1():
     )
 
     storage: NodeStorage
-    graph: Optional[Graph]
+    graph: Graph | None
     _datasource: Path
     _strict: bool
     _close: bool
@@ -107,9 +104,10 @@ class model_dayabay_v1():
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
 
+            from numpy import linspace
+
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
-            from numpy import linspace
             edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
             edges_energy_common, _ = Array.make_stored("edges.energy_common", linspace(0, 12, 241))
             View.make_stored("edges.energy_enu", edges_energy_common)
@@ -138,7 +136,8 @@ class model_dayabay_v1():
             outputs['kinematics_sampler.mesh_edep'] >> ibd.inputs["edep"]
             outputs['kinematics_sampler.mesh_costheta'] >> ibd.inputs["costheta"]
 
-            from reactornueosc.NueSurvivalProbability import NueSurvivalProbability
+            from reactornueosc.NueSurvivalProbability import \
+                NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
             ibd.outputs["enu"] >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
@@ -187,4 +186,3 @@ class model_dayabay_v1():
                 labels_mk.delete_with_parents(key)
             if labels_mk:
                 raise RuntimeError(f"The following label groups were not used: {tuple(labels.keys())}")
-

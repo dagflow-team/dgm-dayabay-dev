@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-
 from argparse import Namespace
 
 from dagflow.graph import Graph
-from dagflow.logger import INFO1, INFO2, INFO3
+from dagflow.logger import INFO1
+from dagflow.logger import INFO2
+from dagflow.logger import INFO3
 from dagflow.logger import set_level
-# from dagflow.plot import plot_auto
 from dagflow.storage import NodeStorage
+
 from models.dayabay_v0 import model_dayabay_v0
+# from dagflow.plot import plot_auto
 
 set_level(INFO1)
 
