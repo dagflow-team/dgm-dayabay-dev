@@ -13,6 +13,7 @@ from dagflow.lib.arithmetic import Sum
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
+from multikeydict.map import remap_items
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
@@ -242,7 +243,7 @@ class model_dayabay_v0:
             kinematic_integrator_enu = ibd.outputs["enu"]
 
             from dgf_reactoranueosc.NueSurvivalProbability import \
-                    NueSurvivalProbability
+                NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
             kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
@@ -564,10 +565,44 @@ class model_dayabay_v0:
                 objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
             )
 
+            ads_at_sites = {
+                    "EH1": ("AD11", "AD12"),
+                    "EH2": ("AD21", "AD22"),
+                    "EH3": ("AD31", "AD32", "AD33", "AD34"),
+                    }
+            remap_items(
+                parameters("all.bkg.rate.fastn"),
+                outputs.child("bkg.rate.fastn"),
+                indices = ads_at_sites,
+                skip_indices = inactive_detectors,
+                fcn = lambda par: par.output
+            )
+            remap_items(
+                parameters("all.bkg.rate.lihe"),
+                outputs.child("bkg.rate.lihe"),
+                indices = ads_at_sites,
+                skip_indices = inactive_detectors,
+                fcn = lambda par: par.output
+            )
+
             Product.replicate(
                     "bkg.spectrum.acc",
                     parameters("all.bkg.rate.acc"),
                     outputs("bkg.spectrum_shape.acc"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.lihe",
+                    outputs("bkg.rate.lihe"),
+                    outputs("bkg.spectrum_shape.lihe"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.fastn",
+                    outputs("bkg.rate.fastn"),
+                    outputs("bkg.spectrum_shape.fastn"),
                     replicate=combinations["period.detector"],
                     )
 
