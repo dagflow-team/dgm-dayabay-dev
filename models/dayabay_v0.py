@@ -620,6 +620,12 @@ class model_dayabay_v0:
                     replicate=combinations["period.detector"],
                     )
 
+            Sum.replicate(
+                    "bkg.spectrum_total",
+                    outputs("bkg.spectrum"),
+                    replicate=combinations["period.detector"],
+                    )
+
             #
             # Statistic
             #
