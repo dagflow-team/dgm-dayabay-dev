@@ -6,8 +6,7 @@ from typing import Literal
 from numpy import ndarray
 
 from dagflow.bundles.load_array import load_array
-from dagflow.bundles.load_graph import load_graph
-from dagflow.bundles.load_graph_data import load_graph_data
+from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
