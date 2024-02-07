@@ -560,8 +560,30 @@ class model_dayabay_v0:
                 replicate_files = index["period"],
                 replicate = combinations["bkg.detector"],
                 skip = inactive_detectors,
-                objects = lambda _, idx: f"DYB_{bkg_names[idx[1]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
+                index_order = (1, 0, 2),
+                objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
             )
+
+            Product.replicate(
+                    "bkg.spectrum.acc",
+                    parameters("all.bkg.rate.acc"),
+                    outputs("bkg.spectrum_shape.acc"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.alphan",
+                    parameters("all.bkg.rate.alphan"),
+                    outputs("bkg.spectrum_shape.alphan"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.amc",
+                    parameters("all.bkg.rate.amc"),
+                    outputs("bkg.spectrum_shape.amc"),
+                    replicate=combinations["period.detector"],
+                    )
 
             #
             # Statistic
