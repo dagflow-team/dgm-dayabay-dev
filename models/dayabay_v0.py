@@ -9,12 +9,13 @@ from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
+from dagflow.bundles.load_record import load_record
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
-from multikeydict.nestedmkdict import NestedMKDict
 from multikeydict.map import remap_items
+from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
@@ -117,7 +118,9 @@ class model_dayabay_v0:
             self._spectrum_correction_mode == "exponential"
         )
 
-        with Graph(close=self._close, strict=self._strict) as graph, storage, FileReader:
+        with Graph(
+            close=self._close, strict=self._strict
+        ) as graph, storage, FileReader:
             # fmt: off
             self.graph = graph
             #
@@ -186,10 +189,12 @@ class model_dayabay_v0:
                 labels=labels,
                 replicate=index["spec"],
             )
+            # fmt: off
 
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
+            parameters = storage("parameter")
 
             # Create Nuisance parameters
             Sum.replicate("statistic.nuisance.all", outputs("statistic.nuisance.parts"))
@@ -198,14 +203,15 @@ class model_dayabay_v0:
             # Create nodes
             #
             labels = LoadYaml(path_data / "labels.yaml")
-            parameters = storage("parameter")
 
             from numpy import arange, concatenate, linspace
 
+            #
+            # Define binning
+            #
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
 
-            # fmt: off
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
             edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
@@ -220,6 +226,9 @@ class model_dayabay_v0:
             edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
             edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
+            #
+            # Integration, kinematics
+            #
             integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
             integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 4, edges=edges_costheta)
 
@@ -243,6 +252,9 @@ class model_dayabay_v0:
             outputs["kinematics_sampler.mesh_costheta"] >> ibd.inputs["costheta"]
             kinematic_integrator_enu = ibd.outputs["enu"]
 
+            #
+            # Oscillations
+            #
             from dgf_reactoranueosc.NueSurvivalProbability import \
                 NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
@@ -252,6 +264,9 @@ class model_dayabay_v0:
             nodes("oscprob") << parameters("constrained.oscprob")
             nodes("oscprob") << parameters("constant.oscprob")
 
+            #
+            # Antineutrino spectrum
+            #
             load_graph(
                 name = "reactor_anue.input_spectrum",
                 filenames = path_arrays / f"reactor_anue_spectra_50kev.{self._source_type}",
@@ -271,6 +286,9 @@ class model_dayabay_v0:
             outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_anue.spec_interpolated.xfine"]
 
+            #
+            # Offequilibrium correction
+            #
             load_graph(
                 name = "reactor_offequilibrium_anue.correction_input",
                 x = "enu",
@@ -290,6 +308,9 @@ class model_dayabay_v0:
             outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_interpolated.xfine"]
 
+            #
+            # SNF correction
+            #
             load_graph(
                 name = "reactor_snf_anue.correction_input",
                 x = "enu",
@@ -353,7 +374,7 @@ class model_dayabay_v0:
                     )
 
             #
-            # Free antineutrino spectrum correction
+            # Free antineutrino spectrum correction: spectrum model
             #
             Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
 
@@ -404,6 +425,17 @@ class model_dayabay_v0:
                     )
 
             #
+            # Livetime
+            #
+            # load_record(
+            #     name = "detector.livetime",
+            #     filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
+            #     replicate = index["detector"],
+            #     objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}"
+            # )
+            # import IPython; IPython.embed(header='lr', colors='neutral')
+
+            #
             # Neutrino rate
             #
             Product.replicate(
@@ -425,7 +457,7 @@ class model_dayabay_v0:
                     )
 
             #
-            # Integration
+            # Integrand
             #
             Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
