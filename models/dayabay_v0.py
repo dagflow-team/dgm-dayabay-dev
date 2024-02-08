@@ -5,6 +5,7 @@ from typing import Literal
 
 from numpy import ndarray
 
+from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
@@ -116,7 +117,7 @@ class model_dayabay_v0:
             self._spectrum_correction_mode == "exponential"
         )
 
-        with Graph(close=self._close, strict=self._strict) as graph, storage:
+        with Graph(close=self._close, strict=self._strict) as graph, storage, FileReader:
             # fmt: off
             self.graph = graph
             #
