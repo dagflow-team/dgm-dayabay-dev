@@ -9,12 +9,12 @@ from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
-from dagflow.bundles.load_record import load_record
+from dagflow.bundles.load_record import load_record_data
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
-from multikeydict.map import remap_items
+from multikeydict.tools import remap_items
 from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
@@ -81,6 +81,7 @@ class model_dayabay_v0:
         # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
+        index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
         index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
@@ -427,13 +428,20 @@ class model_dayabay_v0:
             #
             # Livetime
             #
-            # load_record(
-            #     name = "detector.livetime",
-            #     filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
-            #     replicate = index["detector"],
-            #     objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}"
-            # )
-            # import IPython; IPython.embed(header='lr', colors='neutral')
+            load_record_data(
+                name = "daily_data.detector_all",
+                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
+                replicate = index["detector"],
+                objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
+                columns = ("ndays", "ndet", "livetime", "eff", "efflivetime")
+            )
+            load_record_data(
+                name = "daily_data.reactor_all",
+                filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
+                replicate = ("core_data",),
+                columns = ("ndays", "ndet", "power") + index["isotope_lower"],
+                key_order = (0,)
+            )
 
             #
             # Neutrino rate
@@ -594,7 +602,7 @@ class model_dayabay_v0:
                 replicate_files = index["period"],
                 replicate = combinations["bkg.detector"],
                 skip = inactive_detectors,
-                index_order = (1, 0, 2),
+                key_order = (1, 0, 2),
                 objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
             )
 
