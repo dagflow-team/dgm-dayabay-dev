@@ -9,7 +9,6 @@ from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
-from dagflow.bundles.load_record import load_record_data
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
 from dagflow.storage import NodeStorage
@@ -195,6 +194,7 @@ class model_dayabay_v0:
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
+            data = storage.child("data")
             parameters = storage("parameter")
 
             # Create Nuisance parameters
@@ -428,6 +428,7 @@ class model_dayabay_v0:
             #
             # Livetime
             #
+            from dagflow.bundles.load_record import load_record_data
             load_record_data(
                 name = "daily_data.detector_all",
                 filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
@@ -439,8 +440,15 @@ class model_dayabay_v0:
                 name = "daily_data.reactor_all",
                 filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
                 replicate = ("core_data",),
-                columns = ("ndays", "ndet", "power") + index["isotope_lower"],
+                columns = ("week", "ndays", "ndet", "core", "power", "start_utc") + index["isotope_lower"],
                 key_order = (0,)
+            )
+            from models.bundles.refine_reactor_data import refine_reactor_data
+            refine_reactor_data(
+                data("daily_data.reactor_all"),
+                data("daily_data"),
+                reactors = index["reactor"],
+                isotopes = index["isotope"],
             )
 
             #
