@@ -17,6 +17,17 @@ def weekly_to_daily(array: NDArray) -> NDArray:
     return ret
 
 
+@njit
+def weeks_to_days(array: NDArray) -> NDArray:
+    ret = empty(array.shape[0] * 7)
+
+    for i in range(7):
+        ret[i::7] = array
+        ret[i::7] += i
+
+    return ret
+
+
 def refine_reactor_data(
     source: NestedMKDict,
     target: NestedMKDict,
@@ -25,15 +36,12 @@ def refine_reactor_data(
     isotopes: Sequence[str],
     periods: Sequence[int] = (6, 8, 7),
     reactor_number_start: int = 1,
-    clean_source: bool = True
+    clean_source: bool = True,
 ) -> None:
     week = source["week"]
+    day = source["day"]
     core = source["core"]
-    # ndays = source["ndays"]
     ndet = source["ndet"]
-    start_utc = source["start_utc"]
-
-    earliest_utc = start_utc[0]
 
     power = source["power"]
     fission_fractions = {key: source[key.lower()] for key in isotopes}
@@ -42,18 +50,29 @@ def refine_reactor_data(
     for i in range(ncores):
         rweek = week[i::ncores]
         step = rweek[1:] - rweek[:-1]
-        assert (step==1).all()
+        assert (step == 1).all(), "Expect reactor data for each week"
 
+    target["days"] = (days_storage := {})
     for period in periods:
         mask_period = ndet == period
-        period = (f"{period}AD",)
+        periodname = f"{period}AD"
 
         for icore, corename in enumerate(reactors, reactor_number_start):
             mask = mask_period * (core == icore)
-            key = period + (corename,)
+            key = (
+                periodname,
+                corename,
+            )
             target[("power",) + key] = weekly_to_daily(power[mask])
             for isotope in isotopes:
-                target[("fission_fraction",) + key + (isotope,)] = weekly_to_daily(fission_fractions[isotope][mask])
+                target[("fission_fraction",) + key + (isotope,)] = weekly_to_daily(
+                    fission_fractions[isotope][mask]
+                )
+
+            days = weeks_to_days(day[mask])
+            days_stored = days_storage.setdefault(periodname, days)
+            if days is not days_stored:
+                assert all(days == days_stored)
 
     if clean_source:
         for key in tuple(source.walkkeys()):
