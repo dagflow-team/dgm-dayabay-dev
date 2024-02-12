@@ -13,8 +13,8 @@ from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
-from multikeydict.tools import remap_items
 from multikeydict.nestedmkdict import NestedMKDict
+from multikeydict.tools import remap_items
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
@@ -105,12 +105,12 @@ class model_dayabay_v0:
         combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
         combinations["bkg.detector"] = tuple(product(index["bkg"], index["detector"]))
 
-        inactive_detectors = (("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11"))
+        inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         # unused_backgrounds = (("6AD", "muon"), ("8AD", "muon"))
         combinations["period.detector"] = tuple(
             pair
             for pair in product(index["period"], index["detector"])
-            if pair not in inactive_detectors
+            if set(pair) not in inactive_detectors
         )
         # fmt: on
 
@@ -434,22 +434,37 @@ class model_dayabay_v0:
                 filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
                 replicate = index["detector"],
                 objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
-                columns = ("ndays", "ndet", "livetime", "eff", "efflivetime")
+                columns = ("day", "ndet", "livetime", "eff", "efflivetime")
             )
+            from models.bundles.refine_detector_data import \
+                refine_detector_data
+            refine_detector_data(
+                data("daily_data.detector_all"),
+                data.child("daily_data.detector"),
+                detectors = index["detector"]
+            )
+
             load_record_data(
                 name = "daily_data.reactor_all",
                 filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
                 replicate = ("core_data",),
-                columns = ("week", "ndays", "ndet", "core", "power", "start_utc") + index["isotope_lower"],
+                columns = ("week", "day", "ndet", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
             )
             from models.bundles.refine_reactor_data import refine_reactor_data
             refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data("daily_data"),
+                data.child("daily_data.reactor"),
                 reactors = index["reactor"],
                 isotopes = index["isotope"],
             )
+
+            from models.bundles.sync_reactor_detector_data import \
+                sync_reactor_detector_data
+            sync_reactor_detector_data(
+                    data("daily_data.reactor"),
+                    data("daily_data.detector"),
+                    )
 
             #
             # Neutrino rate
