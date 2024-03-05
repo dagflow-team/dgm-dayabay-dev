@@ -297,6 +297,7 @@ class model_dayabay_v0:
                 merge_x = True,
                 filenames = path_arrays / f"offequilibrium_correction.{self._source_type}",
                 replicate = index["isotope_offeq"],
+                dtype = "d"
             )
 
             InterpolatorGroup.replicate(
@@ -319,6 +320,7 @@ class model_dayabay_v0:
                 merge_x = True,
                 filenames = path_arrays / f"snf_correction.{self._source_type}",
                 replicate = index["reactor"],
+                dtype = "d"
             )
             InterpolatorGroup.replicate(
                 method = "linear",
@@ -466,9 +468,71 @@ class model_dayabay_v0:
                     data("daily_data.detector"),
                     )
 
+            Array.from_storage(
+                "daily_data.detector.livetime",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.detector.eff",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.detector.efflivetime",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.reactor.power",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.reactor.fission_fraction",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+            del storage["data.daily_data"]
+
             #
             # Neutrino rate
             #
+            # Product.replicate(
+            #         "daily_data.reactor.fission_fraction_scaled",
+            #         parameters("all.reactor.fission_fraction_scale"),
+            #         outputs("daily_data.reactor.fission_fraction"),
+            #         replicate=combinations["reactor.isotope"],
+            #         )
+            #
+            # Product.replicate(
+            #         "reactor.energy_per_fission_ibd_weighted",
+            #         parameters("all.reactor.energy_per_fission"),
+            #         outputs("daily_data.reactor.fission_fraction_scaled"),
+            #         replicate=combinations["reactor.isotope"],
+            #         )
+            # Sum.replicate(
+            #         "reactor.energy_per_fission_snf_average",
+            #         outputs("reactor.energy_per_fission_snf_weighted")
+            #         )
+            # Product.replicate(
+            #         "reactor.thermal_power_weighted_MeV",
+            #         parameters("all.reactor.nominal_thermal_power"),
+            #         parameters("all.reactor.fission_fraction_snf"),
+            #         parameters["all.conversion.reactorPowerConversion"],
+            #         replicate=combinations["reactor.isotope"],
+            #         )
+
+            # Average, nominal for SNF
             Product.replicate(
                     "reactor.energy_per_fission_snf_weighted",
                     parameters("all.reactor.energy_per_fission"),
