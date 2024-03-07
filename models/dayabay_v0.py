@@ -112,6 +112,7 @@ class model_dayabay_v0:
                     "reactor.period",
                     "reactor.isotope.period",
                     "reactor.isotope.detector",
+                    "reactor.isotope.detector.period",
                     "bkg.detector"
                     )
                 }
@@ -568,7 +569,7 @@ class model_dayabay_v0:
                     replicate=combinations["reactor.isotope.period"],
                     )
 
-            # Average, nominal for SNF
+            # Time dependent, nominal (fit independent) for SNF
             Product.replicate(
                     parameters("all.reactor.energy_per_fission"),
                     parameters("all.reactor.fission_fraction_snf"),
@@ -595,6 +596,23 @@ class model_dayabay_v0:
                     name = "reactor.fissions_per_second_snf",
                     replicate=combinations["reactor.isotope.period"],
                     )
+            
+            # Number of fissions
+            Product.replicate(
+                    outputs("reactor.fissions_per_second_ibd"),
+                    outputs("daily_data.detector.efflivetime"),
+                    name = "reactor_detector.number_of_fissions_ibd_daily",
+                    replicate=combinations["reactor.isotope.detector.period"],
+                    )
+
+            Product.replicate(
+                    outputs("reactor.fissions_per_second_snf"),
+                    outputs("daily_data.detector.efflivetime"),
+                    name = "reactor_detector.number_of_fissions_snf_daily",
+                    replicate=combinations["reactor.isotope.detector.period"],
+                    )
+
+            from dagflow.lib import ArraySum
 
             #
             # Integrand: flux × oscillation probability × cross section
