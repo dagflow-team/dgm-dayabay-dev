@@ -10,7 +10,7 @@ from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
-from dagflow.lib.arithmetic import Sum
+from dagflow.lib.arithmetic import Sum, Product, Division
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -109,6 +109,7 @@ class model_dayabay_v0:
                     "reactor.detector",
                     "reactor.isotope",
                     "reactor.isotope_offeq",
+                    "reactor.period",
                     "reactor.isotope.period",
                     "reactor.isotope.detector",
                     "bkg.detector"
@@ -362,7 +363,6 @@ class model_dayabay_v0:
             #
             # Offequilibrium part
             #
-            from dagflow.lib.arithmetic import Product
             Product.replicate(
                     outputs("reactor_anue.spec_nominal"),
                     outputs("reactor_offequilibrium_anue.correction_interpolated"),
@@ -381,7 +381,6 @@ class model_dayabay_v0:
             #
             # SNF part
             #
-            from dagflow.lib.arithmetic import Product
             Product.replicate(
                     outputs("reactor_snf_anue.correction_interpolated"),
                     name = "reactor_anue.spec_part_snf_nominal",
@@ -528,47 +527,73 @@ class model_dayabay_v0:
             # Neutrino rate
             #
             Product.replicate(
+                    parameters("all.reactor.nominal_thermal_power"),
+                    parameters["all.conversion.reactorPowerConversion"],
+                    name = "reactor.thermal_power_nominal_MeVs"
+                    )
+
+            # Time dependent, fit dependent (non-nominal) for IBD
+            Product.replicate(
                     parameters("all.reactor.fission_fraction_scale"),
                     outputs("daily_data.reactor.fission_fraction"),
-                    name = "daily_data.reactor.fission_fraction_scaled",
+                    name = "daily_data.reactor.fission_fraction_ibd_scaled",
                     replicate=combinations["reactor.isotope.period"],
                     )
-            #
-            # Product.replicate(
-            #         parameters("all.reactor.energy_per_fission"),
-            #         outputs("daily_data.reactor.fission_fraction_scaled"),
-            #         name = "reactor.energy_per_fission_ibd_weighted",
-            #         replicate=combinations["reactor.isotope"],
-            #         )
-            # Sum.replicate(
-            #         outputs("reactor.energy_per_fission_snf_weighted"),
-            #         name = "reactor.energy_per_fission_snf_average",
-            #         )
-            # Product.replicate(
-            #         parameters("all.reactor.nominal_thermal_power"),
-            #         parameters("all.reactor.fission_fraction_snf"),
-            #         parameters["all.conversion.reactorPowerConversion"],
-            #         name = "reactor.thermal_power_weighted_MeV",
-            #         replicate=combinations["reactor.isotope"],
-            #         )
+
+            Product.replicate(
+                    parameters("all.reactor.energy_per_fission"),
+                    outputs("daily_data.reactor.fission_fraction_ibd_scaled"),
+                    name = "reactor.energy_per_fission_ibd_weighted_MeV",
+                    replicate=combinations["reactor.isotope.period"],
+                    )
+
+            Sum.replicate(
+                    outputs( "reactor.energy_per_fission_ibd_weighted_MeV"),
+                    name = "reactor.energy_per_fission_ibd_average_MeV",
+                    replicate=combinations["reactor.period"],
+                    )
+
+            Product.replicate(
+                    outputs("daily_data.reactor.power"),
+                    outputs("daily_data.reactor.fission_fraction_ibd_scaled"),
+                    outputs["reactor.thermal_power_nominal_MeVs"],
+                    name = "reactor.thermal_power_ibd_weighted_MeV",
+                    replicate=combinations["reactor.isotope.period"],
+                    )
+
+            Division.replicate(
+                    outputs("reactor.thermal_power_ibd_weighted_MeV"),
+                    outputs("reactor.energy_per_fission_ibd_average_MeV"),
+                    name = "reactor.fissions_per_second_ibd",
+                    replicate=combinations["reactor.isotope.period"],
+                    )
 
             # Average, nominal for SNF
             Product.replicate(
                     parameters("all.reactor.energy_per_fission"),
                     parameters("all.reactor.fission_fraction_snf"),
-                    name = "reactor.energy_per_fission_snf_weighted",
+                    name = "reactor.energy_per_fission_snf_weighted_MeV",
                     replicate=index["isotope"],
                     )
+
             Sum.replicate(
-                    outputs("reactor.energy_per_fission_snf_weighted"),
-                    name = "reactor.energy_per_fission_snf_average",
+                    outputs("reactor.energy_per_fission_snf_weighted_MeV"),
+                    name = "reactor.energy_per_fission_snf_average_MeV",
                     )
+
             Product.replicate(
-                    parameters("all.reactor.nominal_thermal_power"),
+                    outputs("daily_data.reactor.power"),
                     parameters("all.reactor.fission_fraction_snf"),
-                    parameters["all.conversion.reactorPowerConversion"],
-                    name = "reactor.thermal_power_weighted_MeV",
-                    replicate=combinations["reactor.isotope"],
+                    outputs["reactor.thermal_power_nominal_MeVs"],
+                    name = "reactor.thermal_power_snf_weighted_MeV",
+                    replicate=combinations["reactor.isotope.period"],
+                    )
+
+            Division.replicate(
+                    outputs("reactor.thermal_power_snf_weighted_MeV"),
+                    outputs["reactor.energy_per_fission_snf_average_MeV"],
+                    name = "reactor.fissions_per_second_snf",
+                    replicate=combinations["reactor.isotope.period"],
                     )
 
             #
