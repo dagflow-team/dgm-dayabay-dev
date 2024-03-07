@@ -43,8 +43,9 @@ def main(opts: Namespace) -> None:
 
     if opts.print_all:
         print(storage.to_table(truncate=True))
-    for source in opts.print:
-        print(storage(source).to_table(truncate=True))
+    for sources in opts.print:
+        for source in sources:
+            print(storage(source).to_table(truncate=True))
     if len(storage("inputs")) > 0:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate=True))
@@ -125,7 +126,7 @@ if __name__ == "__main__":
 
     storage = parser.add_argument_group("storage", "storage related options")
     parser.add_argument("-P", "--print-all", action="store_true", help="print all")
-    parser.add_argument("-p", "--print", action="append", default=[], help="print all")
+    parser.add_argument("-p", "--print", action="append", nargs="+", default=[], help="print all")
 
     graph = parser.add_argument_group("graph", "graph related options")
     graph.add_argument(
