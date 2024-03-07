@@ -5,15 +5,16 @@ from typing import Literal
 
 from numpy import ndarray
 
+from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
-from dagflow.bundles.load_graph import load_graph
-from dagflow.bundles.load_graph_data import load_graph_data
+from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Sum
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
+from multikeydict.tools import remap_items
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
@@ -79,6 +80,7 @@ class model_dayabay_v0:
         # fmt: off
         index, combinations = {}, {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
+        index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
         index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
@@ -103,12 +105,12 @@ class model_dayabay_v0:
         combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
         combinations["bkg.detector"] = tuple(product(index["bkg"], index["detector"]))
 
-        inactive_detectors = (("6AD", "AD22"), ("6AD", "AD34"), ("7AD", "AD11"))
+        inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         # unused_backgrounds = (("6AD", "muon"), ("8AD", "muon"))
         combinations["period.detector"] = tuple(
             pair
             for pair in product(index["period"], index["detector"])
-            if pair not in inactive_detectors
+            if set(pair) not in inactive_detectors
         )
         # fmt: on
 
@@ -116,7 +118,9 @@ class model_dayabay_v0:
             self._spectrum_correction_mode == "exponential"
         )
 
-        with Graph(close=self._close, strict=self._strict) as graph, storage:
+        with Graph(
+            close=self._close, strict=self._strict
+        ) as graph, storage, FileReader:
             # fmt: off
             self.graph = graph
             #
@@ -185,10 +189,13 @@ class model_dayabay_v0:
                 labels=labels,
                 replicate=index["spec"],
             )
+            # fmt: off
 
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
+            data = storage.child("data")
+            parameters = storage("parameter")
 
             # Create Nuisance parameters
             Sum.replicate("statistic.nuisance.all", outputs("statistic.nuisance.parts"))
@@ -197,14 +204,15 @@ class model_dayabay_v0:
             # Create nodes
             #
             labels = LoadYaml(path_data / "labels.yaml")
-            parameters = storage("parameter")
 
             from numpy import arange, concatenate, linspace
 
+            #
+            # Define binning
+            #
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
 
-            # fmt: off
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
             edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
@@ -219,6 +227,9 @@ class model_dayabay_v0:
             edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
             edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
+            #
+            # Integration, kinematics
+            #
             integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
             integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 4, edges=edges_costheta)
 
@@ -242,8 +253,11 @@ class model_dayabay_v0:
             outputs["kinematics_sampler.mesh_costheta"] >> ibd.inputs["costheta"]
             kinematic_integrator_enu = ibd.outputs["enu"]
 
+            #
+            # Oscillations
+            #
             from dgf_reactoranueosc.NueSurvivalProbability import \
-                    NueSurvivalProbability
+                NueSurvivalProbability
             NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
             kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
@@ -251,6 +265,9 @@ class model_dayabay_v0:
             nodes("oscprob") << parameters("constrained.oscprob")
             nodes("oscprob") << parameters("constant.oscprob")
 
+            #
+            # Antineutrino spectrum
+            #
             load_graph(
                 name = "reactor_anue.input_spectrum",
                 filenames = path_arrays / f"reactor_anue_spectra_50kev.{self._source_type}",
@@ -270,6 +287,9 @@ class model_dayabay_v0:
             outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_anue.spec_interpolated.xfine"]
 
+            #
+            # Offequilibrium correction
+            #
             load_graph(
                 name = "reactor_offequilibrium_anue.correction_input",
                 x = "enu",
@@ -277,6 +297,7 @@ class model_dayabay_v0:
                 merge_x = True,
                 filenames = path_arrays / f"offequilibrium_correction.{self._source_type}",
                 replicate = index["isotope_offeq"],
+                dtype = "d"
             )
 
             InterpolatorGroup.replicate(
@@ -289,6 +310,9 @@ class model_dayabay_v0:
             outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_interpolated.xfine"]
 
+            #
+            # SNF correction
+            #
             load_graph(
                 name = "reactor_snf_anue.correction_input",
                 x = "enu",
@@ -296,6 +320,7 @@ class model_dayabay_v0:
                 merge_x = True,
                 filenames = path_arrays / f"snf_correction.{self._source_type}",
                 replicate = index["reactor"],
+                dtype = "d"
             )
             InterpolatorGroup.replicate(
                 method = "linear",
@@ -352,7 +377,7 @@ class model_dayabay_v0:
                     )
 
             #
-            # Free antineutrino spectrum correction
+            # Free antineutrino spectrum correction: spectrum model
             #
             Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
 
@@ -403,8 +428,111 @@ class model_dayabay_v0:
                     )
 
             #
+            # Livetime
+            #
+            from dagflow.bundles.load_record import load_record_data
+            load_record_data(
+                name = "daily_data.detector_all",
+                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
+                replicate = index["detector"],
+                objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
+                columns = ("day", "ndet", "livetime", "eff", "efflivetime")
+            )
+            from models.bundles.refine_detector_data import \
+                refine_detector_data
+            refine_detector_data(
+                data("daily_data.detector_all"),
+                data.child("daily_data.detector"),
+                detectors = index["detector"]
+            )
+
+            load_record_data(
+                name = "daily_data.reactor_all",
+                filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
+                replicate = ("core_data",),
+                columns = ("week", "day", "ndet", "core", "power") + index["isotope_lower"],
+                key_order = (0,)
+            )
+            from models.bundles.refine_reactor_data import refine_reactor_data
+            refine_reactor_data(
+                data("daily_data.reactor_all"),
+                data.child("daily_data.reactor"),
+                reactors = index["reactor"],
+                isotopes = index["isotope"],
+            )
+
+            from models.bundles.sync_reactor_detector_data import \
+                sync_reactor_detector_data
+            sync_reactor_detector_data(
+                    data("daily_data.reactor"),
+                    data("daily_data.detector"),
+                    )
+
+            Array.from_storage(
+                "daily_data.detector.livetime",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.detector.eff",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.detector.efflivetime",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.reactor.power",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.reactor.fission_fraction",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+            del storage["data.daily_data"]
+
+            #
             # Neutrino rate
             #
+            # Product.replicate(
+            #         "daily_data.reactor.fission_fraction_scaled",
+            #         parameters("all.reactor.fission_fraction_scale"),
+            #         outputs("daily_data.reactor.fission_fraction"),
+            #         replicate=combinations["reactor.isotope"],
+            #         )
+            #
+            # Product.replicate(
+            #         "reactor.energy_per_fission_ibd_weighted",
+            #         parameters("all.reactor.energy_per_fission"),
+            #         outputs("daily_data.reactor.fission_fraction_scaled"),
+            #         replicate=combinations["reactor.isotope"],
+            #         )
+            # Sum.replicate(
+            #         "reactor.energy_per_fission_snf_average",
+            #         outputs("reactor.energy_per_fission_snf_weighted")
+            #         )
+            # Product.replicate(
+            #         "reactor.thermal_power_weighted_MeV",
+            #         parameters("all.reactor.nominal_thermal_power"),
+            #         parameters("all.reactor.fission_fraction_snf"),
+            #         parameters["all.conversion.reactorPowerConversion"],
+            #         replicate=combinations["reactor.isotope"],
+            #         )
+
+            # Average, nominal for SNF
             Product.replicate(
                     "reactor.energy_per_fission_snf_weighted",
                     parameters("all.reactor.energy_per_fission"),
@@ -424,7 +552,7 @@ class model_dayabay_v0:
                     )
 
             #
-            # Integration
+            # Integrand
             #
             Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
@@ -561,8 +689,70 @@ class model_dayabay_v0:
                 replicate_files = index["period"],
                 replicate = combinations["bkg.detector"],
                 skip = inactive_detectors,
-                objects = lambda _, idx: f"DYB_{bkg_names[idx[1]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
+                key_order = (1, 0, 2),
+                objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
             )
+
+            ads_at_sites = {
+                    "EH1": ("AD11", "AD12"),
+                    "EH2": ("AD21", "AD22"),
+                    "EH3": ("AD31", "AD32", "AD33", "AD34"),
+                    }
+            remap_items(
+                parameters("all.bkg.rate.fastn"),
+                outputs.child("bkg.rate.fastn"),
+                indices = ads_at_sites,
+                skip_indices = inactive_detectors,
+                fcn = lambda par: par.output
+            )
+            remap_items(
+                parameters("all.bkg.rate.lihe"),
+                outputs.child("bkg.rate.lihe"),
+                indices = ads_at_sites,
+                skip_indices = inactive_detectors,
+                fcn = lambda par: par.output
+            )
+
+            Product.replicate(
+                    "bkg.spectrum.acc",
+                    parameters("all.bkg.rate.acc"),
+                    outputs("bkg.spectrum_shape.acc"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.lihe",
+                    outputs("bkg.rate.lihe"),
+                    outputs("bkg.spectrum_shape.lihe"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.fastn",
+                    outputs("bkg.rate.fastn"),
+                    outputs("bkg.spectrum_shape.fastn"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.alphan",
+                    parameters("all.bkg.rate.alphan"),
+                    outputs("bkg.spectrum_shape.alphan"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Product.replicate(
+                    "bkg.spectrum.amc",
+                    parameters("all.bkg.rate.amc"),
+                    outputs("bkg.spectrum_shape.amc"),
+                    replicate=combinations["period.detector"],
+                    )
+
+            Sum.replicate(
+                    "bkg.spectrum_total",
+                    outputs("bkg.spectrum"),
+                    replicate=combinations["period.detector"],
+                    )
 
             #
             # Statistic
