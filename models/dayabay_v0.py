@@ -10,7 +10,7 @@ from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
-from dagflow.lib.arithmetic import Sum, Product, Division
+from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -597,13 +597,27 @@ class model_dayabay_v0:
                     )
 
             #
-            # Integrand
+            # Integrand: flux × oscillation probability × cross section
             #
-            Product.replicate(name="kinematics_integrand", replicate=combinations["reactor.isotope.detector"])
-            outputs("oscprob") >> nodes("kinematics_integrand")
-            outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
-            outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
-            outputs("reactor_anue.spec_interpolated") >> nodes("kinematics_integrand")
+            Product.replicate(
+                    outputs["ibd.crosssection"],
+                    outputs["ibd.jacobian"],
+                    name="ibd.crosssection_jacobian",
+            )
+
+            Product.replicate(
+                    outputs("oscprob"),
+                    outputs("reactor_anue.spec_interpolated"),
+                    name="reactor_anue.spec_oscillated",
+                    replicate=combinations["reactor.isotope.detector"]
+            )
+
+            Product.replicate(
+                    outputs("reactor_anue.spec_oscillated"),
+                    outputs["ibd.crosssection_jacobian"],
+                    name="kinematics_integrand",
+                    replicate=combinations["reactor.isotope.detector"]
+            )
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
             from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
