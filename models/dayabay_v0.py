@@ -613,7 +613,42 @@ class model_dayabay_v0:
                     )
 
             from dagflow.lib import ArraySum
+            ArraySum.replicate(
+                    outputs("reactor_detector.number_of_fissions_ibd_daily"),
+                    name = "reactor_detector.number_of_fissions_ibd",
+                    )
 
+            ArraySum.replicate(
+                    outputs("reactor_detector.number_of_fissions_snf_daily"),
+                    name = "reactor_detector.number_of_fissions_snf",
+                    )
+
+            # Number of fissions × protons
+            Product.replicate(
+                    parameters["all.detector.nprotons_nominal_ad"],
+                    parameters("all.detector.nprotons_correction"),
+                    name = "detector.nprotons",
+                    replicate = index["detector"]
+            )
+
+            Product.replicate(
+                    outputs("reactor_detector.number_of_fissions_ibd"),
+                    outputs("detector.nprotons"),
+                    name = "reactor_detector.number_of_fissions_nprotons_ibd",
+                    replicate=combinations["reactor.isotope.detector.period"],
+                    )
+
+            # Detector live time
+            ArraySum.replicate(
+                    outputs("daily_data.detector.livetime"),
+                    name = "detector.livetime",
+                    )
+
+            ArraySum.replicate(
+                    outputs("daily_data.detector.efflivetime"),
+                    name = "detector.efflivetime",
+                    )
+            
             #
             # Integrand: flux × oscillation probability × cross section
             #
