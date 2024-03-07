@@ -78,7 +78,9 @@ class model_dayabay_v0:
         )
 
         # fmt: off
-        index, combinations = {}, {}
+
+        # Provide a list of indices and their values. Values should be globally unique
+        index = {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
@@ -99,11 +101,19 @@ class model_dayabay_v0:
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
-        combinations["reactor.detector"] = tuple(product(index["reactor"], index["detector"]))
-        combinations["reactor.isotope"] = tuple(product(index["reactor"], index["isotope"]))
-        combinations["reactor.isotope_offeq"] = tuple(product(index["reactor"], index["isotope_offeq"]))
-        combinations["reactor.isotopes.detector"] = tuple(product(index["reactor"], index["isotope"], index["detector"]))
-        combinations["bkg.detector"] = tuple(product(index["bkg"], index["detector"]))
+        # Provide the combinations of indices
+        combinations = {
+                comb: tuple(product(*(index[item] for item in comb.split("."))))
+                for comb in
+                (
+                    "reactor.detector",
+                    "reactor.isotope",
+                    "reactor.isotope_offeq",
+                    "reactor.isotope.period",
+                    "reactor.isotope.detector",
+                    "bkg.detector"
+                    )
+                }
 
         inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         # unused_backgrounds = (("6AD", "muon"), ("8AD", "muon"))
@@ -198,7 +208,7 @@ class model_dayabay_v0:
             parameters = storage("parameter")
 
             # Create Nuisance parameters
-            Sum.replicate("statistic.nuisance.all", outputs("statistic.nuisance.parts"))
+            Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
             #
             # Create nodes
@@ -236,11 +246,13 @@ class model_dayabay_v0:
             from dagflow.lib.IntegratorGroup import IntegratorGroup
             integrator, _ = IntegratorGroup.replicate(
                 "2d",
-                "kinematics_sampler",
-                "kinematics_integral",
-                name_x = "mesh_edep",
-                name_y = "mesh_costheta",
-                replicate = combinations["reactor.isotopes.detector"],
+                names = {
+                    "sampler": "kinematics_sampler",
+                    "integrator": "kinematics_integral",
+                    "x": "mesh_edep",
+                    "y": "mesh_costheta"
+                },
+                replicate = combinations["reactor.isotope.detector"]
             )
             integration_orders_edep >> integrator("ordersX")
             integration_orders_costheta >> integrator("ordersY")
@@ -258,7 +270,7 @@ class model_dayabay_v0:
             #
             from dgf_reactoranueosc.NueSurvivalProbability import \
                 NueSurvivalProbability
-            NueSurvivalProbability.replicate("oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
+            NueSurvivalProbability.replicate(name="oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
             kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
             nodes("oscprob") << parameters("free.oscprob")
@@ -279,8 +291,10 @@ class model_dayabay_v0:
             from dagflow.lib.InterpolatorGroup import InterpolatorGroup
             InterpolatorGroup.replicate(
                 method = "exp",
-                name_indexer = "reactor_anue.spec_indexer",
-                name_interpolator = "reactor_anue.spec_interpolated",
+                names = {
+                    "indexer": "reactor_anue.spec_indexer",
+                    "interpolator": "reactor_anue.spec_interpolated",
+                    },
                 replicate = index["isotope"],
             )
             outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolated.xcoarse"]
@@ -302,8 +316,10 @@ class model_dayabay_v0:
 
             InterpolatorGroup.replicate(
                 method = "linear",
-                name_indexer = "reactor_offequilibrium_anue.correction_indexer",
-                name_interpolator = "reactor_offequilibrium_anue.correction_interpolated",
+                names = {
+                    "indexer": "reactor_offequilibrium_anue.correction_indexer",
+                    "interpolator": "reactor_offequilibrium_anue.correction_interpolated",
+                    },
                 replicate = index["isotope_offeq"],
             )
             outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolated.xcoarse"]
@@ -324,8 +340,10 @@ class model_dayabay_v0:
             )
             InterpolatorGroup.replicate(
                 method = "linear",
-                name_indexer = "reactor_snf_anue.correction_indexer",
-                name_interpolator = "reactor_snf_anue.correction_interpolated",
+                names = {
+                    "indexer": "reactor_snf_anue.correction_indexer",
+                    "interpolator": "reactor_snf_anue.correction_interpolated",
+                    },
                 replicate = index["reactor"],
             )
             outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolated.xcoarse"]
@@ -346,16 +364,16 @@ class model_dayabay_v0:
             #
             from dagflow.lib.arithmetic import Product
             Product.replicate(
-                    "reactor_anue.spec_part_offeq_nominal",
                     outputs("reactor_anue.spec_nominal"),
                     outputs("reactor_offequilibrium_anue.correction_interpolated"),
+                    name = "reactor_anue.spec_part_offeq_nominal",
                     allow_skip_inputs = True, # U238
                     replicate=index["isotope_offeq"],
                     )
             Product.replicate(
-                    "reactor_anue.spec_part_offeq_scaled",
                     parameters("all.reactor.offequilibrium_scale"),
                     outputs("reactor_anue.spec_part_offeq_nominal"),
+                    name = "reactor_anue.spec_part_offeq_scaled",
                     allow_skip_inputs = True, # U238
                     replicate=combinations["reactor.isotope_offeq"],
                     )
@@ -365,14 +383,14 @@ class model_dayabay_v0:
             #
             from dagflow.lib.arithmetic import Product
             Product.replicate(
-                    "reactor_anue.spec_part_snf_nominal",
                     outputs("reactor_snf_anue.correction_interpolated"),
+                    name = "reactor_anue.spec_part_snf_nominal",
                     replicate=index["reactor"],
                     )
             Product.replicate(
-                    "reactor_anue.spec_part_snf_scaled",
                     parameters("all.reactor.snf_scale"),
                     outputs("reactor_anue.spec_part_snf_nominal"),
+                    name = "reactor_anue.spec_part_snf_scaled",
                     replicate=index["reactor"],
                     )
 
@@ -386,25 +404,27 @@ class model_dayabay_v0:
 
             if spectrum_correction_is_exponential:
                 Concatenation.replicate(
-                        "reactor_anue.spec_free_correction_input",
-                        parameters("all.reactor_anue_spectrum")
+                        parameters("all.reactor_anue_spectrum"),
+                        name = "reactor_anue.spec_free_correction_input"
                         )
                 Exp.replicate(
-                        "reactor_anue.spec_free_correction",
-                        outputs["reactor_anue.spec_free_correction_input"]
+                        outputs["reactor_anue.spec_free_correction_input"],
+                        name = "reactor_anue.spec_free_correction"
                         )
                 outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
             else:
                 Concatenation.replicate(
-                        "reactor_anue.spec_free_correction",
-                        parameters("all.reactor_anue_spectrum")
+                        parameters("all.reactor_anue_spectrum"),
+                        name = "reactor_anue.spec_free_correction"
                         )
                 outputs["reactor_anue.spec_free_correction"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
 
             InterpolatorGroup.replicate(
                 method = "exp",
-                name_indexer = "reactor_anue.spec_free_correction_indexer",
-                name_interpolator = "reactor_anue.spec_free_correction_interpolated"
+                names = {
+                    "indexer": "reactor_anue.spec_free_correction_indexer",
+                    "interpolator": "reactor_anue.spec_free_correction_interpolated"
+                    },
             )
             outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_interpolated.xcoarse"]
             outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_interpolated.ycoarse"]
@@ -414,16 +434,16 @@ class model_dayabay_v0:
             # Antineutrino spectrum with corrections
             #
             Product.replicate(
-                    "reactor_anue.spec_part_main",
                     outputs("reactor_anue.spec_interpolated"),
                     outputs["reactor_anue.spec_free_correction_interpolated"],
+                    name = "reactor_anue.spec_part_main",
                     replicate=index["isotope"],
                     )
 
             Sum.replicate(
-                    "reactor_anue.spec_part_core",
                     outputs("reactor_anue.spec_part_main"),
                     outputs("reactor_anue.spec_part_offeq_scaled"),
+                    name = "reactor_anue.spec_part_core",
                     replicate=combinations["reactor.isotope"],
                     )
 
@@ -507,54 +527,54 @@ class model_dayabay_v0:
             #
             # Neutrino rate
             #
-            # Product.replicate(
-            #         "daily_data.reactor.fission_fraction_scaled",
-            #         parameters("all.reactor.fission_fraction_scale"),
-            #         outputs("daily_data.reactor.fission_fraction"),
-            #         replicate=combinations["reactor.isotope"],
-            #         )
+            Product.replicate(
+                    parameters("all.reactor.fission_fraction_scale"),
+                    outputs("daily_data.reactor.fission_fraction"),
+                    name = "daily_data.reactor.fission_fraction_scaled",
+                    replicate=combinations["reactor.isotope.period"],
+                    )
             #
             # Product.replicate(
-            #         "reactor.energy_per_fission_ibd_weighted",
             #         parameters("all.reactor.energy_per_fission"),
             #         outputs("daily_data.reactor.fission_fraction_scaled"),
+            #         name = "reactor.energy_per_fission_ibd_weighted",
             #         replicate=combinations["reactor.isotope"],
             #         )
             # Sum.replicate(
-            #         "reactor.energy_per_fission_snf_average",
-            #         outputs("reactor.energy_per_fission_snf_weighted")
+            #         outputs("reactor.energy_per_fission_snf_weighted"),
+            #         name = "reactor.energy_per_fission_snf_average",
             #         )
             # Product.replicate(
-            #         "reactor.thermal_power_weighted_MeV",
             #         parameters("all.reactor.nominal_thermal_power"),
             #         parameters("all.reactor.fission_fraction_snf"),
             #         parameters["all.conversion.reactorPowerConversion"],
+            #         name = "reactor.thermal_power_weighted_MeV",
             #         replicate=combinations["reactor.isotope"],
             #         )
 
             # Average, nominal for SNF
             Product.replicate(
-                    "reactor.energy_per_fission_snf_weighted",
                     parameters("all.reactor.energy_per_fission"),
                     parameters("all.reactor.fission_fraction_snf"),
+                    name = "reactor.energy_per_fission_snf_weighted",
                     replicate=index["isotope"],
                     )
             Sum.replicate(
-                    "reactor.energy_per_fission_snf_average",
-                    outputs("reactor.energy_per_fission_snf_weighted")
+                    outputs("reactor.energy_per_fission_snf_weighted"),
+                    name = "reactor.energy_per_fission_snf_average",
                     )
             Product.replicate(
-                    "reactor.thermal_power_weighted_MeV",
                     parameters("all.reactor.nominal_thermal_power"),
                     parameters("all.reactor.fission_fraction_snf"),
                     parameters["all.conversion.reactorPowerConversion"],
+                    name = "reactor.thermal_power_weighted_MeV",
                     replicate=combinations["reactor.isotope"],
                     )
 
             #
             # Integrand
             #
-            Product.replicate("kinematics_integrand", replicate=combinations["reactor.isotopes.detector"])
+            Product.replicate(name="kinematics_integrand", replicate=combinations["reactor.isotope.detector"])
             outputs("oscprob") >> nodes("kinematics_integrand")
             outputs["ibd.crosssection"] >> nodes("kinematics_integrand")
             outputs["ibd.jacobian"] >> nodes("kinematics_integrand")
@@ -562,17 +582,17 @@ class model_dayabay_v0:
             outputs("kinematics_integrand") >> inputs("kinematics_integral")
 
             from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
-            InverseSquareLaw.replicate("baseline_factor", replicate=combinations["reactor.detector"])
+            InverseSquareLaw.replicate(name="baseline_factor", replicate=combinations["reactor.detector"])
             parameters("constant.baseline") >> inputs("baseline_factor")
 
-            InverseSquareLaw.replicate("baseline_factor_snf", replicate=combinations["reactor.detector"])
+            InverseSquareLaw.replicate(name="baseline_factor_snf", replicate=combinations["reactor.detector"])
             parameters("constant.baseline_snf") >> inputs("baseline_factor_snf")
 
-            Product.replicate("countrate_reac", replicate=combinations["reactor.isotopes.detector"])
+            Product.replicate(name="countrate_reac", replicate=combinations["reactor.isotope.detector"])
             outputs("kinematics_integral") >> nodes("countrate_reac")
             outputs("baseline_factor") >> nodes("countrate_reac")
 
-            Sum.replicate("countrate.raw", outputs("countrate_reac"), replicate = index["detector"])
+            Sum.replicate(outputs("countrate_reac"), replicate = index["detector"], name="countrate.raw")
 
             #
             # Detector effects
@@ -585,11 +605,11 @@ class model_dayabay_v0:
             )
 
             from dagflow.lib.NormalizeMatrix import NormalizeMatrix
-            NormalizeMatrix.replicate("detector.iav.matrix")
+            NormalizeMatrix.replicate(name="detector.iav.matrix")
             outputs["detector.iav.matrix_raw"] >> nodes["detector.iav.matrix"]
 
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
-            VectorMatrixProduct.replicate("countrate.iav", replicate=index["detector"])
+            VectorMatrixProduct.replicate(name="countrate.iav", replicate=index["detector"])
             outputs["detector.iav.matrix"] >> inputs("countrate.iav.matrix")
             outputs("countrate.raw") >> inputs("countrate.iav.vector")
 
@@ -621,11 +641,13 @@ class model_dayabay_v0:
             # - LSNL weights
             # - escale per AD
             # - Monotonize
-            Sum.replicate("detector.lsnl.curves.evis", outputs("detector.lsnl.curves.evis_parts"))
+            Sum.replicate(outputs("detector.lsnl.curves.evis_parts"), name="detector.lsnl.curves.evis")
             InterpolatorGroup.replicate(
                 method = "linear",
-                name_indexer = "detector.lsnl.indexer_fwd",
-                name_interpolator = "detector.lsnl.interpolated_fwd",
+                names = {
+                    "indexer": "detector.lsnl.indexer_fwd",
+                    "interpolator": "detector.lsnl.interpolated_fwd",
+                    },
                 replicate = index["detector"]
             )
             outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolated_fwd.xcoarse"]
@@ -633,8 +655,10 @@ class model_dayabay_v0:
             edges_energy_edep >> inputs["detector.lsnl.interpolated_fwd.xfine"]
             InterpolatorGroup.replicate(
                 method = "linear",
-                name_indexer = "detector.lsnl.indexer_bwd",
-                name_interpolator = "detector.lsnl.interpolated_bwd",
+                names = {
+                    "indexer": "detector.lsnl.indexer_bwd",
+                    "interpolator": "detector.lsnl.interpolated_bwd",
+                    },
                 replicate = index["detector"]
             )
             outputs["detector.lsnl.curves.evis"] >> inputs["detector.lsnl.interpolated_bwd.xcoarse"]
@@ -642,12 +666,12 @@ class model_dayabay_v0:
             edges_energy_evis >> inputs["detector.lsnl.interpolated_bwd.xfine"]
 
             from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
-            AxisDistortionMatrix.replicate("detector.lsnl.matrix", replicate=index["detector"])
+            AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
             outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
             outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
-            VectorMatrixProduct.replicate("countrate.lsnl", replicate=index["detector"])
+            VectorMatrixProduct.replicate(name="countrate.lsnl", replicate=index["detector"])
             outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
             outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
 
@@ -657,12 +681,12 @@ class model_dayabay_v0:
             outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
             outputs["edges.energy_evis"] >> inputs["detector.eres.e_edges"]
 
-            VectorMatrixProduct.replicate("countrate.erec", replicate=index["detector"])
+            VectorMatrixProduct.replicate(name="countrate.erec", replicate=index["detector"])
             outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
             outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
 
             from dgf_detector.Rebin import Rebin
-            Rebin.replicate("detector.rebin_matrix", "countrate.final", replicate=index["detector"])
+            Rebin.replicate(names={"matrix": "detector.rebin_matrix", "product": "countrate.final"}, replicate=index["detector"])
             edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
             outputs("countrate.erec") >> inputs("countrate.final")
@@ -714,44 +738,44 @@ class model_dayabay_v0:
             )
 
             Product.replicate(
-                    "bkg.spectrum.acc",
                     parameters("all.bkg.rate.acc"),
                     outputs("bkg.spectrum_shape.acc"),
+                    name = "bkg.spectrum.acc",
                     replicate=combinations["period.detector"],
                     )
 
             Product.replicate(
-                    "bkg.spectrum.lihe",
                     outputs("bkg.rate.lihe"),
                     outputs("bkg.spectrum_shape.lihe"),
+                    name = "bkg.spectrum.lihe",
                     replicate=combinations["period.detector"],
                     )
 
             Product.replicate(
-                    "bkg.spectrum.fastn",
                     outputs("bkg.rate.fastn"),
                     outputs("bkg.spectrum_shape.fastn"),
+                    name = "bkg.spectrum.fastn",
                     replicate=combinations["period.detector"],
                     )
 
             Product.replicate(
-                    "bkg.spectrum.alphan",
                     parameters("all.bkg.rate.alphan"),
                     outputs("bkg.spectrum_shape.alphan"),
+                    name = "bkg.spectrum.alphan",
                     replicate=combinations["period.detector"],
                     )
 
             Product.replicate(
-                    "bkg.spectrum.amc",
                     parameters("all.bkg.rate.amc"),
                     outputs("bkg.spectrum_shape.amc"),
+                    name = "bkg.spectrum.amc",
                     replicate=combinations["period.detector"],
                     )
 
             Sum.replicate(
-                    "bkg.spectrum_total",
                     outputs("bkg.spectrum"),
                     replicate=combinations["period.detector"],
+                    name = "bkg.spectrum_total",
                     )
 
             #
@@ -767,23 +791,23 @@ class model_dayabay_v0:
             outputs("countrate.final") >> inputs("pseudo.data.input")
 
             from dgf_statistics.Chi2 import Chi2
-            Chi2.replicate("statistic.stat.chi2p", replicate_inputs=index["detector"])
+            Chi2.replicate(replicate_inputs=index["detector"], name="statistic.stat.chi2p")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
             outputs("countrate.final") >> inputs("statistic.stat.chi2p.theory")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
             from dgf_statistics.CNPStat import CNPStat
-            CNPStat.replicate("statistic.staterr.cnp", replicate_inputs=index["detector"], replicate=index["detector"])
+            CNPStat.replicate(replicate_inputs=index["detector"], replicate=index["detector"], name="statistic.staterr.cnp")
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
             outputs("countrate.final") >> inputs("statistic.staterr.cnp.theory")
 
-            Chi2.replicate("statistic.stat.chi2cnp", replicate_inputs=index["detector"])
+            Chi2.replicate(replicate_inputs=index["detector"], name="statistic.stat.chi2cnp")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
             outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 
-            Sum.replicate("statistic.full.chi2p", outputs["statistic.stat.chi2p"], outputs["statistic.nuisance.all"])
-            Sum.replicate("statistic.full.chi2cnp", outputs["statistic.stat.chi2cnp"], outputs["statistic.nuisance.all"])
+            Sum.replicate(outputs["statistic.stat.chi2p"], outputs["statistic.nuisance.all"], name="statistic.full.chi2p")
+            Sum.replicate(outputs["statistic.stat.chi2cnp"], outputs["statistic.nuisance.all"], name="statistic.full.chi2cnp")
             # fmt: on
 
         processed_keys_set = set()
