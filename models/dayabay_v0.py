@@ -150,7 +150,6 @@ class model_dayabay_v0:
             load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
 
             load_parameters(                   load=path_parameters/"baselines.yaml")
-            load_parameters(                   load=path_parameters/"baselines_snf.yaml")
 
             load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
@@ -670,9 +669,6 @@ class model_dayabay_v0:
             from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate(name="baseline_factor", replicate=combinations["reactor.detector"])
             parameters("constant.baseline") >> inputs("baseline_factor")
-
-            InverseSquareLaw.replicate(name="baseline_factor_snf", replicate=combinations["reactor.detector"])
-            parameters("constant.baseline_snf") >> inputs("baseline_factor_snf")
 
             Product.replicate(
                 outputs("kinematics_integral"),
