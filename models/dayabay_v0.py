@@ -217,7 +217,7 @@ class model_dayabay_v0:
             #
             # Create nodes
             #
-            labels = LoadYaml(path_data / "labels.yaml")
+            labels = LoadYaml(__file__.replace(".py", "_labels.yaml"))
 
             from numpy import arange, concatenate, linspace
 
