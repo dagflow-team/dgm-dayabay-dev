@@ -80,9 +80,10 @@ neutrino_cm2_perMeV_perfission_perproton:
 kinematics_integral:
   group:
     text: "Count rate{space_key}"
-countrate_reac:
-  group:
-    text: "Count rate{space_key}"
+countrate:
+  parts:
+    group:
+      text: "Count rate{space_key}"
 countrate:
   raw:
     group:

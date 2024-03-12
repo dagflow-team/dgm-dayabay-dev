@@ -116,6 +116,7 @@ class model_dayabay_v0:
                     "reactor.isotope_offeq.detector",
                     "reactor.isotope.detector.period",
                     "reactor.detector.period",
+                    "detector.period",
                     "bkg.detector"
                     )
                 }
@@ -688,36 +689,35 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("kinematics_integral.main"),
                     outputs("reactor_detector.number_of_fissions_nprotons_percm2_fromcore"),
-                    name = "neutrino_cm2.main",
+                    name = "countrate.parts.main",
                     replicate = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
                     outputs("kinematics_integral.offeq"),
                     outputs("reactor_detector.number_of_fissions_nprotons_percm2_fromcore"),
-                    name = "neutrino_cm2.offeq",
+                    name = "countrate.parts.offeq",
                     replicate = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
                     outputs("kinematics_integral.snf"),
                     outputs("reactor_detector.livetime_nprotons_percm2_fromcore_snf"),
-                    name = "neutrino_cm2.offeq",
+                    name = "countrate.parts.snf",
                     replicate = combinations["reactor.detector.period"]
                     )
 
 
-            Product.replicate(
-                outputs("kinematics_integral.main"),
-                # outputs("baseline_factor_percm2"),
-                name="countrate_reac",
-                replicate=combinations["reactor.isotope.detector"]
+            Sum.replicate(
+                outputs("countrate.parts"),
+                name="countrate.periods",
+                replicate=combinations["detector.period"]
             )
 
             Sum.replicate(
-                outputs("countrate_reac"),
-                replicate = index["detector"],
-                name="countrate.raw"
+                outputs("countrate.periods"),
+                name="countrate.raw",
+                replicate=index["detector"]
             )
 
             #
