@@ -115,6 +115,7 @@ class model_dayabay_v0:
                     "reactor.isotope.detector",
                     "reactor.isotope_offeq.detector",
                     "reactor.isotope.detector.period",
+                    "reactor.detector.period",
                     "bkg.detector"
                     )
                 }
@@ -563,7 +564,7 @@ class model_dayabay_v0:
                     replicate=index["isotope"],
                     )
             
-            # Number of fissions
+            # Effective number of fissions seen in Detector from Reactor from Isotope during Period
             Product.replicate(
                     outputs("reactor.fissions_persecond_fromcore"),
                     outputs("daily_data.detector.efflivetime"),
@@ -571,13 +572,14 @@ class model_dayabay_v0:
                     replicate=combinations["reactor.isotope.detector.period"],
                     )
 
+            # Total effective number of fissions from a Reactor seen in the Detector during Period
             from dagflow.lib import ArraySum
             ArraySum.replicate(
                     outputs("reactor_detector.number_of_fissions_fromcore_daily"),
                     name = "reactor_detector.number_of_fissions_fromcore",
                     )
 
-            # Baseline factor: 1/(4πL²)
+            # Baseline factor from Reactor to Detector: 1/(4πL²)
             from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate(name="baseline_factor_percm2", replicate=combinations["reactor.detector"])
             parameters("constant.baseline") >> inputs("baseline_factor_percm2")
@@ -590,7 +592,7 @@ class model_dayabay_v0:
                     replicate = index["detector"]
             )
 
-            # Number of fissions × N protons × ε / (4πL²)
+            # Number of fissions × N protons × ε / (4πL²)  (main)
             Product.replicate(
                     outputs("reactor_detector.number_of_fissions_fromcore"),
                     outputs("detector.nprotons"),
@@ -600,7 +602,7 @@ class model_dayabay_v0:
                     replicate=combinations["reactor.isotope.detector.period"],
                     )
 
-            # Detector live time: for backgrounds
+            # Detector live time
             ArraySum.replicate(
                     outputs("daily_data.detector.livetime"),
                     name = "detector.livetime",
@@ -609,6 +611,16 @@ class model_dayabay_v0:
             ArraySum.replicate(
                     outputs("daily_data.detector.efflivetime"),
                     name = "detector.efflivetime",
+                    )
+
+            # Effective live time × N protons × ε / (4πL²)  (SNF)
+            Product.replicate(
+                    outputs("detector.efflivetime"),
+                    outputs("detector.nprotons"),
+                    outputs("baseline_factor_percm2"),
+                    parameters["all.detector.efficiency"],
+                    name = "reactor_detector.livetime_nprotons_percm2_fromcore_snf",
+                    replicate=combinations["reactor.detector.period"],
                     )
 
             #
@@ -673,13 +685,26 @@ class model_dayabay_v0:
             #  - offeq: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × offequilibrium scale[r,i]
             #  - snf:                                effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]
             #
+            Product.replicate(
+                    outputs("kinematics_integral.main"),
+                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_fromcore"),
+                    name = "neutrino_cm2.main",
+                    replicate = combinations["reactor.isotope.detector.period"]
+                    )
 
-            # Product.replicate(
-            #         outputs("kinematics_integral.main"),
-            #         outputs("reactor_detector.number_of_fissions_nprotons_percm2_fromcore"),
-            #         name = "neutrino_cm2.main",
-            #         replicate = "reactor.isotope.detector"
-            #         )
+            Product.replicate(
+                    outputs("kinematics_integral.offeq"),
+                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_fromcore"),
+                    name = "neutrino_cm2.offeq",
+                    replicate = combinations["reactor.isotope.detector.period"]
+                    )
+
+            Product.replicate(
+                    outputs("kinematics_integral.snf"),
+                    outputs("reactor_detector.livetime_nprotons_percm2_fromcore_snf"),
+                    name = "neutrino_cm2.offeq",
+                    replicate = combinations["reactor.detector.period"]
+                    )
 
 
             Product.replicate(
