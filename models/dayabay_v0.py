@@ -152,6 +152,8 @@ class model_dayabay_v0:
             load_parameters(                   load=path_parameters/"baselines.yaml")
             load_parameters(                   load=path_parameters/"baselines_snf.yaml")
 
+            load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
+            load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
