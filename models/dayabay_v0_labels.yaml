@@ -66,9 +66,10 @@ ibd:
     text: "dEν/dEdep Jacobian"
     axis: "$dE_{\\nu}/dE_{\\rm dep}$"
     latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
-kinematics_integrand:
-  group:
-    text: "Differential count rate{space_key}"
+countrate_cm2_perMeV:
+  part_main:
+    group:
+      text: "Differential count rate{space_key}"
 kinematics_integral:
   group:
     text: "Count rate{space_key}"
