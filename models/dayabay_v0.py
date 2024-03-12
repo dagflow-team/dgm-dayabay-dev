@@ -183,7 +183,7 @@ class model_dayabay_v0:
             # fmt: on
 
             labels = {  # TODO, not propagated
-                "neutrinos_perfission": {
+                "neutrino_perfission": {
                     name: f"Edge {i:02d} ({edge:.2f} MeV) Reactor antineutrino spectrum correction"
                     for i, (name, edge) in enumerate(
                         zip(index["spec"], antineutrino_model_edges)
@@ -191,21 +191,21 @@ class model_dayabay_v0:
                 }
             }
             if spectrum_correction_is_exponential:
-                neutrinos_perfission_correction_central_value = 0.0
+                neutrino_perfission_correction_central_value = 0.0
                 labels = {
-                    "neutrinos_perfission": "Reactor antineutrino spectrum correction (exp)"
+                    "neutrino_perfission": "Reactor antineutrino spectrum correction (exp)"
                 }
             else:
-                neutrinos_perfission_correction_central_value = 1.0
+                neutrino_perfission_correction_central_value = 1.0
                 labels = {
-                    "neutrinos_perfission": "Reactor antineutrino spectrum correction (linear)"
+                    "neutrino_perfission": "Reactor antineutrino spectrum correction (linear)"
                 }
 
             load_parameters(
                 format="value",
                 state="variable",
                 parameters={
-                    "neutrinos_perfission": neutrinos_perfission_correction_central_value
+                    "neutrino_perfission": neutrino_perfission_correction_central_value
                 },
                 labels=labels,
                 replicate=index["spec"],
@@ -341,7 +341,7 @@ class model_dayabay_v0:
             # SNF correction
             #
             load_graph(
-                name = "snf_ane.correction_input",
+                name = "snf_anue.correction_input",
                 x = "enu",
                 y = "snf_correction",
                 merge_x = True,
@@ -352,14 +352,14 @@ class model_dayabay_v0:
             InterpolatorGroup.replicate(
                 method = "linear",
                 names = {
-                    "indexer": "snf_ane.correction_indexer",
-                    "interpolator": "snf_ane.correction_interpolated",
+                    "indexer": "snf_anue.correction_indexer",
+                    "interpolator": "snf_anue.correction_interpolated",
                     },
                 replicate = index["reactor"],
             )
-            outputs["snf_ane.correction_input.enu"] >> inputs["snf_ane.correction_interpolated.xcoarse"]
-            outputs("snf_ane.correction_input.snf_correction") >> inputs("snf_ane.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs["snf_ane.correction_interpolated.xfine"]
+            outputs["snf_anue.correction_input.enu"] >> inputs["snf_anue.correction_interpolated.xcoarse"]
+            outputs("snf_anue.correction_input.snf_correction") >> inputs("snf_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs["snf_anue.correction_interpolated.xfine"]
 
             #
             # Free antineutrino spectrum correction: spectrum model
@@ -371,7 +371,7 @@ class model_dayabay_v0:
 
             if spectrum_correction_is_exponential:
                 Concatenation.replicate(
-                        parameters("all.neutrinos_perfission"),
+                        parameters("all.neutrino_perfission"),
                         name = "reactor_anue.spec_free_correction_input"
                         )
                 Exp.replicate(
@@ -381,7 +381,7 @@ class model_dayabay_v0:
                 outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
             else:
                 Concatenation.replicate(
-                        parameters("all.neutrinos_perfission"),
+                        parameters("all.neutrino_perfission"),
                         name = "reactor_anue.spec_free_correction"
                         )
                 outputs["reactor_anue.spec_free_correction"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
@@ -620,7 +620,7 @@ class model_dayabay_v0:
                     outputs("detector.nprotons"),
                     outputs("baseline_factor_percm2"),
                     parameters["all.detector.efficiency"],
-                    name = "reactor_detector.livetime_nprotons_percm2_fromcore_snf",
+                    name = "reactor_detector.livetime_nprotons_percm2_snf",
                     replicate=combinations["reactor.detector.period"],
                     )
 
@@ -630,13 +630,20 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("reactor_anue.neutrino_perfission_perMeV_nominal"),
                     outputs("reactor.fissions_persecond_snf"),
-                    name = "reactor_anue.neutrinos_persecond_snf_perisotope",
+                    name = "snf_anue.neutrino_persecond_main_perisotope",
                     replicate = index["isotope"]
                     )
 
             Sum.replicate(
-                    outputs("reactor_anue.neutrinos_persecond_snf_perisotope"),
-                    name = "reactor_anue.neutrinos_persecond_snf"
+                    outputs("snf_anue.neutrino_persecond_main_perisotope"),
+                    name = "snf_anue.neutrino_persecond_main"
+                    )
+
+            Product.replicate(
+                    outputs["snf_anue.neutrino_persecond_main"],
+                    outputs("snf_anue.correction_interpolated"),
+                    name = "snf_anue.neutrino_persecond_snf",
+                    replicate = index["reactor"]
                     )
             
             #
@@ -672,7 +679,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                     outputs("ibd.crosssection_jacobian_oscillations"),
-                    outputs["reactor_anue.neutrinos_persecond_snf"],
+                    outputs("snf_anue.neutrino_persecond_snf"),
                     name="neutrino_cm2_perMeV_perfission_perproton.part.snf",
                     replicate=combinations["reactor.detector"]
             )
@@ -702,7 +709,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                     outputs("kinematics_integral.snf"),
-                    outputs("reactor_detector.livetime_nprotons_percm2_fromcore_snf"),
+                    outputs("reactor_detector.livetime_nprotons_percm2_snf"),
                     name = "countrate.parts.snf",
                     replicate = combinations["reactor.detector.period"]
                     )
