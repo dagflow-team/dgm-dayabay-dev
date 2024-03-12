@@ -66,7 +66,7 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         show=["type", "mark", "label", "path"],
         filter={
             "reactor": [0],
-            "detector": [0],
+            "detector": [0, 1],
             "isotope": [0],
             "period": [0],
             "background": [0],
