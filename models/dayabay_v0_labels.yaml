@@ -66,10 +66,17 @@ ibd:
     text: "dEν/dEdep Jacobian"
     axis: "$dE_{\\nu}/dE_{\\rm dep}$"
     latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
-countrate_cm2_perMeV:
-  part_main:
-    group:
-      text: "Differential count rate{space_key}"
+neutrino_cm2_perMeV_perfission_perproton:
+  part:
+    main:
+      group:
+        text: "Nν{space_key} cm²/MeV/fission/proton (main)"
+    offeq:
+      group:
+        text: "Nν{space_key} cm²/MeV/fission/proton (offequilibribu)"
+    snf:
+      group:
+        text: "Nν{space_key} cm²/MeV/second/proton (SNF)"
 kinematics_integral:
   group:
     text: "Count rate{space_key}"
@@ -96,10 +103,10 @@ oscprob:
     axis: "$P_{{\\rm ee}}$"
     plotmethod: "slicesy"
 reactor_anue:
-    spec_nominal:
+    neutrino_perfission_perMeV_nominal:
       group:
         text: "Nominal ν-bar spectrum{space_key} (interpolated), N/fission/MeV"
-    input_spectrum:
+    neutrino_perfission_perMeV_input:
       spec:
         group:
           text: "Input ν-bar spectrum{space_key}, N/fission/MeV"
