@@ -282,7 +282,7 @@ class model_dayabay_v0:
             nodes("oscprob") << parameters("constant.oscprob")
 
             #
-            # Antineutrino spectrum
+            # Nominal antineutrino spectrum
             #
             load_graph(
                 name = "reactor_anue.input_spectrum",
@@ -297,13 +297,13 @@ class model_dayabay_v0:
                 method = "exp",
                 names = {
                     "indexer": "reactor_anue.spec_indexer",
-                    "interpolator": "reactor_anue.spec_interpolated",
+                    "interpolator": "reactor_anue.spec_nominal",
                     },
                 replicate = index["isotope"],
             )
-            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_interpolated.xcoarse"]
-            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs["reactor_anue.spec_interpolated.xfine"]
+            outputs["reactor_anue.input_spectrum.enu"] >> inputs["reactor_anue.spec_nominal.xcoarse"]
+            outputs("reactor_anue.input_spectrum.spec") >> inputs("reactor_anue.spec_nominal.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_nominal.xfine"]
 
             #
             # Offequilibrium correction
@@ -353,15 +353,6 @@ class model_dayabay_v0:
             outputs["reactor_snf_anue.correction_input.enu"] >> inputs["reactor_snf_anue.correction_interpolated.xcoarse"]
             outputs("reactor_snf_anue.correction_input.snf_correction") >> inputs("reactor_snf_anue.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_snf_anue.correction_interpolated.xfine"]
-
-            from dgf_statistics.MonteCarlo import MonteCarlo
-            MonteCarlo.replicate(
-                name="reactor_anue.spec_nominal",
-                mode="asimov",
-                replicate=index["isotope"],
-                replicate_inputs=index["isotope"]
-            )
-            outputs("reactor_anue.spec_interpolated") >> inputs("reactor_anue.spec_nominal")
 
             #
             # Offequilibrium part
@@ -436,7 +427,7 @@ class model_dayabay_v0:
             # Antineutrino spectrum with corrections
             #
             Product.replicate(
-                    outputs("reactor_anue.spec_interpolated"),
+                    outputs("reactor_anue.spec_nominal"),
                     outputs["reactor_anue.spec_free_correction_interpolated"],
                     name = "reactor_anue.spec_part_main",
                     replicate=index["isotope"],
@@ -653,6 +644,7 @@ class model_dayabay_v0:
             
             #
             # Integrand: flux × oscillation probability × cross section
+            # [ν·cm²/fission/proton]
             #
             Product.replicate(
                     outputs["ibd.crosssection"],
@@ -662,7 +654,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                     outputs("oscprob"),
-                    outputs("reactor_anue.spec_interpolated"),
+                    outputs("reactor_anue.spec_nominal"),
                     name="reactor_anue.spec_oscillated",
                     replicate=combinations["reactor.isotope.detector"]
             )
@@ -682,11 +674,18 @@ class model_dayabay_v0:
             InverseSquareLaw.replicate(name="baseline_factor_snf", replicate=combinations["reactor.detector"])
             parameters("constant.baseline_snf") >> inputs("baseline_factor_snf")
 
-            Product.replicate(name="countrate_reac", replicate=combinations["reactor.isotope.detector"])
-            outputs("kinematics_integral") >> nodes("countrate_reac")
-            outputs("baseline_factor") >> nodes("countrate_reac")
+            Product.replicate(
+                outputs("kinematics_integral"),
+                outputs("baseline_factor"),
+                name="countrate_reac",
+                replicate=combinations["reactor.isotope.detector"]
+            )
 
-            Sum.replicate(outputs("countrate_reac"), replicate = index["detector"], name="countrate.raw")
+            Sum.replicate(
+                outputs("countrate_reac"),
+                replicate = index["detector"],
+                name="countrate.raw"
+            )
 
             #
             # Detector effects
