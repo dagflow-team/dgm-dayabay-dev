@@ -532,7 +532,7 @@ class model_dayabay_v0:
             Division.replicate(
                     outputs("reactor.thermal_power_core_perisotope_MeV_persecond"),
                     outputs("reactor.energy_per_fission_core_average_MeV"),
-                    name = "reactor.fissions_persecond_core",
+                    name = "reactor.fissions_persecond_fromcore",
                     replicate=combinations["reactor.isotope.period"],
                     )
 
@@ -565,16 +565,16 @@ class model_dayabay_v0:
             
             # Number of fissions
             Product.replicate(
-                    outputs("reactor.fissions_persecond_core"),
+                    outputs("reactor.fissions_persecond_fromcore"),
                     outputs("daily_data.detector.efflivetime"),
-                    name = "reactor_detector.number_of_fissions_core_daily",
+                    name = "reactor_detector.number_of_fissions_fromcore_daily",
                     replicate=combinations["reactor.isotope.detector.period"],
                     )
 
             from dagflow.lib import ArraySum
             ArraySum.replicate(
-                    outputs("reactor_detector.number_of_fissions_core_daily"),
-                    name = "reactor_detector.number_of_fissions_core",
+                    outputs("reactor_detector.number_of_fissions_fromcore_daily"),
+                    name = "reactor_detector.number_of_fissions_fromcore",
                     )
 
             # Baseline factor: 1/(4πL²)
@@ -592,7 +592,7 @@ class model_dayabay_v0:
 
             # Number of fissions × N protons × ε / (4πL²)
             Product.replicate(
-                    outputs("reactor_detector.number_of_fissions_core"),
+                    outputs("reactor_detector.number_of_fissions_fromcore"),
                     outputs("detector.nprotons"),
                     outputs("baseline_factor_percm2"),
                     parameters["all.detector.efficiency"],
@@ -666,6 +666,20 @@ class model_dayabay_v0:
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.main") >> inputs("kinematics_integral.main")
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.offeq") >> inputs("kinematics_integral.offeq")
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.snf") >> inputs("kinematics_integral.snf")
+
+            #
+            # Multiply by the scaling factors:
+            #  - main:  fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
+            #  - offeq: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × offequilibrium scale[r,i]
+            #  - snf:                                effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]
+            #
+
+            # Product.replicate(
+            #         outputs("kinematics_integral.main"),
+            #         outputs("reactor_detector.number_of_fissions_nprotons_percm2_fromcore"),
+            #         name = "neutrino_cm2.main",
+            #         replicate = "reactor.isotope.detector"
+            #         )
 
 
             Product.replicate(
