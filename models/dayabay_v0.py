@@ -577,7 +577,12 @@ class model_dayabay_v0:
                     name = "reactor_detector.number_of_fissions_core",
                     )
 
-            # Number of fissions × protons × ε
+            # Baseline factor: 1/(4πL²)
+            from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
+            InverseSquareLaw.replicate(name="baseline_factor_percm2", replicate=combinations["reactor.detector"])
+            parameters("constant.baseline") >> inputs("baseline_factor_percm2")
+
+            # Number of protons per detector
             Product.replicate(
                     parameters["all.detector.nprotons_nominal_ad"],
                     parameters("all.detector.nprotons_correction"),
@@ -585,11 +590,12 @@ class model_dayabay_v0:
                     replicate = index["detector"]
             )
 
+            # Number of fissions × N protons × ε / (4πL²)
             Product.replicate(
                     outputs("reactor_detector.number_of_fissions_core"),
                     outputs("detector.nprotons"),
                     parameters["all.detector.efficiency"],
-                    name = "reactor_detector.number_of_fissions_nprotons_core",
+                    name = "reactor_detector.number_of_fissions_nprotons_percm2_fromcore",
                     replicate=combinations["reactor.isotope.detector.period"],
                     )
 
@@ -661,13 +667,10 @@ class model_dayabay_v0:
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.offeq") >> inputs("kinematics_integral.offeq")
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.snf") >> inputs("kinematics_integral.snf")
 
-            from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
-            InverseSquareLaw.replicate(name="baseline_factor", replicate=combinations["reactor.detector"])
-            parameters("constant.baseline") >> inputs("baseline_factor")
 
             Product.replicate(
                 outputs("kinematics_integral.main"),
-                outputs("baseline_factor"),
+                outputs("baseline_factor_percm2"),
                 name="countrate_reac",
                 replicate=combinations["reactor.isotope.detector"]
             )
