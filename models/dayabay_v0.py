@@ -594,6 +594,7 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("reactor_detector.number_of_fissions_core"),
                     outputs("detector.nprotons"),
+                    outputs("baseline_factor_percm2"),
                     parameters["all.detector.efficiency"],
                     name = "reactor_detector.number_of_fissions_nprotons_percm2_fromcore",
                     replicate=combinations["reactor.isotope.detector.period"],
@@ -662,7 +663,6 @@ class model_dayabay_v0:
                     name="neutrino_cm2_perMeV_perfission_perproton.part.snf",
                     replicate=combinations["reactor.detector"]
             )
-
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.main") >> inputs("kinematics_integral.main")
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.offeq") >> inputs("kinematics_integral.offeq")
             outputs("neutrino_cm2_perMeV_perfission_perproton.part.snf") >> inputs("kinematics_integral.snf")
@@ -670,7 +670,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                 outputs("kinematics_integral.main"),
-                outputs("baseline_factor_percm2"),
+                # outputs("baseline_factor_percm2"),
                 name="countrate_reac",
                 replicate=combinations["reactor.isotope.detector"]
             )
