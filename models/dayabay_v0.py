@@ -43,7 +43,7 @@ class model_dayabay_v0:
     def __init__(
         self,
         *,
-        source_type: SourceTypes = "tsv",
+        source_type: SourceTypes = "npz",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -252,7 +252,7 @@ class model_dayabay_v0:
             # Integration, kinematics
             #
             integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
-            integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 4, edges=edges_costheta)
+            integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 3, edges=edges_costheta)
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
             integrator, _ = IntegratorGroup.replicate(
