@@ -564,7 +564,7 @@ class model_dayabay_v0:
                     name = "reactor.fissions_persecond_snf",
                     replicate=index["isotope"],
                     )
-            
+
             # Effective number of fissions seen in Detector from Reactor from Isotope during Period
             Product.replicate(
                     outputs("reactor.fissions_persecond_fromcore"),
@@ -645,7 +645,7 @@ class model_dayabay_v0:
                     name = "snf_anue.neutrino_persecond_snf",
                     replicate = index["reactor"]
                     )
-            
+
             #
             # Integrand: flux × oscillation probability × cross section
             # [Nν·cm²/fission/proton]
