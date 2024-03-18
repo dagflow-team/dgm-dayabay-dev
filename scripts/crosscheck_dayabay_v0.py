@@ -2,7 +2,7 @@
 
 from argparse import Namespace
 from itertools import islice
-from numpy import allclose
+from numpy import allclose, fabs
 from numpy.typing import NDArray
 
 from h5py import File
@@ -17,8 +17,16 @@ comparison_objects = {
     # dagflow: gna
     "edges.energy_edep": "evis_edges",
     "kinematics_sampler.mesh_edep": "evis_mesh",
-    "ibd.enu": "enu",
-
+    "ibd.enu": {
+        "name": "enu",
+        "slice": slice(102, None),
+        "ignore": "Different formula below 2me. Not used as it is below the threshold.",
+        "atol": 1e-14,
+    },
+    "ibd.jacobian": {
+        "name": "jacobian",
+        "atol": 1e-15,
+    },
 }
 # fmt: on
 
@@ -46,11 +54,13 @@ def main(opts: Namespace) -> None:
 
         data_dgf = outputs_dgf[key_dgf].data
 
-        is_ok = data_consistent(data_gna, data_dgf, **cmpopts)
+        is_ok, maxdiff = data_consistent(data_gna, data_dgf, **cmpopts)
         if is_ok:
             logger.log(INFO1, f"OK: {key_dgf}↔{key_gna}")
+            if (ignore:=cmpopts.get("ignore")) is not None:
+                logger.log(INFO2, f"↑Ignore: {ignore}")
         else:
-            logger.error(f"FAIL: {key_dgf}↔{key_gna}")
+            logger.error(f"FAIL: {key_dgf}↔{key_gna}, max diff {maxdiff:.2g}")
 
             if opts.embed_on_fail:
                 import IPython; IPython.embed(colors='neutral')
@@ -59,17 +69,27 @@ def data_consistent(
     gna: NDArray,
     dgf: NDArray,
     *,
+    slice: tuple[slice | None,...] | None = None,
+    slice_gna: tuple[slice | None,...] | None = None,
+    atol = 0,
+    rtol = 0,
+    # not used:
     name: str = "",
-    slice_gna: tuple[slice | None,...] | None = None
-) -> bool:
+    ignore: str | None = None
+) -> tuple[bool, float]:
     if slice_gna is not None:
         gna = gna[slice_gna]
-    status = allclose(dgf, gna, rtol=0, atol=0)
+    elif slice is not None:
+        gna = gna[slice]
+        dgf = dgf[slice]
+    status = allclose(dgf, gna, rtol=rtol, atol=atol)
+
+    maxdiff = fabs(dgf-gna).max()
 
     if status:
-        return True
+        return True, maxdiff
 
-    return False
+    return False, maxdiff
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
