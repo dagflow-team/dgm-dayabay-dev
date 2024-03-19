@@ -281,9 +281,15 @@ class model_dayabay_v0:
             #
             from dgf_reactoranueosc.NueSurvivalProbability import \
                 NueSurvivalProbability
-            NueSurvivalProbability.replicate(name="oscprob", distance_unit="m", replicate=combinations["reactor.detector"])
+            NueSurvivalProbability.replicate(
+                name="oscprob",
+                distance_unit="m",
+                replicate=combinations["reactor.detector"],
+                oscprobArgConversion = True
+            )
             kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
+            parameters["all.conversion.oscprobArgConversion"] >> inputs("oscprob.oscprobArgConversion")
             nodes("oscprob") << parameters("free.oscprob")
             nodes("oscprob") << parameters("constrained.oscprob")
             nodes("oscprob") << parameters("constant.oscprob")
