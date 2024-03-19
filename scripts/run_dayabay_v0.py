@@ -32,23 +32,23 @@ def main(opts: Namespace) -> None:
 
     if not graph.closed:
         print("Nodes")
-        print(storage("nodes").to_table(truncate=True))
+        print(storage("nodes").to_table(truncate="auto"))
         print("Outputs")
-        print(storage("outputs").to_table(truncate=True))
+        print(storage("outputs").to_table(truncate="auto"))
         print("Not connected inputs")
-        print(storage("inputs").to_table(truncate=True))
+        print(storage("inputs").to_table(truncate="auto"))
 
         plot_graph(graph, storage)
         return
 
     if opts.print_all:
-        print(storage.to_table(truncate=True))
+        print(storage.to_table(truncate="auto"))
     for sources in opts.print:
         for source in sources:
-            print(storage(source).to_table(truncate=True))
+            print(storage(source).to_table(truncate="auto"))
     if len(storage("inputs")) > 0:
         print("Not connected inputs")
-        print(storage("inputs").to_table(truncate=True))
+        print(storage("inputs").to_table(truncate="auto"))
 
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
