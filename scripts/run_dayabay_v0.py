@@ -32,22 +32,23 @@ def main(opts: Namespace) -> None:
 
     if not graph.closed:
         print("Nodes")
-        print(storage("nodes").to_table(truncate=True))
+        print(storage("nodes").to_table(truncate="auto"))
         print("Outputs")
-        print(storage("outputs").to_table(truncate=True))
+        print(storage("outputs").to_table(truncate="auto"))
         print("Not connected inputs")
-        print(storage("inputs").to_table(truncate=True))
+        print(storage("inputs").to_table(truncate="auto"))
 
         plot_graph(graph, storage)
         return
 
     if opts.print_all:
-        print(storage.to_table(truncate=True))
-    for source in opts.print:
-        print(storage(source).to_table(truncate=True))
+        print(storage.to_table(truncate="auto"))
+    for sources in opts.print:
+        for source in sources:
+            print(storage(source).to_table(truncate="auto"))
     if len(storage("inputs")) > 0:
         print("Not connected inputs")
-        print(storage("inputs").to_table(truncate=True))
+        print(storage("inputs").to_table(truncate="auto"))
 
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
@@ -65,7 +66,7 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         show=["type", "mark", "label", "path"],
         filter={
             "reactor": [0],
-            "detector": [0],
+            "detector": [0, 1],
             "isotope": [0],
             "period": [0],
             "background": [0],
@@ -88,9 +89,9 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         mindepth=-1,
         no_forward=True,
     ).savegraph("output/dayabay_v0_nuisance.dot")
-    GraphDot.from_output(
-        storage["outputs.edges.energy_evis"], show="all", mindepth=-3, no_forward=True
-    ).savegraph("output/dayabay_v0_top.dot")
+    # GraphDot.from_output(
+    #     storage["outputs.edges.energy_evis"], show="all", mindepth=-3, no_forward=True
+    # ).savegraph("output/dayabay_v0_top.dot")
     GraphDot.from_output(
         storage["outputs.statistic.stat.chi2p"],
         show="all",
@@ -125,7 +126,7 @@ if __name__ == "__main__":
 
     storage = parser.add_argument_group("storage", "storage related options")
     parser.add_argument("-P", "--print-all", action="store_true", help="print all")
-    parser.add_argument("-p", "--print", action="append", default=[], help="print all")
+    parser.add_argument("-p", "--print", action="append", nargs="+", default=[], help="print all")
 
     graph = parser.add_argument_group("graph", "graph related options")
     graph.add_argument(

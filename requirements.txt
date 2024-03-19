@@ -1,3 +1,5 @@
+coloredlogs
+colorama
 contextlib2
 coverage
 latexdatax
