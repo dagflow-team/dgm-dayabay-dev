@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 from argparse import Namespace
+from contextlib import suppress
 from itertools import islice, permutations
 from typing import Any
 
 from h5py import Dataset, File, Group
+from matplotlib import pyplot as plt
 from numpy import allclose, fabs, nanmax
 from numpy.typing import NDArray
 
@@ -20,22 +22,11 @@ comparison_objects = {
     # dagflow: gna
     "edges.energy_edep": "evis_edges",
     "kinematics_sampler.mesh_edep": "evis_mesh",
-    "ibd.enu": {
-        "gnaname": "enu",
-        "slice": slice(102, None),
-        "ignore": "Different formula below 2me. Not used as it is below the threshold.",
-        "atol": 1e-14,
-    },
-    "ibd.jacobian": {
-        "gnaname": "jacobian",
-        "atol": 1e-15,
-    },
-    "ibd.crosssection": {
-        "gnaname": "ibd_xsec",
-        "rtol": 1.e-14
-        },
+    "ibd.enu": {"gnaname": "enu", "atol": 1e-14},
+    "ibd.jacobian": {"gnaname": "jacobian", "atol": 1e-15},
+    "ibd.crosssection": {"gnaname": "ibd_xsec", "rtol": 1.e-14},
     "oscprob": {
-        "gnaname": "osc_prob_rd"
+        "gnaname": "osc_prob_rd",
         }
 }
 # fmt: on
@@ -45,12 +36,14 @@ class Comparator:
     opts: Namespace
     output_dgf: NestedMKDict
 
-    _cmpopts: dict[str, Any]
+    _cmpopts: dict[str, Any] = {}
     _maxdiff: float = 0.0
     _maxreldiff: float = 0.0
 
-    _skey_gna: str
-    _skey_dgf: str
+    _skey_gna: str = ""
+    _skey_dgf: str = ""
+    _skey2_gna: str = ""
+    _skey2_dgf: str = ""
 
     def __init__(self, opts: Namespace):
         self.model = model_dayabay_v0(source_type=opts.source_type)
@@ -62,7 +55,8 @@ class Comparator:
 
         self.outputs_dgf = self.model.storage("outputs")
 
-        self.compare()
+        with suppress(StopIteration):
+            self.compare()
 
     def compare(self) -> None:
         if self.opts.last:
@@ -92,6 +86,8 @@ class Comparator:
             case Output(), Dataset():
                 data_gna = data_storage_gna[:]
                 data_dgf = data_storage_dgf.data
+                self._skey2_dgf = ""
+                self._skey2_gna = ""
                 self.compare_outputs(data_gna, data_dgf)
             case NestedMKDict(), Group():
                 self.compare_nested(data_storage_gna, data_storage_dgf)
@@ -101,25 +97,54 @@ class Comparator:
     def compare_outputs(self, data_gna: NDArray, data_dgf: NDArray):
         is_ok = self.data_consistent(data_gna, data_dgf)
         if is_ok:
-            logger.log(INFO1, f"OK: {self._skey_dgf}↔{self._skey_gna}")
+            logger.log(INFO1, f"OK: {self.cmpstring}")
             if (ignore := self._cmpopts.get("ignore")) is not None:
                 logger.log(INFO2, f"↑Ignore: {ignore}")
         else:
             logger.error(
-                f"FAIL: {self._skey_dgf}↔{self._skey_gna}, "
+                f"FAIL: {self.cmpstring} "
                 f"max diff {self._maxdiff:.2g}, "
                 f"max rel diff {self._maxreldiff:.2g}"
             )
 
-            if self.opts.embed_on_fail:
+            if self.opts.plot_on_failure:
+                plt.figure()
+                ax = plt.subplot(111, xlabel='', ylabel='', title=self.key_dgf)
+                ax.plot(data_gna, label="GNA")
+                ax.plot(data_dgf, label="dagflow")
+                ax.legend()
+                ax.grid()
+
+                plt.figure()
+                ax = plt.subplot(111, xlabel='', ylabel='dagflow/GNA', title=self.key_dgf)
+                ax.plot(data_dgf/data_gna)
+                ax.grid()
+                plt.show()
+
+            if self.opts.embed_on_failure:
                 diff = data_dgf - data_gna
                 import IPython
 
                 IPython.embed(colors="neutral")
 
+            if self.opts.exit_on_failure:
+                raise StopIteration()
+
+    @property
+    def key_dgf(self) -> str:
+        return f"{self._skey_dgf}{self._skey2_dgf}"
+
+    @property
+    def cmpstring(self) -> str:
+        return f"{self._skey_dgf}{self._skey2_dgf}↔{self._skey_gna}{self._skey2_gna}" \
+               f" rtol={self.rtol}" \
+               f" atol={self.atol}"
+
+
     def compare_nested(self, storage_gna: Group, storage_dgf: NestedMKDict):
         for key_d, output_dgf in storage_dgf.walkitems():
             data_d = output_dgf.data
+            self._skey2_dgf = ".".join(("",)+key_d)
             for key_g in permutations(key_d):
                 path_g = '/'.join(key_g)
 
@@ -128,29 +153,24 @@ class Comparator:
                 except KeyError:
                     continue
 
+                self._skey2_gna = ".".join(("",)+key_g)
                 self.compare_outputs(data_g[:], data_d)
 
-    def data_consistent(
-        self,
-        gna: NDArray,
-        dgf: NDArray,
-        *,
-        slice: tuple[slice | None, ...] | None = None,
-        slice_gna: tuple[slice | None, ...] | None = None,
-        atol=0,
-        rtol=0,
-        # not used:
-        gnaname: str = "",
-        ignore: str | None = None,
-    ) -> bool:
+    @property
+    def atol(self) -> float:
+        return float(self._cmpopts.get("atol", 0.0))
+
+    @property
+    def rtol(self) -> float:
+        return float(self._cmpopts.get("rtol", 0.0))
+
+    def data_consistent(self, gna: NDArray, dgf: NDArray) -> bool:
         if (slice_gna:=self._cmpopts.get("slice_gna")) is not None:
             gna = gna[slice_gna]
         elif (slice:=self._cmpopts.get("slice")) is not None:
             gna = gna[slice]
             dgf = dgf[slice]
-        atol = float(self._cmpopts.get("atol", 0.0))
-        rtol = float(self._cmpopts.get("rtol", 0.0))
-        status = allclose(dgf, gna, rtol=rtol, atol=atol)
+        status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
 
         fdiff = fabs(dgf - gna)
         self._maxdiff = float(fdiff.max())
@@ -187,7 +207,13 @@ if __name__ == "__main__":
         "-l", "--last", action="store_true", help="process only the last item"
     )
     crosscheck.add_argument(
-        "-e", "--embed-on-fail", action="store_true", help="embed on failure"
+        "-e", "--embed-on-failure", action="store_true", help="embed on failure"
+    )
+    crosscheck.add_argument(
+        "-p", "--plot-on-failure", action="store_true", help="plot on failure"
+    )
+    crosscheck.add_argument(
+        "-x", "--exit-on-failure", action="store_true", help="exit on failure"
     )
 
     c = Comparator(parser.parse_args())
