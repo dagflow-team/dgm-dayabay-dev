@@ -25,8 +25,12 @@ comparison_objects = {
     "ibd.enu": {"gnaname": "enu", "atol": 1e-14},
     "ibd.jacobian": {"gnaname": "jacobian", "atol": 1e-15},
     "ibd.crosssection": {"gnaname": "ibd_xsec", "rtol": 1.e-14},
-    "oscprob": {
-        "gnaname": "osc_prob_rd",
+    "oscprob": {"gnaname": "osc_prob_rd", "atol": 1e-15},
+    "reactor_anue.neutrino_perfission_perMeV_nominal": {
+        "gnaname": "anuspec"
+        },
+    "reactor_anue.neutrino_perfission_perMeV_input.spec": {
+        "gnaname": "anuspec_coarse"
         }
 }
 # fmt: on
