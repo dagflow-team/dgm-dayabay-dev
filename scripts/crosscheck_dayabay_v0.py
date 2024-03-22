@@ -17,6 +17,7 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 set_level(INFO1)
 
+reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
 # fmt: off
 comparison_objects = {
     # dagflow: gna
@@ -28,6 +29,10 @@ comparison_objects = {
     "oscprob": {"gnaname": "osc_prob_rd", "atol": 1e-15},
     "reactor_anue.neutrino_perfission_perMeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 1.e-15},
     "reactor_anue.neutrino_perfission_perMeV_nominal": {"gnaname": "anuspec", "atol": 3.e-15},
+    "reactor_offequilibrium_anue.correction_input.offequilibrium_correction": {
+        "gnaname": [f"offeq_correction_input.{reac}" for reac in reactors],
+        "atol": 1.e-14
+        }
 }
 # fmt: on
 
@@ -80,7 +85,16 @@ class Comparator:
 
             if self._cmpopts.get("skip"):
                 continue
-            self.compare_source()
+
+            match self._skey_gna:
+                case list() | tuple():
+                    keys_gna = self._skey_gna
+                    for self._skey_gna in keys_gna:
+                        self.compare_source()
+                case str():
+                    self.compare_source()
+                case _:
+                    raise RuntimeError()
 
     def compare_source(self) -> None:
         path_gna = self._skey_gna.replace(".", "/")
@@ -179,6 +193,9 @@ class Comparator:
 
                 self._skey2_gna = ".".join(("",) + key_g)
                 self.compare_outputs()
+                break
+            else:
+                raise RuntimeError(f"Was not able to find a match for {self._skey2_dgf}")
 
     @property
     def atol(self) -> float:
