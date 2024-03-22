@@ -367,6 +367,8 @@ class model_dayabay_v0:
                     "interpolator": "reactor_offequilibrium_anue.correction_interpolated",
                     },
                 replicate = index["isotope_offeq"],
+                underflow = "constant",
+                overflow = "constant",
             )
             outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolated.xcoarse"]
             outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
@@ -391,6 +393,8 @@ class model_dayabay_v0:
                     "interpolator": "snf_anue.correction_interpolated",
                     },
                 replicate = index["reactor"],
+                underflow = "constant",
+                overflow = "constant",
             )
             outputs["snf_anue.correction_input.enu"] >> inputs["snf_anue.correction_interpolated.xcoarse"]
             outputs("snf_anue.correction_input.snf_correction") >> inputs("snf_anue.correction_interpolated.ycoarse")
