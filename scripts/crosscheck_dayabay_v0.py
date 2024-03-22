@@ -3,7 +3,7 @@
 from argparse import Namespace
 from contextlib import suppress
 from itertools import islice, permutations
-from typing import Any
+from typing import Any, Literal
 
 from h5py import Dataset, File, Group
 from matplotlib import pyplot as plt
@@ -26,12 +26,8 @@ comparison_objects = {
     "ibd.jacobian": {"gnaname": "jacobian", "atol": 1e-15},
     "ibd.crosssection": {"gnaname": "ibd_xsec", "rtol": 1.e-14},
     "oscprob": {"gnaname": "osc_prob_rd", "atol": 1e-15},
-    "reactor_anue.neutrino_perfission_perMeV_nominal": {
-        "gnaname": "anuspec"
-        },
-    "reactor_anue.neutrino_perfission_perMeV_input.spec": {
-        "gnaname": "anuspec_coarse"
-        }
+    "reactor_anue.neutrino_perfission_perMeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 1.e-15},
+    "reactor_anue.neutrino_perfission_perMeV_nominal": {"gnaname": "anuspec", "atol": 3.e-15},
 }
 # fmt: on
 
@@ -48,6 +44,10 @@ class Comparator:
     _skey_dgf: str = ""
     _skey2_gna: str = ""
     _skey2_dgf: str = ""
+
+    _data_g: NDArray
+    _data_d: NDArray
+    _diff: NDArray | Literal[False]
 
     def __init__(self, opts: Namespace):
         self.model = model_dayabay_v0(source_type=opts.source_type)
@@ -70,7 +70,7 @@ class Comparator:
         for self._skey_dgf, cmpopts in iterable:
             match cmpopts:
                 case dict():
-                    self._skey_gna= cmpopts["gnaname"]
+                    self._skey_gna = cmpopts["gnaname"]
                     self._cmpopts = cmpopts
                 case str():
                     self._skey_gna = cmpopts
@@ -78,6 +78,8 @@ class Comparator:
                 case _:
                     raise RuntimeError(f"Invalid {cmpopts=}")
 
+            if self._cmpopts.get("skip"):
+                continue
             self.compare_source()
 
     def compare_source(self) -> None:
@@ -88,45 +90,53 @@ class Comparator:
 
         match data_storage_dgf, data_storage_gna:
             case Output(), Dataset():
-                data_gna = data_storage_gna[:]
-                data_dgf = data_storage_dgf.data
+                self._data_g = data_storage_gna[:]
+                self._data_d = data_storage_dgf.data
                 self._skey2_dgf = ""
                 self._skey2_gna = ""
-                self.compare_outputs(data_gna, data_dgf)
+                self.compare_outputs()
             case NestedMKDict(), Group():
                 self.compare_nested(data_storage_gna, data_storage_dgf)
             case _:
                 raise RuntimeError("Unexpected data types")
 
-    def compare_outputs(self, data_gna: NDArray, data_dgf: NDArray):
-        is_ok = self.data_consistent(data_gna, data_dgf)
+    def compare_outputs(self):
+        is_ok = self.data_consistent(self._data_g, self._data_d)
         if is_ok:
-            logger.log(INFO1, f"OK: {self.cmpstring}")
+            logger.log(INFO1, f"OK: {self.cmpstring} {self.shapestring}")
             if (ignore := self._cmpopts.get("ignore")) is not None:
                 logger.log(INFO2, f"↑Ignore: {ignore}")
         else:
             logger.error(
-                f"FAIL: {self.cmpstring} "
+                f"FAIL: {self.cmpstring} {self.shapestrings} "
                 f"max diff {self._maxdiff:.2g}, "
                 f"max rel diff {self._maxreldiff:.2g}"
             )
 
             if self.opts.plot_on_failure:
                 plt.figure()
-                ax = plt.subplot(111, xlabel='', ylabel='', title=self.key_dgf)
-                ax.plot(data_gna, label="GNA")
-                ax.plot(data_dgf, label="dagflow")
+                ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
+                ax.plot(self._data_g, label="GNA")
+                ax.plot(self._data_d, label="dagflow")
                 ax.legend()
                 ax.grid()
 
                 plt.figure()
-                ax = plt.subplot(111, xlabel='', ylabel='dagflow/GNA', title=self.key_dgf)
-                ax.plot(data_dgf/data_gna)
+                ax = plt.subplot(
+                    111, xlabel="", ylabel="dagflow/GNA", title=self.key_dgf
+                )
+                with suppress(ValueError):
+                    ax.plot(self._data_d / self._data_g)
                 ax.grid()
+
                 plt.show()
 
             if self.opts.embed_on_failure:
-                diff = data_dgf - data_gna
+                try:
+                    self._diff = self._data_d - self._data_g
+                except:
+                    self._diff = False
+
                 import IPython
 
                 IPython.embed(colors="neutral")
@@ -140,25 +150,35 @@ class Comparator:
 
     @property
     def cmpstring(self) -> str:
-        return f"{self._skey_dgf}{self._skey2_dgf}↔{self._skey_gna}{self._skey2_gna}" \
-               f" rtol={self.rtol}" \
-               f" atol={self.atol}"
+        return (
+            f"{self._skey_dgf}{self._skey2_dgf}↔{self._skey_gna}{self._skey2_gna}"
+            f" rtol={self.rtol}"
+            f" atol={self.atol}"
+        )
 
+    @property
+    def shapestring(self) -> str:
+        return f"{self._data_g.shape}"
+
+    @property
+    def shapestrings(self) -> str:
+        return f"{self._data_d.shape}, {self._data_g.shape}"
 
     def compare_nested(self, storage_gna: Group, storage_dgf: NestedMKDict):
         for key_d, output_dgf in storage_dgf.walkitems():
-            data_d = output_dgf.data
-            self._skey2_dgf = ".".join(("",)+key_d)
+            self._data_d = output_dgf.data
+            self._skey2_dgf = ".".join(("",) + key_d)
             for key_g in permutations(key_d):
-                path_g = '/'.join(key_g)
+                path_g = "/".join(key_g)
 
                 try:
                     data_g = storage_gna[path_g]
                 except KeyError:
                     continue
+                self._data_g = data_g[:]
 
-                self._skey2_gna = ".".join(("",)+key_g)
-                self.compare_outputs(data_g[:], data_d)
+                self._skey2_gna = ".".join(("",) + key_g)
+                self.compare_outputs()
 
     @property
     def atol(self) -> float:
@@ -169,12 +189,17 @@ class Comparator:
         return float(self._cmpopts.get("rtol", 0.0))
 
     def data_consistent(self, gna: NDArray, dgf: NDArray) -> bool:
-        if (slice_gna:=self._cmpopts.get("slice_gna")) is not None:
+        if (slice_gna := self._cmpopts.get("slice_gna")) is not None:
             gna = gna[slice_gna]
-        elif (slice:=self._cmpopts.get("slice")) is not None:
+        elif (slice := self._cmpopts.get("slice")) is not None:
             gna = gna[slice]
             dgf = dgf[slice]
-        status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
+        try:
+            status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
+        except ValueError:
+            self._maxdiff = -1
+            self._maxreldiff = -1
+            return False
 
         fdiff = fabs(dgf - gna)
         self._maxdiff = float(fdiff.max())
