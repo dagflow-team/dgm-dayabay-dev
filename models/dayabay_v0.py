@@ -11,6 +11,7 @@ from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Division, Product, Sum
+from dagflow.lib.InterpolatorGroup import InterpolatorGroup
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -248,6 +249,8 @@ class model_dayabay_v0:
             edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
             edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
+            Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
+
             #
             # Integration, kinematics
             #
@@ -305,7 +308,30 @@ class model_dayabay_v0:
                 merge_x = True,
                 replicate = index["isotope"],
             )
-            from dagflow.lib.InterpolatorGroup import InterpolatorGroup
+
+            #
+            # Pre-interpolate input spectrum on coarser grid
+            # NOTE: 
+            #     - not needed with the current scheme: 
+            #         - spectrum correction applied by multiplication
+            #     - introduced for the consistency with GNA
+            #     - to be removed in v1 TODO
+            #
+            InterpolatorGroup.replicate(
+                method = "exp",
+                names = {
+                    "indexer": "reactor_anue.spec_indexer_pre",
+                    "interpolator": "reactor_anue.neutrino_perfission_perMeV_nominal_pre",
+                    },
+                replicate = index["isotope"],
+            )
+            outputs["reactor_anue.neutrino_perfission_perMeV_input.enu"] >> inputs["reactor_anue.neutrino_perfission_perMeV_nominal_pre.xcoarse"]
+            outputs("reactor_anue.neutrino_perfission_perMeV_input.spec") >> inputs("reactor_anue.neutrino_perfission_perMeV_nominal_pre.ycoarse")
+            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.neutrino_perfission_perMeV_nominal_pre.xfine"]
+
+            #
+            # Interpolate for the integration mesh
+            #
             InterpolatorGroup.replicate(
                 method = "exp",
                 names = {
@@ -314,8 +340,11 @@ class model_dayabay_v0:
                     },
                 replicate = index["isotope"],
             )
-            outputs["reactor_anue.neutrino_perfission_perMeV_input.enu"] >> inputs["reactor_anue.neutrino_perfission_perMeV_nominal.xcoarse"]
-            outputs("reactor_anue.neutrino_perfission_perMeV_input.spec") >> inputs("reactor_anue.neutrino_perfission_perMeV_nominal.ycoarse")
+            # Commented in favor of pre-interpolated part (below)
+            # outputs["reactor_anue.neutrino_perfission_perMeV_input.enu"] >> inputs["reactor_anue.neutrino_perfission_perMeV_nominal.xcoarse"]
+            # outputs("reactor_anue.neutrino_perfission_perMeV_input.spec") >> inputs("reactor_anue.neutrino_perfission_perMeV_nominal.ycoarse")
+            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.neutrino_perfission_perMeV_nominal.xcoarse"]
+            outputs("reactor_anue.neutrino_perfission_perMeV_nominal_pre") >> inputs("reactor_anue.neutrino_perfission_perMeV_nominal.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_anue.neutrino_perfission_perMeV_nominal.xfine"]
 
             #
@@ -370,8 +399,6 @@ class model_dayabay_v0:
             #
             # Free antineutrino spectrum correction: spectrum model
             #
-            Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
-
             from dagflow.lib import Exp
             from dagflow.lib.Concatenation import Concatenation
 
