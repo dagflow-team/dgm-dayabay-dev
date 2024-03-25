@@ -31,6 +31,7 @@ comparison_objects = {
     "reactor_anue.neutrino_perfission_perMeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
     "reactor_offequilibrium_anue.correction_input.enu": {"gnaname": "offeq_correction_input_enu.DB1.U235", "rtol": 1e-15},
     "reactor_offequilibrium_anue.correction_input.offequilibrium_correction": {"gnaname": [f"offeq_correction_input.{reac}" for reac in reactors], "atol": 1.e-14},
+    "reactor_offequilibrium_anue.correction_interpolated": {"gnaname": "offeq_correction_scale_interpolated.DB1", "rtol": 5e-12, "atol": 5e-15},
     "snf_anue.correction_input.snf_correction": {"gnaname": "snf_correction_scale_input", "atol": 5.e-15},
     "snf_anue.correction_input.enu": {"gnaname": "snf_correction_scale_input_enu.DB1", "rtol": 1e-15},
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
@@ -118,21 +119,23 @@ class Comparator:
     def compare_outputs(self):
         is_ok = self.data_consistent(self._data_g, self._data_d)
         if is_ok:
-            logger.log(INFO1, f"OK: {self.cmpstring} {self.shapestring}")
+            logger.log(INFO1, f"OK: {self.cmpstring}")
+            logger.log(INFO2, f"    {self.tolstring}")
+            logger.log(INFO2, f"    {self.shapestring}")
             if (ignore := self._cmpopts.get("ignore")) is not None:
                 logger.log(INFO2, f"↑Ignore: {ignore}")
         else:
-            logger.error(
-                f"FAIL: {self.cmpstring} {self.shapestrings} "
-                f"max diff {self._maxdiff:.2g}, "
-                f"max rel diff {self._maxreldiff:.2g}"
-            )
+            logger.error(f"FAIL: {self.cmpstring}")
+            logger.error(f"      {self.tolstring}")
+            logger.error(f"      {self.shapestrings}")
+            logger.error(f"      max diff {self._maxdiff:.2g}, ")
+            logger.error(f"      max rel diff {self._maxreldiff:.2g}")
 
             if self.opts.plot_on_failure:
-                if self._data_g.shape[0]<100:
-                    style = 'o-'
+                if self._data_g.shape[0] < 100:
+                    style = "o-"
                 else:
-                    style = '-'
+                    style = "-"
                 pargs = {"markerfacecolor": "none"}
 
                 plt.figure()
@@ -171,11 +174,11 @@ class Comparator:
 
     @property
     def cmpstring(self) -> str:
-        return (
-            f"{self._skey_dgf}{self._skey2_dgf}↔{self._skey_gna}{self._skey2_gna}"
-            f" rtol={self.rtol}"
-            f" atol={self.atol}"
-        )
+        return f"{self._skey_dgf}{self._skey2_dgf}↔{self._skey_gna}{self._skey2_gna}"
+
+    @property
+    def tolstring(self) -> str:
+        return f"rtol={self.rtol}" f" atol={self.atol}"
 
     @property
     def shapestring(self) -> str:
