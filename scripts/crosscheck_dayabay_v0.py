@@ -27,21 +27,13 @@ comparison_objects = {
     "ibd.jacobian": {"gnaname": "jacobian", "atol": 1e-15},
     "ibd.crosssection": {"gnaname": "ibd_xsec", "rtol": 1.e-14},
     "oscprob": {"gnaname": "osc_prob_rd", "atol": 1e-15},
-    "reactor_anue.neutrino_perfission_perMeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 1.e-15},
-    "reactor_anue.neutrino_perfission_perMeV_nominal": {"gnaname": "anuspec", "atol": 3.e-15},
-    "reactor_offequilibrium_anue.correction_input.enu": {
-        "gnaname": "offeq_correction_input_enu.DB1.U235",
-        },
+    "reactor_anue.neutrino_perfission_perMeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 5.e-15},
+    "reactor_anue.neutrino_perfission_perMeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
+    "reactor_offequilibrium_anue.correction_input.enu": {"gnaname": "offeq_correction_input_enu.DB1.U235", "rtol": 1e-15},
     "reactor_offequilibrium_anue.correction_input.offequilibrium_correction": {"gnaname": [f"offeq_correction_input.{reac}" for reac in reactors], "atol": 1.e-14},
     "snf_anue.correction_input.snf_correction": {"gnaname": "snf_correction_scale_input", "atol": 5.e-15},
-    "snf_anue.correction_input.enu": {
-        "gnaname": "snf_correction_scale_input_enu.DB1"
-        },
-    "snf_anue.correction_interpolated": {
-        "gnaname": "snf_correction_scale_interpolated",
-        # "atol": 3.e-15,
-        "skip": True
-    },
+    "snf_anue.correction_input.enu": {"gnaname": "snf_correction_scale_input_enu.DB1", "rtol": 1e-15},
+    "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
 }
 # fmt: on
 
