@@ -5,6 +5,7 @@ from dagflow.graph import Graph
 from dagflow.logger import INFO1
 from dagflow.logger import INFO2
 from dagflow.logger import INFO3
+from dagflow.logger import DEBUG as INFO4
 from dagflow.logger import set_level
 from dagflow.storage import NodeStorage
 
@@ -38,7 +39,8 @@ def main(opts: Namespace) -> None:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate="auto"))
 
-        plot_graph(graph, storage)
+        if opts.graph_auto:
+            plot_graph(graph, storage)
         return
 
     if opts.print_all:
@@ -53,8 +55,24 @@ def main(opts: Namespace) -> None:
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
 
-    storage.to_datax("output/dayabay_v0_data.tex")
-    plot_graph(graph, storage)
+    if opts.latex:
+        storage.to_datax("output/dayabay_v0_data.tex")
+
+    if opts.graph_auto:
+        plot_graph(graph, storage)
+
+    if opts.graph_from_node:
+        from dagflow.graphviz import GraphDot
+
+        nodepath, filepath = opts.graph_from_node
+        node = storage("nodes")[nodepath]
+        GraphDot.from_node(
+            node,
+            mindepth=opts.mindepth,
+            maxdepth=opts.maxdepth,
+            no_forward = True,
+            no_backward = True
+        ).savegraph(filepath)
 
 
 def plot_graph(graph: Graph, storage: NodeStorage) -> None:
@@ -125,8 +143,9 @@ if __name__ == "__main__":
     )
 
     storage = parser.add_argument_group("storage", "storage related options")
-    parser.add_argument("-P", "--print-all", action="store_true", help="print all")
-    parser.add_argument("-p", "--print", action="append", nargs="+", default=[], help="print all")
+    storage.add_argument("-P", "--print-all", action="store_true", help="print all")
+    storage.add_argument("-p", "--print", action="append", nargs="+", default=[], help="print all")
+    storage.add_argument("-l", "--latex", action="store_true", help="print latex tables with parameters")
 
     graph = parser.add_argument_group("graph", "graph related options")
     graph.add_argument(
@@ -144,6 +163,12 @@ if __name__ == "__main__":
         help="override index",
         metavar=("index", "value1"),
     )
+
+    dot = parser.add_argument_group("graphviz", "plotting graphs")
+    dot.add_argument("-g", "--graph-from-node", nargs=2, help="plot the graph starting from the node", metavar=("node", "file"))
+    dot.add_argument("--mindepth", "--md", type=int, help="minimal depth")
+    dot.add_argument("--maxdepth", "--Md", type=int, help="maximaldepth depth")
+    dot.add_argument("--graph-auto", "--ga", action="store_true", help="plot graphs auto")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument("--spec", choices=("linear", "exponential"), help="antineutrino spectrum correction mode")

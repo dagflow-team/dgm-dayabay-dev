@@ -56,6 +56,9 @@ class Comparator:
     _data_d: NDArray
     _diff: NDArray | Literal[False]
 
+    _n_success: int = 0
+    _n_fail: int = 0
+
     def __init__(self, opts: Namespace):
         self.model = model_dayabay_v0(source_type=opts.source_type)
         self.opts = opts
@@ -97,6 +100,8 @@ class Comparator:
                     self.compare_source()
                 case _:
                     raise RuntimeError()
+
+        print(f"Cross check done {self._n_success+self._n_fail}: {self._n_success} success, {self._n_fail} fail")
 
     def compare_source(self) -> None:
         path_gna = self._skey_gna.replace(".", "/")
@@ -228,6 +233,8 @@ class Comparator:
         except ValueError:
             self._maxdiff = -1
             self._maxreldiff = -1
+
+            self._n_fail += 1
             return False
 
         fdiff = fabs(dgf - gna)
@@ -235,8 +242,10 @@ class Comparator:
         self._maxreldiff = float(nanmax(fdiff / gna))
 
         if status:
+            self._n_success += 1
             return True
 
+        self._n_fail += 1
         return False
 
 
