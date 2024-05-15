@@ -68,10 +68,10 @@ def main(opts: Namespace) -> None:
         node = storage("nodes")[nodepath]
         GraphDot.from_node(
             node,
+            show="all",
             mindepth=opts.mindepth,
             maxdepth=opts.maxdepth,
-            no_forward = True,
-            no_backward = True
+            keep_direction = True
         ).savegraph(filepath)
 
 
@@ -105,11 +105,8 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         storage["nodes.statistic.nuisance.all"],
         show="all",
         mindepth=-1,
-        no_forward=True,
+        maxdepth=0,
     ).savegraph("output/dayabay_v0_nuisance.dot")
-    # GraphDot.from_output(
-    #     storage["outputs.edges.energy_evis"], show="all", mindepth=-3, no_forward=True
-    # ).savegraph("output/dayabay_v0_top.dot")
     GraphDot.from_output(
         storage["outputs.statistic.stat.chi2p"],
         show="all",
@@ -121,7 +118,7 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
             "period": [0],
             "background": [0],
         },
-        no_forward=True,
+        maxdepth=0,
     ).savegraph("output/dayabay_v0_stat.dot")
 
 
