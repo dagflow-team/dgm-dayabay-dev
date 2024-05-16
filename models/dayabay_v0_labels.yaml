@@ -73,7 +73,7 @@ neutrino_cm2_perMeV_perfission_perproton:
         text: "Nν{space_key} cm²/MeV/fission/proton (main)"
     offeq:
       group:
-        text: "Nν{space_key} cm²/MeV/fission/proton (offequilibribu)"
+        text: "Nν{space_key} cm²/MeV/fission/proton (offequilibrium)"
     snf:
       group:
         text: "Nν{space_key} cm²/MeV/second/proton (SNF)"
