@@ -5,33 +5,33 @@ edges:
     axis: "$\\cos\\theta$"
     plotmethod: 'none'
   energy_common:
-    text: "Common energy (E) edges, MeV"
-    axis: "Common energy, MeV"
+    text: "Common energy (E) edges [MeV]"
+    axis: "Common energy [MeV]"
     plotmethod: 'none'
   energy_enu:
-    text: "Neutrino energy (Eν) edges, MeV"
-    latex: "Neutrino energy $E_{\\nu}$ edges, MeV"
-    axis: "$E_{\\nu}$, MeV"
+    text: "Neutrino energy (Eν) edges [MeV]"
+    latex: "Neutrino energy $E_{\\nu}$ edges [MeV]"
+    axis: "$E_{\\nu}$ [MeV]"
     plotmethod: 'none'
   # energy_epos:
-  #   text: "Positron energy (Epos) edges, MeV"
-  #   latex: "Positron energy $E_{e}$ edges, MeV"
-  #   axis: "$E_{e}$, MeV"
+  #   text: "Positron energy (Epos) edges [MeV]"
+  #   latex: "Positron energy $E_{e}$ edges [MeV]"
+  #   axis: "$E_{e}$ [MeV]"
   #   plotmethod: 'none'
   energy_edep:
-    text: "Deposited energy (Edep) edges, MeV"
-    latex: "Deposited energy $E_{\\rm dep}$ edges, MeV"
-    axis: "$E_{\\rm dep}$, MeV"
+    text: "Deposited energy (Edep) edges [MeV]"
+    latex: "Deposited energy $E_{\\rm dep}$ edges [MeV]"
+    axis: "$E_{\\rm dep}$ [MeV]"
     plotmethod: 'none'
   energy_evis:
-    text: "Visible energy (Evis) edges, MeV"
-    latex: "Visible energy $E_{\\rm vis}$ edges, MeV"
-    axis: "$E_{\\rm vis}$, MeV"
+    text: "Visible energy (Evis) edges [MeV]"
+    latex: "Visible energy $E_{\\rm vis}$ edges [MeV]"
+    axis: "$E_{\\rm vis}$ [MeV]"
     plotmethod: 'none'
   energy_erec:
-    text: "Reconstructed energy (Erec) edges, MeV"
-    latex: "Reconstructed energy $E_{\\rm rec}$ edges, MeV"
-    axis: "$E_{\\rm rec}$, MeV"
+    text: "Reconstructed energy (Erec) edges [MeV]"
+    latex: "Reconstructed energy $E_{\\rm rec}$ edges [MeV]"
+    axis: "$E_{\\rm rec}$ [MeV]"
     plotmethod: 'none'
 kinematics_sampler:
   ordersx:
@@ -46,7 +46,7 @@ kinematics_sampler:
     plotmethod: 'none'
   mesh_edep:
     text: "Deposinted energy integration mesh"
-    axis: "$E_{\\rm dep}$, MeV"
+    axis: "$E_{\\rm dep}$ [MeV]"
     plotmethod: 'none'
   mesh_costheta:
     text: "cosθ integration mesh"
@@ -54,29 +54,29 @@ kinematics_sampler:
     plotmethod: 'none'
 ibd:
   crosssection:
-    text:  "IBD cross section σ(Eν,cosθ), cm⁻²"
+    text:  "IBD cross section σ(Eν,cosθ) [cm⁻²]"
     plottitle: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
-    latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$, cm$^{-2}$"
-    axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$, cm$^{-2}$"
+    latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
+    axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
   enu:
-    text: "Eν mesh, MeV"
-    latex: "$E_{\\nu}$ mesh, MeV"
-    axis: "$E_{\\nu}$, MeV"
+    text: "Eν mesh [MeV]"
+    latex: "$E_{\\nu}$ mesh [MeV]"
+    axis: "$E_{\\nu}$ [MeV]"
   jacobian:
-    text: "dEν/dEdep Jacobian"
+    text: "dEν/dEdep Jacobian []"
     axis: "$dE_{\\nu}/dE_{\\rm dep}$"
     latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
 neutrino_cm2_perMeV_perfission_perproton:
   part:
     main:
       group:
-        text: "Nν{space_key} cm²/MeV/fission/proton (main)"
+        text: "Nν̅{space_key} [cm²/MeV/fission/proton] (main)"
     offeq:
       group:
-        text: "Nν{space_key} cm²/MeV/fission/proton (offequilibrium)"
+        text: "Nν̅{space_key} [cm²/MeV/fission/proton] (offequilibrium)"
     snf:
       group:
-        text: "Nν{space_key} cm²/MeV/second/proton (SNF)"
+        text: "Nν̅{space_key} [cm²/MeV/second/proton] (SNF)"
 kinematics_integral:
   group:
     text: "Count rate{space_key}"
@@ -99,21 +99,21 @@ countrate:
       text: "Count rate (IAV, LSNL, Erec){space_key}"
 oscprob:
   group:
-    text: "ν(e)-bar survival probability{space_key}"
+    text: "ν̅(e) survival probability{space_key} []"
     latex: "$\\bar{{\\nu}}_e$ survival probability{space_key}"
     axis: "$P_{{\\rm ee}}$"
     plotmethod: "slicesy"
 reactor_anue:
     neutrino_perfission_perMeV_nominal:
       group:
-        text: "Nominal ν-bar spectrum{space_key} (interpolated), N/fission/MeV"
+        text: "Nominal ν̅ spectrum{space_key} (interpolated), [#/fission/MeV]"
     neutrino_perfission_perMeV_input:
       spec:
         group:
-          text: "Input ν-bar spectrum{space_key}, N/fission/MeV"
+          text: "Input ν̅ spectrum{space_key}, [#/fission/MeV]"
       enu:
-          text: "Input ν-bar spectrum neutrino energy (Eν), MeV"
-          axis: '$E_{\nu}, MeV'
+          text: "Input ν̅ spectrum neutrino energy (Eν) [MeV]"
+          axis: '$E_{\nu} [MeV]'
 detector:
   iav:
     matrix_raw:
