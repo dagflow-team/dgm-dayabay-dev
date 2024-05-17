@@ -737,34 +737,34 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("kinematics_integral.main"),
                     outputs("reactor_detector.number_of_fissions_nprotons_percm2_core"),
-                    name = "countrate.parts.main",
+                    name = "eventscount.parts.main",
                     replicate = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
                     outputs("kinematics_integral.offeq"),
                     outputs("reactor_detector.number_of_fissions_nprotons_percm2_core"),
-                    name = "countrate.parts.offeq",
+                    name = "eventscount.parts.offeq",
                     replicate = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
                     outputs("kinematics_integral.snf"),
                     outputs("reactor_detector.livetime_nprotons_percm2_snf"),
-                    name = "countrate.parts.snf",
+                    name = "eventscount.parts.snf",
                     replicate = combinations["reactor.detector.period"]
                     )
 
 
             Sum.replicate(
-                outputs("countrate.parts"),
-                name="countrate.periods",
+                outputs("eventscount.parts"),
+                name="eventscount.periods",
                 replicate=combinations["detector.period"]
             )
 
             Sum.replicate(
-                outputs("countrate.periods"),
-                name="countrate.raw",
+                outputs("eventscount.periods"),
+                name="eventscount.raw",
                 replicate=index["detector"]
             )
 
@@ -783,9 +783,9 @@ class model_dayabay_v0:
             outputs["detector.iav.matrix_raw"] >> nodes["detector.iav.matrix"]
 
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
-            VectorMatrixProduct.replicate(name="countrate.iav", replicate=index["detector"])
-            outputs["detector.iav.matrix"] >> inputs("countrate.iav.matrix")
-            outputs("countrate.raw") >> inputs("countrate.iav.vector")
+            VectorMatrixProduct.replicate(name="eventscount.iav", replicate=index["detector"])
+            outputs["detector.iav.matrix"] >> inputs("eventscount.iav.matrix")
+            outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
             load_graph_data(
                 name = "detector.lsnl.curves",
@@ -845,9 +845,9 @@ class model_dayabay_v0:
             outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
             outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
-            VectorMatrixProduct.replicate(name="countrate.lsnl", replicate=index["detector"])
-            outputs("detector.lsnl.matrix") >> inputs("countrate.lsnl.matrix")
-            outputs("countrate.iav") >> inputs("countrate.lsnl.vector")
+            VectorMatrixProduct.replicate(name="eventscount.lsnl", replicate=index["detector"])
+            outputs("detector.lsnl.matrix") >> inputs("eventscount.lsnl.matrix")
+            outputs("eventscount.iav") >> inputs("eventscount.lsnl.vector")
 
             from dgf_detector.EnergyResolution import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
@@ -855,15 +855,15 @@ class model_dayabay_v0:
             outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
             outputs["edges.energy_evis"] >> inputs["detector.eres.e_edges"]
 
-            VectorMatrixProduct.replicate(name="countrate.erec", replicate=index["detector"])
-            outputs["detector.eres.matrix"] >> inputs("countrate.erec.matrix")
-            outputs("countrate.lsnl") >> inputs("countrate.erec.vector")
+            VectorMatrixProduct.replicate(name="eventscount.erec", replicate=index["detector"])
+            outputs["detector.eres.matrix"] >> inputs("eventscount.erec.matrix")
+            outputs("eventscount.lsnl") >> inputs("eventscount.erec.vector")
 
             from dgf_detector.Rebin import Rebin
-            Rebin.replicate(names={"matrix": "detector.rebin_matrix", "product": "countrate.final"}, replicate=index["detector"])
+            Rebin.replicate(names={"matrix": "detector.rebin_matrix", "product": "eventscount.final"}, replicate=index["detector"])
             edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
-            outputs("countrate.erec") >> inputs("countrate.final")
+            outputs("eventscount.erec") >> inputs("eventscount.final")
 
             #
             # Backgrounds
@@ -962,22 +962,22 @@ class model_dayabay_v0:
                 replicate=index["detector"],
                 replicate_inputs=index["detector"]
             )
-            outputs("countrate.final") >> inputs("pseudo.data.input")
+            outputs("eventscount.final") >> inputs("pseudo.data.input")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(replicate_inputs=index["detector"], name="statistic.stat.chi2p")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
-            outputs("countrate.final") >> inputs("statistic.stat.chi2p.theory")
+            outputs("eventscount.final") >> inputs("statistic.stat.chi2p.theory")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
             from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate(replicate_inputs=index["detector"], replicate=index["detector"], name="statistic.staterr.cnp")
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
-            outputs("countrate.final") >> inputs("statistic.staterr.cnp.theory")
+            outputs("eventscount.final") >> inputs("statistic.staterr.cnp.theory")
 
             Chi2.replicate(replicate_inputs=index["detector"], name="statistic.stat.chi2cnp")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
-            outputs("countrate.final") >> inputs("statistic.stat.chi2cnp.theory")
+            outputs("eventscount.final") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 
             Sum.replicate(outputs["statistic.stat.chi2p"], outputs["statistic.nuisance.all"], name="statistic.full.chi2p")

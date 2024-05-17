@@ -79,24 +79,23 @@ neutrino_cm2_perMeV_perfission_perproton:
         text: "Nν̅{space_key} [cm²/MeV/second/proton] (SNF)"
 kinematics_integral:
   group:
-    text: "Count rate{space_key}"
-countrate:
+    text: "# events {space_key}"
+eventscount:
   parts:
     group:
-      text: "Count rate{space_key}"
-countrate:
+      text: "# events {space_key}"
   raw:
     group:
-      text: "Raw count rate{space_key}"
+      text: "# events before detector effects {space_key}"
   iav:
     group:
-      text: "Count rate (IAV){space_key}"
+      text: "# events  (IAV){space_key}"
   lsnl:
     group:
-      text: "Count rate (IAV, LSNL){space_key}"
+      text: "# events  (IAV, LSNL){space_key}"
   erec:
     group:
-      text: "Count rate (IAV, LSNL, Erec){space_key}"
+      text: "# events  (IAV, LSNL, Erec){space_key}"
 oscprob:
   group:
     text: "ν̅(e) survival probability{space_key} []"
