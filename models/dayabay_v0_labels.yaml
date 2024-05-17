@@ -122,5 +122,5 @@ detector:
       text: "IAV matrix"
 baseline_factor_percm2:
   group:
-    text: "1/(4πL²) factor{space_key}, m⁻²"
-    latex: "$1/\\left(4\\pi^2\\right)$ factor{space_key}, m$^{-2}$"
+    text: "1/(4πL²) factor{space_key}, cm⁻²"
+    latex: "$1/\\left(4\\pi^2\\right)$ factor{space_key}, cm$^{-2}$"

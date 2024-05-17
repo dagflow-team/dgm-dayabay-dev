@@ -311,8 +311,8 @@ class model_dayabay_v0:
 
             #
             # Pre-interpolate input spectrum on coarser grid
-            # NOTE: 
-            #     - not needed with the current scheme: 
+            # NOTE:
+            #     - not needed with the current scheme:
             #         - spectrum correction applied by multiplication
             #     - introduced for the consistency with GNA
             #     - to be removed in v1 TODO
@@ -619,7 +619,11 @@ class model_dayabay_v0:
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
             from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
-            InverseSquareLaw.replicate(name="baseline_factor_percm2", replicate=combinations["reactor.detector"])
+            InverseSquareLaw.replicate(
+                name="baseline_factor_percm2",
+                scale="m_to_cm",
+                replicate=combinations["reactor.detector"]
+            )
             parameters("constant.baseline") >> inputs("baseline_factor_percm2")
 
             # Number of protons per detector
