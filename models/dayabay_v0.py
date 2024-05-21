@@ -116,6 +116,7 @@ class model_dayabay_v0:
                     "reactor.isotope.detector",
                     "reactor.isotope_offeq.detector",
                     "reactor.isotope.detector.period",
+                    "reactor.isotope_offeq.detector.period",
                     "reactor.detector.period",
                     "detector.period",
                     "bkg.detector"
@@ -448,7 +449,8 @@ class model_dayabay_v0:
                     outputs("reactor_anue.neutrino_perfission_perMeV_nominal"),
                     outputs("reactor_offequilibrium_anue.correction_interpolated"),
                     name = "reactor_anue.part.neutrino_perfission_perMeV_offeq_nominal",
-                    allow_skip_inputs = True, # U238
+                    allow_skip_inputs = True,
+                    skippable_inputs_should_contain = ("U238",),
                     replicate=index["isotope_offeq"],
                     )
 
@@ -745,7 +747,9 @@ class model_dayabay_v0:
                     outputs("kinematics_integral.offeq"),
                     outputs("reactor_detector.number_of_fissions_nprotons_percm2_core"),
                     name = "eventscount.parts.offeq",
-                    replicate = combinations["reactor.isotope.detector.period"]
+                    replicate = combinations["reactor.isotope_offeq.detector.period"],
+                    allow_skip_inputs = True,
+                    skippable_inputs_should_contain = ("U238",)
                     )
 
             Product.replicate(
