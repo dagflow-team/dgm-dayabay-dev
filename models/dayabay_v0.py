@@ -78,14 +78,21 @@ class model_dayabay_v0:
             type=ndarray,
         )
 
-        # fmt: off
-
         # Provide a list of indices and their values. Values should be globally unique
         index = {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
-        index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
+        index["detector"] = (
+            "AD11",
+            "AD12",
+            "AD21",
+            "AD22",
+            "AD31",
+            "AD32",
+            "AD33",
+            "AD34",
+        )
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["anue_source"] = ("main", "offeq", "snf")
@@ -93,39 +100,46 @@ class model_dayabay_v0:
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
         # index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muon')
-        index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan')
-        index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges)))
+        index["bkg"] = ("acc", "lihe", "fastn", "amc", "alphan")
+        index["spec"] = tuple(
+            f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
+        )
 
         index.update(self._override_indices)
 
-        index_all = (index["isotope"] + index["detector"] + index["reactor"] + index["period"])
+        index_all = (
+            index["isotope"] + index["detector"] + index["reactor"] + index["period"]
+        )
         set_all = set(index_all)
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
         # Provide the combinations of indices
         combinations = {
-                comb: tuple(product(*(index[item] for item in comb.split("."))))
-                for comb in
-                (
-                    "reactor.detector",
-                    "reactor.isotope",
-                    "reactor.isotope_offeq",
-                    "reactor.period",
-                    "reactor.isotope.period",
-                    "reactor.isotope.detector",
-                    "reactor.isotope_offeq.detector",
-                    "reactor.isotope.detector.period",
-                    "reactor.isotope_offeq.detector.period",
-                    "reactor.detector.period",
-                    "detector.period",
-                    "bkg.detector"
-                    )
-                }
-        combinations["anue_source.reactor.isotope.detector"] = \
-                tuple(("main",)+cmb for cmb in  combinations["reactor.isotope.detector"]) + \
-                tuple(("offeq",)+cmb for cmb in  combinations["reactor.isotope_offeq.detector"]) + \
-                tuple(("snf",)+cmb for cmb in  combinations["reactor.detector"])
+            comb: tuple(product(*(index[item] for item in comb.split("."))))
+            for comb in (
+                "reactor.detector",
+                "reactor.isotope",
+                "reactor.isotope_offeq",
+                "reactor.period",
+                "reactor.isotope.period",
+                "reactor.isotope.detector",
+                "reactor.isotope_offeq.detector",
+                "reactor.isotope.detector.period",
+                "reactor.isotope_offeq.detector.period",
+                "reactor.detector.period",
+                "detector.period",
+                "bkg.detector",
+            )
+        }
+        combinations["anue_source.reactor.isotope.detector"] = (
+            tuple(("main",) + cmb for cmb in combinations["reactor.isotope.detector"])
+            + tuple(
+                ("offeq",) + cmb
+                for cmb in combinations["reactor.isotope_offeq.detector"]
+            )
+            + tuple(("snf",) + cmb for cmb in combinations["reactor.detector"])
+        )
 
         inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         # unused_backgrounds = (("6AD", "muon"), ("8AD", "muon"))
@@ -134,7 +148,6 @@ class model_dayabay_v0:
             for pair in product(index["period"], index["detector"])
             if set(pair) not in inactive_detectors
         )
-        # fmt: on
 
         spectrum_correction_is_exponential = (
             self._spectrum_correction_mode == "exponential"
@@ -212,7 +225,24 @@ class model_dayabay_v0:
                 labels=labels,
                 replicate=index["spec"],
             )
-            # fmt: off
+
+            # Some normalization factors
+            load_parameters(
+                format="value",
+                state="fixed",
+                parameters={
+                    "reactor": {
+                        "snf_factor": 1.0,
+                        "offeq_factor": 1.0,
+                    }
+                },
+                labels={
+                    "reactor": {
+                        "snf_factor": "Common SNF factor",
+                        "offeq_factor": "Common offequilibrium factor",
+                    }
+                },
+            )
 
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
@@ -220,6 +250,7 @@ class model_dayabay_v0:
             data = storage.child("data")
             parameters = storage("parameter")
 
+            # fmt: off
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
@@ -646,6 +677,14 @@ class model_dayabay_v0:
                     replicate=combinations["reactor.isotope.detector.period"],
                     )
 
+            Product.replicate(
+                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_core"),
+                    parameters("all.reactor.offequilibrium_scale"),
+                    parameters["all.reactor.offeq_factor"],
+                    name = "reactor_detector.number_of_fissions_nprotons_percm2_core_offeq",
+                    replicate=combinations["reactor.isotope.detector.period"],
+                    )
+
             # Detector live time
             ArraySum.replicate(
                     outputs("daily_data.detector.livetime"),
@@ -662,6 +701,8 @@ class model_dayabay_v0:
                     outputs("detector.efflivetime"),
                     outputs("detector.nprotons"),
                     outputs("baseline_factor_percm2"),
+                    parameters("all.reactor.snf_scale"),
+                    parameters[ "all.reactor.snf_factor" ],
                     parameters["all.detector.efficiency"],
                     name = "reactor_detector.livetime_nprotons_percm2_snf",
                     replicate=combinations["reactor.detector.period"],
@@ -733,8 +774,8 @@ class model_dayabay_v0:
             #
             # Multiply by the scaling factors:
             #  - main:  fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
-            #  - offeq: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × offequilibrium scale[r,i]
-            #  - snf:                                effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]
+            #  - offeq: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × offequilibrium scale[r,i] × offeq_factor(=1)
+            #  - snf:                                effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
             #
             Product.replicate(
                     outputs("kinematics_integral.main"),
@@ -745,7 +786,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                     outputs("kinematics_integral.offeq"),
-                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_core"),
+                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_core_offeq"),
                     name = "eventscount.parts.offeq",
                     replicate = combinations["reactor.isotope_offeq.detector.period"],
                     allow_skip_inputs = True,
