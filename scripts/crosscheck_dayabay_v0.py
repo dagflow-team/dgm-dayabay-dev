@@ -3,11 +3,11 @@
 from argparse import Namespace
 from contextlib import suppress
 from itertools import islice, permutations
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from h5py import Dataset, File, Group
 from matplotlib import pyplot as plt
-from numpy import allclose, fabs, nanmax
+from numpy import allclose, array, fabs, nanmax
 from numpy.typing import NDArray
 
 from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
@@ -19,6 +19,9 @@ set_level(INFO1)
 
 reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
 # fmt: off
+comparison_parameters = {
+        "baseline": {"gnaname": "baseline", "gnascale": 1000, "rtol": 1.e-15},
+}
 comparison_objects = {
     # dagflow: gna
     "edges.energy_edep": "evis_edges",
@@ -35,6 +38,10 @@ comparison_objects = {
     "snf_anue.correction_input.snf_correction": {"gnaname": "snf_correction_scale_input", "atol": 5.e-15},
     "snf_anue.correction_input.enu": {"gnaname": "snf_correction_scale_input_enu.DB1", "rtol": 1e-15},
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
+    "baseline_factor_percm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
+    "eventscount.periods": {
+        "gnaname": "kinint2"
+        }
 }
 # fmt: on
 
@@ -68,11 +75,31 @@ class Comparator:
             set_level(globals()[f"INFO{opts.verbose}"])
 
         self.outputs_dgf = self.model.storage("outputs")
+        self.parameters_dgf = self.model.storage("parameter.all")
 
         with suppress(StopIteration):
-            self.compare()
+            self.compare(
+                self.opts.input["parameters/dayabay"],
+                comparison_parameters,
+                self.parameters_dgf,
+                self.compare_parameters
+            )
 
-    def compare(self) -> None:
+        with suppress(StopIteration):
+            self.compare(
+                self.opts.input,
+                comparison_objects,
+                self.outputs_dgf,
+                self.compare_outputs
+            )
+
+    def compare(
+        self,
+        gnasource: File | Group,
+        comparison_objects: dict,
+        outputs_dgf: NestedMKDict,
+        compare: Callable,
+    ) -> None:
         if self.opts.last:
             iterable = islice(reversed(comparison_objects.items()), 1)
         else:
@@ -95,19 +122,26 @@ class Comparator:
                 case list() | tuple():
                     keys_gna = self._skey_gna
                     for self._skey_gna in keys_gna:
-                        self.compare_source()
+                        self.compare_source(gnasource, compare, outputs_dgf)
                 case str():
-                    self.compare_source()
+                    self.compare_source(gnasource, compare, outputs_dgf)
                 case _:
                     raise RuntimeError()
 
-        print(f"Cross check done {self._n_success+self._n_fail}: {self._n_success} success, {self._n_fail} fail")
+        print(
+            f"Cross check done {self._n_success+self._n_fail}: {self._n_success} success, {self._n_fail} fail"
+        )
 
-    def compare_source(self) -> None:
+    def compare_source(
+        self,
+        gnasource: File | Group,
+        compare: Callable,
+        outputs_dgf: NestedMKDict
+    ) -> None:
         path_gna = self._skey_gna.replace(".", "/")
 
-        data_storage_gna = self.opts.input[path_gna]
-        data_storage_dgf = self.outputs_dgf.any(self._skey_dgf)
+        data_storage_gna = gnasource[path_gna]
+        data_storage_dgf = outputs_dgf.any(self._skey_dgf)
 
         match data_storage_dgf, data_storage_gna:
             case Output(), Dataset():
@@ -115,11 +149,53 @@ class Comparator:
                 self._data_d = data_storage_dgf.data
                 self._skey2_dgf = ""
                 self._skey2_gna = ""
-                self.compare_outputs()
+                compare()
             case NestedMKDict(), Group():
-                self.compare_nested(data_storage_gna, data_storage_dgf)
+                self.compare_nested(data_storage_gna, data_storage_dgf, compare)
             case _:
                 raise RuntimeError("Unexpected data types")
+
+    def compare_parameters(self):
+        is_ok = True
+        for key in ("value",): #, "central", "sigma"):
+            try:
+                vd = self._data_d[key]
+            except KeyError:
+                continue
+            # vg = self._data_g[0][key]
+            vg = self._data_g[0]
+
+            if (scaleg:= self._cmpopts.get("gnascale")) is not None:
+                vg*=scaleg
+
+            is_ok = allclose(vd, vg, rtol=self.rtol, atol=self.atol)
+
+            if is_ok:
+                logger.log(INFO1, f"OK: {self.cmpstring} [{key}]")
+                logger.log(INFO2, f"    {self.tolstring}")
+                if (ignore := self._cmpopts.get("ignore")) is not None:
+                    logger.log(INFO2, f"↑Ignore: {ignore}")
+            else:
+                self._maxdiff = float(fabs(vd-vg))
+                self._maxreldiff = float(self._maxdiff/vg)
+
+                logger.error(f"FAIL: {self.cmpstring} [{key}]")
+                logger.error(f"      {self.tolstring}")
+                logger.error(f"      max diff {self._maxdiff:.2g}, ")
+                logger.error(f"      max rel diff {self._maxreldiff:.2g}")
+
+                if self.opts.embed_on_failure:
+                    try:
+                        self._diff = self._data_d - self._data_g
+                    except:
+                        self._diff = False
+
+                    import IPython
+
+                    IPython.embed(colors="neutral")
+
+                if self.opts.exit_on_failure:
+                    raise StopIteration()
 
     def compare_outputs(self):
         is_ok = self.data_consistent(self._data_g, self._data_d)
@@ -141,12 +217,19 @@ class Comparator:
                     style = "o-"
                 else:
                     style = "-"
-                pargs = {"markerfacecolor": "none"}
+                pargs = {"markerfacecolor": "none", "alpha": 0.8}
 
                 plt.figure()
                 ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
                 ax.plot(self._data_g, style, label="GNA", **pargs)
                 ax.plot(self._data_d, style, label="dagflow", **pargs)
+                scale_factor = self._data_g.sum() / self._data_d.sum()
+                ax.plot(
+                    self._data_d * scale_factor,
+                    f"{style}-",
+                    label="dagflow scaled",
+                    **pargs,
+                )
                 ax.legend()
                 ax.grid()
 
@@ -179,7 +262,7 @@ class Comparator:
 
     @property
     def cmpstring(self) -> str:
-        return f"{self._skey_dgf}{self._skey2_dgf}↔{self._skey_gna}{self._skey2_gna}"
+        return f"{self._skey_dgf}{self._skey2_dgf} ↔ {self._skey_gna}{self._skey2_gna}"
 
     @property
     def tolstring(self) -> str:
@@ -193,9 +276,12 @@ class Comparator:
     def shapestrings(self) -> str:
         return f"{self._data_d.shape}, {self._data_g.shape}"
 
-    def compare_nested(self, storage_gna: Group, storage_dgf: NestedMKDict):
+    def compare_nested(self, storage_gna: Group, storage_dgf: NestedMKDict, compare: Callable):
         for key_d, output_dgf in storage_dgf.walkitems():
-            self._data_d = output_dgf.data
+            try:
+                self._data_d = output_dgf.data
+            except AttributeError:
+                self._data_d = output_dgf.to_dict()
             self._skey2_dgf = ".".join(("",) + key_d)
             for key_g in permutations(key_d):
                 path_g = "/".join(key_g)
@@ -206,8 +292,11 @@ class Comparator:
                     continue
                 self._data_g = data_g[:]
 
+                if self._data_g.dtype.names:
+                    self._data_g = array([self._data_g[0]["value"]], dtype="d")
+
                 self._skey2_gna = ".".join(("",) + key_g)
-                self.compare_outputs()
+                compare()
                 break
             else:
                 raise RuntimeError(
@@ -228,6 +317,7 @@ class Comparator:
         elif (slice := self._cmpopts.get("slice")) is not None:
             gna = gna[slice]
             dgf = dgf[slice]
+
         try:
             status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
         except ValueError:
