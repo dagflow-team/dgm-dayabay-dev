@@ -21,6 +21,8 @@ reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
 # fmt: off
 comparison_parameters = {
         "baseline": {"gnaname": "baseline", "gnascale": 1000, "rtol": 1.e-15},
+        "detector.nprotons_nominal_ad": {"gnaname": "nprotons_nominal"},
+        "conversion.reactorPowerConversion": {"gnaname": "conversion_factor", "rtol": 1.e-8 }
 }
 comparison_objects = {
     # dagflow: gna
@@ -39,9 +41,13 @@ comparison_objects = {
     "snf_anue.correction_input.enu": {"gnaname": "snf_correction_scale_input_enu.DB1", "rtol": 1e-15},
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
     "baseline_factor_percm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
-    "eventscount.periods": {
-        "gnaname": "kinint2"
+    "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
+    "reactor_detector.number_of_fissions_nprotons_percm2_core": {
+        "gnaname": "parameters.dayabay.power_livetime_factor"
         }
+    # "eventscount.periods": {
+    #     "gnaname": "kinint2"
+    #     }
 }
 # fmt: on
 
@@ -138,6 +144,7 @@ class Comparator:
         compare: Callable,
         outputs_dgf: NestedMKDict
     ) -> None:
+        from dagflow.parameters import Parameter
         path_gna = self._skey_gna.replace(".", "/")
 
         data_storage_gna = gnasource[path_gna]
@@ -147,6 +154,14 @@ class Comparator:
             case Output(), Dataset():
                 self._data_g = data_storage_gna[:]
                 self._data_d = data_storage_dgf.data
+                self._skey2_dgf = ""
+                self._skey2_gna = ""
+                compare()
+            case Parameter(), Dataset():
+                self._data_g = data_storage_gna[:]
+                self._data_d = data_storage_dgf.to_dict()
+                if self._data_g.dtype.names:
+                    self._data_g = array([self._data_g[0]["value"]], dtype="d")
                 self._skey2_dgf = ""
                 self._skey2_gna = ""
                 compare()
