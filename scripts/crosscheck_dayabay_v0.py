@@ -54,10 +54,8 @@ comparison_objects = {
     "baseline_factor_percm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
-    "daily_data.reactor.fission_fraction": {
-        "gnaname": "fission_fractions",
-        "preprocess_gna": strip_last_day_periods_6_8
-        }
+    "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
+    "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
     # "daily_data.detector.efflivetime": {
     #     "gnaname": "efflivetime_daily",
     #     "preprocess_gna": strip_last_day_if_empty
