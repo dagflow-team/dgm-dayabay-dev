@@ -17,6 +17,17 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 set_level(INFO1)
 
+def strip_last_day_periods_6_8(key: str, key2: str, data: NDArray):
+    if '6AD' in key2 or '8AD' in key2:
+        return data[:-1]
+
+    return data
+
+def strip_last_day_if_empty(key: str, key2: str, data: NDArray):
+    if data[-1]!=0.0:
+        return data
+    return data[:-1]
+
 reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
 # fmt: off
 comparison_parameters = {
@@ -42,9 +53,18 @@ comparison_objects = {
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
     "baseline_factor_percm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
-    "reactor_detector.number_of_fissions_nprotons_percm2_core": {
-        "gnaname": "parameters.dayabay.power_livetime_factor"
+    "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
+    "daily_data.reactor.fission_fraction": {
+        "gnaname": "fission_fractions",
+        "preprocess_gna": strip_last_day_periods_6_8
         }
+    # "daily_data.detector.efflivetime": {
+    #     "gnaname": "efflivetime_daily",
+    #     "preprocess_gna": strip_last_day_if_empty
+    #     }
+    # "reactor_detector.number_of_fissions_nprotons_percm2_core": {
+    #     "gnaname": "parameters.dayabay.power_livetime_factor"
+    #     }
     # "eventscount.periods": {
     #     "gnaname": "kinint2"
     #     }
@@ -71,6 +91,19 @@ class Comparator:
 
     _n_success: int = 0
     _n_fail: int = 0
+
+    @property
+    def data_g(self) -> NDArray:
+        return self._data_g
+
+    @data_g.setter
+    def data_g(self, data: NDArray):
+        try:
+            fcn = self._cmpopts["preprocess_gna"]
+        except (TypeError, KeyError):
+            self._data_g = data
+        else:
+            self._data_g = fcn(self._skey_gna, self._skey2_gna, data)
 
     def __init__(self, opts: Namespace):
         self.model = model_dayabay_v0(source_type=opts.source_type)
@@ -152,16 +185,16 @@ class Comparator:
 
         match data_storage_dgf, data_storage_gna:
             case Output(), Dataset():
-                self._data_g = data_storage_gna[:]
+                self.data_g = data_storage_gna[:]
                 self._data_d = data_storage_dgf.data
                 self._skey2_dgf = ""
                 self._skey2_gna = ""
                 compare()
             case Parameter(), Dataset():
-                self._data_g = data_storage_gna[:]
+                self.data_g = data_storage_gna[:]
                 self._data_d = data_storage_dgf.to_dict()
                 if self._data_g.dtype.names:
-                    self._data_g = array([self._data_g[0]["value"]], dtype="d")
+                    self.data_g = array([self._data_g[0]["value"]], dtype="d")
                 self._skey2_dgf = ""
                 self._skey2_gna = ""
                 compare()
@@ -222,6 +255,7 @@ class Comparator:
                 logger.log(INFO2, f"↑Ignore: {ignore}")
         else:
             logger.error(f"FAIL: {self.cmpstring}")
+            logger.error(f"      {self.parstring}")
             logger.error(f"      {self.tolstring}")
             logger.error(f"      {self.shapestrings}")
             logger.error(f"      max diff {self._maxdiff:.2g}, ")
@@ -284,12 +318,16 @@ class Comparator:
         return f"rtol={self.rtol}" f" atol={self.atol}"
 
     @property
+    def parstring(self) -> str:
+        return f"dagflow={self._data_d[0]}  gna={self._data_g[0]}"
+
+    @property
     def shapestring(self) -> str:
         return f"{self._data_g.shape}"
 
     @property
     def shapestrings(self) -> str:
-        return f"{self._data_d.shape}, {self._data_g.shape}"
+        return f"dagflow: {self._data_d.shape}, gna: {self._data_g.shape}"
 
     def compare_nested(self, storage_gna: Group, storage_dgf: NestedMKDict, compare: Callable):
         for key_d, output_dgf in storage_dgf.walkitems():
@@ -300,17 +338,17 @@ class Comparator:
             self._skey2_dgf = ".".join(("",) + key_d)
             for key_g in permutations(key_d):
                 path_g = "/".join(key_g)
+                self._skey2_gna = ".".join(("",) + key_g)
 
                 try:
                     data_g = storage_gna[path_g]
                 except KeyError:
                     continue
-                self._data_g = data_g[:]
+                self.data_g = data_g[:]
 
                 if self._data_g.dtype.names:
-                    self._data_g = array([self._data_g[0]["value"]], dtype="d")
+                    self.data_g = array([self._data_g[0]["value"]], dtype="d")
 
-                self._skey2_gna = ".".join(("",) + key_g)
                 compare()
                 break
             else:
