@@ -53,13 +53,13 @@ comparison_objects = {
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
     "baseline_factor_percm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
+    # "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8}, # should be inconsistent as it is not rescaled in GNA
+    "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
-    # "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8}, # should be inconsistent as it is not rescaled in GNA
-    "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8}
-    # "reactor_detector.number_of_fissions_nprotons_percm2_core": {
-    #     "gnaname": "parameters.dayabay.power_livetime_factor"
-    #     }
+    "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8},
+    "reactor.energy_per_fission_core_average_MeV": { "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 },
+    "reactor_detector.number_of_fissions_nprotons_percm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}
     # "eventscount.periods": {
     #     "gnaname": "kinint2"
     #     }
@@ -306,7 +306,7 @@ class Comparator:
 
     @property
     def cmpstring(self) -> str:
-        return f"{self._skey_dgf}{self._skey2_dgf} ↔ {self._skey_gna}{self._skey2_gna}"
+        return f"dagflow:{self._skey_dgf}{self._skey2_dgf} ↔ gna:{self._skey_gna}{self._skey2_gna}"
 
     @property
     def tolstring(self) -> str:
@@ -314,7 +314,7 @@ class Comparator:
 
     @property
     def parstring(self) -> str:
-        return f"dagflow={self._data_d[0]}  gna={self._data_g[0]}"
+        return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}"
 
     @property
     def shapestring(self) -> str:
