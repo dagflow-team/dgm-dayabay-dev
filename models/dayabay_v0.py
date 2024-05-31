@@ -569,7 +569,8 @@ class model_dayabay_v0:
             Product.replicate(
                     parameters("all.reactor.nominal_thermal_power"),
                     parameters["all.conversion.reactorPowerConversion"],
-                    name = "reactor.thermal_power_nominal_MeVs"
+                    name = "reactor.thermal_power_nominal_MeVs",
+                    replicate = index["reactor"]
                     )
 
             # Time dependent, fit dependent (non-nominal) for reactor core
@@ -596,7 +597,7 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("daily_data.reactor.power"),
                     outputs("daily_data.reactor.fission_fraction_core_scaled"),
-                    outputs["reactor.thermal_power_nominal_MeVs"],
+                    outputs("reactor.thermal_power_nominal_MeVs"),
                     name = "reactor.thermal_power_core_isotope_MeV_persecond",
                     replicate=combinations["reactor.isotope.period"],
                     )
@@ -623,16 +624,16 @@ class model_dayabay_v0:
 
             Product.replicate(
                     parameters("all.reactor.fission_fraction_snf"),
-                    outputs["reactor.thermal_power_nominal_MeVs"],
+                    outputs("reactor.thermal_power_nominal_MeVs"),
                     name = "reactor.thermal_power_snf_isotope_MeV_persecond",
-                    replicate=index["isotope"],
+                    replicate=combinations["reactor.isotope"],
                     )
 
             Division.replicate(
                     outputs("reactor.thermal_power_snf_isotope_MeV_persecond"),
                     outputs["reactor.energy_per_fission_snf_average_MeV"],
                     name = "reactor.fissions_persecond_snf",
-                    replicate=index["isotope"],
+                    replicate=combinations["reactor.isotope"],
                     )
 
             # Effective number of fissions seen in Detector from Reactor from Isotope during Period
@@ -714,17 +715,18 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("reactor_anue.neutrino_perfission_perMeV_nominal"),
                     outputs("reactor.fissions_persecond_snf"),
-                    name = "snf_anue.neutrino_persecond_main_isotope",
-                    replicate = index["isotope"]
+                    name = "snf_anue.neutrino_persecond_isotope",
+                    replicate=combinations["reactor.isotope"],
                     )
 
             Sum.replicate(
-                    outputs("snf_anue.neutrino_persecond_main_isotope"),
-                    name = "snf_anue.neutrino_persecond_main"
+                    outputs("snf_anue.neutrino_persecond_isotope"),
+                    name = "snf_anue.neutrino_persecond",
+                    replicate=index["reactor"],
                     )
 
             Product.replicate(
-                    outputs["snf_anue.neutrino_persecond_main"],
+                    outputs("snf_anue.neutrino_persecond"),
                     outputs("snf_anue.correction_interpolated"),
                     name = "snf_anue.neutrino_persecond_snf",
                     replicate = index["reactor"]
