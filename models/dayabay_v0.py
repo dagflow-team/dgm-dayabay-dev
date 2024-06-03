@@ -802,6 +802,19 @@ class model_dayabay_v0:
                     replicate = combinations["reactor.detector.period"]
                     )
 
+            # Debug node: eventscount.reactor_active_periods
+            Sum.replicate(
+                outputs("eventscount.parts.main"),
+                outputs("eventscount.parts.offeq"),
+                name="eventscount.reactor_active_periods",
+                replicate=combinations["detector.period"]
+            )
+            # Debug node: eventscount.reactor_active_periods
+            Sum.replicate(
+                outputs("eventscount.parts.snf"),
+                name="eventscount.snf_periods",
+                replicate=combinations["detector.period"]
+            )
 
             Sum.replicate(
                 outputs("eventscount.parts"),
@@ -892,8 +905,15 @@ class model_dayabay_v0:
             outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
             outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
+            # TODO: Outdated LSNL matrix (cross check)
+            from dgf_detector.AxisDistortionMatrixLinear import AxisDistortionMatrixLinear
+            AxisDistortionMatrixLinear.replicate(name="detector.lsnl.matrix_linear", replicate=index["detector"])
+            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix_linear.EdgesOriginal")
+            outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
+
             VectorMatrixProduct.replicate(name="eventscount.lsnl", replicate=index["detector"])
-            outputs("detector.lsnl.matrix") >> inputs("eventscount.lsnl.matrix")
+            # outputs("detector.lsnl.matrix") >> inputs("eventscount.lsnl.matrix")
+            outputs("detector.lsnl.matrix_linear") >> inputs("eventscount.lsnl.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.lsnl.vector")
 
             from dgf_detector.EnergyResolution import EnergyResolution
