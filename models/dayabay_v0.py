@@ -866,11 +866,26 @@ class model_dayabay_v0:
                 meshname = "edep",
                 remove_used_arrays = True
             )
-            # TODO:
-            # - LSNL weights
-            # - escale per AD
-            # - Monotonize
-            Sum.replicate(outputs("detector.lsnl.curves.evis_parts"), name="detector.lsnl.curves.evis")
+
+            Product.replicate(
+                outputs("detector.lsnl.curves.evis_parts"),
+                parameters("constrained.detector.lsnl_scale_a"),
+                name = "detector.lsnl.curves.evis_parts_scaled",
+                allow_skip_inputs = True,
+                skippable_inputs_should_contain = ("nominal",),
+                replicate_outputs=index["lsnl_nuisance"]
+            )
+            Sum.replicate(
+                outputs["detector.lsnl.curves.evis_parts.nominal"],
+                outputs("detector.lsnl.curves.evis_parts_scaled"),
+                name="detector.lsnl.curves.evis_common"
+            )
+            Product.replicate(
+                outputs["detector.lsnl.curves.evis_common"],
+                parameters("constrained.detector.energy_scale_factor"),
+                name="detector.lsnl.curves.evis",
+                replicate_outputs = index["detector"]
+            )
             InterpolatorGroup.replicate(
                 method = "linear",
                 names = {
@@ -880,25 +895,29 @@ class model_dayabay_v0:
                 replicate_outputs = index["detector"]
             )
             outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolated_fwd.xcoarse"]
-            outputs["detector.lsnl.curves.evis"] >> inputs("detector.lsnl.interpolated_fwd.ycoarse")
+            outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.interpolated_fwd.ycoarse")
             edges_energy_edep >> inputs["detector.lsnl.interpolated_fwd.xfine"]
-            InterpolatorGroup.replicate(
-                method = "linear",
-                names = {
-                    "indexer": "detector.lsnl.indexer_bwd",
-                    "interpolator": "detector.lsnl.interpolated_bwd",
-                    },
-                replicate_outputs = index["detector"]
-            )
-            outputs["detector.lsnl.curves.evis"] >> inputs["detector.lsnl.interpolated_bwd.xcoarse"]
-            outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolated_bwd.ycoarse")
-            edges_energy_evis >> inputs["detector.lsnl.interpolated_bwd.xfine"]
 
-            from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
-            AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
-            outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
-            outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
+            ## TODO:
+            ## - for backward interpolation need multiple X definitions (detectors)
+            ## - thus need to replicate the indexer
+            # InterpolatorGroup.replicate(
+            #     method = "linear",
+            #     names = {
+            #         "indexer": "detector.lsnl.indexer_bwd",
+            #         "interpolator": "detector.lsnl.interpolated_bwd",
+            #         },
+            #     replicate_outputs = index["detector"]
+            # )
+            # outputs("detector.lsnl.curves.evis") >> inputs["detector.lsnl.interpolated_bwd.xcoarse"]
+            # outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolated_bwd.ycoarse")
+            # edges_energy_evis >> inputs["detector.lsnl.interpolated_bwd.xfine"]
+
+            # from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
+            # AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
+            # edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            # outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix.EdgesModified")
+            # outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
             # TODO: Outdated LSNL matrix (cross check)
             from dgf_detector.AxisDistortionMatrixLinear import \
