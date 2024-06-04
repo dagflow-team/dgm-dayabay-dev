@@ -7,7 +7,7 @@ from typing import Any, Callable, Literal
 
 from h5py import Dataset, File, Group
 from matplotlib import pyplot as plt
-from numpy import allclose, array, fabs, nanmax
+from numpy import allclose, array, fabs, ma, nanmax
 from numpy.typing import NDArray
 
 from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
@@ -64,6 +64,11 @@ comparison_objects = {
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
     "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
+    # "detector.lsnl.matrix_linear": {
+    #     "gnaname": "lsnl_matrix",
+    #     "slice": (slice(14, None), slice(21, 212))
+    #     } # exclude extrapolation below 1 MeV (dagflow: absolute, gan: relative), exclude last nonzero column (missing in GNA)
+    # "detector.eres.matrix_linear": {"gnaname": "lsnl_matrix"}
     # "eventscount.lsnl": {"gnaname": "lsnl", "rtol": 1.e-8},
 }
 # fmt: on
@@ -101,6 +106,22 @@ class Comparator:
             self._data_g = data
         else:
             self._data_g = fcn(self._skey_gna, self._skey2_gna, data)
+
+        if (slice_gna := self._cmpopts.get("slice_gna")) is not None:
+            self._data_g = self._data_g[slice_gna]
+        elif (slice := self._cmpopts.get("slice")) is not None:
+            self._data_g = self._data_g[slice]
+
+    @property
+    def data_d(self) -> NDArray:
+        return self._data_d
+
+    @data_d.setter
+    def data_d(self, data: NDArray):
+        self._data_d = data
+
+        if (slice := self._cmpopts.get("slice")) is not None:
+            self._data_d = data[slice]
 
     def __init__(self, opts: Namespace):
         self.model = model_dayabay_v0(source_type=opts.source_type)
@@ -183,13 +204,13 @@ class Comparator:
         match data_storage_dgf, data_storage_gna:
             case Output(), Dataset():
                 self.data_g = data_storage_gna[:]
-                self._data_d = data_storage_dgf.data
+                self.data_d = data_storage_dgf.data
                 self._skey2_dgf = ""
                 self._skey2_gna = ""
                 compare()
             case Parameter(), Dataset():
                 self.data_g = data_storage_gna[:]
-                self._data_d = data_storage_dgf.to_dict()
+                self.data_d = data_storage_dgf.to_dict()
                 if self._data_g.dtype.names:
                     self.data_g = array([self._data_g[0]["value"]], dtype="d")
                 self._skey2_dgf = ""
@@ -259,35 +280,7 @@ class Comparator:
             logger.error(f"      max rel diff {self._maxreldiff:.2g}")
 
             if self.opts.plot_on_failure:
-                if self._data_g.shape[0] < 100:
-                    style = "o-"
-                else:
-                    style = "-"
-                pargs = {"markerfacecolor": "none", "alpha": 0.8}
-
-                plt.figure()
-                ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
-                ax.plot(self._data_g, style, label="GNA", **pargs)
-                ax.plot(self._data_d, style, label="dagflow", **pargs)
-                scale_factor = self._data_g.sum() / self._data_d.sum()
-                ax.plot(
-                    self._data_d * scale_factor,
-                    f"{style}-",
-                    label="dagflow scaled",
-                    **pargs,
-                )
-                ax.legend()
-                ax.grid()
-
-                plt.figure()
-                ax = plt.subplot(
-                    111, xlabel="", ylabel="dagflow/GNA", title=self.key_dgf
-                )
-                with suppress(ValueError):
-                    ax.plot(self._data_d / self._data_g, style, **pargs)
-                ax.grid()
-
-                plt.show()
+                self.plot()
 
             if self.opts.embed_on_failure:
                 try:
@@ -302,9 +295,82 @@ class Comparator:
             if self.opts.exit_on_failure:
                 raise StopIteration()
 
+    def plot(self):
+        ndim = self._data_g.ndim
+        if ndim==1:
+            return self.plot_1d()
+        elif ndim==2:
+            return self.plot_mat()
+
+    def plot_mat(self):
+        data_g = ma.array(self._data_g, mask=(self._data_g==0))
+        data_d = ma.array(self._data_d, mask=(self._data_d==0))
+        plt.figure()
+        ax = plt.subplot(111, xlabel="", ylabel="", title=f"GNA {self.key_gna}")
+        ax.matshow(data_g)
+        ax.grid()
+
+        plt.figure()
+        ax = plt.subplot(111, xlabel="", ylabel="", title=f"dagflow {self.key_dgf}")
+        ax.matshow(data_d)
+        ax.grid()
+
+        # plt.figure()
+        # ax = plt.subplot(111, xlabel="", ylabel="", title=f"both {self.key_dgf}")
+        # ax.matshow(data_g, alpha=0.6, cmap="viridis")
+        # ax.matshow(data_d, alpha=0.6, cmap="inferno")
+        # ax.grid()
+
+        plt.figure()
+        ax = plt.subplot(111, xlabel="", ylabel="", title=f"diff {self.key_dgf}")
+        ax.matshow(data_d-data_g, alpha=0.6)
+        ax.grid()
+
+        plt.figure()
+        ax = plt.subplot(111, xlabel="", ylabel="", title=f"rel diff {self.key_dgf}")
+        ax.matshow((data_d-data_g)/data_g, alpha=0.6)
+        ax.grid()
+
+        plt.show()
+
+    def plot_1d(self):
+        if self._data_g.shape[0] < 100:
+            style = "o-"
+        else:
+            style = "-"
+        pargs = {"markerfacecolor": "none", "alpha": 0.4}
+
+        plt.figure()
+        ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
+        ax.plot(self._data_g, style, label="GNA", **pargs)
+        ax.plot(self._data_d, style, label="dagflow", **pargs)
+        scale_factor = self._data_g.sum() / self._data_d.sum()
+        ax.plot(
+            self._data_d * scale_factor,
+            f"{style}-",
+            label="dagflow scaled",
+            **pargs,
+        )
+        ax.legend()
+        ax.grid()
+
+        plt.figure()
+        ax = plt.subplot(
+            111, xlabel="", ylabel="dagflow/GNA", title=self.key_dgf
+        )
+        with suppress(ValueError):
+            ax.plot(self._data_d / self._data_g, style, **pargs)
+        ax.grid()
+
+        plt.show()
+
     @property
     def key_dgf(self) -> str:
         return f"{self._skey_dgf}{self._skey2_dgf}"
+
+    @property
+    def key_gna(self) -> str:
+        return f"{self._skey_gna}{self._skey2_gna}"
 
     @property
     def cmpstring(self) -> str:
@@ -329,9 +395,9 @@ class Comparator:
     def compare_nested(self, storage_gna: Group, storage_dgf: NestedMKDict, compare: Callable):
         for key_d, output_dgf in storage_dgf.walkitems():
             try:
-                self._data_d = output_dgf.data
+                self.data_d = output_dgf.data
             except AttributeError:
-                self._data_d = output_dgf.to_dict()
+                self.data_d = output_dgf.to_dict()
             self._skey2_dgf = ".".join(("",) + key_d)
             for key_g in permutations(key_d):
                 path_g = "/".join(key_g)
@@ -362,12 +428,6 @@ class Comparator:
         return float(self._cmpopts.get("rtol", 0.0))
 
     def data_consistent(self, gna: NDArray, dgf: NDArray) -> bool:
-        if (slice_gna := self._cmpopts.get("slice_gna")) is not None:
-            gna = gna[slice_gna]
-        elif (slice := self._cmpopts.get("slice")) is not None:
-            gna = gna[slice]
-            dgf = dgf[slice]
-
         try:
             status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
         except ValueError:
