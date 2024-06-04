@@ -64,12 +64,10 @@ comparison_objects = {
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
     "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
-    # "detector.lsnl.matrix_linear": {
-    #     "gnaname": "lsnl_matrix",
-    #     "slice": (slice(14, None), slice(21, 212))
-    #     } # exclude extrapolation below 1 MeV (dagflow: absolute, gan: relative), exclude last nonzero column (missing in GNA)
-    # "detector.eres.matrix_linear": {"gnaname": "lsnl_matrix"}
+    # "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
+    "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix", "slice": (slice(14, None), slice(22, 212)), "atol": 1.e-3}, # exclude extrapolation below 1 MeV (dagflow: absolute, gan: relative), exclude last nonzero column (missing in GNA)
     # "eventscount.lsnl": {"gnaname": "lsnl", "rtol": 1.e-8},
+    "detector.eres.matrix": {"gnaname": "eres_matrix", "atol": 1.e-14},
 }
 # fmt: on
 
@@ -324,11 +322,6 @@ class Comparator:
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"diff {self.key_dgf}")
         ax.matshow(data_d-data_g, alpha=0.6)
-        ax.grid()
-
-        plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="", title=f"rel diff {self.key_dgf}")
-        ax.matshow((data_d-data_g)/data_g, alpha=0.6)
         ax.grid()
 
         plt.show()
