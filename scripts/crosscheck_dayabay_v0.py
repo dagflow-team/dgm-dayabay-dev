@@ -57,12 +57,12 @@ comparison_objects = {
     "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
-    "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8},
-    "reactor.energy_per_fission_core_average_MeV": { "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 },
-    "reactor_detector.number_of_fissions_nprotons_percm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}
-    # "eventscount.periods": {
-    #     "gnaname": "kinint2"
-    #     }
+    # "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8}, # available only in cross-check version of the input hdf
+    # "reactor.energy_per_fission_core_average_MeV": { "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 }, # available only in cross-check version of the input hdf
+    # "reactor_detector.number_of_fissions_nprotons_percm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
+    # "eventscount.reactor_active_periods": {"gnaname": "kinint2", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
+    # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
+    "eventscount.periods": {"gnaname": "kinint2", "rtol": 1.e-8}
 }
 # fmt: on
 
