@@ -12,7 +12,7 @@ def refine_detector_data(
     target: NestedMKDict,
     *,
     detectors: Sequence[str],
-    periods: Sequence[int] = (6, 8, 7),
+    periods: Sequence[str] = ("6AD", "8AD", "7AD"),
     clean_source: bool = True,
 ) -> None:
     fields = ("livetime", "eff", "efflivetime")
@@ -23,9 +23,9 @@ def refine_detector_data(
         assert (step==1).all(), "Expect detector data for each day"
 
         ndet = source["ndet", det]
-        for period in periods:
-            mask_period = ndet == period
-            periodname = f"{period}AD"
+        for periodname in periods:
+            period_ndet = int(periodname[0])
+            mask_period = ndet == period_ndet
 
             for field in fields:
                 data = source[field, det]
