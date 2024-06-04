@@ -62,7 +62,9 @@ comparison_objects = {
     # "reactor_detector.number_of_fissions_nprotons_percm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.reactor_active_periods": {"gnaname": "kinint2", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
-    "eventscount.periods": {"gnaname": "kinint2", "rtol": 1.e-8}
+    "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
+    "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
+    # "eventscount.lsnl": {"gnaname": "lsnl", "rtol": 1.e-8},
 }
 # fmt: on
 
