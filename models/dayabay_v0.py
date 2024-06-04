@@ -83,16 +83,7 @@ class model_dayabay_v0:
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
-        index["detector"] = (
-            "AD11",
-            "AD12",
-            "AD21",
-            "AD22",
-            "AD31",
-            "AD32",
-            "AD33",
-            "AD34",
-        )
+        index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["anue_source"] = ("main", "offeq", "snf")
@@ -114,24 +105,32 @@ class model_dayabay_v0:
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
+        inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
+        required_combinations = (
+            "reactor.detector",
+            "reactor.isotope",
+            "reactor.isotope_offeq",
+            "reactor.period",
+            "reactor.isotope.period",
+            "reactor.isotope.detector",
+            "reactor.isotope_offeq.detector",
+            "reactor.isotope.detector.period",
+            "reactor.isotope_offeq.detector.period",
+            "reactor.detector.period",
+            "detector.period",
+            "bkg.detector",
+        )
         # Provide the combinations of indices
-        combinations = {
-            comb: tuple(product(*(index[item] for item in comb.split("."))))
-            for comb in (
-                "reactor.detector",
-                "reactor.isotope",
-                "reactor.isotope_offeq",
-                "reactor.period",
-                "reactor.isotope.period",
-                "reactor.isotope.detector",
-                "reactor.isotope_offeq.detector",
-                "reactor.isotope.detector.period",
-                "reactor.isotope_offeq.detector.period",
-                "reactor.detector.period",
-                "detector.period",
-                "bkg.detector",
-            )
-        }
+        combinations = {}
+        for combname in required_combinations:
+            combitems = combname.split(".")
+            items = []
+            for it in product(*(index[item] for item in combitems)):
+                if any(inact.issubset(it) for inact in inactive_detectors):
+                    continue
+                items.append(it)
+            combinations[combname] = tuple(items)
+
         combinations["anue_source.reactor.isotope.detector"] = (
             tuple(("main",) + cmb for cmb in combinations["reactor.isotope.detector"])
             + tuple(
@@ -139,14 +138,6 @@ class model_dayabay_v0:
                 for cmb in combinations["reactor.isotope_offeq.detector"]
             )
             + tuple(("snf",) + cmb for cmb in combinations["reactor.detector"])
-        )
-
-        inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
-        # unused_backgrounds = (("6AD", "muon"), ("8AD", "muon"))
-        combinations["period.detector"] = tuple(
-            pair
-            for pair in product(index["period"], index["detector"])
-            if set(pair) not in inactive_detectors
         )
 
         spectrum_correction_is_exponential = (
@@ -495,7 +486,8 @@ class model_dayabay_v0:
                 filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
                 replicate = index["detector"],
                 objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
-                columns = ("day", "ndet", "livetime", "eff", "efflivetime")
+                columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
+                skip = inactive_detectors
             )
             from models.bundles.refine_detector_data import \
                 refine_detector_data
@@ -642,6 +634,8 @@ class model_dayabay_v0:
                     outputs("daily_data.detector.efflivetime"),
                     name = "reactor_detector.number_of_fissions_core_daily",
                     replicate=combinations["reactor.isotope.detector.period"],
+                    allow_skip_inputs = True,
+                    skippable_inputs_should_contain = inactive_detectors
                     )
 
             # Total effective number of fissions from a Reactor seen in the Detector during Period
@@ -707,6 +701,8 @@ class model_dayabay_v0:
                     parameters["all.detector.efficiency"],
                     name = "reactor_detector.livetime_nprotons_percm2_snf",
                     replicate=combinations["reactor.detector.period"],
+                    allow_skip_inputs = True,
+                    skippable_inputs_should_contain = inactive_detectors
                     )
 
             #
@@ -818,16 +814,15 @@ class model_dayabay_v0:
 
             Sum.replicate(
                 outputs("eventscount.parts"),
-                name="eventscount.periods",
+                name="eventscount.raw",
                 replicate=combinations["detector.period"]
             )
 
-            Sum.replicate(
-                outputs("eventscount.periods"),
-                name="eventscount.raw",
-                replicate=index["detector"]
-            )
-
+            # Sum.replicate(
+            #     outputs("eventscount.periods.raw"),
+            #     name="eventscount.raw",
+            #     replicate=index["detector"]
+            # )
             #
             # Detector effects
             #
@@ -843,7 +838,7 @@ class model_dayabay_v0:
             outputs["detector.iav.matrix_raw"] >> nodes["detector.iav.matrix"]
 
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
-            VectorMatrixProduct.replicate(name="eventscount.iav", replicate=index["detector"])
+            VectorMatrixProduct.replicate(name="eventscount.iav", replicate=combinations["detector.period"])
             outputs["detector.iav.matrix"] >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
@@ -906,12 +901,13 @@ class model_dayabay_v0:
             outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
             # TODO: Outdated LSNL matrix (cross check)
-            from dgf_detector.AxisDistortionMatrixLinear import AxisDistortionMatrixLinear
+            from dgf_detector.AxisDistortionMatrixLinear import \
+                AxisDistortionMatrixLinear
             AxisDistortionMatrixLinear.replicate(name="detector.lsnl.matrix_linear", replicate=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix_linear.EdgesOriginal")
             outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
 
-            VectorMatrixProduct.replicate(name="eventscount.lsnl", replicate=index["detector"])
+            VectorMatrixProduct.replicate(name="eventscount.lsnl", replicate=combinations["detector.period"])
             # outputs("detector.lsnl.matrix") >> inputs("eventscount.lsnl.matrix")
             outputs("detector.lsnl.matrix_linear") >> inputs("eventscount.lsnl.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.lsnl.vector")
@@ -922,12 +918,12 @@ class model_dayabay_v0:
             outputs["edges.energy_evis"] >> inputs["detector.eres.matrix"]
             outputs["edges.energy_evis"] >> inputs["detector.eres.e_edges"]
 
-            VectorMatrixProduct.replicate(name="eventscount.erec", replicate=index["detector"])
+            VectorMatrixProduct.replicate(name="eventscount.erec", replicate=combinations["detector.period"])
             outputs["detector.eres.matrix"] >> inputs("eventscount.erec.matrix")
             outputs("eventscount.lsnl") >> inputs("eventscount.erec.vector")
 
             from dgf_detector.Rebin import Rebin
-            Rebin.replicate(names={"matrix": "detector.rebin_matrix", "product": "eventscount.final"}, replicate=index["detector"])
+            Rebin.replicate(names={"matrix": "detector.rebin_matrix", "product": "eventscount.final"}, replicate=combinations["detector.period"])
             edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
             edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
             outputs("eventscount.erec") >> inputs("eventscount.final")
@@ -982,40 +978,40 @@ class model_dayabay_v0:
                     parameters("all.bkg.rate.acc"),
                     outputs("bkg.spectrum_shape.acc"),
                     name = "bkg.spectrum.acc",
-                    replicate=combinations["period.detector"],
+                    replicate=combinations["detector.period"],
                     )
 
             Product.replicate(
                     outputs("bkg.rate.lihe"),
                     outputs("bkg.spectrum_shape.lihe"),
                     name = "bkg.spectrum.lihe",
-                    replicate=combinations["period.detector"],
+                    replicate=combinations["detector.period"],
                     )
 
             Product.replicate(
                     outputs("bkg.rate.fastn"),
                     outputs("bkg.spectrum_shape.fastn"),
                     name = "bkg.spectrum.fastn",
-                    replicate=combinations["period.detector"],
+                    replicate=combinations["detector.period"],
                     )
 
             Product.replicate(
                     parameters("all.bkg.rate.alphan"),
                     outputs("bkg.spectrum_shape.alphan"),
                     name = "bkg.spectrum.alphan",
-                    replicate=combinations["period.detector"],
+                    replicate=combinations["detector.period"],
                     )
 
             Product.replicate(
                     parameters("all.bkg.rate.amc"),
                     outputs("bkg.spectrum_shape.amc"),
                     name = "bkg.spectrum.amc",
-                    replicate=combinations["period.detector"],
+                    replicate=combinations["detector.period"],
                     )
 
             Sum.replicate(
                     outputs("bkg.spectrum"),
-                    replicate=combinations["period.detector"],
+                    replicate=combinations["detector.period"],
                     name = "bkg.spectrum_total",
                     )
 
@@ -1026,23 +1022,30 @@ class model_dayabay_v0:
             MonteCarlo.replicate(
                 name="pseudo.data",
                 mode="asimov",
-                replicate=index["detector"],
-                replicate_inputs=index["detector"]
+                replicate=combinations["detector.period"],
+                replicate_inputs=combinations["detector.period"]
             )
             outputs("eventscount.final") >> inputs("pseudo.data.input")
 
             from dgf_statistics.Chi2 import Chi2
-            Chi2.replicate(replicate_inputs=index["detector"], name="statistic.stat.chi2p")
+            Chi2.replicate(
+                replicate_inputs=combinations["detector.period"],
+                name="statistic.stat.chi2p"
+            )
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
             outputs("eventscount.final") >> inputs("statistic.stat.chi2p.theory")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
             from dgf_statistics.CNPStat import CNPStat
-            CNPStat.replicate(replicate_inputs=index["detector"], replicate=index["detector"], name="statistic.staterr.cnp")
+            CNPStat.replicate(
+                replicate_inputs=combinations["detector.period"],
+                replicate=combinations["detector.period"],
+                name="statistic.staterr.cnp"
+            )
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
             outputs("eventscount.final") >> inputs("statistic.staterr.cnp.theory")
 
-            Chi2.replicate(replicate_inputs=index["detector"], name="statistic.stat.chi2cnp")
+            Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
             outputs("eventscount.final") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
