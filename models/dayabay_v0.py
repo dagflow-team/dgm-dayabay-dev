@@ -875,13 +875,25 @@ class model_dayabay_v0:
                 skippable_inputs_should_contain = ("nominal",),
                 replicate_outputs=index["lsnl_nuisance"]
             )
+
             Sum.replicate(
                 outputs["detector.lsnl.curves.evis_parts.nominal"],
                 outputs("detector.lsnl.curves.evis_parts_scaled"),
                 name="detector.lsnl.curves.evis_common"
             )
+
+            from dgf_detector.Monotonize import Monotonize
+            Monotonize.replicate(
+                    name="detector.lsnl.curves.evis_common_monotonic",
+                    index_fraction = 0.5,
+                    gradient = 1.0,
+                    with_x = True
+                    )
+            outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.curves.evis_common_monotonic.x"]
+            outputs["detector.lsnl.curves.evis_common"] >> inputs["detector.lsnl.curves.evis_common_monotonic.y"]
+
             Product.replicate(
-                outputs["detector.lsnl.curves.evis_common"],
+                outputs["detector.lsnl.curves.evis_common_monotonic"],
                 parameters("constrained.detector.energy_scale_factor"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs = index["detector"]
