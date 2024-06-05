@@ -89,13 +89,13 @@ eventscount:
       text: "# events before detector effects {space_key}"
   iav:
     group:
-      text: "# events  (IAV){space_key}"
-  lsnl:
+      text: "# events (IAV){space_key}"
+  evis:
     group:
-      text: "# events  (IAV, LSNL){space_key}"
+      text: "# events (IAV, LSNL){space_key}"
   erec:
     group:
-      text: "# events  (IAV, LSNL, Erec){space_key}"
+      text: "# events (IAV, LSNL, Erec){space_key}"
 oscprob:
   group:
     text: "ν̅(e) survival probability{space_key} []"

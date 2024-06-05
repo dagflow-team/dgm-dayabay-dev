@@ -950,10 +950,24 @@ class model_dayabay_v0:
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix_linear.EdgesOriginal")
             outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
 
-            VectorMatrixProduct.replicate(name="eventscount.lsnl", replicate_outputs=combinations["detector.period"])
-            # outputs("detector.lsnl.matrix") >> inputs("eventscount.lsnl.matrix")
-            outputs("detector.lsnl.matrix_linear") >> inputs("eventscount.lsnl.matrix")
-            outputs("eventscount.iav") >> inputs("eventscount.lsnl.vector")
+            # TODO: masked LSNL matrix (cross check)
+            from numpy import ones
+            lsnl_mask = ones((240, 240), dtype="d")
+            lsnl_mask[:14,:] = 0.0
+            lsnl_mask[:,:16] = 0.0
+            lsnl_mask[:,232:] = 0.0
+            Array.make_stored("detector.lsnl.gna_mask", lsnl_mask)
+            Product.replicate(
+                outputs("detector.lsnl.matrix_linear"),
+                outputs["detector.lsnl.gna_mask"],
+                name="detector.lsnl.matrix_linear_masked",
+                replicate_outputs=index["detector"]
+            )
+
+            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
+            # outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
+            outputs("detector.lsnl.matrix_linear_masked") >> inputs("eventscount.evis.matrix")
+            outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             from dgf_detector.EnergyResolution import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
@@ -963,7 +977,7 @@ class model_dayabay_v0:
 
             VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"])
             outputs["detector.eres.matrix"] >> inputs("eventscount.erec.matrix")
-            outputs("eventscount.lsnl") >> inputs("eventscount.erec.vector")
+            outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
             from dgf_detector.Rebin import Rebin
             Rebin.replicate(names={"matrix": "detector.rebin_matrix", "product": "eventscount.final"}, replicate_outputs=combinations["detector.period"])
