@@ -851,15 +851,27 @@ class model_dayabay_v0:
                 replicate_outputs = index["lsnl"],
             )
 
-            from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
-            refine_lsnl_data(
+            # Coarse LSNL model, consistent with GNA implementation
+            from dgf_detector.bundles.cross_check_refine_lsnl_data import cross_check_refine_lsnl_data
+            cross_check_refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
                 nominalname = 'evis_parts.nominal',
-                refine_times = 4,
                 newmin = 0.5,
                 newmax = 12.1
             )
+
+            # TODO: proper refinement for v1
+            # from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
+            # refine_lsnl_data(
+            #     storage("data.detector.lsnl.curves"),
+            #     edepname = 'edep',
+            #     nominalname = 'evis_parts.nominal',
+            #     refine_times = 4,
+            #     newmin = 0.5,
+            #     newmax = 12.1
+            # )
+
             Array.from_storage(
                 "detector.lsnl.curves",
                 storage("data"),
