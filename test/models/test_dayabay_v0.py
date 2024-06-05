@@ -46,8 +46,8 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         },
     ).savegraph("output/dayabay_v0_reduced.dot")
     GraphDot.from_node(
-        storage["nodes.statistic.nuisance.all"], show="all", mindepth=-1, no_forward=True
+        storage["nodes.statistic.nuisance.all"], show="all", mindepth=-1, keep_direction=True
     ).savegraph("output/dayabay_v0_nuisance.dot")
     GraphDot.from_output(
-        storage["outputs.edges.energy_evis"], show="all", mindepth=-3, no_forward=True
+        storage["outputs.edges.energy_evis"], show="all", mindepth=-3, keep_direction=True
     ).savegraph("output/dayabay_v0_top.dot")
