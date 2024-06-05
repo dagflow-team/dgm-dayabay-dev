@@ -64,10 +64,11 @@ comparison_objects = {
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
     "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
-    # "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
-    "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix", "slice": (slice(14, None), slice(22, 212)), "atol": 1.e-3}, # exclude extrapolation below 1 MeV (dagflow: absolute, gan: relative), exclude last nonzero column (missing in GNA)
-    # "eventscount.lsnl": {"gnaname": "lsnl", "rtol": 1.e-8},
+    "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
     "detector.eres.matrix": {"gnaname": "eres_matrix", "atol": 1.e-14},
+    "detector.lsnl.matrix_linear_masked": {"gnaname": "lsnl_matrix"},
+    "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
+    "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
 }
 # fmt: on
 
