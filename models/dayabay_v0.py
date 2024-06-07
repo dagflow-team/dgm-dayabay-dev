@@ -83,7 +83,16 @@ class model_dayabay_v0:
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
-        index["detector"] = ("AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34")
+        index["detector"] = (
+            "AD11",
+            "AD12",
+            "AD21",
+            "AD22",
+            "AD31",
+            "AD32",
+            "AD33",
+            "AD34",
+        )
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["anue_source"] = ("main", "offeq", "snf")
@@ -269,6 +278,7 @@ class model_dayabay_v0:
             )
             View.make_stored("edges.energy_enu", edges_energy_common)
             edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
+            edges_energy_escint, _ = View.make_stored("edges.energy_escint", edges_energy_common)
             edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
             edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
@@ -831,6 +841,9 @@ class model_dayabay_v0:
                 filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
                 replicate_outputs = ("matrix_raw",),
                 objects = {"matrix_raw": "iav_matrix"},
+                array_kwargs = {
+                    'edges': (edges_energy_escint, edges_energy_edep)
+                    }
             )
 
             from dagflow.lib.NormalizeMatrix import NormalizeMatrix
@@ -852,7 +865,8 @@ class model_dayabay_v0:
             )
 
             # Coarse LSNL model, consistent with GNA implementation
-            from dgf_detector.bundles.cross_check_refine_lsnl_data import cross_check_refine_lsnl_data
+            from dgf_detector.bundles.cross_check_refine_lsnl_data import \
+                cross_check_refine_lsnl_data
             cross_check_refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
