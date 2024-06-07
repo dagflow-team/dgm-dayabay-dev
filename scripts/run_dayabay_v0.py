@@ -55,6 +55,11 @@ def main(opts: Namespace) -> None:
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
 
+    if opts.plot:
+        folder, sources = opts.plot[0], opts.plot[1:]
+        for source in sources:
+            storage(source).plot(folder=f"{folder}/{source.replace('.', '/')}")
+
     if opts.latex:
         storage.to_datax("output/dayabay_v0_data.tex")
 
@@ -135,8 +140,13 @@ if __name__ == "__main__":
         default="tsv",
         help="Data source type",
     )
-    parser.add_argument(
+
+    plot = parser.add_argument_group("plot", "plotting related options")
+    plot.add_argument(
         "--plot-all", help="plot all the nodes to the folder", metavar="folder"
+    )
+    plot.add_argument(
+        "--plot", nargs="+", help="plot the nodes in storages", metavar=("folder", "storage")
     )
 
     storage = parser.add_argument_group("storage", "storage related options")
