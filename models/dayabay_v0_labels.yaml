@@ -23,6 +23,11 @@ edges:
     latex: "Deposited energy $E_{\\rm dep}$ edges [MeV]"
     axis: "$E_{\\rm dep}$ [MeV]"
     plotmethod: 'none'
+  energy_escint:
+    text: "Deposited in scintillator energy (Escint) edges [MeV]"
+    latex: "Deposited in scintillator energy $E_{\\rm scint}$ edges [MeV]"
+    axis: "$E_{\\rm scint}$ [MeV]"
+    plotmethod: 'none'
   energy_evis:
     text: "Visible energy (Evis) edges [MeV]"
     latex: "Visible energy $E_{\\rm vis}$ edges [MeV]"
@@ -80,22 +85,28 @@ neutrino_cm2_perMeV_perfission_perproton:
 kinematics_integral:
   group:
     text: "# events {space_key}"
+    axis: "# events"
 eventscount:
   parts:
     group:
       text: "# events {space_key}"
+      axis: "# events"
   raw:
     group:
       text: "# events before detector effects {space_key}"
+      axis: "# events"
   iav:
     group:
       text: "# events (IAV){space_key}"
+      axis: "# events"
   evis:
     group:
       text: "# events (IAV, LSNL){space_key}"
+      axis: "# events"
   erec:
     group:
       text: "# events (IAV, LSNL, Erec){space_key}"
+      axis: "# events"
 oscprob:
   group:
     text: "ν̅(e) survival probability{space_key} []"
