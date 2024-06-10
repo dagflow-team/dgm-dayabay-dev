@@ -15,7 +15,7 @@ from dagflow.output import Output
 from models.dayabay_v0 import model_dayabay_v0
 from multikeydict.nestedmkdict import NestedMKDict
 
-set_level(INFO1)
+set_level(INFO2)
 
 def strip_last_day_periods_6_8(key: str, key2: str, data: NDArray):
     if '6AD' in key2 or '8AD' in key2:
@@ -55,6 +55,7 @@ comparison_objects = {
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
     # "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8}, # should be inconsistent as it is not rescaled in GNA
     "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
+    "detector.efflivetime": {"gnaname": "parameters.dayabay.efflivetime"}, #, "rtol": float("nan")
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
     # "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8}, # available only in cross-check version of the input hdf
@@ -237,6 +238,7 @@ class Comparator:
 
             if is_ok:
                 logger.log(INFO1, f"OK: {self.cmpstring} [{key}]")
+                logger.log(INFO2, f"    {self.parstring}")
                 logger.log(INFO2, f"    {self.tolstring}")
                 if (ignore := self._cmpopts.get("ignore")) is not None:
                     logger.log(INFO2, f"↑Ignore: {ignore}")
@@ -266,6 +268,7 @@ class Comparator:
         is_ok = self.data_consistent(self._data_g, self._data_d)
         if is_ok:
             logger.log(INFO1, f"OK: {self.cmpstring}")
+            logger.log(INFO2, f"    {self.parstring}")
             logger.log(INFO2, f"    {self.tolstring}")
             logger.log(INFO2, f"    {self.shapestring}")
             if (ignore := self._cmpopts.get("ignore")) is not None:
@@ -376,7 +379,10 @@ class Comparator:
 
     @property
     def parstring(self) -> str:
-        return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}"
+        try:
+            return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}  diff={self._data_d[0]-self._data_g[0]}"
+        except KeyError:
+            return f"dagflow[0]={self._data_d['value']}  gna[0]={self._data_g[0]}  diff={self._data_d['value']-self._data_g[0]}"
 
     @property
     def shapestring(self) -> str:
