@@ -30,6 +30,7 @@ class model_dayabay_v0:
         "_strict",
         "_close",
         "_spectrum_correction_mode",
+        "_fission_fraction_normalized",
     )
 
     storage: NodeStorage
@@ -40,6 +41,7 @@ class model_dayabay_v0:
     _strict: bool
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
+    _fission_fraction_normalized: bool
 
     def __init__(
         self,
@@ -49,6 +51,7 @@ class model_dayabay_v0:
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
+        fission_fraction_normalized: bool = False,
     ):
         self._strict = strict
         self._close = close
@@ -59,6 +62,7 @@ class model_dayabay_v0:
         self._source_type = source_type
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode
+        self._fission_fraction_normalized = fission_fraction_normalized
 
         self.build()
 
@@ -596,35 +600,73 @@ class model_dayabay_v0:
             Product.replicate(
                     parameters("all.reactor.fission_fraction_scale"),
                     outputs("daily_data.reactor.fission_fraction"),
-                    name = "daily_data.reactor.fission_fraction_core_scaled",
+                    name = "daily_data.reactor.fission_fraction_scaled",
                     replicate_outputs=combinations["reactor.isotope.period"],
                     )
 
-            Product.replicate(
-                    parameters("all.reactor.energy_per_fission"),
-                    outputs("daily_data.reactor.fission_fraction_core_scaled"),
-                    name = "reactor.energy_per_fission_core_weighted_MeV",
-                    replicate_outputs=combinations["reactor.isotope.period"],
-                    )
-
-            Sum.replicate(
-                    outputs( "reactor.energy_per_fission_core_weighted_MeV"),
-                    name = "reactor.energy_per_fission_core_average_MeV",
+            #
+            # Fission fraction normalized
+            #
+            if self._fission_fraction_normalized:
+                Sum.replicate(
+                    outputs("daily_data.reactor.fission_fraction_scaled"),
+                    name="daily_data.reactor.fission_fraction_scaled_normalization_factor",
                     replicate_outputs=combinations["reactor.period"],
-                    )
+                )
 
-            Product.replicate(
-                    outputs("daily_data.reactor.power"),
-                    outputs("daily_data.reactor.fission_fraction_core_scaled"),
-                    outputs("reactor.thermal_power_nominal_MeVs"),
-                    name = "reactor.thermal_power_core_isotope_MeV_persecond",
+                Division.replicate(
+                    outputs("daily_data.reactor.fission_fraction_scaled"),
+                    outputs("daily_data.reactor.fission_fraction_scaled_normalization_factor"),
+                    name="daily_data.reactor.fission_fraction_scaled_normalized",
                     replicate_outputs=combinations["reactor.isotope.period"],
-                    )
+                )
+
+                Product.replicate(
+                        parameters("all.reactor.energy_per_fission"),
+                        outputs("daily_data.reactor.fission_fraction_scaled_normalized"),
+                        name = "reactor.energy_per_fission_weighted_MeV",
+                        replicate_outputs=combinations["reactor.isotope.period"],
+                        )
+
+                Sum.replicate(
+                        outputs("reactor.energy_per_fission_weighted_MeV"),
+                        name = "reactor.energy_per_fission_average_MeV",
+                        replicate_outputs=combinations["reactor.period"],
+                        )
+
+                Product.replicate(
+                        outputs("daily_data.reactor.power"),
+                        outputs("daily_data.reactor.fission_fraction_scaled_normalized"),
+                        outputs("reactor.thermal_power_nominal_MeVs"),
+                        name = "reactor.thermal_power_isotope_MeV_persecond",
+                        replicate_outputs=combinations["reactor.isotope.period"],
+                        )
+            else:
+                Product.replicate(
+                        parameters("all.reactor.energy_per_fission"),
+                        outputs("daily_data.reactor.fission_fraction_scaled"),
+                        name = "reactor.energy_per_fission_weighted_MeV",
+                        replicate_outputs=combinations["reactor.isotope.period"],
+                        )
+
+                Sum.replicate(
+                        outputs("reactor.energy_per_fission_weighted_MeV"),
+                        name = "reactor.energy_per_fission_average_MeV",
+                        replicate_outputs=combinations["reactor.period"],
+                        )
+
+                Product.replicate(
+                        outputs("daily_data.reactor.power"),
+                        outputs("daily_data.reactor.fission_fraction_scaled"),
+                        outputs("reactor.thermal_power_nominal_MeVs"),
+                        name = "reactor.thermal_power_isotope_MeV_persecond",
+                        replicate_outputs=combinations["reactor.isotope.period"],
+                        )
 
             Division.replicate(
-                    outputs("reactor.thermal_power_core_isotope_MeV_persecond"),
-                    outputs("reactor.energy_per_fission_core_average_MeV"),
-                    name = "reactor.fissions_persecond_core",
+                    outputs("reactor.thermal_power_isotope_MeV_persecond"),
+                    outputs("reactor.energy_per_fission_average_MeV"),
+                    name = "reactor.fissions_persecond",
                     replicate_outputs=combinations["reactor.isotope.period"],
                     )
 
@@ -657,9 +699,9 @@ class model_dayabay_v0:
 
             # Effective number of fissions seen in Detector from Reactor from Isotope during Period
             Product.replicate(
-                    outputs("reactor.fissions_persecond_core"),
+                    outputs("reactor.fissions_persecond"),
                     outputs("daily_data.detector.efflivetime"),
-                    name = "reactor_detector.number_of_fissions_core_daily",
+                    name = "reactor_detector.number_of_fissions_daily",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = inactive_detectors
@@ -668,8 +710,8 @@ class model_dayabay_v0:
             # Total effective number of fissions from a Reactor seen in the Detector during Period
             from dagflow.lib import ArraySum
             ArraySum.replicate(
-                    outputs("reactor_detector.number_of_fissions_core_daily"),
-                    name = "reactor_detector.number_of_fissions_core",
+                    outputs("reactor_detector.number_of_fissions_daily"),
+                    name = "reactor_detector.number_of_fissions",
                     )
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
@@ -691,19 +733,19 @@ class model_dayabay_v0:
 
             # Number of fissions × N protons × ε / (4πL²)  (main)
             Product.replicate(
-                    outputs("reactor_detector.number_of_fissions_core"),
+                    outputs("reactor_detector.number_of_fissions"),
                     outputs("detector.nprotons"),
                     outputs("baseline_factor_percm2"),
                     parameters["all.detector.efficiency"],
-                    name = "reactor_detector.number_of_fissions_nprotons_percm2_core",
+                    name = "reactor_detector.number_of_fissions_nprotons_percm2",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     )
 
             Product.replicate(
-                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_core"),
+                    outputs("reactor_detector.number_of_fissions_nprotons_percm2"),
                     parameters("all.reactor.offequilibrium_scale"),
                     parameters["all.reactor.offeq_factor"],
-                    name = "reactor_detector.number_of_fissions_nprotons_percm2_core_offeq",
+                    name = "reactor_detector.number_of_fissions_nprotons_percm2_offeq",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     )
 
@@ -813,14 +855,14 @@ class model_dayabay_v0:
             #
             Product.replicate(
                     outputs("kinematics_integral.main"),
-                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_core"),
+                    outputs("reactor_detector.number_of_fissions_nprotons_percm2"),
                     name = "eventscount.parts.main",
                     replicate_outputs = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
                     outputs("kinematics_integral.offeq"),
-                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_core_offeq"),
+                    outputs("reactor_detector.number_of_fissions_nprotons_percm2_offeq"),
                     name = "eventscount.parts.offeq",
                     replicate_outputs = combinations["reactor.isotope_offeq.detector.period"],
                     allow_skip_inputs = True,
