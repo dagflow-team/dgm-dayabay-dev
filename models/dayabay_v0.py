@@ -128,6 +128,7 @@ class model_dayabay_v0:
             "reactor.detector.period",
             "detector.period",
             "bkg.detector",
+            "bkg.detector.period",
         )
         # Provide the combinations of indices
         combinations = {}
@@ -240,6 +241,22 @@ class model_dayabay_v0:
                     "reactor": {
                         "snf_factor": "Common SNF factor",
                         "offeq_factor": "Common offequilibrium factor",
+                    }
+                },
+            )
+
+            # Normalization constants
+            load_parameters(
+                format="value",
+                state="fixed",
+                parameters={
+                    "conversion": {
+                        "seconds_in_day_inverse": 1 / (60 * 60 * 24),
+                    }
+                },
+                labels={
+                    "conversion": {
+                        "seconds_in_day_inverse": "One divided by seconds in day",
                     }
                 },
             )
@@ -701,6 +718,15 @@ class model_dayabay_v0:
                     name = "detector.efflivetime",
                     )
 
+            Product.replicate(
+                    outputs("detector.efflivetime"),
+                    parameters["all.conversion.seconds_in_day_inverse"],
+                    name="detector.efflivetime_days",
+                    replicate_outputs=combinations["detector.period"],
+                    allow_skip_inputs=True,
+                    skippable_inputs_should_contain=inactive_detectors,
+                    )
+
             # Effective live time × N protons × ε / (4πL²)  (SNF)
             Product.replicate(
                     outputs("detector.efflivetime"),
@@ -994,10 +1020,13 @@ class model_dayabay_v0:
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
             from dgf_detector.Rebin import Rebin
-            Rebin.replicate(names={"matrix": "detector.rebin_matrix", "product": "eventscount.final"}, replicate_outputs=combinations["detector.period"])
-            edges_energy_erec >> inputs["detector.rebin_matrix.edges_old"]
-            edges_energy_final >> inputs["detector.rebin_matrix.edges_new"]
-            outputs("eventscount.erec") >> inputs("eventscount.final")
+            Rebin.replicate(
+                names={"matrix": "detector.rebin_matrix_ibd", "product": "eventscount.final.ibd"},
+                replicate_outputs=combinations["detector.period"],
+            )
+            edges_energy_erec >> inputs["detector.rebin_matrix_ibd.edges_old"]
+            edges_energy_final >> inputs["detector.rebin_matrix_ibd.edges_new"]
+            outputs("eventscount.erec") >> inputs("eventscount.final.ibd")
 
             #
             # Backgrounds
@@ -1021,8 +1050,8 @@ class model_dayabay_v0:
                 replicate_files = index["period"],
                 replicate_outputs = combinations["bkg.detector"],
                 skip = inactive_detectors,
-                key_order = (1, 0, 2),
-                objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-1][-2]}_AD{idx[-1][-1]}"
+                key_order = (1, 2, 0),
+                objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
 
             ads_at_sites = {
@@ -1045,46 +1074,82 @@ class model_dayabay_v0:
                 fcn = lambda par: par.output
             )
 
+            # NOTE:
+            # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
+            # So, every bin contain 0.00416667.
+            # TODO: remove in dayabay-v1
+            fastn_data = ones(240) / 240
+            for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
+                spectrum.data[:] = fastn_data
+
             Product.replicate(
                     parameters("all.bkg.rate.acc"),
                     outputs("bkg.spectrum_shape.acc"),
-                    name = "bkg.spectrum.acc",
+                    name="bkg.spectrum_per_day.acc",
                     replicate_outputs=combinations["detector.period"],
                     )
 
             Product.replicate(
                     outputs("bkg.rate.lihe"),
                     outputs("bkg.spectrum_shape.lihe"),
-                    name = "bkg.spectrum.lihe",
+                    name="bkg.spectrum_per_day.lihe",
                     replicate_outputs=combinations["detector.period"],
                     )
 
             Product.replicate(
                     outputs("bkg.rate.fastn"),
                     outputs("bkg.spectrum_shape.fastn"),
-                    name = "bkg.spectrum.fastn",
+                    name="bkg.spectrum_per_day.fastn",
                     replicate_outputs=combinations["detector.period"],
                     )
 
             Product.replicate(
                     parameters("all.bkg.rate.alphan"),
                     outputs("bkg.spectrum_shape.alphan"),
-                    name = "bkg.spectrum.alphan",
+                    name="bkg.spectrum_per_day.alphan",
                     replicate_outputs=combinations["detector.period"],
                     )
 
             Product.replicate(
                     parameters("all.bkg.rate.amc"),
                     outputs("bkg.spectrum_shape.amc"),
-                    name = "bkg.spectrum.amc",
+                    name="bkg.spectrum_per_day.amc",
                     replicate_outputs=combinations["detector.period"],
+                    )
+
+            # Total spectrum of Background in Detector during Period
+            # spectrum_per_day [N / day] * efflivetime [sec] * seconds_in_day_inverse [day / sec] -> [N]
+            Product.replicate(
+                    outputs("detector.efflivetime_days"),
+                    outputs("bkg.spectrum_per_day"),
+                    name="bkg.spectrum",
+                    replicate_outputs=combinations["bkg.detector.period"],
+                    allow_skip_inputs = True,
+                    skippable_inputs_should_contain=inactive_detectors
                     )
 
             Sum.replicate(
                     outputs("bkg.spectrum"),
+                    name="eventscount.fine.bkg",
                     replicate_outputs=combinations["detector.period"],
-                    name = "bkg.spectrum_total",
+                    allow_skip_inputs=True,
+                    skippable_inputs_should_contain=inactive_detectors
                     )
+
+            Rebin.replicate(
+                    names={"matrix": "detector.rebin_bkg_matrix", "product": "eventscount.final.bkg"},
+                    replicate_outputs=combinations["detector.period"],
+            )
+            edges_energy_erec >> inputs["detector.rebin_bkg_matrix.edges_old"]
+            edges_energy_final >> inputs["detector.rebin_bkg_matrix.edges_new"]
+            outputs("eventscount.fine.bkg") >> inputs("eventscount.final.bkg")
+
+            Sum.replicate(
+                outputs("eventscount.final.bkg"),
+                outputs("eventscount.final.ibd"),
+                name="eventscount.final.total",
+                replicate_outputs=combinations["detector.period"],
+            )
 
             #
             # Statistic
@@ -1096,7 +1161,7 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
                 replicate_inputs=combinations["detector.period"]
             )
-            outputs("eventscount.final") >> inputs("pseudo.data.input")
+            outputs("eventscount.final.total") >> inputs("pseudo.data.input")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
@@ -1104,7 +1169,7 @@ class model_dayabay_v0:
                 name="statistic.stat.chi2p"
             )
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
-            outputs("eventscount.final") >> inputs("statistic.stat.chi2p.theory")
+            outputs("eventscount.final.total") >> inputs("statistic.stat.chi2p.theory")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
             from dgf_statistics.CNPStat import CNPStat
@@ -1114,11 +1179,11 @@ class model_dayabay_v0:
                 name="statistic.staterr.cnp"
             )
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
-            outputs("eventscount.final") >> inputs("statistic.staterr.cnp.theory")
+            outputs("eventscount.final.total") >> inputs("statistic.staterr.cnp.theory")
 
             Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
-            outputs("eventscount.final") >> inputs("statistic.stat.chi2cnp.theory")
+            outputs("eventscount.final.total") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 
             Sum.replicate(outputs["statistic.stat.chi2p"], outputs["statistic.nuisance.all"], name="statistic.full.chi2p")

@@ -31,9 +31,12 @@ def strip_last_day_if_empty(key: str, key2: str, data: NDArray):
 reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
 # fmt: off
 comparison_parameters = {
-        "baseline": {"gnaname": "baseline", "gnascale": 1000, "rtol": 1.e-15},
-        "detector.nprotons_nominal_ad": {"gnaname": "nprotons_nominal"},
-        "conversion.reactorPowerConversion": {"gnaname": "conversion_factor", "rtol": 1.e-8 }
+    "baseline": {"gnaname": "baseline", "gnascale": 1000, "rtol": 1.e-15},
+    "detector.nprotons_nominal_ad": {"gnaname": "nprotons_nominal"},
+    "conversion.reactorPowerConversion": {"gnaname": "conversion_factor", "rtol": 1.e-8},
+    "bkg.rate.acc": {"gnaname": "bkg_rate_acc", "rtol": 1e-14},
+    "bkg.rate.amc": {"gnaname": "bkg_rate_amc", "rtol": 1e-14},
+    "bkg.rate.alphan": {"gnaname": "bkg_rate_alphan", "rtol": 1e-14},
 }
 comparison_objects = {
     # dagflow: gna
@@ -70,6 +73,17 @@ comparison_objects = {
     "detector.lsnl.matrix_linear_masked": {"gnaname": "lsnl_matrix"},
     "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
     "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
+    # NOTE
+    # Li/He and fast-n determined are for EH
+    # So, we should take dag-flow parameters from outputs namespace
+    "bkg.rate.fastn": {"gnaname": "parameters.dayabay.bkg_rate_fastn", "rtol": 1e-14},
+    "bkg.rate.lihe": {"gnaname": "parameters.dayabay.bkg_rate_lihe", "rtol": 1e-14},
+    "bkg.spectrum.acc": {"gnaname": "bkg_acc", "rtol": 1e-14},
+    "bkg.spectrum.amc": {"gnaname": "bkg_amc", "rtol": 1e-14},
+    "bkg.spectrum.alphan": {"gnaname": "bkg_alphan", "rtol": 1e-14},
+    "bkg.spectrum.fastn": {"gnaname": "bkg_fastn", "rtol": 1e-14},
+    "bkg.spectrum.lihe": {"gnaname": "bkg_lihe", "rtol": 1e-14},
+    "eventscount.fine.bkg": {"gnaname": "bkg", "rtol": 1e-14},
 }
 # fmt: on
 
@@ -399,6 +413,7 @@ class Comparator:
             except AttributeError:
                 self.data_d = output_dgf.to_dict()
             self._skey2_dgf = ".".join(("",) + key_d)
+
             for key_g in permutations(key_d):
                 path_g = "/".join(key_g)
                 self._skey2_gna = ".".join(("",) + key_g)
