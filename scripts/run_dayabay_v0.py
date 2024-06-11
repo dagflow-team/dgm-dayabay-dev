@@ -25,11 +25,14 @@ def main(opts: Namespace) -> None:
         strict=opts.strict,
         source_type=opts.source_type,
         override_indices=override_indices,
-        spectrum_correction_mode=opts.spec
+        spectrum_correction_mode=opts.spec,
+        fission_fraction_normalized=opts.fission_fraction_normalized,
     )
 
     graph = model.graph
     storage = model.storage
+
+    import IPython; IPython.embed()
 
     if not graph.closed:
         print("Nodes")
@@ -179,5 +182,6 @@ if __name__ == "__main__":
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument("--spec", choices=("linear", "exponential"), help="antineutrino spectrum correction mode")
+    model.add_argument("--fission-fraction-normalized", action="store_true", help="fission fraction correction")
 
     main(parser.parse_args())
