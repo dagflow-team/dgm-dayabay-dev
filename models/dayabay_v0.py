@@ -186,7 +186,7 @@ class model_dayabay_v0:
             load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
                             replicate=index["lsnl_nuisance"])
             load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml",
-                            replicate=index["detector"])
+                            replicate=index["detector"], replica_key_offset=1)
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
@@ -988,7 +988,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                 outputs["detector.lsnl.curves.evis_common_monotonic"],
-                parameters("constrained.detector.energy_scale_factor"),
+                parameters("constrained.detector.energy_scale.factor"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs = index["detector"]
             )
