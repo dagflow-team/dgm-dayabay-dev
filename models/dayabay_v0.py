@@ -187,6 +187,8 @@ class model_dayabay_v0:
                             replicate=index["lsnl_nuisance"])
             load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml",
                             replicate=index["detector"])
+            load_parameters(path="detector",   load=path_parameters/"detector_offdiag_scale.yaml",
+                            replicate=index["detector"])
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
@@ -918,9 +920,16 @@ class model_dayabay_v0:
             NormalizeMatrix.replicate(name="detector.iav.matrix")
             outputs["detector.iav.matrix_raw"] >> nodes["detector.iav.matrix"]
 
+            Product.replicate(
+                parameters("all.detector.offdiag_scale"),
+                outputs["detector.iav.matrix"],
+                name="detector.iav.matrix_scaled",
+                replicate_outputs=index["detector"],
+            )
+
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
             VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
-            outputs["detector.iav.matrix"] >> inputs("eventscount.iav.matrix")
+            outputs("detector.iav.matrix_scaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
             load_graph_data(
