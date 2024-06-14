@@ -1104,15 +1104,15 @@ class model_dayabay_v0:
             remap_items(
                 parameters("all.bkg.rate.fastn"),
                 outputs.child("bkg.rate.fastn"),
-                indices = ads_at_sites,
-                skip_indices = inactive_detectors,
+                rename_indices = ads_at_sites,
+                skip_indices_target = inactive_detectors,
                 fcn = lambda par: par.output
             )
             remap_items(
                 parameters("all.bkg.rate.lihe"),
                 outputs.child("bkg.rate.lihe"),
-                indices = ads_at_sites,
-                skip_indices = inactive_detectors,
+                rename_indices = ads_at_sites,
+                skip_indices_target = inactive_detectors,
                 fcn = lambda par: par.output
             )
 
