@@ -20,31 +20,32 @@ set_level(INFO1)
 # fmt: on
 comparison = {
     "default": {"rtol": 1.0e-8},
-    "OffdiagScale": "skip",
-    "acc_norm": "skip",
-    "bkg_rate_alphan": "skip",
-    "bkg_rate_amc": "skip",
-    "bkg_rate_fastn": "skip",
-    "bkg_rate_lihe": "skip",
-    "effunc_uncorr": "skip",
-    "eper_fission": "skip",
-    "eres": "skip",
-    "escale": "skip",
-    "fission_fractions_corr": "skip",
-    "global_norm": "skip",
+    "OffdiagScale": {"skip": True},
+    "acc_norm": {"skip": True},
+    "bkg_rate_alphan": {"skip": True},
+    "bkg_rate_amc": {"skip": True},
+    "bkg_rate_fastn": {"skip": True},
+    "bkg_rate_lihe": {"skip": True},
+    "effunc_uncorr": {"skip": True},
+    "eper_fission": {"skip": True},
+    "eres": {"skip": True},
+    "escale": {"skip": True},
+    "fission_fractions_corr": {"skip": True},
+    "global_norm": {"skip": True},
     "lsnl_weight": {"location": "detector.lsnl_scale_a", "rtol": 1.0e-8},
-    "nominal_thermal_power": "skip",
-    "offeq_scale": "skip",
-    "DeltaMSq12": "skip",
-    "DeltaMSq13": "skip",
-    "DeltaMSq23": "skip",
-    "SinSqDouble12": "skip",
-    "SinSqDouble13": "skip",
+    "nominal_thermal_power": {"skip": True},
+    "offeq_scale": {"skip": True},
+    "DeltaMSq12": {"skip": True},
+    "DeltaMSq13": {"skip": True},
+    "DeltaMSq23": {"skip": True},
+    "SinSqDouble12": {"skip": True},
+    "SinSqDouble13": {"skip": True},
     "snf_scale": {
         "location": "reactor.snf_scale",
+        "skip": True,
         # "rtol": 1.0e-8
     },
-    "spectral_weights": "skip",
+    "spectral_weights": {"skip": True},
 }
 # fmt: on
 
@@ -56,6 +57,7 @@ class NuisanceComparator:
         "opts",
         "outputs_dgf",
         "outputs_dgf_default",
+        "outputs_gna_default",
         "_cmpopts",
         "_maxdiff",
         "_maxreldiff",
@@ -76,6 +78,7 @@ class NuisanceComparator:
     opts: Namespace
     outputs_dgf: NestedMKDict
     outputs_dgf_default: NestedMKDict
+    outputs_gna_default: NestedMKDict
 
     _cmpopts: dict[str, Any]
     _maxdiff: float
@@ -117,6 +120,9 @@ class NuisanceComparator:
         self._n_success = 0
         self._n_fail = 0
 
+        self.outputs_dgf_default = NestedMKDict(sep=".")
+        self.outputs_gna_default = NestedMKDict(sep=".")
+
         self.model = model_dayabay_v0(source_type=opts.source_type)
         self.opts = opts
 
@@ -133,11 +139,7 @@ class NuisanceComparator:
             self.process()
 
     def process(self) -> None:
-        default = self.opts.input["default"]
-        self._skey_par_gna = "default"
-        self._skey_par_dgf = "default"
-        self._cmpopts = comparison["default"]
-        self._compare_hists(default, save=True)
+        self._check_default(save=True)
 
         source = self.opts.input["dayabay"]
 
@@ -156,7 +158,7 @@ class NuisanceComparator:
                 parname, index = index[0], index[1:]
 
             self._cmpopts = comparison[parname]
-            if self._cmpopts == "skip":
+            if self._cmpopts.get("skip"):
                 if parname not in skipped:
                     logger.warning(f"{parname} skip")
                     skipped.add(parname)
@@ -183,6 +185,16 @@ class NuisanceComparator:
             self._process_par_offset(parname, index, value_plus, results_plus)
 
             par.pop()
+            self._check_default("restore", check_change=False)
+
+    def _check_default(
+        self, label="default", *, save: bool = False, check_change: bool = True
+    ):
+        default = self.opts.input["default"]
+        self._skey_par_gna = "default"
+        self._skey_par_dgf = label
+        self._cmpopts = comparison["default"]
+        self._compare_hists(default, save=save, check_change=check_change)
 
     def _process_par_offset(
         self, parname: str, index: Sequence[str], value: float, results: Mapping
@@ -194,8 +206,15 @@ class NuisanceComparator:
         else:
             logger.error(f"FAIL: {self.cmpstring_par}")
 
-    def _compare_hists(self, results: Mapping, *, save: bool = False) -> bool:
+    def _compare_hists(
+        self, results: Mapping, *, save: bool = False, check_change: bool = True
+    ) -> bool:
+        if save:
+            check_change = False
         is_ok = True
+
+        change2_gna = 0.0
+        change2_dgf = 0.0
         for ad, addir in results.items():
             for period, data in addir.items():
                 if (
@@ -211,7 +230,23 @@ class NuisanceComparator:
                 self._data_dgf = dgf.data
                 self._data_gna = data[:]
 
+                if save:
+                    self.outputs_dgf_default[ad, period] = self._data_dgf.copy()
+                    self.outputs_gna_default[ad, period] = self._data_gna.copy()
+                else:
+                    change2_dgf += (
+                        (self._data_dgf - self.outputs_dgf_default[ad, period]) ** 2
+                    ).sum()
+                    change2_gna += (
+                        (self._data_gna - self.outputs_gna_default[ad, period]) ** 2
+                    ).sum()
+
                 is_ok &= self._compare_data()
+
+        if check_change:
+            if change2_dgf==0.0 or change2_gna==0.0:
+                logger.error(f"FAIL: data unchanged dgf²={change2_dgf} gna²={change2_gna}")
+                return False
         return is_ok
 
     def _compare_data(self) -> bool:
@@ -225,8 +260,8 @@ class NuisanceComparator:
 
             return True
 
-        logger.log(INFO1, f"OK: {self.cmpstring_par}")
-        logger.error(f"FAIL: {self.cmpstring}")
+        logger.error(f"FAIL: {self.cmpstring_par}")
+        logger.error(f"      {self.cmpstring}")
         logger.error(f"      {self.tolstring}")
         logger.error(f"      {self.shapestrings}")
         logger.error(f"      max diff {self._maxdiff:.2g}, ")
