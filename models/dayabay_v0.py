@@ -1166,16 +1166,12 @@ class model_dayabay_v0:
                     outputs("bkg.spectrum_per_day"),
                     name="bkg.spectrum",
                     replicate_outputs=combinations["bkg.detector.period"],
-                    allow_skip_inputs = True,
-                    skippable_inputs_should_contain=inactive_detectors
                     )
 
             Sum.replicate(
                     outputs("bkg.spectrum"),
                     name="eventscount.fine.bkg",
                     replicate_outputs=combinations["detector.period"],
-                    allow_skip_inputs=True,
-                    skippable_inputs_should_contain=inactive_detectors
                     )
 
             Rebin.replicate(
