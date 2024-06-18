@@ -32,11 +32,7 @@ comparison = {
     "escale": {"skip": True},
     "fission_fractions_corr": {"skip": True},
     "global_norm": {"skip": True},
-    "lsnl_weight": {
-        "location": "detector.lsnl_scale_a",
-        "rtol": 1.0e-8,
-        "skip": True
-    },
+    "lsnl_weight": {"location": "detector.lsnl_scale_a", "rtol": 1.0e-8},
     "nominal_thermal_power": {"skip": True},
     "offeq_scale": {"skip": True},
     "DeltaMSq12": {"skip": True},
