@@ -1174,6 +1174,14 @@ class model_dayabay_v0:
                     replicate_outputs=combinations["detector.period"],
                     )
 
+            Sum.replicate(
+                    outputs("eventscount.fine.bkg"),
+                    outputs("eventscount.erec"),
+                    name="eventscount.fine.total",
+                    replicate_outputs=combinations["detector.period"],
+                    check_edges_contents=True,
+                    )
+
             Rebin.replicate(
                     names={"matrix": "detector.rebin_bkg_matrix", "product": "eventscount.final.bkg"},
                     replicate_outputs=combinations["detector.period"],
