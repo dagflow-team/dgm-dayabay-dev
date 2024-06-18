@@ -3,15 +3,14 @@
 from argparse import Namespace
 from contextlib import suppress
 from itertools import permutations
-from typing import Any, Callable, Generator, Literal, Mapping, Sequence
+from typing import Any, Generator, Literal, Mapping, Sequence
 
-from h5py import Dataset, File, Group
+from h5py import File
 from matplotlib import pyplot as plt
-from numpy import allclose, array, fabs, ma, nanmax
+from numpy import allclose, fabs, nanmax
 from numpy.typing import NDArray
 
 from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
-from dagflow.output import Output
 from models.dayabay_v0 import model_dayabay_v0
 from multikeydict.nestedmkdict import NestedMKDict
 
@@ -21,7 +20,10 @@ set_level(INFO1)
 comparison = {
     "default": {"rtol": 1.0e-8},
     "OffdiagScale": {"skip": True},
-    "acc_norm": {"skip": True},
+    "acc_norm": {
+        "location": "normalized.bkg.rate.acc",
+        "skip": True
+    },
     "bkg_rate_alphan": {"skip": True},
     "bkg_rate_amc": {"skip": True},
     "bkg_rate_fastn": {"skip": True},
@@ -32,7 +34,7 @@ comparison = {
     "escale": {"skip": True},
     "fission_fractions_corr": {"skip": True},
     "global_norm": {"skip": True},
-    "lsnl_weight": {"location": "detector.lsnl_scale_a", "rtol": 1.0e-8},
+    "lsnl_weight": {"location": "all.detector.lsnl_scale_a", "rtol": 1.0e-8},
     "nominal_thermal_power": {"skip": True},
     "offeq_scale": {"skip": True},
     "DeltaMSq12": {"skip": True},
@@ -40,7 +42,7 @@ comparison = {
     "DeltaMSq23": {"skip": True},
     "SinSqDouble12": {"skip": True},
     "SinSqDouble13": {"skip": True},
-    "snf_scale": {"location": "reactor.snf_scale", "rtol": 1.0e-8},
+    "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
     "spectral_weights": {"skip": True},
 }
 # fmt: on
@@ -146,8 +148,8 @@ class NuisanceComparator:
 
         self.skey_gna = "erec"
         self.skey_dgf = "eventscount.erec"
-        self.outputs_dgf = self.model.storage("outputs.eventscount.erec")
-        self.parameters_dgf = self.model.storage("parameter.all")
+        self.outputs_dgf = self.model.storage("outputs.eventscount.fine.total")
+        self.parameters_dgf = self.model.storage("parameter")
 
         with suppress(StopIteration):
             self.process()
@@ -156,8 +158,8 @@ class NuisanceComparator:
         self.check_default(save=True)
 
         source = self.opts.input["dayabay"]
+        inactive_detectors = set(frozenset(ia) for ia in self.model.inactive_detectors)
 
-        parameters = self.model.storage("parameter.all")
         skipped = set()
         for parpath, results in iterate_mappings_till_key(source, "values"):
             par = parpath[1:].replace("/", ".")
@@ -170,6 +172,9 @@ class NuisanceComparator:
             parname, index = paritems[0], paritems[1:]
             if parname == "pmns":
                 parname, index = index[0], index[1:]
+            if set(index) in inactive_detectors:
+                logger.log(INFO1, f"Skip {parpath}")
+                continue
 
             self.cmpopts = comparison[parname]
             if self.cmpopts.get("skip"):
@@ -178,12 +183,13 @@ class NuisanceComparator:
                     skipped.add(parname)
                 continue
 
-            parsloc = parameters.any(self.cmpopts["location"])
-            par = parsloc[index]
+            parsloc = self.parameters_dgf.any(self.cmpopts["location"])
+            par = get_orderless(parsloc, index)
             if par.value != self.value_central:
                 logger.error(
                     f"Parameters not consistent: dgf={par.value} gna={self.value_central}"
                 )
+                continue
 
             self.skey_par_gna = parname
             self.skey2_par_gna = ".".join([""] + index)
@@ -444,6 +450,11 @@ def iterate_mappings_till_key(
         else:
             yield from iterate_mappings_till_key(submapping, target_key, head=retkey)
 
+def get_orderless(storage: NestedMKDict, key: list[str]):
+    for pkey in permutations(key):
+        with suppress(KeyError):
+            return storage[pkey]
+    raise KeyError(key)
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
