@@ -24,6 +24,7 @@ class model_dayabay_v0:
     __slots__ = (
         "storage",
         "graph",
+        "inactive_detectors",
         "_override_indices",
         "_path_data",
         "_source_type",
@@ -35,6 +36,7 @@ class model_dayabay_v0:
 
     storage: NodeStorage
     graph: Graph | None
+    inactive_detectors: tuple[set[str], ...]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
     _source_type: SourceTypes
@@ -63,6 +65,8 @@ class model_dayabay_v0:
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode
         self._fission_fraction_normalized = fission_fraction_normalized
+
+        self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
 
         self.build()
 
@@ -118,7 +122,6 @@ class model_dayabay_v0:
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
-        inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         required_combinations = (
             "reactor.detector",
             "reactor.isotope",
@@ -140,7 +143,7 @@ class model_dayabay_v0:
             combitems = combname.split(".")
             items = []
             for it in product(*(index[item] for item in combitems)):
-                if any(inact.issubset(it) for inact in inactive_detectors):
+                if any(inact.issubset(it) for inact in self.inactive_detectors):
                     continue
                 items.append(it)
             combinations[combname] = tuple(items)
@@ -518,7 +521,7 @@ class model_dayabay_v0:
                 replicate_outputs = index["detector"],
                 objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
-                skip = inactive_detectors
+                skip = self.inactive_detectors
             )
             from models.bundles.refine_detector_data import \
                 refine_detector_data
@@ -704,7 +707,7 @@ class model_dayabay_v0:
                     name = "reactor_detector.number_of_fissions_daily",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     allow_skip_inputs = True,
-                    skippable_inputs_should_contain = inactive_detectors
+                    skippable_inputs_should_contain = self.inactive_detectors
                     )
 
             # Total effective number of fissions from a Reactor seen in the Detector during Period
@@ -766,7 +769,7 @@ class model_dayabay_v0:
                     name="detector.efflivetime_days",
                     replicate_outputs=combinations["detector.period"],
                     allow_skip_inputs=True,
-                    skippable_inputs_should_contain=inactive_detectors,
+                    skippable_inputs_should_contain=self.inactive_detectors,
                     )
 
             # Effective live time × N protons × ε / (4πL²)  (SNF)
@@ -780,7 +783,7 @@ class model_dayabay_v0:
                     name = "reactor_detector.livetime_nprotons_percm2_snf",
                     replicate_outputs=combinations["reactor.detector.period"],
                     allow_skip_inputs = True,
-                    skippable_inputs_should_contain = inactive_detectors
+                    skippable_inputs_should_contain = self.inactive_detectors
                     )
 
             #
@@ -1091,7 +1094,7 @@ class model_dayabay_v0:
                 filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
                 replicate_files = index["period"],
                 replicate_outputs = combinations["bkg.detector"],
-                skip = inactive_detectors,
+                skip = self.inactive_detectors,
                 key_order = (1, 2, 0),
                 objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
@@ -1105,14 +1108,14 @@ class model_dayabay_v0:
                 parameters("all.bkg.rate.fastn"),
                 outputs.child("bkg.rate.fastn"),
                 rename_indices = ads_at_sites,
-                skip_indices_target = inactive_detectors,
+                skip_indices_target = self.inactive_detectors,
                 fcn = lambda par: par.output
             )
             remap_items(
                 parameters("all.bkg.rate.lihe"),
                 outputs.child("bkg.rate.lihe"),
                 rename_indices = ads_at_sites,
-                skip_indices_target = inactive_detectors,
+                skip_indices_target = self.inactive_detectors,
                 fcn = lambda par: par.output
             )
 
