@@ -40,38 +40,83 @@ comparison = {
     "DeltaMSq23": "skip",
     "SinSqDouble12": "skip",
     "SinSqDouble13": "skip",
-    "snf_scale": "skip",
+    "snf_scale": {
+        "location": "reactor.snf_scale",
+        # "rtol": 1.0e-8
+    },
     "spectral_weights": "skip",
 }
 # fmt: on
 
 
 class NuisanceComparator:
+    __slots__ = (
+        "model",
+        "parameters_dgf",
+        "opts",
+        "outputs_dgf",
+        "outputs_dgf_default",
+        "_cmpopts",
+        "_maxdiff",
+        "_maxreldiff",
+        "_skey_gna",
+        "_skey_dgf",
+        "_skey2_gna",
+        "_skey2_dgf",
+        "_skey_par_gna",
+        "_skey_par_dgf",
+        "_skey2_par_gna",
+        "_skey2_par_dgf",
+        "_data_gna",
+        "_data_dgf",
+        "_diff",
+        "_n_success",
+        "_n_fail",
+    )
     opts: Namespace
-    output_dgf: NestedMKDict
+    outputs_dgf: NestedMKDict
+    outputs_dgf_default: NestedMKDict
 
-    _cmpopts: dict[str, Any] = {}
-    _maxdiff: float = 0.0
-    _maxreldiff: float = 0.0
+    _cmpopts: dict[str, Any]
+    _maxdiff: float
+    _maxreldiff: float
 
-    _skey_gna: str = ""
-    _skey_dgf: str = ""
-    _skey2_gna: str = ""
-    _skey2_dgf: str = ""
+    _skey_gna: str
+    _skey_dgf: str
+    _skey2_gna: str
+    _skey2_dgf: str
 
-    _skey_par_gna: str = ""
-    _skey_par_dgf: str = ""
-    _skey2_par_gna: str = ""
-    _skey2_par_dgf: str = ""
+    _skey_par_gna: str
+    _skey_par_dgf: str
+    _skey2_par_gna: str
+    _skey2_par_dgf: str
 
     _data_gna: NDArray
     _data_dgf: NDArray
     _diff: NDArray | Literal[False]
 
-    _n_success: int = 0
-    _n_fail: int = 0
+    _n_success: int
+    _n_fail: int
 
     def __init__(self, opts: Namespace):
+        self._cmpopts = {}
+
+        self._maxdiff = 0.0
+        self._maxreldiff = 0.0
+
+        self._skey_gna = ""
+        self._skey_dgf = ""
+        self._skey2_gna = ""
+        self._skey2_dgf = ""
+
+        self._skey_par_gna = ""
+        self._skey_par_dgf = ""
+        self._skey2_par_gna = ""
+        self._skey2_par_dgf = ""
+
+        self._n_success = 0
+        self._n_fail = 0
+
         self.model = model_dayabay_v0(source_type=opts.source_type)
         self.opts = opts
 
@@ -92,7 +137,7 @@ class NuisanceComparator:
         self._skey_par_gna = "default"
         self._skey_par_dgf = "default"
         self._cmpopts = comparison["default"]
-        self._compare_hists(default)
+        self._compare_hists(default, save=True)
 
         source = self.opts.input["dayabay"]
 
@@ -113,11 +158,14 @@ class NuisanceComparator:
             self._cmpopts = comparison[parname]
             if self._cmpopts == "skip":
                 if parname not in skipped:
-                    logger.log(INFO1, f"{parname} skip")
+                    logger.warning(f"{parname} skip")
                     skipped.add(parname)
                 continue
 
-            logger.log(INFO1, f"{parname}: v={value_central}, v-={value_minus}, v+={value_plus}")
+            logger.log(
+                INFO1,
+                f"{parname}: v={value_central}, v-={value_minus}, v+={value_plus}",
+            )
 
             parsloc = parameters.any(self._cmpopts["location"])
             par = parsloc[index]
@@ -131,7 +179,7 @@ class NuisanceComparator:
             par.push(value_plus)
             self._process_par_offset(parname, index, value_minus, results_minus)
 
-            par.value=value_minus
+            par.value = value_minus
             self._process_par_offset(parname, index, value_plus, results_plus)
 
             par.pop()
@@ -146,7 +194,7 @@ class NuisanceComparator:
         else:
             logger.error(f"FAIL: {self.cmpstring_par}")
 
-    def _compare_hists(self, results: Mapping) -> bool:
+    def _compare_hists(self, results: Mapping, *, save: bool = False) -> bool:
         is_ok = True
         for ad, addir in results.items():
             for period, data in addir.items():
@@ -177,8 +225,8 @@ class NuisanceComparator:
 
             return True
 
+        logger.log(INFO1, f"OK: {self.cmpstring_par}")
         logger.error(f"FAIL: {self.cmpstring}")
-        logger.error(f"      {self.parstring}")
         logger.error(f"      {self.tolstring}")
         logger.error(f"      {self.shapestrings}")
         logger.error(f"      max diff {self._maxdiff:.2g}, ")
@@ -210,21 +258,33 @@ class NuisanceComparator:
         pargs = {"markerfacecolor": "none", "alpha": 0.4}
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="",
+            title=f"""{self.cmpstring_par}:
+{self.cmpstring}""",
+        )
         ax.plot(self._data_gna, style, label="GNA", **pargs)
         ax.plot(self._data_dgf, style, label="dagflow", **pargs)
-        scale_factor = self._data_gna.sum() / self._data_dgf.sum()
-        ax.plot(
-            self._data_dgf * scale_factor,
-            f"{style}-",
-            label="dagflow scaled",
-            **pargs,
-        )
+        # scale_factor = self._data_gna.sum() / self._data_dgf.sum()
+        # ax.plot(
+        #     self._data_dgf * scale_factor,
+        #     f"{style}-",
+        #     label="dagflow scaled",
+        #     **pargs,
+        # )
         ax.legend()
         ax.grid()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="dagflow/GNA-1",
+            title=f"""{self.cmpstring_par}:
+{self.cmpstring}""",
+        )
         with suppress(ValueError):
             ax.plot(self._data_dgf / self._data_gna - 1, style, **pargs)
         ax.grid()
@@ -250,10 +310,6 @@ class NuisanceComparator:
     @property
     def tolstring(self) -> str:
         return f"rtol={self.rtol}" f" atol={self.atol}"
-
-    @property
-    def parstring(self) -> str:
-        return f"dagflow[0]={self._data_dgf[0]}  gna[0]={self._data_gna[0]}"
 
     @property
     def shapestring(self) -> str:
