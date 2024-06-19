@@ -989,10 +989,9 @@ class model_dayabay_v0:
             outputs["detector.lsnl.curves.evis_common"] >> inputs["detector.lsnl.curves.evis_common_monotonic.y"]
 
             from multikeydict.tools import remap_items
-            detector_parameters_secodary = storage("outputs.detector.parameters_relative")
             remap_items(
                 storage("parameter.all.detector.energy_scale"),
-                detector_parameters_secodary,
+                storage.child("outputs.detector.parameters_relative"),
                 reorder_indices=[
                     ["detector", "parameter"],
                     ["parameter", "detector"],
@@ -1001,7 +1000,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                 outputs["detector.lsnl.curves.evis_common_monotonic"],
-                detector_parameters_secodary("energy_scale_factor_relative"),
+                storage("outputs.detector.parameters_relative.energy_scale_factor_relative"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs = index["detector"]
             )
