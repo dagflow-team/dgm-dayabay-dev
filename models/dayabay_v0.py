@@ -15,7 +15,6 @@ from dagflow.lib.InterpolatorGroup import InterpolatorGroup
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
-from multikeydict.tools import remap_items
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
@@ -1099,25 +1098,27 @@ class model_dayabay_v0:
                 objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
 
-            ads_at_sites = {
-                    "EH1": ("AD11", "AD12"),
-                    "EH2": ("AD21", "AD22"),
-                    "EH3": ("AD31", "AD32", "AD33", "AD34"),
-                    }
-            remap_items(
-                parameters("all.bkg.rate.fastn"),
-                outputs.child("bkg.rate.fastn"),
-                rename_indices = ads_at_sites,
-                skip_indices_target = self.inactive_detectors,
-                fcn = lambda par: par.output
-            )
-            remap_items(
-                parameters("all.bkg.rate.lihe"),
-                outputs.child("bkg.rate.lihe"),
-                rename_indices = ads_at_sites,
-                skip_indices_target = self.inactive_detectors,
-                fcn = lambda par: par.output
-            )
+            # TODO: Daya Bay v1 (if needed)
+            # from multikeydict.tools import remap_items
+            # ads_at_sites = {
+            #         "EH1": ("AD11", "AD12"),
+            #         "EH2": ("AD21", "AD22"),
+            #         "EH3": ("AD31", "AD32", "AD33", "AD34"),
+            #         }
+            # remap_items(
+            #     parameters("all.bkg.rate.fastn"),
+            #     outputs.child("bkg.rate.fastn"),
+            #     rename_indices = ads_at_sites,
+            #     skip_indices_target = self.inactive_detectors,
+            #     fcn = lambda par: par.output
+            # )
+            # remap_items(
+            #     parameters("all.bkg.rate.lihe"),
+            #     outputs.child("bkg.rate.lihe"),
+            #     rename_indices = ads_at_sites,
+            #     skip_indices_target = self.inactive_detectors,
+            #     fcn = lambda par: par.output
+            # )
 
             # NOTE:
             # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
@@ -1135,14 +1136,16 @@ class model_dayabay_v0:
                     )
 
             Product.replicate(
-                    outputs("bkg.rate.lihe"),
+                    # outputs("bkg.rate.lihe"),
+                    parameters("all.bkg.rate.lihe"),
                     outputs("bkg.spectrum_shape.lihe"),
                     name="bkg.spectrum_per_day.lihe",
                     replicate_outputs=combinations["detector.period"],
                     )
 
             Product.replicate(
-                    outputs("bkg.rate.fastn"),
+                    # outputs("bkg.rate.fastn"),
+                    parameters("all.bkg.rate.fastn"),
                     outputs("bkg.spectrum_shape.fastn"),
                     name="bkg.spectrum_per_day.fastn",
                     replicate_outputs=combinations["detector.period"],
