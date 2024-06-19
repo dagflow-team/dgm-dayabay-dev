@@ -16,17 +16,17 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 set_level(INFO1)
 
+def minus_one(*values):
+    return tuple(v-1.0 for v in values)
+
 # fmt: on
 comparison = {
     "default": {"rtol": 1.0e-8},
     "OffdiagScale": {"skip": True},
-    "acc_norm": {
-        "location": "normalized.bkg.rate.acc",
-        "skip": True
-    },
-    "bkg_rate_alphan": {"skip": True},
-    "bkg_rate_amc": {"skip": True},
-    "bkg_rate_fastn": {"skip": True},
+    "acc_norm": {"location": "all.bkg.rate.acc", "rtol": 1.0e-8, "scale": True},
+    "bkg_rate_alphan": {"location": "all.bkg.rate.alphan", "rtol": 1.0e-8},
+    "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
+    "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
     "bkg_rate_lihe": {"skip": True},
     "effunc_uncorr": {"skip": True},
     "eper_fission": {"skip": True},
@@ -164,10 +164,6 @@ class NuisanceComparator:
         for parpath, results in iterate_mappings_till_key(source, "values"):
             par = parpath[1:].replace("/", ".")
 
-            self.value_central, self.value_left, self.value_right = results["values"]
-            results_left = results["minus"]
-            results_right = results["plus"]
-
             paritems = par.split(".")
             parname, index = paritems[0], paritems[1:]
             if parname == "pmns":
@@ -183,13 +179,25 @@ class NuisanceComparator:
                     skipped.add(parname)
                 continue
 
+            value_fcn = self.cmpopts.get("value_fcn", lambda *v: v)
+            self.value_central, self.value_left, self.value_right = value_fcn(*results["values"])
+
             parsloc = self.parameters_dgf.any(self.cmpopts["location"])
             par = get_orderless(parsloc, index)
+
+            if self.cmpopts.get("scale"):
+                self.value_central *= par.value
+                self.value_left  *= self.value_central
+                self.value_right *= self.value_central
+
             if par.value != self.value_central:
                 logger.error(
                     f"Parameters not consistent: dgf={par.value} gna={self.value_central}"
                 )
                 continue
+
+            results_left = results["minus"]
+            results_right = results["plus"]
 
             self.skey_par_gna = parname
             self.skey2_par_gna = ".".join([""] + index)
