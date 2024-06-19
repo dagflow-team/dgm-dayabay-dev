@@ -3,7 +3,7 @@
 from argparse import Namespace
 from contextlib import suppress
 from itertools import permutations
-from typing import Any, Generator, Literal, Mapping, Sequence
+from typing import Any, Generator, Literal, Mapping
 
 from h5py import File
 from matplotlib import pyplot as plt
@@ -16,10 +16,11 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 set_level(INFO1)
 
-def minus_one(*values):
-    return tuple(v-1.0 for v in values)
 
-# fmt: on
+def minus_one(*values):
+    return tuple(v - 1.0 for v in values)
+
+
 comparison = {
     "default": {"rtol": 1.0e-8},
     "OffdiagScale": {"skip": True},
@@ -27,10 +28,10 @@ comparison = {
     "bkg_rate_alphan": {"location": "all.bkg.rate.alphan", "rtol": 1.0e-8},
     "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
     "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
-    "bkg_rate_lihe": {"skip": True},
+    "bkg_rate_lihe": {"location": "all.bkg.rate.lihe", "rtol": 1.0e-8},
     "effunc_uncorr": {"skip": True},
-    "eper_fission": {"skip": True},
-    "eres": {"skip": True},
+    "eper_fission": {"location": "all.reactor.energy_per_fission", "skip": True},
+    "eres": {"location": "all.detector.eres", "keys_mapping": {("a",): ("a_nonuniform",), ("b",): ("b_stat",), ("c",): ("c_noise",), }, "rtol": 1.0e-8},
     "escale": {"skip": True},
     "fission_fractions_corr": {"skip": True},
     "global_norm": {"skip": True},
@@ -45,7 +46,6 @@ comparison = {
     "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
     "spectral_weights": {"skip": True},
 }
-# fmt: on
 
 
 class NuisanceComparator:
@@ -165,7 +165,7 @@ class NuisanceComparator:
             par = parpath[1:].replace("/", ".")
 
             paritems = par.split(".")
-            parname, index = paritems[0], paritems[1:]
+            parname, index = paritems[0], tuple(paritems[1:])
             if parname == "pmns":
                 parname, index = index[0], index[1:]
             if set(index) in inactive_detectors:
@@ -180,14 +180,17 @@ class NuisanceComparator:
                 continue
 
             value_fcn = self.cmpopts.get("value_fcn", lambda *v: v)
-            self.value_central, self.value_left, self.value_right = value_fcn(*results["values"])
+            self.value_central, self.value_left, self.value_right = value_fcn(
+                *results["values"]
+            )
 
             parsloc = self.parameters_dgf.any(self.cmpopts["location"])
-            par = get_orderless(parsloc, index)
+            keys_mapping = self.cmpopts.get("keys_mapping", {})
+            par = get_orderless(parsloc, keys_mapping.get(index, index))
 
             if self.cmpopts.get("scale"):
                 self.value_central *= par.value
-                self.value_left  *= self.value_central
+                self.value_left *= self.value_central
                 self.value_right *= self.value_central
 
             if par.value != self.value_central:
@@ -200,19 +203,19 @@ class NuisanceComparator:
             results_right = results["plus"]
 
             self.skey_par_gna = parname
-            self.skey2_par_gna = ".".join([""] + index)
+            self.skey2_par_gna = ".".join(("",) + index)
             self.skey_par_dgf = self.cmpopts["location"]
             self.skey2_par_dgf = ""
 
             self.value_current = self.value_right
             par.push(self.value_current)
             logger.log(INFO1, f"{parname}: v={self.valuestring}")
-            self.process_par_offset(parname, index, results_right)
+            self.process_par_offset(results_right)
 
             self.value_current = self.value_left
             par.value = self.value_current
             logger.log(INFO1, f"{parname}: v={self.valuestring}")
-            self.process_par_offset(parname, index, results_left)
+            self.process_par_offset(results_left)
 
             par.pop()
             self.check_default("restore", check_change=False)
@@ -226,7 +229,7 @@ class NuisanceComparator:
         self.cmpopts = comparison["default"]
         self.compare_hists(default, save=save, check_change=check_change)
 
-    def process_par_offset(self, parname: str, index: Sequence[str], results: Mapping):
+    def process_par_offset(self, results: Mapping):
         if self.compare_hists(results):
             logger.log(INFO1, f"OK: {self.cmpstring_par}")
             logger.log(INFO2, f"    {self.tolstring}")
@@ -458,11 +461,13 @@ def iterate_mappings_till_key(
         else:
             yield from iterate_mappings_till_key(submapping, target_key, head=retkey)
 
+
 def get_orderless(storage: NestedMKDict, key: list[str]):
     for pkey in permutations(key):
         with suppress(KeyError):
             return storage[pkey]
     raise KeyError(key)
+
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
