@@ -989,9 +989,19 @@ class model_dayabay_v0:
             outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.curves.evis_common_monotonic.x"]
             outputs["detector.lsnl.curves.evis_common"] >> inputs["detector.lsnl.curves.evis_common_monotonic.y"]
 
+            detector_parameters_secodary = storage("outputs.detector").child("parameters_secondary")
+            remap_items(
+                storage("parameter.all.detector.energy_scale"),
+                detector_parameters_secodary,
+                reorder_indices=[
+                    ["detector", "parameter"],
+                    ["parameter", "detector"],
+                ],
+            )
+
             Product.replicate(
                 outputs["detector.lsnl.curves.evis_common_monotonic"],
-                parameters("constrained.detector.energy_scale.factor"),
+                detector_parameters_secodary("energy_scale_factor_relative"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs = index["detector"]
             )
