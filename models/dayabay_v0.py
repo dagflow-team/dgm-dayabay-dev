@@ -989,7 +989,8 @@ class model_dayabay_v0:
             outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.curves.evis_common_monotonic.x"]
             outputs["detector.lsnl.curves.evis_common"] >> inputs["detector.lsnl.curves.evis_common_monotonic.y"]
 
-            detector_parameters_secodary = storage("outputs.detector").child("parameters_secondary")
+            from multikeydict.tools import remap_items
+            detector_parameters_secodary = storage("outputs.detector.parameters_relative")
             remap_items(
                 storage("parameter.all.detector.energy_scale"),
                 detector_parameters_secodary,
