@@ -29,22 +29,39 @@ comparison = {
     "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
     "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
     "bkg_rate_lihe": {"location": "all.bkg.rate.lihe", "rtol": 1.0e-8},
-    "effunc_uncorr": {"skip": True},
-    "eper_fission": {"location": "all.reactor.energy_per_fission", "skip": True},
-    "eres": {"location": "all.detector.eres", "keys_mapping": {("a",): ("a_nonuniform",), ("b",): ("b_stat",), ("c",): ("c_noise",), }, "rtol": 1.0e-8},
-    "escale": {"skip": True},
+    "effunc_uncorr": {
+        "skip": True
+    },
+    "eper_fission": {
+        "location": "all.reactor.energy_per_fission",
+        "skip": True
+    },
+    "eres": {
+        "location": "all.detector.eres",
+        "keys_mapping": {("a",): ("a_nonuniform",), ("b",): ("b_stat",), ("c",): ("c_noise",), },
+        "rtol": 1.0e-8
+    },
+    "escale": {
+        "skip": True
+    },
     "fission_fractions_corr": {"skip": True},
-    "global_norm": {"skip": True},
+    "global_norm": {"location": "all.detector.global_normalization", "rtol": 1.e-8},
     "lsnl_weight": {"location": "all.detector.lsnl_scale_a", "rtol": 1.0e-8},
-    "nominal_thermal_power": {"skip": True},
-    "offeq_scale": {"skip": True},
-    "DeltaMSq12": {"skip": True},
-    "DeltaMSq13": {"skip": True},
-    "DeltaMSq23": {"skip": True},
-    "SinSqDouble12": {"skip": True},
-    "SinSqDouble13": {"skip": True},
+    "nominal_thermal_power": {
+        "location": "all.reactor.nominal_thermal_power",
+        "skip": True
+    },
+    "offeq_scale": {"location": "all.reactor.offequilibrium_scale", "rtol": 1.0e-8},
+    "DeltaMSq12": {"location": "all.oscprob.DeltaMSq21", "rtol": 1.0e-8},
+    "DeltaMSq23": {"location": "all.oscprob.DeltaMSq32", "rtol": 1.0e-8},
+    "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
+    "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
     "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
-    "spectral_weights": {"skip": True},
+    "spectral_weights": {
+        "location": "all.neutrino_perfission",
+        "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
+        "rtol": 1.0e-8
+    },
 }
 
 
@@ -146,8 +163,8 @@ class NuisanceComparator:
             opts.verbose = min(opts.verbose, 3)
             set_level(globals()[f"INFO{opts.verbose}"])
 
-        self.skey_gna = "erec"
-        self.skey_dgf = "eventscount.erec"
+        self.skey_gna = "fine"
+        self.skey_dgf = "eventscount.fine.total"
         self.outputs_dgf = self.model.storage("outputs.eventscount.fine.total")
         self.parameters_dgf = self.model.storage("parameter")
 
@@ -185,8 +202,12 @@ class NuisanceComparator:
             )
 
             parsloc = self.parameters_dgf.any(self.cmpopts["location"])
-            keys_mapping = self.cmpopts.get("keys_mapping", {})
-            par = get_orderless(parsloc, keys_mapping.get(index, index))
+            keys_mapping = self.cmpopts.get("keys_mapping", lambda s: s)
+            if isinstance(keys_mapping, dict):
+                keys_fcn = lambda s: keys_mapping.get(s, s)
+            else:
+                keys_fcn = keys_mapping
+            par = get_orderless(parsloc, keys_fcn(index))
 
             if self.cmpopts.get("scale"):
                 self.value_central *= par.value
@@ -462,7 +483,9 @@ def iterate_mappings_till_key(
             yield from iterate_mappings_till_key(submapping, target_key, head=retkey)
 
 
-def get_orderless(storage: NestedMKDict, key: list[str]):
+def get_orderless(storage: NestedMKDict | Any, key: list[str]) -> Any:
+    if not key:
+        return storage
     for pkey in permutations(key):
         with suppress(KeyError):
             return storage[pkey]
