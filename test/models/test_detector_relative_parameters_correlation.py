@@ -42,12 +42,12 @@ class CorrelatedTest(unittest.TestCase):
             self.assertNotEqual(
                 self.efficiency_factor_init_value,
                 self.efficiency_factor.value,
-                "Efficiency factor does not changed after changing",
+                "Efficiency factor has not changed after changing",
             )
-            self.assertNotEqual(
+            self.assertEqual(
                 self.energy_scale_factor_init_value,
                 self.energy_scale_factor.value,
-                "Energy scale factor does not changed after changing efficiency factor",
+                "Energy scale factor changed after changing efficiency factor",
             )
 
         self.reset_normalized_values()
@@ -68,29 +68,13 @@ class CorrelatedTest(unittest.TestCase):
     def test_uncorrelated(self, detector0, detector1):
         self.set_up(detector0, detector1)
 
-        for parameter in [self.efficiency_factor_normalized, self.energy_scale_factor_normalized]:
-            self.reset_normalized_values()
-            for value in [-1, 1]:
-                parameter.value = value
-                self.efficiency_factor_normalized.value = value
-                self.assertNotEqual(
-                    self.efficiency_factor_init_value,
-                    self.efficiency_factor.value,
-                    "Efficiency factor does not changed after changing",
-                )
-                self.assertEqual(
-                    self.energy_scale_factor_init_value,
-                    self.energy_scale_factor.value,
-                    "Energy scale factor changed after changing unrelated efficiency factor",
-                )
-
         self.reset_normalized_values()
         for value in [-1, 1]:
             self.efficiency_factor_normalized.value = value
             self.assertNotEqual(
                 self.efficiency_factor_init_value,
                 self.efficiency_factor.value,
-                "Efficiency factor does not changed after changing",
+                "Efficiency factor has not changed after changing",
             )
             self.assertEqual(
                 self.energy_scale_factor_init_value,
@@ -104,7 +88,7 @@ class CorrelatedTest(unittest.TestCase):
             self.assertNotEqual(
                 self.energy_scale_factor_init_value,
                 self.energy_scale_factor.value,
-                "Energy scale factor does not changed after changing",
+                "Energy scale factor has not changed after changing",
             )
             self.assertEqual(
                 self.efficiency_factor_init_value,
