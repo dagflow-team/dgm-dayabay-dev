@@ -38,8 +38,9 @@ comparison = {
         "rtol": 1.0e-8
     },
     "escale": {
-        # TODO
-        "skip": True
+        "location": "all.detector.detector_relative",
+        "keys_mapping": lambda t: (t+("energy_scale_factor",)),
+        # "rtol": 1.0e-8
     },
     "eres": {
         "location": "all.detector.eres",
