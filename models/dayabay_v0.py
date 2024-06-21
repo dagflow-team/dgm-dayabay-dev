@@ -1073,6 +1073,13 @@ class model_dayabay_v0:
             outputs["detector.eres.matrix"] >> inputs("eventscount.erec.matrix")
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
+            Product.replicate(
+                parameters["all.detector.global_normalization"],
+                outputs("eventscount.erec"),
+                name = "eventscount.fine.ibd_normalized",
+                replicate_outputs=combinations["detector.period"],
+            )
+
             from dgf_detector.Rebin import Rebin
             Rebin.replicate(
                 names={"matrix": "detector.rebin_matrix_ibd", "product": "eventscount.final.ibd"},
@@ -1080,7 +1087,7 @@ class model_dayabay_v0:
             )
             edges_energy_erec >> inputs["detector.rebin_matrix_ibd.edges_old"]
             edges_energy_final >> inputs["detector.rebin_matrix_ibd.edges_new"]
-            outputs("eventscount.erec") >> inputs("eventscount.final.ibd")
+            outputs("eventscount.fine.ibd_normalized") >> inputs("eventscount.final.ibd")
 
             #
             # Backgrounds
@@ -1191,8 +1198,8 @@ class model_dayabay_v0:
                     )
 
             Sum.replicate(
+                    outputs("eventscount.fine.ibd_normalized"),
                     outputs("eventscount.fine.bkg"),
-                    outputs("eventscount.erec"),
                     name="eventscount.fine.total",
                     replicate_outputs=combinations["detector.period"],
                     check_edges_contents=True,
@@ -1207,8 +1214,8 @@ class model_dayabay_v0:
             outputs("eventscount.fine.bkg") >> inputs("eventscount.final.bkg")
 
             Sum.replicate(
-                outputs("eventscount.final.bkg"),
                 outputs("eventscount.final.ibd"),
+                outputs("eventscount.final.bkg"),
                 name="eventscount.final.total",
                 replicate_outputs=combinations["detector.period"],
             )
