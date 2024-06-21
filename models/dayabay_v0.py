@@ -999,8 +999,8 @@ class model_dayabay_v0:
 
             from multikeydict.tools import remap_items
             remap_items(
-                storage("parameter.all.detector.detector_relative"),
-                storage.child("outputs.detector.parameters_relative"),
+                parameters("all.detector.detector_relative"),
+                outputs.child("detector.parameters_relative"),
                 reorder_indices=[
                     ["detector", "parameter"],
                     ["parameter", "detector"],
@@ -1009,7 +1009,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                 outputs["detector.lsnl.curves.evis_common_monotonic"],
-                storage("outputs.detector.parameters_relative.energy_scale_factor"),
+                outputs("detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs = index["detector"]
             )
@@ -1084,6 +1084,13 @@ class model_dayabay_v0:
 
             Product.replicate(
                 parameters["all.detector.global_normalization"],
+                outputs("detector.parameters_relative"),
+                name = "detector.normalization",
+                replicate_outputs=index["detector"],
+            )
+
+            Product.replicate(
+                outputs("detector.normalization"),
                 outputs("eventscount.erec"),
                 name = "eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
