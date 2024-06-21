@@ -5,7 +5,7 @@ coverage
 latexdatax
 matplotlib
 numba
-numpy<2.0.0
+numpy
 orderedset
 pandas
 pygraphviz
