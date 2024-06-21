@@ -187,8 +187,8 @@ class model_dayabay_v0:
             load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
                             replicate=index["lsnl_nuisance"])
-            load_parameters(path="detector",   load=path_parameters/"detector_relative_energy_scale.yaml",
-                            replicate=index["detector"])
+            load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
+                            replicate=index["detector"], replica_key_offset=1)
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
@@ -997,9 +997,19 @@ class model_dayabay_v0:
             outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.curves.evis_common_monotonic.x"]
             outputs["detector.lsnl.curves.evis_common"] >> inputs["detector.lsnl.curves.evis_common_monotonic.y"]
 
+            from multikeydict.tools import remap_items
+            remap_items(
+                storage("parameter.all.detector.detector_relative"),
+                storage.child("outputs.detector.parameters_relative"),
+                reorder_indices=[
+                    ["detector", "parameter"],
+                    ["parameter", "detector"],
+                ],
+            )
+
             Product.replicate(
                 outputs["detector.lsnl.curves.evis_common_monotonic"],
-                parameters("constrained.detector.energy_scale_factor"),
+                storage("outputs.detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs = index["detector"]
             )
