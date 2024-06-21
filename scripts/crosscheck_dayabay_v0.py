@@ -37,6 +37,8 @@ comparison_parameters = {
     "bkg.rate.acc": {"gnaname": "bkg_rate_acc", "rtol": 1e-14},
     "bkg.rate.amc": {"gnaname": "bkg_rate_amc", "rtol": 1e-14},
     "bkg.rate.alphan": {"gnaname": "bkg_rate_alphan", "rtol": 1e-14},
+    "bkg.rate.fastn": {"gnaname": "bkg_rate_fastn", "rtol": 1e-14},
+    "bkg.rate.lihe": {"gnaname": "bkg_rate_lihe", "rtol": 1e-14},
 }
 comparison_objects = {
     # dagflow: gna
@@ -46,15 +48,15 @@ comparison_objects = {
     "ibd.jacobian": {"gnaname": "jacobian", "atol": 1e-15},
     "ibd.crosssection": {"gnaname": "ibd_xsec", "rtol": 1.e-14},
     "oscprob": {"gnaname": "osc_prob_rd", "atol": 1e-15},
-    "reactor_anue.neutrino_perfission_perMeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 5.e-15},
-    "reactor_anue.neutrino_perfission_perMeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
+    "reactor_anue.neutrino_per_fission_per_MeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 5.e-15},
+    "reactor_anue.neutrino_per_fission_per_MeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
     "reactor_offequilibrium_anue.correction_input.enu": {"gnaname": "offeq_correction_input_enu.DB1.U235", "rtol": 1e-15},
     "reactor_offequilibrium_anue.correction_input.offequilibrium_correction": {"gnaname": [f"offeq_correction_input.{reac}" for reac in reactors], "atol": 1.e-14},
     "reactor_offequilibrium_anue.correction_interpolated": {"gnaname": "offeq_correction_scale_interpolated.DB1", "rtol": 5e-12, "atol": 5e-15},
     "snf_anue.correction_input.snf_correction": {"gnaname": "snf_correction_scale_input", "atol": 5.e-15},
     "snf_anue.correction_input.enu": {"gnaname": "snf_correction_scale_input_enu.DB1", "rtol": 1e-15},
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
-    "baseline_factor_percm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
+    "baseline_factor_per_cm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
     # "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8}, # should be inconsistent as it is not rescaled in GNA
     "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
@@ -63,7 +65,7 @@ comparison_objects = {
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
     # "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8}, # available only in cross-check version of the input hdf
     # "reactor.energy_per_fission_core_average_MeV": { "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 }, # available only in cross-check version of the input hdf
-    # "reactor_detector.number_of_fissions_nprotons_percm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
+    # "reactor_detector.number_of_fissions_nprotons_per_cm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.reactor_active_periods": {"gnaname": "kinint2", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
@@ -76,8 +78,6 @@ comparison_objects = {
     # NOTE
     # Li/He and fast-n determined are for EH
     # So, we should take dag-flow parameters from outputs namespace
-    "bkg.rate.fastn": {"gnaname": "parameters.dayabay.bkg_rate_fastn", "rtol": 1e-14},
-    "bkg.rate.lihe": {"gnaname": "parameters.dayabay.bkg_rate_lihe", "rtol": 1e-14},
     "bkg.spectrum.acc": {"gnaname": "bkg_acc", "rtol": 1e-14},
     "bkg.spectrum.amc": {"gnaname": "bkg_amc", "rtol": 1e-14},
     "bkg.spectrum.alphan": {"gnaname": "bkg_alphan", "rtol": 1e-14},
@@ -394,8 +394,10 @@ class Comparator:
     @property
     def parstring(self) -> str:
         try:
+            if self._data_d.shape!=1:
+                return ""
             return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}  diff={self._data_d[0]-self._data_g[0]}"
-        except KeyError:
+        except (KeyError,AttributeError):
             return f"dagflow[0]={self._data_d['value']}  gna[0]={self._data_g[0]}  diff={self._data_d['value']-self._data_g[0]}"
 
     @property
