@@ -598,6 +598,13 @@ class model_dayabay_v0:
                     replicate_outputs = index["reactor"]
                     )
 
+            Product.replicate(
+                    parameters("central.reactor.nominal_thermal_power"),
+                    parameters["all.conversion.reactorPowerConversion"],
+                    name = "reactor.thermal_power_nominal_MeVs_central",
+                    replicate_outputs = index["reactor"]
+                    )
+
             # Time dependent, fit dependent (non-nominal) for reactor core
             Product.replicate(
                     parameters("all.reactor.fission_fraction_scale"),
@@ -673,8 +680,9 @@ class model_dayabay_v0:
                     )
 
             # Nominal, time and reactor independent power and fission fractions for SNF
+            # NOTE: central values are used for energy_per_fission
             Product.replicate(
-                    parameters("all.reactor.energy_per_fission"),
+                    parameters("central.reactor.energy_per_fission"),
                     parameters("all.reactor.fission_fraction_snf"),
                     name = "reactor.energy_per_fission_snf_weighted_MeV",
                     replicate_outputs=index["isotope"],
@@ -685,9 +693,10 @@ class model_dayabay_v0:
                     name = "reactor.energy_per_fission_snf_average_MeV",
                     )
 
+            # NOTE: central values are used for the thermal power
             Product.replicate(
                     parameters("all.reactor.fission_fraction_snf"),
-                    outputs("reactor.thermal_power_nominal_MeVs"),
+                    outputs("reactor.thermal_power_nominal_MeVs_central"),
                     name = "reactor.thermal_power_snf_isotope_MeV_persecond",
                     replicate_outputs=combinations["reactor.isotope"],
                     )
@@ -777,7 +786,7 @@ class model_dayabay_v0:
                     outputs("detector.nprotons"),
                     outputs("baseline_factor_percm2"),
                     parameters("all.reactor.snf_scale"),
-                    parameters[ "all.reactor.snf_factor" ],
+                    parameters["all.reactor.snf_factor"],
                     parameters["all.detector.efficiency"],
                     name = "reactor_detector.livetime_nprotons_percm2_snf",
                     replicate_outputs=combinations["reactor.detector.period"],
