@@ -23,45 +23,60 @@ def minus_one(*values):
 
 comparison = {
     "default": {"rtol": 1.0e-8},
-    "OffdiagScale": {"skip": True},
+    "OffdiagScale": {
+        # TODO
+        "skip": True
+    },
     "acc_norm": {"location": "all.bkg.rate.acc", "rtol": 1.0e-8, "scale": True},
     "bkg_rate_alphan": {"location": "all.bkg.rate.alphan", "rtol": 1.0e-8},
     "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
     "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
     "bkg_rate_lihe": {"location": "all.bkg.rate.lihe", "rtol": 1.0e-8},
     "effunc_uncorr": {
+        # TODO
         "skip": True
     },
-    "eper_fission": {
-        "location": "all.reactor.energy_per_fission",
+    "escale": {
+        # TODO
         "skip": True
     },
     "eres": {
         "location": "all.detector.eres",
-        "keys_mapping": {("a",): ("a_nonuniform",), ("b",): ("b_stat",), ("c",): ("c_noise",), },
-        "rtol": 1.0e-8
+        "keys_mapping": {
+            ("a",): ("a_nonuniform",),
+            ("b",): ("b_stat",),
+            ("c",): ("c_noise",),
+        },
+        "rtol": 1.0e-8,
     },
-    "escale": {
-        "skip": True
-    },
-    "fission_fractions_corr": {"skip": True},
-    "global_norm": {"location": "all.detector.global_normalization", "rtol": 1.e-8},
+    "global_norm": {"location": "all.detector.global_normalization", "rtol": 1.0e-8},
     "lsnl_weight": {"location": "all.detector.lsnl_scale_a", "rtol": 1.0e-8},
-    "nominal_thermal_power": {
-        "location": "all.reactor.nominal_thermal_power",
-        "skip": True
-    },
-    "offeq_scale": {"location": "all.reactor.offequilibrium_scale", "rtol": 1.0e-8},
     "DeltaMSq12": {"location": "all.oscprob.DeltaMSq21", "rtol": 1.0e-8},
     "DeltaMSq23": {"location": "all.oscprob.DeltaMSq32", "rtol": 1.0e-8},
     "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
     "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
-    "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
     "spectral_weights": {
         "location": "all.neutrino_perfission",
         "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
-        "rtol": 1.0e-8
+        "rtol": 1.0e-8,
     },
+    # Reactor
+    "nominal_thermal_power": {
+        "location": "all.reactor.nominal_thermal_power",
+        "rtol": 1.0e-8,
+        "skip": False,
+    },
+    "fission_fractions_corr": {
+        # TODO
+        "skip": True
+    },
+    "eper_fission": {
+        "location": "all.reactor.energy_per_fission",
+        "rtol": 1.0e-8,
+        "skip": False,
+    },
+    "offeq_scale": {"location": "all.reactor.offequilibrium_scale", "rtol": 1.0e-8},
+    "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
 }
 
 
@@ -153,6 +168,11 @@ class NuisanceComparator:
         self.n_success = 0
         self.n_fail = 0
 
+        self.value_central = -1111.1111
+        self.value_current = -1111.1111
+        self.value_left = -1111.1111
+        self.value_right = -1111.1111
+
         self.outputs_dgf_default = NestedMKDict(sep=".")
         self.outputs_gna_default = NestedMKDict(sep=".")
 
@@ -164,12 +184,22 @@ class NuisanceComparator:
             set_level(globals()[f"INFO{opts.verbose}"])
 
         self.skey_gna = "fine"
-        self.skey_dgf = "eventscount.fine.total"
-        self.outputs_dgf = self.model.storage("outputs.eventscount.fine.total")
+        self.skey_dgf = opts.object
+        self.outputs_dgf = self.model.storage(f"outputs.{self.skey_dgf}")
         self.parameters_dgf = self.model.storage("parameter")
 
         with suppress(StopIteration):
             self.process()
+
+    def _skip_par(self, parname: str) -> bool:
+        if not self.opts.pars:
+            return False
+
+        for mask in self.opts.pars:
+            if mask in parname:
+                return False
+
+        return True
 
     def process(self) -> None:
         self.check_default(save=True)
@@ -179,6 +209,9 @@ class NuisanceComparator:
 
         skipped = set()
         for parpath, results in iterate_mappings_till_key(source, "values"):
+            if self._skip_par(parpath):
+                continue
+
             par = parpath[1:].replace("/", ".")
 
             paritems = par.split(".")
@@ -503,13 +536,19 @@ if __name__ == "__main__":
     input = parser.add_argument_group("input", "input related options")
     input.add_argument("input", type=File, help="input file to compare to")
 
-    parser.add_argument(
+    input.add_argument(
         "-s",
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
         default="npz",
         help="Data source type",
+    )
+
+    input.add_argument(
+        "--object",
+        default="eventscount.fine.total",
+        help="output(s) to read from the model",
     )
 
     crosscheck = parser.add_argument_group("comparison", "comparison related options")
@@ -524,6 +563,9 @@ if __name__ == "__main__":
     )
     crosscheck.add_argument(
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"
+    )
+    crosscheck.add_argument(
+        "--pars", nargs="+", help="patterns to search in parameter names"
     )
 
     c = NuisanceComparator(parser.parse_args())
