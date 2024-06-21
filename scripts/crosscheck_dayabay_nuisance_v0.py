@@ -61,20 +61,9 @@ comparison = {
         "rtol": 1.0e-8,
     },
     # Reactor
-    "nominal_thermal_power": {
-        "location": "all.reactor.nominal_thermal_power",
-        "rtol": 1.0e-8,
-        "skip": False,
-    },
-    "fission_fractions_corr": {
-        # TODO
-        "skip": True
-    },
-    "eper_fission": {
-        "location": "all.reactor.energy_per_fission",
-        "rtol": 1.0e-8,
-        "skip": False,
-    },
+    "nominal_thermal_power": {"location": "all.reactor.nominal_thermal_power", "rtol": 1.0e-8},
+    "fission_fractions_corr": {"location": "all.reactor.fission_fraction_scale", "rtol": 1.0e-8},
+    "eper_fission": {"location": "all.reactor.energy_per_fission", "rtol": 1.0e-8},
     "offeq_scale": {"location": "all.reactor.offequilibrium_scale", "rtol": 1.0e-8},
     "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
 }
