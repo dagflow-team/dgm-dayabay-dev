@@ -32,8 +32,6 @@ def main(opts: Namespace) -> None:
     graph = model.graph
     storage = model.storage
 
-    import IPython; IPython.embed()
-
     if not graph.closed:
         print("Nodes")
         print(storage("nodes").to_table(truncate="auto"))

@@ -367,10 +367,10 @@ class Comparator:
 
         plt.figure()
         ax = plt.subplot(
-            111, xlabel="", ylabel="dagflow/GNA", title=self.key_dgf
+            111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf
         )
         with suppress(ValueError):
-            ax.plot(self._data_d / self._data_g, style, **pargs)
+            ax.plot(self._data_d / self._data_g - 1, style, **pargs)
         ax.grid()
 
         plt.show()
