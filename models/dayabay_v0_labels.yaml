@@ -71,7 +71,7 @@ ibd:
     text: "dEν/dEdep Jacobian []"
     axis: "$dE_{\\nu}/dE_{\\rm dep}$"
     latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
-neutrino_cm2_perMeV_perfission_perproton:
+neutrino_cm2_per_MeV_per_fission_per_proton:
   part:
     main:
       group:
@@ -114,10 +114,10 @@ oscprob:
     axis: "$P_{{\\rm ee}}$"
     plotmethod: "slicesy"
 reactor_anue:
-    neutrino_perfission_perMeV_nominal:
+    neutrino_per_fission_per_MeV_nominal:
       group:
         text: "Nominal ν̅ spectrum{space_key} (interpolated), [#/fission/MeV]"
-    neutrino_perfission_perMeV_input:
+    neutrino_per_fission_per_MeV_input:
       spec:
         group:
           text: "Input ν̅ spectrum{space_key}, [#/fission/MeV]"
@@ -130,7 +130,7 @@ detector:
       text: "IAV matrix (MC)"
     matrix:
       text: "IAV matrix"
-baseline_factor_percm2:
+baseline_factor_per_cm2:
   group:
     text: "1/(4πL²) factor{space_key}, cm⁻²"
     latex: "$1/\\left(4\\pi^2\\right)$ factor{space_key}, cm$^{-2}$"
