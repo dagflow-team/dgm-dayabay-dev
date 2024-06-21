@@ -1007,22 +1007,15 @@ class model_dayabay_v0:
                 ],
             )
 
-            Product.replicate(
-                outputs["detector.lsnl.curves.evis_common_monotonic"],
-                outputs("detector.parameters_relative.energy_scale_factor"),
-                name="detector.lsnl.curves.evis",
-                replicate_outputs = index["detector"]
-            )
             InterpolatorGroup.replicate(
                 method = "linear",
                 names = {
                     "indexer": "detector.lsnl.indexer_fwd",
                     "interpolator": "detector.lsnl.interpolated_fwd",
                     },
-                replicate_outputs = index["detector"]
             )
             outputs["detector.lsnl.curves.edep"] >> inputs["detector.lsnl.interpolated_fwd.xcoarse"]
-            outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.interpolated_fwd.ycoarse")
+            outputs["detector.lsnl.curves.evis_common_monotonic"] >> inputs["detector.lsnl.interpolated_fwd.ycoarse"]
             edges_energy_edep >> inputs["detector.lsnl.interpolated_fwd.xfine"]
 
             ## TODO:
@@ -1036,9 +1029,16 @@ class model_dayabay_v0:
             #         },
             #     replicate_outputs = index["detector"]
             # )
-            # outputs("detector.lsnl.curves.evis") >> inputs["detector.lsnl.interpolated_bwd.xcoarse"]
-            # outputs["detector.lsnl.curves.edep"]  >> inputs("detector.lsnl.interpolated_bwd.ycoarse")
+            # outputs("detector.lsnl.curves_evis_common_monotonic") >> inputs["detector.lsnl.interpolated_bwd.xcoarse"]
+            # outputs["detector.lsnl.curves.edep"]  >> inputs["detector.lsnl.interpolated_bwd.ycoarse"]
             # edges_energy_evis >> inputs["detector.lsnl.interpolated_bwd.xfine"]
+
+            Product.replicate(
+                outputs["detector.lsnl.interpolated_fwd"],
+                outputs("detector.parameters_relative.energy_scale_factor"),
+                name="detector.lsnl.curves.evis",
+                replicate_outputs = index["detector"]
+            )
 
             # from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
             # AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
@@ -1051,7 +1051,7 @@ class model_dayabay_v0:
                 AxisDistortionMatrixLinear
             AxisDistortionMatrixLinear.replicate(name="detector.lsnl.matrix_linear", replicate_outputs=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix_linear.EdgesOriginal")
-            outputs("detector.lsnl.interpolated_fwd") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
+            outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
 
             # TODO: masked LSNL matrix (cross check)
             from numpy import ones
