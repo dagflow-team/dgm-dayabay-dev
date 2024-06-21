@@ -33,8 +33,9 @@ comparison = {
     "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
     "bkg_rate_lihe": {"location": "all.bkg.rate.lihe", "rtol": 1.0e-8},
     "effunc_uncorr": {
-        # TODO
-        "skip": True
+        "location": "all.detector.detector_relative",
+        "keys_mapping": lambda t: (t+("efficiency_factor",)),
+        "rtol": 1.0e-8
     },
     "escale": {
         # TODO
@@ -369,6 +370,8 @@ class NuisanceComparator:
             style = "-"
         pargs = {"markerfacecolor": "none", "alpha": 0.4}
 
+        subplots_opts = dict(top=0.85, left=0.15)
+
         plt.figure()
         ax = plt.subplot(
             111,
@@ -376,6 +379,7 @@ class NuisanceComparator:
             ylabel="",
             title=f"""{self.cmpstring_par}:\n{self.cmpstring}\n{self.valuestring}""",
         )
+        plt.subplots_adjust(**subplots_opts)
         ax.plot(self.data_gna, style, label="GNA", **pargs)
         ax.plot(self.data_dgf, style, label="dagflow", **pargs)
         # scale_factor = self.data_gna.sum() / self.data_dgf.sum()
@@ -395,6 +399,7 @@ class NuisanceComparator:
             ylabel="Ratio-1",
             title=f"""{self.cmpstring_par}:\n{self.cmpstring}\n{self.valuestring}""",
         )
+        plt.subplots_adjust(**subplots_opts)
         with suppress(ValueError):
             ax.plot(self.data_dgf / self.data_gna - 1, style, label="dgf/GNA", **pargs)
 
@@ -408,6 +413,7 @@ class NuisanceComparator:
             ylabel="Ratio-1",
             title=f"""{self.cmpstring_par}:\n{self.cmpstring}\n{self.valuestring}""",
         )
+        plt.subplots_adjust(**subplots_opts)
         with suppress(ValueError):
             ax.plot(self.data_dgf / self.data_gna - 1, style, label="dgf/GNA", **pargs)
 
