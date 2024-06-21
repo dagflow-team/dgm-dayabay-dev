@@ -71,6 +71,7 @@ comparison_objects = {
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
     "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
     "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
+    "detector.lsnl.curves.evis": {"gnaname": "escale_times_lsnl_bins_times_lsnl_correlated"},
     "detector.eres.matrix": {"gnaname": "eres_matrix", "atol": 1.e-14},
     "detector.lsnl.matrix_linear_masked": {"gnaname": "lsnl_matrix"},
     "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
