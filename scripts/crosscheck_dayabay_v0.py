@@ -73,7 +73,7 @@ comparison_objects = {
     "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
     "detector.lsnl.curves.evis": {"gnaname": "escale_times_lsnl_bins_times_lsnl_correlated"},
     "detector.eres.matrix": {"gnaname": "eres_matrix", "atol": 1.e-14},
-    "detector.lsnl.matrix_linear_masked": {"gnaname": "lsnl_matrix"},
+    "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix"},
     "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
     "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
     # NOTE
@@ -149,6 +149,8 @@ class Comparator:
         self.outputs_dgf = self.model.storage("outputs")
         self.parameters_dgf = self.model.storage("parameter.all")
 
+        self.set_parameters()
+
         with suppress(StopIteration):
             self.compare(
                 self.opts.input["parameters/dayabay"],
@@ -164,6 +166,14 @@ class Comparator:
                 self.outputs_dgf,
                 self.compare_outputs
             )
+
+
+    def set_parameters(self):
+        for parname, svalue in self.opts.par:
+            value = float(svalue)
+            par = self.parameters_dgf[parname]
+            par.push(value)
+            print(f"Set {parname}={svalue}")
 
     def compare(
         self,
@@ -324,12 +334,14 @@ class Comparator:
         data_d = ma.array(self._data_d, mask=(self._data_d==0))
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"GNA {self.key_gna}")
-        ax.matshow(data_g)
+        cmappable = ax.matshow(data_g)
+        add_colorbar(cmappable)
         ax.grid()
 
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"dagflow {self.key_dgf}")
-        ax.matshow(data_d)
+        cmappable = ax.matshow(data_d)
+        add_colorbar(cmappable)
         ax.grid()
 
         # plt.figure()
@@ -340,7 +352,8 @@ class Comparator:
 
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"diff {self.key_dgf}")
-        ax.matshow(data_d-data_g, alpha=0.6)
+        cmappable = ax.matshow(data_d-data_g, alpha=0.6)
+        add_colorbar(cmappable)
         ax.grid()
 
         plt.show()
@@ -466,6 +479,39 @@ class Comparator:
         self._n_fail += 1
         return False
 
+def add_colorbar( colormapable, **kwargs ):
+    """Add a colorbar to the axis with height aligned to the axis"""
+    rasterized = kwargs.pop( 'rasterized', True )
+    minorticks = kwargs.pop( 'minorticks', False )
+    label = kwargs.pop( 'label', None )
+    minorticks_values = kwargs.pop( 'minorticks_values', None )
+
+    ax = plt.gca()
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cbar = plt.gcf().colorbar( colormapable, cax=cax, **kwargs )
+
+    if minorticks:
+        if isinstance(minorticks, str):
+            if minorticks=='linear':
+                pass
+            elif minorticks=='log':
+                minorticks_values = colormapable.norm( minorticks_values )
+
+            l1, l2 = cax.get_ylim()
+            minorticks_values = minorticks_values[ (minorticks_values>=l1)*(minorticks_values<=l2) ]
+            cax.yaxis.set_ticks(minorticks_values, minor=True)
+        else:
+            cax.minorticks_on()
+
+    if rasterized:
+        cbar.solids.set_rasterized( True )
+
+    if label is not None:
+        cbar.set_label(label, rotation=270)
+    plt.sca( ax )
+    return cbar
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -478,7 +524,7 @@ if __name__ == "__main__":
     input = parser.add_argument_group("input", "input related options")
     input.add_argument("input", type=File, help="input file to compare to")
 
-    parser.add_argument(
+    input.add_argument(
         "-s",
         "--source-type",
         "--source",
@@ -499,6 +545,11 @@ if __name__ == "__main__":
     )
     crosscheck.add_argument(
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"
+    )
+
+    pars = parser.add_argument_group("pars", "setup pars")
+    pars.add_argument(
+        "--par", nargs=2, action="append", default=[], help="set parameter value"
     )
 
     c = Comparator(parser.parse_args())
