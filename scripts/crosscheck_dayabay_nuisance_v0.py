@@ -411,6 +411,20 @@ class NuisanceComparator:
         ax = plt.subplot(
             111,
             xlabel="",
+            ylabel="diff",
+            title=f"""{self.cmpstring_par}:\n{self.cmpstring}\n{self.valuestring}""",
+        )
+        plt.subplots_adjust(**subplots_opts)
+        with suppress(ValueError):
+            ax.plot(self.data_dgf - self.data_gna, style, label="dgf-GNA", **pargs)
+
+        ax.legend()
+        ax.grid()
+
+        plt.figure()
+        ax = plt.subplot(
+            111,
+            xlabel="",
             ylabel="Ratio-1",
             title=f"""{self.cmpstring_par}:\n{self.cmpstring}\n{self.valuestring}""",
         )
