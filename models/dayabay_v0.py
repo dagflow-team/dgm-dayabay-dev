@@ -1047,29 +1047,33 @@ class model_dayabay_v0:
             # outputs("detector.lsnl.interpolated_bwd") >> inputs("detector.lsnl.matrix.EdgesModifiedBackwards")
 
             # TODO: Outdated LSNL matrix (cross check)
-            from dgf_detector.AxisDistortionMatrixLinear import \
-                AxisDistortionMatrixLinear
-            AxisDistortionMatrixLinear.replicate(name="detector.lsnl.matrix_linear", replicate_outputs=index["detector"])
+            from dgf_detector.AxisDistortionMatrixLinearLegacy import \
+                AxisDistortionMatrixLinearLegacy
+            AxisDistortionMatrixLinearLegacy.replicate(
+                name="detector.lsnl.matrix_linear",
+                replicate_outputs=index["detector"],
+                min_value_modified=0.7001
+            )
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix_linear.EdgesOriginal")
             outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
 
-            # TODO: masked LSNL matrix (cross check)
-            from numpy import ones
-            lsnl_mask = ones((240, 240), dtype="d")
-            lsnl_mask[:14,:] = 0.0
-            lsnl_mask[:,:16] = 0.0
-            lsnl_mask[:,232:] = 0.0
-            Array.make_stored("detector.lsnl.gna_mask", lsnl_mask)
-            Product.replicate(
-                outputs("detector.lsnl.matrix_linear"),
-                outputs["detector.lsnl.gna_mask"],
-                name="detector.lsnl.matrix_linear_masked",
-                replicate_outputs=index["detector"]
-            )
+            # # TODO: masked LSNL matrix (cross check)
+            # from numpy import ones
+            # lsnl_mask = ones((240, 240), dtype="d")
+            # lsnl_mask[:14,:] = 0.0
+            # lsnl_mask[:,:16] = 0.0
+            # lsnl_mask[:,232:] = 0.0
+            # Array.make_stored("detector.lsnl.gna_mask", lsnl_mask)
+            # Product.replicate(
+            #     outputs("detector.lsnl.matrix_linear"),
+            #     outputs["detector.lsnl.gna_mask"],
+            #     name="detector.lsnl.matrix_linear_masked",
+            #     replicate_outputs=index["detector"]
+            # )
 
             VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
             # outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
-            outputs("detector.lsnl.matrix_linear_masked") >> inputs("eventscount.evis.matrix")
+            outputs("detector.lsnl.matrix_linear") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             from dgf_detector.EnergyResolution import EnergyResolution
@@ -1157,6 +1161,7 @@ class model_dayabay_v0:
             # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
             # So, every bin contain 0.00416667.
             # TODO: remove in dayabay-v1
+            from numpy import ones
             fastn_data = ones(240) / 240
             for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
                 spectrum.data[:] = fastn_data
