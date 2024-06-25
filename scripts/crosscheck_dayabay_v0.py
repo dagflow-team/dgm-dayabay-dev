@@ -58,16 +58,19 @@ comparison_objects = {
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
     "baseline_factor_per_cm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
+    ## daily data
     # "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8}, # should be inconsistent as it is not rescaled in GNA
     "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
     "detector.efflivetime": {"gnaname": "parameters.dayabay.efflivetime"},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
+    ## Reactor
     # "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8}, # available only in cross-check version of the input hdf
     # "reactor.energy_per_fission_core_average_MeV": { "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 }, # available only in cross-check version of the input hdf
     # "reactor_detector.number_of_fissions_nprotons_per_cm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.reactor_active_periods": {"gnaname": "kinint2", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
+    ## detector
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
     "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
     "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
@@ -76,6 +79,8 @@ comparison_objects = {
     "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix"},
     "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
     "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
+    "eventscount.fine.ibd_normalized": {"gnaname": "eres", "rtol": 1.e-8},
+    ## backgrounds
     "bkg.spectrum.acc": {"gnaname": "bkg_acc", "rtol": 1e-14},
     "bkg.spectrum.amc": {"gnaname": "bkg_amc", "rtol": 1e-14},
     "bkg.spectrum.alphan": {"gnaname": "bkg_alphan", "rtol": 1e-14},
@@ -382,16 +387,18 @@ class Comparator:
             111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf
         )
         with suppress(ValueError):
-            ax.plot(self._data_d / self._data_g - 1, style, **pargs)
+            ax.plot(self._data_d / self._data_g - 1, style, label="dagflow/GNA-1", **pargs)
         ax.grid()
+        ax.legend()
 
         plt.figure()
         ax = plt.subplot(
             111, xlabel="", ylabel="dagflow-GNA", title=self.key_dgf
         )
         with suppress(ValueError):
-            ax.plot(self._data_d - self._data_g, style, **pargs)
+            ax.plot(self._data_d - self._data_g, style, label="dagflow-GNA", **pargs)
         ax.grid()
+        ax.legend()
 
         plt.show()
 
