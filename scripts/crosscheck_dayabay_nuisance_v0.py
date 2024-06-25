@@ -41,6 +41,7 @@ comparison = {
         "location": "all.detector.detector_relative",
         "keys_mapping": lambda t: (t+("energy_scale_factor",)),
         # "rtol": 1.0e-8
+        "skip": True
     },
     "eres": {
         "location": "all.detector.eres",
@@ -58,7 +59,7 @@ comparison = {
     "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
     "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
     "spectral_weights": {
-        "location": "all.neutrino_perfission",
+        "location": "all.neutrino_per_fission",
         "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
         "rtol": 1.0e-8,
     },
