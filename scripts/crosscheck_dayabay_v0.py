@@ -76,15 +76,13 @@ comparison_objects = {
     "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix"},
     "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
     "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
-    # NOTE
-    # Li/He and fast-n determined are for EH
-    # So, we should take dag-flow parameters from outputs namespace
     "bkg.spectrum.acc": {"gnaname": "bkg_acc", "rtol": 1e-14},
     "bkg.spectrum.amc": {"gnaname": "bkg_amc", "rtol": 1e-14},
     "bkg.spectrum.alphan": {"gnaname": "bkg_alphan", "rtol": 1e-14},
     "bkg.spectrum.fastn": {"gnaname": "bkg_fastn", "rtol": 1e-14},
     "bkg.spectrum.lihe": {"gnaname": "bkg_lihe", "rtol": 1e-14},
     "eventscount.fine.bkg": {"gnaname": "bkg", "rtol": 1e-14},
+    "eventscount.fine.total": {"gnaname": "fine", "rtol": 1.e-8},
 }
 # fmt: on
 
@@ -385,6 +383,14 @@ class Comparator:
         )
         with suppress(ValueError):
             ax.plot(self._data_d / self._data_g - 1, style, **pargs)
+        ax.grid()
+
+        plt.figure()
+        ax = plt.subplot(
+            111, xlabel="", ylabel="dagflow-GNA", title=self.key_dgf
+        )
+        with suppress(ValueError):
+            ax.plot(self._data_d - self._data_g, style, **pargs)
         ax.grid()
 
         plt.show()
