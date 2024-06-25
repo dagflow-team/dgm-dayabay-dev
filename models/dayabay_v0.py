@@ -696,7 +696,7 @@ class model_dayabay_v0:
             # NOTE: central values are used for the thermal power
             Product.replicate(
                     parameters("all.reactor.fission_fraction_snf"),
-                    outputs("reactor.thermal_power_nominal_MeVs"),
+                    outputs("reactor.thermal_power_nominal_MeVs_central"),
                     name = "reactor.thermal_power_snf_isotope_MeV_per_second",
                     replicate_outputs=combinations["reactor.isotope"],
                     )
