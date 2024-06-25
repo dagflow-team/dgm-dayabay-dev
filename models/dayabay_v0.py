@@ -1088,7 +1088,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                 parameters["all.detector.global_normalization"],
-                outputs("detector.parameters_relative"),
+                outputs("detector.parameters_relative.efficiency_factor"),
                 name = "detector.normalization",
                 replicate_outputs=index["detector"],
             )
