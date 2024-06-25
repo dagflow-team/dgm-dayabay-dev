@@ -40,8 +40,8 @@ comparison = {
     "escale": {
         "location": "all.detector.detector_relative",
         "keys_mapping": lambda t: (t+("energy_scale_factor",)),
-        # "rtol": 1.0e-8
-        "skip": True
+        "rtol": 1.0e-8,
+        "skip": False
     },
     "eres": {
         "location": "all.detector.eres",
@@ -273,7 +273,10 @@ class NuisanceComparator:
         self.skey_par_gna = "default"
         self.skey_par_dgf = label
         self.cmpopts = comparison["default"]
-        self.compare_hists(default, save=save, check_change=check_change)
+        if self.compare_hists(default, save=save, check_change=check_change):
+            logger.log(INFO1, f"OK: default {self.cmpstring_par}")
+        else:
+            logger.error(f"FAIL: default {self.cmpstring_par}")
 
     def process_par_offset(self, results: Mapping):
         if self.compare_hists(results):
