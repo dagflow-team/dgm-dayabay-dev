@@ -44,10 +44,10 @@ class CorrelatedTest(unittest.TestCase):
                 self.efficiency_factor.value,
                 "Efficiency factor has not changed after changing",
             )
-            self.assertEqual(
+            self.assertNotEqual(
                 self.energy_scale_factor_init_value,
                 self.energy_scale_factor.value,
-                "Energy scale factor changed after changing efficiency factor",
+                "Energy scale factor has not changed after changing efficiency factor",
             )
 
         self.reset_normalized_values()
@@ -56,12 +56,12 @@ class CorrelatedTest(unittest.TestCase):
             self.assertNotEqual(
                 self.energy_scale_factor_init_value,
                 self.energy_scale_factor.value,
-                "Energy scale factor does not changed after changing",
+                "Energy scale factor has not changed after changing",
             )
-            self.assertNotEqual(
+            self.assertEqual(
                 self.efficiency_factor_init_value,
                 self.efficiency_factor.value,
-                "Efficiency factor does not changed after changing energy scale factor",
+                "Efficiency factor has changed after changing energy scale factor",
             )
 
     @parameterized.expand([("AD11", "AD12")])
