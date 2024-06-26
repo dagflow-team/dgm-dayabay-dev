@@ -187,7 +187,7 @@ class model_dayabay_v0:
             load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
                             replicate=index["lsnl_nuisance"])
-            load_parameters(path="detector",   load=path_parameters/"detector_offdiag_scale.yaml",
+            load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
                             replicate=index["detector"])
             load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
                             replicate=index["detector"], replica_key_offset=1)
