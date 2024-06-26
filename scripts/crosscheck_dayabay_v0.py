@@ -60,7 +60,7 @@ comparison_objects = {
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
     ## daily data
     # "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8}, # should be inconsistent as it is not rescaled in GNA
-    "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
+    "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "rtol": 1e-15, "preprocess_gna": strip_last_day_periods_6_8},
     "detector.efflivetime": {"gnaname": "parameters.dayabay.efflivetime"},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
@@ -72,11 +72,12 @@ comparison_objects = {
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
     ## detector
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
+    "detector.iav.matrix_rescaled": {"gnaname": "iavmatrix", "atol": 1.e-15},
     "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
-    "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
-    "detector.lsnl.curves.evis": {"gnaname": "escale_times_lsnl_bins_times_lsnl_correlated"},
+    "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
+    "detector.lsnl.curves.evis": {"gnaname": "escale_times_lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
     "detector.eres.matrix": {"gnaname": "eres_matrix", "atol": 1.e-14},
-    "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix"},
+    "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix", "atol": 1.e-13},
     "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
     "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
     "eventscount.fine.ibd_normalized": {"gnaname": "eres", "rtol": 1.e-8},
