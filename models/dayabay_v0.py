@@ -927,10 +927,6 @@ class model_dayabay_v0:
                     }
             )
 
-            from dagflow.lib.NormalizeMatrix import NormalizeMatrix
-            NormalizeMatrix.replicate(name="detector.iav.matrix")
-            outputs["detector.iav.matrix_raw"] >> nodes["detector.iav.matrix"]
-
             from dagflow.lib.RenormalizeDiag import RenormalizeDiag
             RenormalizeDiag.replicate(name="detector.iav.matrix_rescaled", replicate_outputs=index["detector"])
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")

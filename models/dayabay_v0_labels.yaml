@@ -128,8 +128,6 @@ detector:
   iav:
     matrix_raw:
       text: "IAV matrix (MC)"
-    matrix:
-      text: "IAV matrix"
 baseline_factor_per_cm2:
   group:
     text: "1/(4πL²) factor{space_key}, cm⁻²"
