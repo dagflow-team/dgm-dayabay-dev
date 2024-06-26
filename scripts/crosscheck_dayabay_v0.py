@@ -15,7 +15,7 @@ from dagflow.output import Output
 from models.dayabay_v0 import model_dayabay_v0
 from multikeydict.nestedmkdict import NestedMKDict
 
-set_level(INFO1)
+set_level(INFO2)
 
 def strip_last_day_periods_6_8(key: str, key2: str, data: NDArray):
     if '6AD' in key2 or '8AD' in key2:
@@ -31,9 +31,14 @@ def strip_last_day_if_empty(key: str, key2: str, data: NDArray):
 reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
 # fmt: off
 comparison_parameters = {
-        "baseline": {"gnaname": "baseline", "gnascale": 1000, "rtol": 1.e-15},
-        "detector.nprotons_nominal_ad": {"gnaname": "nprotons_nominal"},
-        "conversion.reactorPowerConversion": {"gnaname": "conversion_factor", "rtol": 1.e-8 }
+    "baseline": {"gnaname": "baseline", "gnascale": 1000, "rtol": 1.e-15},
+    "detector.nprotons_nominal_ad": {"gnaname": "nprotons_nominal"},
+    "conversion.reactorPowerConversion": {"gnaname": "conversion_factor", "rtol": 1.e-8},
+    "bkg.rate.acc": {"gnaname": "bkg_rate_acc", "rtol": 1e-14},
+    "bkg.rate.amc": {"gnaname": "bkg_rate_amc", "rtol": 1e-14},
+    "bkg.rate.alphan": {"gnaname": "bkg_rate_alphan", "rtol": 1e-14},
+    "bkg.rate.fastn": {"gnaname": "bkg_rate_fastn", "rtol": 1e-14},
+    "bkg.rate.lihe": {"gnaname": "bkg_rate_lihe", "rtol": 1e-14},
 }
 comparison_objects = {
     # dagflow: gna
@@ -43,32 +48,47 @@ comparison_objects = {
     "ibd.jacobian": {"gnaname": "jacobian", "atol": 1e-15},
     "ibd.crosssection": {"gnaname": "ibd_xsec", "rtol": 1.e-14},
     "oscprob": {"gnaname": "osc_prob_rd", "atol": 1e-15},
-    "reactor_anue.neutrino_perfission_perMeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 5.e-15},
-    "reactor_anue.neutrino_perfission_perMeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
+    "reactor_anue.neutrino_per_fission_per_MeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 5.e-15},
+    "reactor_anue.neutrino_per_fission_per_MeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
     "reactor_offequilibrium_anue.correction_input.enu": {"gnaname": "offeq_correction_input_enu.DB1.U235", "rtol": 1e-15},
     "reactor_offequilibrium_anue.correction_input.offequilibrium_correction": {"gnaname": [f"offeq_correction_input.{reac}" for reac in reactors], "atol": 1.e-14},
     "reactor_offequilibrium_anue.correction_interpolated": {"gnaname": "offeq_correction_scale_interpolated.DB1", "rtol": 5e-12, "atol": 5e-15},
     "snf_anue.correction_input.snf_correction": {"gnaname": "snf_correction_scale_input", "atol": 5.e-15},
     "snf_anue.correction_input.enu": {"gnaname": "snf_correction_scale_input_enu.DB1", "rtol": 1e-15},
     "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
-    "baseline_factor_percm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
+    "baseline_factor_per_cm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
+    ## daily data
     # "daily_data.detector.livetime": {"gnaname": "livetime_daily", "preprocess_gna": strip_last_day_periods_6_8}, # should be inconsistent as it is not rescaled in GNA
-    "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "preprocess_gna": strip_last_day_periods_6_8},
+    "daily_data.detector.efflivetime": {"gnaname": "efflivetime_daily", "rtol": 1e-15, "preprocess_gna": strip_last_day_periods_6_8},
+    "detector.efflivetime": {"gnaname": "parameters.dayabay.efflivetime"},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
+    ## Reactor
     # "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8}, # available only in cross-check version of the input hdf
     # "reactor.energy_per_fission_core_average_MeV": { "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 }, # available only in cross-check version of the input hdf
-    # "reactor_detector.number_of_fissions_nprotons_percm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
+    # "reactor_detector.number_of_fissions_nprotons_per_cm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.reactor_active_periods": {"gnaname": "kinint2", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
     # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
+    ## detector
     "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
+    "detector.iav.matrix_rescaled": {"gnaname": "iavmatrix", "atol": 1.e-15},
     "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
-    "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated"},
+    "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
+    "detector.lsnl.curves.evis": {"gnaname": "escale_times_lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
     "detector.eres.matrix": {"gnaname": "eres_matrix", "atol": 1.e-14},
-    "detector.lsnl.matrix_linear_masked": {"gnaname": "lsnl_matrix"},
+    "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix", "atol": 1.e-13},
     "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
     "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
+    "eventscount.fine.ibd_normalized": {"gnaname": "eres", "rtol": 1.e-8},
+    ## backgrounds
+    "bkg.spectrum.acc": {"gnaname": "bkg_acc", "rtol": 1e-14},
+    "bkg.spectrum.amc": {"gnaname": "bkg_amc", "rtol": 1e-14},
+    "bkg.spectrum.alphan": {"gnaname": "bkg_alphan", "rtol": 1e-14},
+    "bkg.spectrum.fastn": {"gnaname": "bkg_fastn", "rtol": 1e-14},
+    "bkg.spectrum.lihe": {"gnaname": "bkg_lihe", "rtol": 1e-14},
+    "eventscount.fine.bkg": {"gnaname": "bkg", "rtol": 1e-14},
+    "eventscount.fine.total": {"gnaname": "fine", "rtol": 1.e-8},
 }
 # fmt: on
 
@@ -133,6 +153,8 @@ class Comparator:
         self.outputs_dgf = self.model.storage("outputs")
         self.parameters_dgf = self.model.storage("parameter.all")
 
+        self.set_parameters()
+
         with suppress(StopIteration):
             self.compare(
                 self.opts.input["parameters/dayabay"],
@@ -148,6 +170,14 @@ class Comparator:
                 self.outputs_dgf,
                 self.compare_outputs
             )
+
+
+    def set_parameters(self):
+        for parname, svalue in self.opts.par:
+            value = float(svalue)
+            par = self.parameters_dgf[parname]
+            par.push(value)
+            print(f"Set {parname}={svalue}")
 
     def compare(
         self,
@@ -237,6 +267,7 @@ class Comparator:
 
             if is_ok:
                 logger.log(INFO1, f"OK: {self.cmpstring} [{key}]")
+                logger.log(INFO2, f"    {self.parstring}")
                 logger.log(INFO2, f"    {self.tolstring}")
                 if (ignore := self._cmpopts.get("ignore")) is not None:
                     logger.log(INFO2, f"↑Ignore: {ignore}")
@@ -266,6 +297,7 @@ class Comparator:
         is_ok = self.data_consistent(self._data_g, self._data_d)
         if is_ok:
             logger.log(INFO1, f"OK: {self.cmpstring}")
+            logger.log(INFO2, f"    {self.parstring}")
             logger.log(INFO2, f"    {self.tolstring}")
             logger.log(INFO2, f"    {self.shapestring}")
             if (ignore := self._cmpopts.get("ignore")) is not None:
@@ -306,12 +338,14 @@ class Comparator:
         data_d = ma.array(self._data_d, mask=(self._data_d==0))
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"GNA {self.key_gna}")
-        ax.matshow(data_g)
+        cmappable = ax.matshow(data_g)
+        add_colorbar(cmappable)
         ax.grid()
 
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"dagflow {self.key_dgf}")
-        ax.matshow(data_d)
+        cmappable = ax.matshow(data_d)
+        add_colorbar(cmappable)
         ax.grid()
 
         # plt.figure()
@@ -322,7 +356,8 @@ class Comparator:
 
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"diff {self.key_dgf}")
-        ax.matshow(data_d-data_g, alpha=0.6)
+        cmappable = ax.matshow(data_d-data_g, alpha=0.6)
+        add_colorbar(cmappable)
         ax.grid()
 
         plt.show()
@@ -350,11 +385,21 @@ class Comparator:
 
         plt.figure()
         ax = plt.subplot(
-            111, xlabel="", ylabel="dagflow/GNA", title=self.key_dgf
+            111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf
         )
         with suppress(ValueError):
-            ax.plot(self._data_d / self._data_g, style, **pargs)
+            ax.plot(self._data_d / self._data_g - 1, style, label="dagflow/GNA-1", **pargs)
         ax.grid()
+        ax.legend()
+
+        plt.figure()
+        ax = plt.subplot(
+            111, xlabel="", ylabel="dagflow-GNA", title=self.key_dgf
+        )
+        with suppress(ValueError):
+            ax.plot(self._data_d - self._data_g, style, label="dagflow-GNA", **pargs)
+        ax.grid()
+        ax.legend()
 
         plt.show()
 
@@ -376,7 +421,12 @@ class Comparator:
 
     @property
     def parstring(self) -> str:
-        return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}"
+        try:
+            if self._data_d.shape!=1:
+                return ""
+            return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}  diff={self._data_d[0]-self._data_g[0]}"
+        except (KeyError,AttributeError):
+            return f"dagflow[0]={self._data_d['value']}  gna[0]={self._data_g[0]}  diff={self._data_d['value']-self._data_g[0]}"
 
     @property
     def shapestring(self) -> str:
@@ -393,6 +443,7 @@ class Comparator:
             except AttributeError:
                 self.data_d = output_dgf.to_dict()
             self._skey2_dgf = ".".join(("",) + key_d)
+
             for key_g in permutations(key_d):
                 path_g = "/".join(key_g)
                 self._skey2_gna = ".".join(("",) + key_g)
@@ -442,6 +493,39 @@ class Comparator:
         self._n_fail += 1
         return False
 
+def add_colorbar( colormapable, **kwargs ):
+    """Add a colorbar to the axis with height aligned to the axis"""
+    rasterized = kwargs.pop( 'rasterized', True )
+    minorticks = kwargs.pop( 'minorticks', False )
+    label = kwargs.pop( 'label', None )
+    minorticks_values = kwargs.pop( 'minorticks_values', None )
+
+    ax = plt.gca()
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cbar = plt.gcf().colorbar( colormapable, cax=cax, **kwargs )
+
+    if minorticks:
+        if isinstance(minorticks, str):
+            if minorticks=='linear':
+                pass
+            elif minorticks=='log':
+                minorticks_values = colormapable.norm( minorticks_values )
+
+            l1, l2 = cax.get_ylim()
+            minorticks_values = minorticks_values[ (minorticks_values>=l1)*(minorticks_values<=l2) ]
+            cax.yaxis.set_ticks(minorticks_values, minor=True)
+        else:
+            cax.minorticks_on()
+
+    if rasterized:
+        cbar.solids.set_rasterized( True )
+
+    if label is not None:
+        cbar.set_label(label, rotation=270)
+    plt.sca( ax )
+    return cbar
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -454,7 +538,7 @@ if __name__ == "__main__":
     input = parser.add_argument_group("input", "input related options")
     input.add_argument("input", type=File, help="input file to compare to")
 
-    parser.add_argument(
+    input.add_argument(
         "-s",
         "--source-type",
         "--source",
@@ -475,6 +559,11 @@ if __name__ == "__main__":
     )
     crosscheck.add_argument(
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"
+    )
+
+    pars = parser.add_argument_group("pars", "setup pars")
+    pars.add_argument(
+        "--par", nargs=2, action="append", default=[], help="set parameter value"
     )
 
     c = Comparator(parser.parse_args())
