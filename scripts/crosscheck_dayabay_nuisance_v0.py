@@ -38,8 +38,9 @@ comparison = {
         "rtol": 1.0e-8
     },
     "escale": {
-        # TODO
-        "skip": True
+        "location": "all.detector.detector_relative",
+        "keys_mapping": lambda t: (t+("energy_scale_factor",)),
+        "rtol": 1.0e-8,
     },
     "eres": {
         "location": "all.detector.eres",
@@ -57,7 +58,7 @@ comparison = {
     "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
     "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
     "spectral_weights": {
-        "location": "all.neutrino_perfission",
+        "location": "all.neutrino_per_fission",
         "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
         "rtol": 1.0e-8,
     },
@@ -271,7 +272,10 @@ class NuisanceComparator:
         self.skey_par_gna = "default"
         self.skey_par_dgf = label
         self.cmpopts = comparison["default"]
-        self.compare_hists(default, save=save, check_change=check_change)
+        if self.compare_hists(default, save=save, check_change=check_change):
+            logger.log(INFO2, f"OK: default {self.cmpstring_par}")
+        else:
+            logger.error(f"FAIL: default {self.cmpstring_par}")
 
     def process_par_offset(self, results: Mapping):
         if self.compare_hists(results):
@@ -402,6 +406,20 @@ class NuisanceComparator:
         plt.subplots_adjust(**subplots_opts)
         with suppress(ValueError):
             ax.plot(self.data_dgf / self.data_gna - 1, style, label="dgf/GNA", **pargs)
+
+        ax.legend()
+        ax.grid()
+
+        plt.figure()
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="diff",
+            title=f"""{self.cmpstring_par}:\n{self.cmpstring}\n{self.valuestring}""",
+        )
+        plt.subplots_adjust(**subplots_opts)
+        with suppress(ValueError):
+            ax.plot(self.data_dgf - self.data_gna, style, label="dgf-GNA", **pargs)
 
         ax.legend()
         ax.grid()
