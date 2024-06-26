@@ -187,6 +187,8 @@ class model_dayabay_v0:
             load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
                             replicate=index["lsnl_nuisance"])
+            load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
+                            replicate=index["detector"])
             load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
                             replicate=index["detector"], replica_key_offset=1)
 
@@ -929,9 +931,17 @@ class model_dayabay_v0:
             NormalizeMatrix.replicate(name="detector.iav.matrix")
             outputs["detector.iav.matrix_raw"] >> nodes["detector.iav.matrix"]
 
+            from dagflow.lib.RenormalizeDiag import RenormalizeDiag
+            RenormalizeDiag.replicate(
+                name="detector.iav.matrix_rescaled",
+                replicate_outputs=index["detector"],
+            )
+            parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
+            outputs["detector.iav.matrix_raw"] >> inputs("detector.iav.matrix_rescaled.matrix")
+
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
             VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
-            outputs["detector.iav.matrix"] >> inputs("eventscount.iav.matrix")
+            outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
             load_graph_data(
