@@ -935,12 +935,12 @@ class model_dayabay_v0:
             RenormalizeDiag.replicate(
                 # parameters("all.detector.offdiag_scale"),
                 # outputs["detector.iav.matrix"],
-                name="detector.iav.matrix_renormalized_scaled",
+                name="detector.iav.matrix_rescaled",
                 replicate_outputs=index["detector"],
             )
-            # outputs["detector.iav.matrix"] >> inputs("detector.iav.matrix_renormalized_scaled")
-            parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_renormalized_scaled.scale")
-            outputs["detector.iav.matrix_raw"] >> inputs("detector.iav.matrix_renormalized_scaled.matrix")
+            # outputs["detector.iav.matrix"] >> inputs("detector.iav.matrix_rescaled")
+            parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
+            outputs["detector.iav.matrix_raw"] >> inputs("detector.iav.matrix_rescaled.matrix")
 
             # Product.replicate(
             #     parameters("all.detector.offdiag_scale"),
@@ -951,7 +951,7 @@ class model_dayabay_v0:
 
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
             VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
-            outputs("detector.iav.matrix_renormalized_scaled") >> inputs("eventscount.iav.matrix")
+            outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
             load_graph_data(
