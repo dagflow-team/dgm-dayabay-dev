@@ -933,21 +933,11 @@ class model_dayabay_v0:
 
             from dagflow.lib.RenormalizeDiag import RenormalizeDiag
             RenormalizeDiag.replicate(
-                # parameters("all.detector.offdiag_scale"),
-                # outputs["detector.iav.matrix"],
                 name="detector.iav.matrix_rescaled",
                 replicate_outputs=index["detector"],
             )
-            # outputs["detector.iav.matrix"] >> inputs("detector.iav.matrix_rescaled")
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
             outputs["detector.iav.matrix_raw"] >> inputs("detector.iav.matrix_rescaled.matrix")
-
-            # Product.replicate(
-            #     parameters("all.detector.offdiag_scale"),
-            #     outputs["detector.iav.matrix"],
-            #     name="detector.iav.matrix_scaled",
-            #     replicate_outputs=index["detector"],
-            # )
 
             from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
             VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
