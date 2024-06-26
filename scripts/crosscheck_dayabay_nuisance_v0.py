@@ -23,10 +23,7 @@ def minus_one(*values):
 
 comparison = {
     "default": {"rtol": 1.0e-8},
-    "OffdiagScale": {
-        # TODO
-        "skip": True
-    },
+    "OffdiagScale": {"location": "all.detector.iav_offdiag_scale_factor", "rtol": 1.0e-8},
     "acc_norm": {"location": "all.bkg.rate.acc", "rtol": 1.0e-8, "scale": True},
     "bkg_rate_alphan": {"location": "all.bkg.rate.alphan", "rtol": 1.0e-8},
     "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
@@ -183,6 +180,7 @@ class NuisanceComparator:
             self.process()
 
     def _skip_par(self, parname: str) -> bool:
+        parname = parname.lower()
         if not self.opts.pars:
             return False
 
