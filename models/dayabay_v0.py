@@ -103,6 +103,7 @@ class model_dayabay_v0:
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
         index["anue_source"] = ("main", "offeq", "snf")
+        index["anue_unc"] = ("uncorr", "corr")
         index["period"] = ("6AD", "8AD", "7AD")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
@@ -133,6 +134,7 @@ class model_dayabay_v0:
             "reactor.isotope_offeq.detector.period",
             "reactor.detector.period",
             "detector.period",
+            "isotope.anue_unc",
             "bkg.detector",
             "bkg.detector.period",
         )
@@ -366,6 +368,17 @@ class model_dayabay_v0:
                 merge_x = True,
                 replicate_outputs = index["isotope"],
             )
+
+            # and its uncertainties
+            load_graph(
+                name = "reactor_anue.spectrum_uncertainty",
+                filenames = path_arrays / f"reactor_anue_spectra_unc_50kev.{self._source_type}",
+                x = "enu",
+                y = "spec",
+                merge_x = True,
+                replicate_outputs = combinations["isotope.anue_unc"],
+            )
+
 
             #
             # Pre-interpolate input spectrum on coarser grid
