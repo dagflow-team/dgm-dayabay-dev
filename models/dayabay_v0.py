@@ -85,6 +85,13 @@ class model_dayabay_v0:
             type=ndarray,
         )
 
+        index_names = {
+            "U235": "²³⁵U",
+            "U238": "²³⁸U",
+            "Pu239": "²³⁹Pu",
+            "Pu241": "²⁴¹Pu",
+        }
+
         # Provide a list of indices and their values. Values should be globally unique
         index = {}
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
@@ -162,9 +169,11 @@ class model_dayabay_v0:
             self._spectrum_correction_mode == "exponential"
         )
 
-        with Graph(
-            close=self._close, strict=self._strict
-        ) as graph, storage, FileReader:
+        with (
+            Graph(close=self._close, strict=self._strict) as graph,
+            storage,
+            FileReader,
+        ):
             # fmt: off
             self.graph = graph
             #
@@ -207,53 +216,6 @@ class model_dayabay_v0:
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
-
-            labels = {  # TODO, not propagated
-                "neutrino_per_fission": {
-                    name: f"Edge {i:02d} ({edge:.2f} MeV) Reactor antineutrino spectrum correction"
-                    for i, (name, edge) in enumerate(
-                        zip(index["spec"], antineutrino_model_edges)
-                    )
-                }
-            }
-            if spectrum_correction_is_exponential:
-                neutrino_per_fission_correction_central_value = 0.0
-                labels = {
-                    "neutrino_per_fission": "Reactor antineutrino spectrum correction (exp)"
-                }
-            else:
-                neutrino_per_fission_correction_central_value = 1.0
-                labels = {
-                    "neutrino_per_fission": "Reactor antineutrino spectrum correction (linear)"
-                }
-
-            load_parameters(
-                format="value",
-                state="variable",
-                parameters={
-                    "neutrino_per_fission": neutrino_per_fission_correction_central_value
-                },
-                labels=labels,
-                replicate=index["spec"],
-            )
-
-            # Some normalization factors
-            load_parameters(
-                format="value",
-                state="fixed",
-                parameters={
-                    "reactor": {
-                        "snf_factor": 1.0,
-                        "offeq_factor": 1.0,
-                    }
-                },
-                labels={
-                    "reactor": {
-                        "snf_factor": "Common SNF factor",
-                        "offeq_factor": "Common offequilibrium factor",
-                    }
-                },
-            )
 
             # Normalization constants
             load_parameters(
@@ -369,17 +331,6 @@ class model_dayabay_v0:
                 replicate_outputs = index["isotope"],
             )
 
-            # and its uncertainties
-            load_graph(
-                name = "reactor_anue.spectrum_uncertainty",
-                filenames = path_arrays / f"reactor_anue_spectra_unc_50kev.{self._source_type}",
-                x = "enu",
-                y = "spec",
-                merge_x = True,
-                replicate_outputs = combinations["isotope.anue_unc"],
-            )
-
-
             #
             # Pre-interpolate input spectrum on coarser grid
             # NOTE:
@@ -417,6 +368,26 @@ class model_dayabay_v0:
             outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse"]
             outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine"]
+
+            #
+            # SNF and OffEQ normalization factors
+            #
+            load_parameters(
+                format="value",
+                state="fixed",
+                parameters={
+                    "reactor": {
+                        "snf_factor": 1.0,
+                        "offeq_factor": 1.0,
+                    }
+                },
+                labels={
+                    "reactor": {
+                        "snf_factor": "Common SNF factor",
+                        "offeq_factor": "Common offequilibrium factor",
+                    }
+                },
+            )
 
             #
             # Offequilibrium correction
@@ -472,14 +443,36 @@ class model_dayabay_v0:
             kinematic_integrator_enu >> inputs["snf_anue.correction_interpolated.xfine"]
 
             #
-            # Free antineutrino spectrum correction: spectrum model
+            # Reactor antineutrino spectral correction:
+            #   - not constrained
+            #   - correlated between isotopes
+            #   - uncorrelated between energy intervals
             #
+            if spectrum_correction_is_exponential:
+                neutrino_per_fission_correction_central_value = 0.0
+            else:
+                neutrino_per_fission_correction_central_value = 1.0
+
+            from dagflow.bundles.make_y_parameters_for_x import \
+                make_y_parameters_for_x
+            make_y_parameters_for_x(
+                    outputs["reactor_anue.spec_model_edges"],
+                    namefmt = "spec_scale_{:02d}",
+                    format = "value",
+                    state = "variable",
+                    key = "neutrino_per_fission_factor",
+                    values = neutrino_per_fission_correction_central_value,
+                    labels = "Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction" \
+                           + (" (exp)" if spectrum_correction_is_exponential else " (linear)"),
+                    hide_nodes = True
+                    )
+
             from dagflow.lib import Exp
             from dagflow.lib.Concatenation import Concatenation
 
             if spectrum_correction_is_exponential:
                 Concatenation.replicate(
-                        parameters("all.neutrino_per_fission"),
+                        parameters("all.neutrino_per_fission_factor"),
                         name = "reactor_anue.spec_free_correction_input"
                         )
                 Exp.replicate(
@@ -489,7 +482,7 @@ class model_dayabay_v0:
                 outputs["reactor_anue.spec_free_correction_input"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
             else:
                 Concatenation.replicate(
-                        parameters("all.neutrino_per_fission"),
+                        parameters("all.neutrino_per_fission_factor"),
                         name = "reactor_anue.spec_free_correction"
                         )
                 outputs["reactor_anue.spec_free_correction"].dd.axes_meshes = (outputs["reactor_anue.spec_model_edges"],)
@@ -504,6 +497,42 @@ class model_dayabay_v0:
             outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_interpolated.xcoarse"]
             outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_interpolated.ycoarse"]
             kinematic_integrator_enu >> inputs["reactor_anue.spec_free_correction_interpolated.xfine"]
+
+            #
+            # Huber+Mueller spectrum shape uncertainties
+            #
+            load_graph(
+                name = "reactor_anue.spectrum_uncertainty",
+                filenames = path_arrays / f"reactor_anue_spectra_unc_50kev.{self._source_type}",
+                x = "enu_centers",
+                y = "spec",
+                merge_x = True,
+                replicate_outputs = combinations["isotope.anue_unc"],
+            )
+
+            from dagflow.lib.MeshToEdges import MeshToEdges
+            MeshToEdges.replicate(name="reactor_anue.spectrum_uncertainty.enu")
+            outputs["reactor_anue.spectrum_uncertainty.enu_centers"] >> inputs["reactor_anue.spectrum_uncertainty.enu"]
+            nodes["reactor_anue.spectrum_uncertainty.enu"].close()
+
+            for isotope in index["isotope"]:
+                make_y_parameters_for_x(
+                        outputs["reactor_anue.spectrum_uncertainty.enu"],
+                        namefmt = "unc_scale_{:02d}",
+                        format = ("value", "sigma_absolute"),
+                        state = "variable",
+                        key = f"reactor_anue.spectrum_uncertainty.uncorr.{isotope}",
+                        values = (0.0, 1.0),
+                        labels = f"Edge {{i:02d}} ({{value:.2f}} MeV) uncorrelated {index_names[isotope]} spectrum correction",
+                        disable_last_one = True,
+                        hide_nodes = True
+                        )
+
+            Concatenation.replicate(
+                    parameters("all.reactor_anue.spectrum_uncertainty.uncorr"),
+                    name = "reactor_anue.spectrum_uncertainty.uncorr",
+                    replicate_outputs = index["isotope"]
+                    )
 
             #
             # Antineutrino spectrum with corrections
