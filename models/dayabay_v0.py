@@ -141,7 +141,7 @@ class model_dayabay_v0:
             "reactor.isotope_offeq.detector.period",
             "reactor.detector.period",
             "detector.period",
-            "isotope.anue_unc",
+            "anue_unc.isotope",
             "bkg.detector",
             "bkg.detector.period",
         )
@@ -505,9 +505,9 @@ class model_dayabay_v0:
                 name = "reactor_anue.spectrum_uncertainty",
                 filenames = path_arrays / f"reactor_anue_spectra_unc_50kev.{self._source_type}",
                 x = "enu_centers",
-                y = "spec",
+                y = "uncertainty",
                 merge_x = True,
-                replicate_outputs = combinations["isotope.anue_unc"],
+                replicate_outputs = combinations["anue_unc.isotope"],
             )
 
             from dagflow.lib.MeshToEdges import MeshToEdges
@@ -528,9 +528,43 @@ class model_dayabay_v0:
                         hide_nodes = True
                         )
 
+            load_parameters(
+                    path = "reactor_anue.spectrum_uncertainty",
+                    format=("value", "sigma_absolute"),
+                    state="variable",
+                    parameters={
+                        "corr": (0.0, 1.0)
+                        },
+                    labels={
+                        "corr": "Correlated neutrino per fission uncertainty"
+                        },
+                    joint_nuisance = False
+                    )
+
             Concatenation.replicate(
-                    parameters("all.reactor_anue.spectrum_uncertainty.uncorr"),
-                    name = "reactor_anue.spectrum_uncertainty.uncorr",
+                    parameters("constrained.reactor_anue.spectrum_uncertainty.uncorr"),
+                    name = "reactor_anue.spectrum_uncertainty.scale.uncorr",
+                    replicate_outputs = index["isotope"]
+                    )
+
+            Product.replicate(
+                    outputs("reactor_anue.spectrum_uncertainty.scale.uncorr"),
+                    outputs("reactor_anue.spectrum_uncertainty.uncertainty.uncorr"),
+                    name = "reactor_anue.spectrum_uncertainty.correction.uncorr",
+                    replicate_outputs = index["isotope"]
+                    )
+
+            Product.replicate(
+                    parameters["constrained.reactor_anue.spectrum_uncertainty.corr"],
+                    outputs("reactor_anue.spectrum_uncertainty.uncertainty.corr"),
+                    name = "reactor_anue.spectrum_uncertainty.correction.corr",
+                    replicate_outputs = index["isotope"]
+                    )
+
+            Sum.replicate(
+                    outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
+                    outputs("reactor_anue.spectrum_uncertainty.correction.corr"),
+                    name = "reactor_anue.spectrum_uncertainty.correction.both",
                     replicate_outputs = index["isotope"]
                     )
 
@@ -552,7 +586,6 @@ class model_dayabay_v0:
                     skippable_inputs_should_contain = ("U238",),
                     replicate_outputs=index["isotope_offeq"],
                     )
-
 
             #
             # Livetime
