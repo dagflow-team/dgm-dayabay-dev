@@ -276,7 +276,7 @@ class model_dayabay_v0:
             #
             # Integration, kinematics
             #
-            integration_orders_edep, _ = Array.from_value( "kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
+            integration_orders_edep, _ = Array.from_value("kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
             integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 3, edges=edges_costheta)
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
@@ -406,15 +406,15 @@ class model_dayabay_v0:
                 method = "linear",
                 names = {
                     "indexer": "reactor_offequilibrium_anue.correction_indexer",
-                    "interpolator": "reactor_offequilibrium_anue.correction_interpolated",
+                    "interpolator": "reactor_offequilibrium_anue.correction_fine",
                     },
                 replicate_outputs = index["isotope_offeq"],
                 underflow = "constant",
                 overflow = "constant",
             )
-            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_interpolated.xcoarse"]
-            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_interpolated.xfine"]
+            outputs["reactor_offequilibrium_anue.correction_input.enu"] >> inputs["reactor_offequilibrium_anue.correction_fine.xcoarse"]
+            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_fine.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_offequilibrium_anue.correction_fine.xfine"]
 
             #
             # SNF correction
@@ -432,15 +432,15 @@ class model_dayabay_v0:
                 method = "linear",
                 names = {
                     "indexer": "snf_anue.correction_indexer",
-                    "interpolator": "snf_anue.correction_interpolated",
+                    "interpolator": "snf_anue.correction_fine",
                     },
                 replicate_outputs = index["reactor"],
                 underflow = "constant",
                 overflow = "constant",
             )
-            outputs["snf_anue.correction_input.enu"] >> inputs["snf_anue.correction_interpolated.xcoarse"]
-            outputs("snf_anue.correction_input.snf_correction") >> inputs("snf_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs["snf_anue.correction_interpolated.xfine"]
+            outputs["snf_anue.correction_input.enu"] >> inputs["snf_anue.correction_fine.xcoarse"]
+            outputs("snf_anue.correction_input.snf_correction") >> inputs("snf_anue.correction_fine.ycoarse")
+            kinematic_integrator_enu >> inputs["snf_anue.correction_fine.xfine"]
 
             #
             # Reactor antineutrino spectral correction:
@@ -491,15 +491,19 @@ class model_dayabay_v0:
                 method = "exp",
                 names = {
                     "indexer": "reactor_anue.spec_free_correction_indexer",
-                    "interpolator": "reactor_anue.spec_free_correction_interpolated"
+                    "interpolator": "reactor_anue.spec_free_correction_fine"
                     },
             )
-            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_interpolated.xcoarse"]
-            outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_interpolated.ycoarse"]
-            kinematic_integrator_enu >> inputs["reactor_anue.spec_free_correction_interpolated.xfine"]
+            outputs["reactor_anue.spec_model_edges"] >> inputs["reactor_anue.spec_free_correction_fine.xcoarse"]
+            outputs["reactor_anue.spec_free_correction"] >> inputs["reactor_anue.spec_free_correction_fine.ycoarse"]
+            kinematic_integrator_enu >> inputs["reactor_anue.spec_free_correction_fine.xfine"]
 
             #
             # Huber+Mueller spectrum shape uncertainties
+            #   - constrained
+            #   - two parts:
+            #       - uncorrelated between isotopes and energy intervals
+            #       - correlated between isotopes and energy intervals
             #
             load_graph(
                 name = "reactor_anue.spectrum_uncertainty",
@@ -561,26 +565,42 @@ class model_dayabay_v0:
                     replicate_outputs = index["isotope"]
                     )
 
+            # TODO: should be t=(1+u)(1+c) instead of (1+u+c)
+            single_unity = Array("single_unity", [1.0], dtype="d", mark="1")
             Sum.replicate(
                     outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
                     outputs("reactor_anue.spectrum_uncertainty.correction.corr"),
-                    name = "reactor_anue.spectrum_uncertainty.correction.both",
+                    single_unity,
+                    name = "reactor_anue.spectrum_uncertainty.correction.full",
                     replicate_outputs = index["isotope"]
                     )
+
+            InterpolatorGroup.replicate(
+                method = "left",
+                names = {
+                    "indexer": "reactor_anue.spectrum_uncertainty.correction_index",
+                    "interpolator": "reactor_anue.spectrum_uncertainty.correction_fine"
+                    },
+                replicate_outputs=index["isotope"]
+            )
+            outputs["reactor_anue.spectrum_uncertainty.enu"] >> inputs["reactor_anue.spectrum_uncertainty.correction_fine.xcoarse"]
+            outputs("reactor_anue.spectrum_uncertainty.correction.full") >> inputs("reactor_anue.spectrum_uncertainty.correction_fine.ycoarse")
+            kinematic_integrator_enu >> inputs["reactor_anue.spectrum_uncertainty.correction_fine.xfine"]
 
             #
             # Antineutrino spectrum with corrections
             #
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs["reactor_anue.spec_free_correction_interpolated"],
+                    outputs["reactor_anue.spec_free_correction_fine"],
+                    outputs("reactor_anue.spectrum_uncertainty.correction_fine"),
                     name = "reactor_anue.part.neutrino_per_fission_per_MeV_main",
                     replicate_outputs=index["isotope"],
                     )
 
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs("reactor_offequilibrium_anue.correction_interpolated"),
+                    outputs("reactor_offequilibrium_anue.correction_fine"),
                     name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = ("U238",),
@@ -889,7 +909,7 @@ class model_dayabay_v0:
 
             Product.replicate(
                     outputs("snf_anue.neutrino_per_second"),
-                    outputs("snf_anue.correction_interpolated"),
+                    outputs("snf_anue.correction_fine"),
                     name = "snf_anue.neutrino_per_second_snf",
                     replicate_outputs = index["reactor"]
                     )
