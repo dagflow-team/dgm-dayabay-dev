@@ -20,6 +20,11 @@ set_level(INFO1)
 def minus_one(*values):
     return tuple(v - 1.0 for v in values)
 
+def embed(key):
+    match key:
+        case ("corr_unc",):
+            return ("corr",)
+    import IPython; IPython.embed(colors='neutral')
 
 comparison = {
     "default": {"rtol": 1.0e-8},
@@ -65,6 +70,11 @@ comparison = {
     "eper_fission": {"location": "all.reactor.energy_per_fission", "rtol": 1.0e-8},
     "offeq_scale": {"location": "all.reactor.offequilibrium_scale", "rtol": 1.0e-8},
     "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
+    "corrected_spectrum": {
+        "skip": False,
+        "location": "all.reactor_anue.spectrum_uncertainty",
+        "keys_mapping": embed
+        }
 }
 
 
@@ -527,7 +537,9 @@ def iterate_mappings_till_key(
             yield from iterate_mappings_till_key(submapping, target_key, head=retkey)
 
 
-def get_orderless(storage: NestedMKDict | Any, key: list[str]) -> Any:
+from multikeydict.typing import KeyLike, properkey
+def get_orderless(storage: NestedMKDict | Any, key: KeyLike) -> Any:
+    key = properkey(key)
     if not key:
         return storage
     for pkey in permutations(key):
