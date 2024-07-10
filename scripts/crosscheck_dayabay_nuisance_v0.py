@@ -55,7 +55,7 @@ comparison = {
     "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
     "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
     "spectral_weights": {
-        "location": "all.neutrino_per_fission",
+        "location": "all.neutrino_per_fission_factor",
         "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
         "rtol": 1.0e-8,
     },
