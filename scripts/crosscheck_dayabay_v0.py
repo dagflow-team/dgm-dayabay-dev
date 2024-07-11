@@ -51,15 +51,16 @@ comparison_objects = {
     # hm
     "reactor_anue.neutrino_per_fission_per_MeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 5.e-15},
     "reactor_anue.neutrino_per_fission_per_MeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
-    "reactor_anue.spectrum_uncertainty.uncertainty.corr": {"gnaname": "anue_spectrum_uncertainty.DB1"},
+    "reactor_anue.spectrum_uncertainty.uncertainty.corr": {"gnaname": "anue_spectrum_uncertainty_corr.DB1"},
+    "reactor_anue.spectrum_uncertainty.correction.full": {"gnaname": "anue_spectrum_uncertainty_total.DB1"},
     # reactor
     "reactor_offequilibrium_anue.correction_input.enu": {"gnaname": "offeq_correction_input_enu.DB1.U235", "rtol": 1e-15},
     "reactor_offequilibrium_anue.correction_input.offequilibrium_correction": {"gnaname": [f"offeq_correction_input.{reac}" for reac in reactors], "atol": 1.e-14},
-    "reactor_offequilibrium_anue.correction_fine": {"gnaname": "offeq_correction_scale_interpolated.DB1", "rtol": 5e-12, "atol": 5e-15},
+    "reactor_offequilibrium_anue.correction_interpolated": {"gnaname": "offeq_correction_scale_interpolated.DB1", "rtol": 5e-12, "atol": 5e-15},
     # snf
     "snf_anue.correction_input.snf_correction": {"gnaname": "snf_correction_scale_input", "atol": 5.e-15},
     "snf_anue.correction_input.enu": {"gnaname": "snf_correction_scale_input_enu.DB1", "rtol": 1e-15},
-    "snf_anue.correction_fine": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
+    "snf_anue.correction_interpolated": {"gnaname": "snf_correction_scale_interpolated", "rtol": 5.e-12},
     # detector and baseline
     "baseline_factor_per_cm2": {"gnaname": "parameters.dayabay.baselineweight", "rtol": 1.e-15},
     "detector.nprotons": {"gnaname": "parameters.dayabay.nprotons_ad"},
