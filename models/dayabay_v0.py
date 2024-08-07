@@ -240,9 +240,6 @@ class model_dayabay_v0:
             parameters = storage("parameter")
 
             # fmt: off
-            # Create Nuisance parameters
-            Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
-
             #
             # Create nodes
             #
@@ -1342,6 +1339,9 @@ class model_dayabay_v0:
             #
             # Statistic
             #
+            # Create Nuisance parameters
+            Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
+
             from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="pseudo.data",
