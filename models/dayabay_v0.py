@@ -598,6 +598,7 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                     outputs("reactor_offequilibrium_anue.correction_interpolated"),
+                    outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # NOTE: remove in v1 as HM corrections should not be applied to NEQ
                     name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = ("U238",),
