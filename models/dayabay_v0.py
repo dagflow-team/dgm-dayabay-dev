@@ -991,7 +991,7 @@ class model_dayabay_v0:
                 name="eventscount.reactor_active_periods",
                 replicate_outputs=combinations["detector.period"]
             )
-            # Debug node: eventscount.reactor_active_periods
+            # Debug node: eventscount.reactor_snf_periods
             Sum.replicate(
                 outputs("eventscount.parts.snf"),
                 name="eventscount.snf_periods",

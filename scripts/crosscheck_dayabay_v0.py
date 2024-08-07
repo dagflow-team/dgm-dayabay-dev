@@ -17,16 +17,19 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 set_level(INFO2)
 
+
 def strip_last_day_periods_6_8(key: str, key2: str, data: NDArray):
-    if '6AD' in key2 or '8AD' in key2:
+    if "6AD" in key2 or "8AD" in key2:
         return data[:-1]
 
     return data
 
+
 def strip_last_day_if_empty(key: str, key2: str, data: NDArray):
-    if data[-1]!=0.0:
+    if data[-1] != 0.0:
         return data
     return data[:-1]
+
 
 reactors = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
 # fmt: off
@@ -70,23 +73,22 @@ comparison_objects = {
     "detector.efflivetime": {"gnaname": "parameters.dayabay.efflivetime"},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
-    ## Reactor
-    # "reactor.energy_per_fission_core_weighted_MeV": {"gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8}, # available only in cross-check version of the input hdf
-    # "reactor.energy_per_fission_core_average_MeV": { "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 }, # available only in cross-check version of the input hdf
-    # "reactor_detector.number_of_fissions_nprotons_per_cm2_core": {"gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
-    # "eventscount.reactor_active_periods": {"gnaname": "kinint2", "rtol": 1.e-8}, # available only in cross-check version of the input hdf
-    # "eventscount.snf_periods": {"gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf
-    ## detector
-    "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
+    ## Reactor (individual)
+    "reactor.energy_per_fission_weighted_MeV": {"mode": "split-reactor", "gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8},
+    "reactor.energy_per_fission_average_MeV": {"mode": "split-reactor",  "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 },
+    "reactor_detector.number_of_fissions_nprotons_per_cm2": {"mode": "split-reactor", "gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8},
+    "eventscount.reactor_active_periods": {"mode": "split-reactor", "gnaname": "kinint2", "rtol": 1.e-8},
+    "snf_anue.neutrino_per_second_snf": {"mode": "split-reactor", "gnaname": "snf_correction", "rtol": 1.e-8},
+    "eventscount.snf_periods": {"mode": "split-reactor", "skip": False, "gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf ## detector "eventscount.raw": {"mode": "default", "gnaname": "kinint2", "rtol": 1.e-8},
     "detector.iav.matrix_rescaled": {"gnaname": "iavmatrix", "atol": 1.e-15},
-    "eventscount.iav": {"gnaname": "iav", "rtol": 1.e-8},
+    "eventscount.iav": {"mode": "default", "gnaname": "iav", "rtol": 1.e-8},
     "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
     "detector.lsnl.curves.evis": {"gnaname": "escale_times_lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
     "detector.eres.matrix": {"gnaname": "eres_matrix", "atol": 1.e-14},
     "detector.lsnl.matrix_linear": {"gnaname": "lsnl_matrix", "atol": 1.e-13},
-    "eventscount.evis": {"gnaname": "lsnl", "rtol": 1.e-8},
-    "eventscount.erec": {"gnaname": "eres", "rtol": 1.e-8},
-    "eventscount.fine.ibd_normalized": {"gnaname": "eres", "rtol": 1.e-8},
+    "eventscount.evis": {"mode": "default", "gnaname": "lsnl", "rtol": 1.e-8},
+    "eventscount.erec": {"mode": "default", "gnaname": "eres", "rtol": 1.e-8},
+    "eventscount.fine.ibd_normalized": {"mode": "default", "gnaname": "eres", "rtol": 1.e-8},
     ## backgrounds
     "bkg.spectrum.acc": {"gnaname": "bkg_acc", "rtol": 1e-14},
     "bkg.spectrum.amc": {"gnaname": "bkg_amc", "rtol": 1e-14},
@@ -94,7 +96,7 @@ comparison_objects = {
     "bkg.spectrum.fastn": {"gnaname": "bkg_fastn", "rtol": 1e-14},
     "bkg.spectrum.lihe": {"gnaname": "bkg_lihe", "rtol": 1e-14},
     "eventscount.fine.bkg": {"gnaname": "bkg", "rtol": 1e-14},
-    "eventscount.fine.total": {"gnaname": "fine", "rtol": 1.e-8},
+    "eventscount.fine.total": {"mode": "default", "gnaname": "fine", "rtol": 1.e-8},
 }
 # fmt: on
 
@@ -166,7 +168,7 @@ class Comparator:
                 self.opts.input["parameters/dayabay"],
                 comparison_parameters,
                 self.parameters_dgf,
-                self.compare_parameters
+                self.compare_parameters,
             )
 
         with suppress(StopIteration):
@@ -174,9 +176,8 @@ class Comparator:
                 self.opts.input,
                 comparison_objects,
                 self.outputs_dgf,
-                self.compare_outputs
+                self.compare_outputs,
             )
-
 
     def set_parameters(self):
         for parname, svalue in self.opts.par:
@@ -201,6 +202,15 @@ class Comparator:
                 case dict():
                     self._skey_gna = cmpopts["gnaname"]
                     self._cmpopts = cmpopts
+
+                    if cmpopts.get("skip", False):
+                        logger.log(INFO1, f"Skip {self._skey_dgf}: skip")
+                        continue
+
+                    if (mode:=cmpopts.get("mode", None)) is not None:
+                        if mode!=self.opts.mode:
+                            logger.log(INFO1, f"Skip {self._skey_dgf}: not in {mode} mode")
+                            continue
                 case str():
                     self._skey_gna = cmpopts
                     self._cmpopts = {}
@@ -220,17 +230,15 @@ class Comparator:
                 case _:
                     raise RuntimeError()
 
-        print(
+        logger.info(
             f"Cross check done {self._n_success+self._n_fail}: {self._n_success} success, {self._n_fail} fail"
         )
 
     def compare_source(
-        self,
-        gnasource: File | Group,
-        compare: Callable,
-        outputs_dgf: NestedMKDict
+        self, gnasource: File | Group, compare: Callable, outputs_dgf: NestedMKDict
     ) -> None:
         from dagflow.parameters import Parameter
+
         path_gna = self._skey_gna.replace(".", "/")
 
         data_storage_gna = gnasource[path_gna]
@@ -258,7 +266,7 @@ class Comparator:
 
     def compare_parameters(self):
         is_ok = True
-        for key in ("value",): #, "central", "sigma"):
+        for key in ("value",):  # , "central", "sigma"):
             try:
                 vd = self._data_d[key]
             except KeyError:
@@ -266,8 +274,8 @@ class Comparator:
             # vg = self._data_g[0][key]
             vg = self._data_g[0]
 
-            if (scaleg:= self._cmpopts.get("gnascale")) is not None:
-                vg*=scaleg
+            if (scaleg := self._cmpopts.get("gnascale")) is not None:
+                vg *= scaleg
 
             is_ok = allclose(vd, vg, rtol=self.rtol, atol=self.atol)
 
@@ -278,8 +286,8 @@ class Comparator:
                 if (ignore := self._cmpopts.get("ignore")) is not None:
                     logger.log(INFO2, f"↑Ignore: {ignore}")
             else:
-                self._maxdiff = float(fabs(vd-vg))
-                self._maxreldiff = float(self._maxdiff/vg)
+                self._maxdiff = float(fabs(vd - vg))
+                self._maxreldiff = float(self._maxdiff / vg)
 
                 logger.error(f"FAIL: {self.cmpstring} [{key}]")
                 logger.error(f"      {self.tolstring}")
@@ -334,14 +342,14 @@ class Comparator:
 
     def plot(self):
         ndim = self._data_g.ndim
-        if ndim==1:
+        if ndim == 1:
             return self.plot_1d()
-        elif ndim==2:
+        elif ndim == 2:
             return self.plot_mat()
 
     def plot_mat(self):
-        data_g = ma.array(self._data_g, mask=(self._data_g==0))
-        data_d = ma.array(self._data_d, mask=(self._data_d==0))
+        data_g = ma.array(self._data_g, mask=(self._data_g == 0))
+        data_d = ma.array(self._data_d, mask=(self._data_d == 0))
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"GNA {self.key_gna}")
         cmappable = ax.matshow(data_g)
@@ -362,7 +370,7 @@ class Comparator:
 
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=f"diff {self.key_dgf}")
-        cmappable = ax.matshow(data_d-data_g, alpha=0.6)
+        cmappable = ax.matshow(data_d - data_g, alpha=0.6)
         add_colorbar(cmappable)
         ax.grid()
 
@@ -390,18 +398,16 @@ class Comparator:
         ax.grid()
 
         plt.figure()
-        ax = plt.subplot(
-            111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf
-        )
+        ax = plt.subplot(111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf)
         with suppress(ValueError):
-            ax.plot(self._data_d / self._data_g - 1, style, label="dagflow/GNA-1", **pargs)
+            ax.plot(
+                self._data_d / self._data_g - 1, style, label="dagflow/GNA-1", **pargs
+            )
         ax.grid()
         ax.legend()
 
         plt.figure()
-        ax = plt.subplot(
-            111, xlabel="", ylabel="dagflow-GNA", title=self.key_dgf
-        )
+        ax = plt.subplot(111, xlabel="", ylabel="dagflow-GNA", title=self.key_dgf)
         with suppress(ValueError):
             ax.plot(self._data_d - self._data_g, style, label="dagflow-GNA", **pargs)
         ax.grid()
@@ -428,10 +434,10 @@ class Comparator:
     @property
     def parstring(self) -> str:
         try:
-            if self._data_d.shape!=1:
+            if self._data_d.shape != 1:
                 return ""
             return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}  diff={self._data_d[0]-self._data_g[0]}"
-        except (KeyError,AttributeError):
+        except (KeyError, AttributeError):
             return f"dagflow[0]={self._data_d['value']}  gna[0]={self._data_g[0]}  diff={self._data_d['value']-self._data_g[0]}"
 
     @property
@@ -442,7 +448,9 @@ class Comparator:
     def shapestrings(self) -> str:
         return f"dagflow: {self._data_d.shape}, gna: {self._data_g.shape}"
 
-    def compare_nested(self, storage_gna: Group, storage_dgf: NestedMKDict, compare: Callable):
+    def compare_nested(
+        self, storage_gna: Group, storage_dgf: NestedMKDict, compare: Callable
+    ):
         for key_d, output_dgf in storage_dgf.walkitems():
             try:
                 self.data_d = output_dgf.data
@@ -499,39 +507,44 @@ class Comparator:
         self._n_fail += 1
         return False
 
-def add_colorbar( colormapable, **kwargs ):
+
+def add_colorbar(colormapable, **kwargs):
     """Add a colorbar to the axis with height aligned to the axis"""
-    rasterized = kwargs.pop( 'rasterized', True )
-    minorticks = kwargs.pop( 'minorticks', False )
-    label = kwargs.pop( 'label', None )
-    minorticks_values = kwargs.pop( 'minorticks_values', None )
+    rasterized = kwargs.pop("rasterized", True)
+    minorticks = kwargs.pop("minorticks", False)
+    label = kwargs.pop("label", None)
+    minorticks_values = kwargs.pop("minorticks_values", None)
 
     ax = plt.gca()
     from mpl_toolkits.axes_grid1 import make_axes_locatable
+
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    cbar = plt.gcf().colorbar( colormapable, cax=cax, **kwargs )
+    cbar = plt.gcf().colorbar(colormapable, cax=cax, **kwargs)
 
     if minorticks:
         if isinstance(minorticks, str):
-            if minorticks=='linear':
+            if minorticks == "linear":
                 pass
-            elif minorticks=='log':
-                minorticks_values = colormapable.norm( minorticks_values )
+            elif minorticks == "log":
+                minorticks_values = colormapable.norm(minorticks_values)
 
             l1, l2 = cax.get_ylim()
-            minorticks_values = minorticks_values[ (minorticks_values>=l1)*(minorticks_values<=l2) ]
+            minorticks_values = minorticks_values[
+                (minorticks_values >= l1) * (minorticks_values <= l2)
+            ]
             cax.yaxis.set_ticks(minorticks_values, minor=True)
         else:
             cax.minorticks_on()
 
     if rasterized:
-        cbar.solids.set_rasterized( True )
+        cbar.solids.set_rasterized(True)
 
     if label is not None:
         cbar.set_label(label, rotation=270)
-    plt.sca( ax )
+    plt.sca(ax)
     return cbar
+
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -566,6 +579,7 @@ if __name__ == "__main__":
     crosscheck.add_argument(
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"
     )
+    crosscheck.add_argument("-m", "--mode", choices=("default", "split-reactor"), help="comparison mode")
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
