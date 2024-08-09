@@ -511,21 +511,22 @@ class model_dayabay_v0:
                 replicate_outputs = combinations["anue_unc.isotope"],
             )
 
-            from dagflow.lib.MeshToEdges import MeshToEdges
-            MeshToEdges.replicate(name="reactor_anue.spectrum_uncertainty.enu")
-            outputs["reactor_anue.spectrum_uncertainty.enu_centers"] >> inputs["reactor_anue.spectrum_uncertainty.enu"]
-            nodes["reactor_anue.spectrum_uncertainty.enu"].close()
+            # In the case of constant (left) interpolation bin edges should be used
+            # from dagflow.lib.MeshToEdges import MeshToEdges
+            # MeshToEdges.replicate(name="reactor_anue.spectrum_uncertainty.enu")
+            # outputs["reactor_anue.spectrum_uncertainty.enu_centers"] >> inputs["reactor_anue.spectrum_uncertainty.enu"]
+            # nodes["reactor_anue.spectrum_uncertainty.enu"].close()
 
             for isotope in index["isotope"]:
                 make_y_parameters_for_x(
-                        outputs["reactor_anue.spectrum_uncertainty.enu"],
+                        outputs["reactor_anue.spectrum_uncertainty.enu_centers"],
                         namefmt = "unc_scale_{:02d}",
                         format = ("value", "sigma_absolute"),
                         state = "variable",
                         key = f"reactor_anue.spectrum_uncertainty.uncorr.{isotope}",
                         values = (0.0, 1.0),
                         labels = f"Edge {{i:02d}} ({{value:.2f}} MeV) uncorrelated {index_names[isotope]} spectrum correction",
-                        disable_last_one = True,
+                        disable_last_one = False, # True for the constant interpolation, last edge is unused
                         hide_nodes = True
                         )
 
@@ -562,25 +563,36 @@ class model_dayabay_v0:
                     replicate_outputs = index["isotope"]
                     )
 
-            # TODO: should be t=(1+u)(1+c) instead of (1+u+c)
             single_unity = Array("single_unity", [1.0], dtype="d", mark="1")
             Sum.replicate(
                     outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
+                    single_unity,
+                    name = "reactor_anue.spectrum_uncertainty.correction.uncorr_factor",
+                    replicate_outputs = index["isotope"]
+                    )
+            Sum.replicate(
                     outputs("reactor_anue.spectrum_uncertainty.correction.corr"),
                     single_unity,
+                    name = "reactor_anue.spectrum_uncertainty.correction.corr_factor",
+                    replicate_outputs = index["isotope"]
+                    )
+
+            Product.replicate(
+                    outputs("reactor_anue.spectrum_uncertainty.correction.uncorr_factor"),
+                    outputs("reactor_anue.spectrum_uncertainty.correction.corr_factor"),
                     name = "reactor_anue.spectrum_uncertainty.correction.full",
                     replicate_outputs = index["isotope"]
                     )
 
             InterpolatorGroup.replicate(
-                method = "left",
+                method = "linear",
                 names = {
                     "indexer": "reactor_anue.spectrum_uncertainty.correction_index",
                     "interpolator": "reactor_anue.spectrum_uncertainty.correction_interpolated"
                     },
                 replicate_outputs=index["isotope"]
             )
-            outputs["reactor_anue.spectrum_uncertainty.enu"] >> inputs["reactor_anue.spectrum_uncertainty.correction_interpolated.xcoarse"]
+            outputs["reactor_anue.spectrum_uncertainty.enu_centers"] >> inputs["reactor_anue.spectrum_uncertainty.correction_interpolated.xcoarse"]
             outputs("reactor_anue.spectrum_uncertainty.correction.full") >> inputs("reactor_anue.spectrum_uncertainty.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs["reactor_anue.spectrum_uncertainty.correction_interpolated.xfine"]
 
