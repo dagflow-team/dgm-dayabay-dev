@@ -80,10 +80,12 @@ comparison_objects = {
     "reactor.energy_per_fission_average_MeV": {"mode": "split-reactor",  "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 },
     "reactor_detector.number_of_fissions_nprotons_per_cm2": {"mode": "split-reactor", "gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8},
     "reactor_anue.spectrum_uncertainty.correction.full": {"mode": "split-reactor", "gnaname": "spectrum_correction_factor"},
-    "reactor_anue.spectrum_uncertainty.correction_interpolated": {"mode": "split-reactor", "gnaname": "interp_spectrum_correction", "slice": (slice(None,-12), slice(None)), "rtol": 2.e-3},
+    "reactor_anue.spectrum_uncertainty.correction_interpolated": {"mode": "split-reactor", "gnaname": "interp_spectrum_correction", "rtol": 2.e-3},
     "eventscount.reactor_active_periods": {"mode": "split-reactor", "gnaname": "kinint2", "rtol": 1.e-8},
     "snf_anue.neutrino_per_second_snf": {"mode": "split-reactor", "gnaname": "snf_correction", "rtol": 1.e-8},
     "eventscount.snf_periods": {"mode": "split-reactor", "gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf ## detector "eventscount.raw": {"mode": "default", "gnaname": "kinint2", "rtol": 1.e-8},
+    ## detector
+    "eventscount.raw": {"gnaname": "kinint2", "rtol": 1.e-8},
     "detector.iav.matrix_rescaled": {"gnaname": "iavmatrix", "atol": 1.e-15},
     "eventscount.iav": {"mode": "default", "gnaname": "iav", "rtol": 1.e-8},
     "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
@@ -592,7 +594,7 @@ if __name__ == "__main__":
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"
     )
     crosscheck.add_argument(
-        "-m", "--mode", choices=("default", "split-reactor"), help="comparison mode"
+        "-m", "--mode", choices=("default", "split-reactor"), default="default", help="comparison mode"
     )
 
     pars = parser.add_argument_group("pars", "setup pars")
