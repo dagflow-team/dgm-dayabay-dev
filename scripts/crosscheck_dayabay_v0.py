@@ -157,7 +157,7 @@ class Comparator:
             self._data_d = data[slice]
 
     def __init__(self, opts: Namespace):
-        self.model = model_dayabay_v0(source_type=opts.source_type)
+        self.model = model_dayabay_v0(source_type=opts.source_type, parameter_values=opts.par)
         self.opts = opts
 
         if opts.verbose:
@@ -166,8 +166,6 @@ class Comparator:
 
         self.outputs_dgf = self.model.storage("outputs")
         self.parameters_dgf = self.model.storage("parameter.all")
-
-        self.set_parameters()
 
         with suppress(StopIteration):
             self.compare(
@@ -184,13 +182,6 @@ class Comparator:
                 self.outputs_dgf,
                 self.compare_outputs,
             )
-
-    def set_parameters(self):
-        for parname, svalue in self.opts.par:
-            value = float(svalue)
-            par = self.parameters_dgf[parname]
-            par.push(value)
-            print(f"Set {parname}={svalue}")
 
     def compare(
         self,

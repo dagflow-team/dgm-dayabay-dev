@@ -27,6 +27,7 @@ def main(opts: Namespace) -> None:
         override_indices=override_indices,
         spectrum_correction_mode=opts.spec,
         fission_fraction_normalized=opts.fission_fraction_normalized,
+        parameter_values=opts.par
     )
 
     graph = model.graph
@@ -181,5 +182,10 @@ if __name__ == "__main__":
     model = parser.add_argument_group("model", "model related options")
     model.add_argument("--spec", choices=("linear", "exponential"), help="antineutrino spectrum correction mode")
     model.add_argument("--fission-fraction-normalized", action="store_true", help="fission fraction correction")
+
+    pars = parser.add_argument_group("pars", "setup pars")
+    pars.add_argument(
+        "--par", nargs=2, action="append", default=[], help="set parameter value"
+    )
 
     main(parser.parse_args())
