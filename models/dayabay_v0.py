@@ -520,7 +520,7 @@ class model_dayabay_v0:
             for isotope in index["isotope"]:
                 make_y_parameters_for_x(
                         outputs["reactor_anue.spectrum_uncertainty.enu_centers"],
-                        namefmt = "unc_scale_{:02d}",
+                        namefmt = "unc_scale_{:03d}",
                         format = ("value", "sigma_absolute"),
                         state = "variable",
                         key = f"reactor_anue.spectrum_uncertainty.uncorr.{isotope}",
