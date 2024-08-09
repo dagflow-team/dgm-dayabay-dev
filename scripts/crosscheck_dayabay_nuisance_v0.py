@@ -17,14 +17,22 @@ from multikeydict.nestedmkdict import NestedMKDict
 set_level(INFO1)
 
 
-def minus_one(*values):
+def minus_one(parname: tuple[str,...], *values: float) -> tuple[float,...]:
+    match parname:
+        case ("spectrum_correction", "corr_unc"):
+            return values
+
     return tuple(v - 1.0 for v in values)
 
-def embed(key):
+def hmuncmapping(key: tuple[str,...]) -> tuple[str,...]:
     match key:
         case ("corr_unc",):
             return ("corr",)
-    import IPython; IPython.embed(colors='neutral')
+        case ("uncorr_unc", isotope, energy):
+            idx = int(energy.rsplit("_", 1)[-1])
+            return ("uncorr", isotope, f"unc_scale_{idx:03d}")
+
+    raise RuntimeError(f"Do not know how to map {key}")
 
 comparison = {
     "default": {"rtol": 1.0e-8},
@@ -34,46 +42,28 @@ comparison = {
     "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
     "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
     "bkg_rate_lihe": {"location": "all.bkg.rate.lihe", "rtol": 1.0e-8},
-    "effunc_uncorr": {
-        "location": "all.detector.detector_relative",
-        "keys_mapping": lambda t: (t+("efficiency_factor",)),
-        "rtol": 1.0e-8
-    },
-    "escale": {
-        "location": "all.detector.detector_relative",
-        "keys_mapping": lambda t: (t+("energy_scale_factor",)),
-        "rtol": 1.0e-8,
-    },
-    "eres": {
-        "location": "all.detector.eres",
-        "keys_mapping": {
-            ("a",): ("a_nonuniform",),
-            ("b",): ("b_stat",),
-            ("c",): ("c_noise",),
-        },
-        "rtol": 1.0e-8,
-    },
+    "effunc_uncorr": {"location": "all.detector.detector_relative", "keys_mapping": lambda t: (t+("efficiency_factor",)), "rtol": 1.0e-8},
+    "escale": {"location": "all.detector.detector_relative", "keys_mapping": lambda t: (t+("energy_scale_factor",)), "rtol": 1.0e-8},
+    "eres": {"location": "all.detector.eres", "keys_mapping": {("a",): ("a_nonuniform",), ("b",): ("b_stat",), ("c",): ("c_noise",), }, "rtol": 1.0e-8},
     "global_norm": {"location": "all.detector.global_normalization", "rtol": 1.0e-8},
     "lsnl_weight": {"location": "all.detector.lsnl_scale_a", "rtol": 1.0e-8},
     "DeltaMSq12": {"location": "all.oscprob.DeltaMSq21", "rtol": 1.0e-8},
     "DeltaMSq23": {"location": "all.oscprob.DeltaMSq32", "rtol": 1.0e-8},
     "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
     "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
-    "spectral_weights": {
-        "location": "all.neutrino_per_fission_factor",
-        "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
-        "rtol": 1.0e-8,
-    },
+    "spectral_weights": {"location": "all.neutrino_per_fission_factor", "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),), "rtol": 1.0e-8},
     # Reactor
     "nominal_thermal_power": {"location": "all.reactor.nominal_thermal_power", "rtol": 1.0e-8},
     "fission_fractions_corr": {"location": "all.reactor.fission_fraction_scale", "rtol": 1.0e-8},
     "eper_fission": {"location": "all.reactor.energy_per_fission", "rtol": 1.0e-8},
     "offeq_scale": {"location": "all.reactor.offequilibrium_scale", "rtol": 1.0e-8},
     "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
-    "corrected_spectrum": {
+    "spectrum_correction": {
         "skip": False,
         "location": "all.reactor_anue.spectrum_uncertainty",
-        "keys_mapping": embed
+        "keys_mapping": hmuncmapping,
+        "rtol": 1.e-4,
+        "value_fcn": minus_one
         }
 }
 
@@ -166,10 +156,10 @@ class NuisanceComparator:
         self.n_success = 0
         self.n_fail = 0
 
-        self.value_central = -1111.1111
-        self.value_current = -1111.1111
-        self.value_left = -1111.1111
-        self.value_right = -1111.1111
+        self.value_central = "default"
+        self.value_current = "default"
+        self.value_left = "default"
+        self.value_right = "default"
 
         self.outputs_dgf_default = NestedMKDict(sep=".")
         self.outputs_gna_default = NestedMKDict(sep=".")
@@ -228,8 +218,9 @@ class NuisanceComparator:
                     skipped.add(parname)
                 continue
 
-            value_fcn = self.cmpopts.get("value_fcn", lambda *v: v)
+            value_fcn = self.cmpopts.get("value_fcn", lambda s, *v: v)
             self.value_central, self.value_left, self.value_right = value_fcn(
+                paritems,
                 *results["values"]
             )
 
