@@ -53,6 +53,7 @@ class model_dayabay_v0:
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
+        parameter_values: dict[str,float | str] = {}
     ):
         self._strict = strict
         self._close = close
@@ -68,6 +69,9 @@ class model_dayabay_v0:
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
 
         self.build()
+
+        if parameter_values:
+            self.set_parameters(parameter_values)
 
     def build(self):
         storage = self.storage
@@ -1406,3 +1410,11 @@ class model_dayabay_v0:
                 raise RuntimeError(
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
+
+    def set_parameters(self, parameter_values: dict[str,float | str] = {}):
+        parameters_storage = self.storage("parameter.all")
+        for parname, svalue in parameter_values:
+            value = float(svalue)
+            par = parameters_storage[parname]
+            par.push(value)
+            print(f"Set {parname}={svalue}")
