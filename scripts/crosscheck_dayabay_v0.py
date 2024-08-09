@@ -54,8 +54,10 @@ comparison_objects = {
     # hm
     "reactor_anue.neutrino_per_fission_per_MeV_nominal_pre": {"gnaname": "anuspec_coarse", "atol": 5.e-15},
     "reactor_anue.neutrino_per_fission_per_MeV_nominal": {"gnaname": "anuspec", "atol": 5.e-15},
-    "reactor_anue.spectrum_uncertainty.uncertainty.corr": {"gnaname": "anue_spectrum_uncertainty_corr.DB1"},
-    "reactor_anue.spectrum_uncertainty.correction.full": {"gnaname": "anue_spectrum_uncertainty_total.DB1"},
+    # "reactor_anue.spectrum_uncertainty.uncertainty.corr": {"gnaname": "anue_spectrum_uncertainty_corr.DB1"}, # v05
+    # "reactor_anue.spectrum_uncertainty.correction.full": {"gnaname": "anue_spectrum_uncertainty_total.DB1"}, # v05
+    "reactor_anue.spectrum_uncertainty.uncertainty.corr": {"gnaname": "anue_spectrum_uncertainty_corr"}, # v05b
+    "reactor_anue.spectrum_uncertainty.correction.full": {"gnaname": "spectrum_correction_y"}, # v05b
     # reactor
     "reactor_offequilibrium_anue.correction_input.enu": {"gnaname": "offeq_correction_input_enu.DB1.U235", "rtol": 1e-15},
     "reactor_offequilibrium_anue.correction_input.offequilibrium_correction": {"gnaname": [f"offeq_correction_input.{reac}" for reac in reactors], "atol": 1.e-14},
@@ -73,13 +75,15 @@ comparison_objects = {
     "detector.efflivetime": {"gnaname": "parameters.dayabay.efflivetime"},
     "daily_data.reactor.power": {"gnaname": "thermal_power", "preprocess_gna": strip_last_day_periods_6_8},
     "daily_data.reactor.fission_fraction": {"gnaname": "fission_fractions", "preprocess_gna": strip_last_day_periods_6_8},
-    ## Reactor (individual)
+    ## Reactor (split mode)
     "reactor.energy_per_fission_weighted_MeV": {"mode": "split-reactor", "gnaname": "eper_fission_times_ff", "preprocess_gna": strip_last_day_periods_6_8},
     "reactor.energy_per_fission_average_MeV": {"mode": "split-reactor",  "gnaname": "denom", "preprocess_gna": strip_last_day_periods_6_8 },
     "reactor_detector.number_of_fissions_nprotons_per_cm2": {"mode": "split-reactor", "gnaname": "parameters.dayabay.power_livetime_factor", "rtol": 1.e-8},
+    "reactor_anue.spectrum_uncertainty.correction.full": {"mode": "split-reactor", "gnaname": "spectrum_correction_factor"},
+    "reactor_anue.spectrum_uncertainty.correction_interpolated": {"mode": "split-reactor", "gnaname": "interp_spectrum_correction", "slice": (slice(None,-12), slice(None)), "rtol": 2.e-3},
     "eventscount.reactor_active_periods": {"mode": "split-reactor", "gnaname": "kinint2", "rtol": 1.e-8},
     "snf_anue.neutrino_per_second_snf": {"mode": "split-reactor", "gnaname": "snf_correction", "rtol": 1.e-8},
-    "eventscount.snf_periods": {"mode": "split-reactor", "skip": False, "gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf ## detector "eventscount.raw": {"mode": "default", "gnaname": "kinint2", "rtol": 1.e-8},
+    "eventscount.snf_periods": {"mode": "split-reactor", "gnaname": "kinint2_snf", "rtol": 1.e-8}, # Inconsistent! The input cross check model seem to be broken. Available only in cross-check version of the input hdf ## detector "eventscount.raw": {"mode": "default", "gnaname": "kinint2", "rtol": 1.e-8},
     "detector.iav.matrix_rescaled": {"gnaname": "iavmatrix", "atol": 1.e-15},
     "eventscount.iav": {"mode": "default", "gnaname": "iav", "rtol": 1.e-8},
     "detector.lsnl.curves.evis_common": {"gnaname": "lsnl_bins_times_lsnl_correlated", "atol": 1e-14},
@@ -207,9 +211,11 @@ class Comparator:
                         logger.log(INFO1, f"Skip {self._skey_dgf}: skip")
                         continue
 
-                    if (mode:=cmpopts.get("mode", None)) is not None:
-                        if mode!=self.opts.mode:
-                            logger.log(INFO1, f"Skip {self._skey_dgf}: not in {mode} mode")
+                    if (mode := cmpopts.get("mode", None)) is not None:
+                        if mode != self.opts.mode:
+                            logger.log(
+                                INFO1, f"Skip {self._skey_dgf}: not in {mode} mode"
+                            )
                             continue
                 case str():
                     self._skey_gna = cmpopts
@@ -241,7 +247,10 @@ class Comparator:
 
         path_gna = self._skey_gna.replace(".", "/")
 
-        data_storage_gna = gnasource[path_gna]
+        try:
+            data_storage_gna = gnasource[path_gna]
+        except KeyError:
+            raise RuntimeError(f"GNA object {path_gna} not found")
         data_storage_dgf = outputs_dgf.any(self._skey_dgf)
 
         match data_storage_dgf, data_storage_gna:
@@ -342,10 +351,13 @@ class Comparator:
 
     def plot(self):
         ndim = self._data_g.ndim
+        shape = self._data_g.shape
         if ndim == 1:
             return self.plot_1d()
-        elif ndim == 2:
+        elif ndim == 2 and shape[0]==shape[1]:
             return self.plot_mat()
+        else:
+            return self.plot_1d()
 
     def plot_mat(self):
         data_g = ma.array(self._data_g, mask=(self._data_g == 0))
@@ -378,19 +390,19 @@ class Comparator:
 
     def plot_1d(self):
         if self._data_g.shape[0] < 100:
-            style = "o-"
+            mstyle = "o"
         else:
-            style = "-"
+            mstyle = ""
         pargs = {"markerfacecolor": "none", "alpha": 0.4}
 
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
-        ax.plot(self._data_g, style, label="GNA", **pargs)
-        ax.plot(self._data_d, style, label="dagflow", **pargs)
+        ax.plot(self._data_g, f"{mstyle}--", label="GNA", **pargs)
+        ax.plot(self._data_d, f"{mstyle}-", label="dagflow", **pargs)
         scale_factor = self._data_g.sum() / self._data_d.sum()
         ax.plot(
             self._data_d * scale_factor,
-            f"{style}-",
+            f"{mstyle}:",
             label="dagflow scaled",
             **pargs,
         )
@@ -401,7 +413,7 @@ class Comparator:
         ax = plt.subplot(111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf)
         with suppress(ValueError):
             ax.plot(
-                self._data_d / self._data_g - 1, style, label="dagflow/GNA-1", **pargs
+                self._data_d / self._data_g - 1, f"{mstyle}-", label="dagflow/GNA-1", **pargs
             )
         ax.grid()
         ax.legend()
@@ -409,7 +421,7 @@ class Comparator:
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="dagflow-GNA", title=self.key_dgf)
         with suppress(ValueError):
-            ax.plot(self._data_d - self._data_g, style, label="dagflow-GNA", **pargs)
+            ax.plot(self._data_d - self._data_g, f"{mstyle}-", label="dagflow-GNA", **pargs)
         ax.grid()
         ax.legend()
 
@@ -579,7 +591,9 @@ if __name__ == "__main__":
     crosscheck.add_argument(
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"
     )
-    crosscheck.add_argument("-m", "--mode", choices=("default", "split-reactor"), help="comparison mode")
+    crosscheck.add_argument(
+        "-m", "--mode", choices=("default", "split-reactor"), help="comparison mode"
+    )
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
