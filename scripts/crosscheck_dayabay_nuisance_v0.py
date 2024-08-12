@@ -34,6 +34,20 @@ def hmuncmapping(key: tuple[str,...]) -> tuple[str,...]:
 
     raise RuntimeError(f"Do not know how to map {key}")
 
+def default_setter(parname: tuple[str,...], par, value: float, normvalue: float) -> float:
+    par.value = value
+    return value
+
+def uncorr_normalized_setter(key: tuple[str,...], par, value: float, normvalue: float) -> float:
+    match key:
+        case ("spectrum_correction", "uncorr_unc", *_):
+            par.normvalue = normvalue
+
+            return normvalue
+
+    par.value = value
+    return value
+
 comparison = {
     "default": {"rtol": 1.0e-8},
     "OffdiagScale": {"location": "all.detector.iav_offdiag_scale_factor", "rtol": 1.0e-8},
@@ -62,8 +76,10 @@ comparison = {
         "skip": False,
         "location": "all.reactor_anue.spectrum_uncertainty",
         "keys_mapping": hmuncmapping,
+        "atol": 0.3,
         "rtol": 1.e-4,
-        "value_fcn": minus_one
+        "value_fcn": minus_one,
+        "value_setter": uncorr_normalized_setter
         }
 }
 
@@ -100,6 +116,9 @@ class NuisanceComparator:
         "diff",
         "n_success",
         "n_fail",
+        "n_pars",
+        "n_values",
+        "n_hists",
     )
     opts: Namespace
     outputs_dgf: NestedMKDict
@@ -135,6 +154,10 @@ class NuisanceComparator:
     n_success: int
     n_fail: int
 
+    n_pars: int
+    n_values: int
+    n_hists: int
+
     def __init__(self, opts: Namespace):
         self.cmpopts = {}
 
@@ -155,6 +178,9 @@ class NuisanceComparator:
 
         self.n_success = 0
         self.n_fail = 0
+        self.n_pars = 0
+        self.n_values = 0
+        self.n_hists = 0
 
         self.value_central = "default"
         self.value_current = "default"
@@ -178,6 +204,8 @@ class NuisanceComparator:
 
         with suppress(StopIteration):
             self.process()
+
+        logger.info(f"Processed {self.n_pars} parameters ({self.n_values} values) and {self.n_hists} histograms: {self.n_success} sucess / {self.n_fail} fail")
 
     def _skip_par(self, parname: str) -> bool:
         parname = parname.lower()
@@ -223,6 +251,7 @@ class NuisanceComparator:
                 paritems,
                 *results["values"]
             )
+            _, normvalue_left, normvalue_right = results["normvalues"]
 
             parsloc = self.parameters_dgf.any(self.cmpopts["location"])
             keys_mapping = self.cmpopts.get("keys_mapping", lambda s: s)
@@ -236,6 +265,8 @@ class NuisanceComparator:
                 self.value_central *= par.value
                 self.value_left *= self.value_central
                 self.value_right *= self.value_central
+
+            setter = self.cmpopts.get("value_setter", default_setter)
 
             if par.value != self.value_central:
                 logger.error(
@@ -251,18 +282,21 @@ class NuisanceComparator:
             self.skey_par_dgf = self.cmpopts["location"]
             self.skey2_par_dgf = ""
 
-            self.value_current = self.value_right
-            par.push(self.value_current)
+            par.push()
+
+            self.value_current = setter(paritems, par, self.value_right, normvalue_right)
             logger.log(INFO1, f"{parname}: v={self.valuestring}")
             self.process_par_offset(results_right)
 
-            self.value_current = self.value_left
-            par.value = self.value_current
+            self.value_current = setter(paritems, par, self.value_left, normvalue_left)
             logger.log(INFO1, f"{parname}: v={self.valuestring}")
             self.process_par_offset(results_left)
 
             par.pop()
             self.check_default("restore", check_change=False)
+
+            self.n_pars += 1
+            self.n_values += 3
 
     def check_default(
         self, label="default", *, save: bool = False, check_change: bool = True
@@ -349,7 +383,9 @@ class NuisanceComparator:
         logger.error(f"      max rel diff {self.maxreldiff:.2g}")
 
         if self.opts.plot_on_failure:
-            self.plot_1d()
+            ss = self.opts.plot_filter
+            if not ss or ss in self.cmpstring:
+                self.plot_1d()
 
         if self.opts.embed_on_failure:
             try:
@@ -491,6 +527,7 @@ class NuisanceComparator:
         return float(self.cmpopts.get("rtol", 0.0))
 
     def data_consistent(self, gna: NDArray, dgf: NDArray) -> bool:
+        self.n_hists += 1
         try:
             status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
         except ValueError:
@@ -574,6 +611,9 @@ if __name__ == "__main__":
     )
     crosscheck.add_argument(
         "-p", "--plot-on-failure", action="store_true", help="plot on failure"
+    )
+    crosscheck.add_argument(
+        "--plot-filter", help="plot only comparisons with substring"
     )
     crosscheck.add_argument(
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"
