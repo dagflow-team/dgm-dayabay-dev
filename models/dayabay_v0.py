@@ -53,7 +53,7 @@ class model_dayabay_v0:
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
-        parameter_values: dict[str,float | str] = {}
+        parameter_values: dict[str, float | str] = {},
     ):
         self._strict = strict
         self._close = close
@@ -1353,6 +1353,22 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
             )
 
+            Concatenation.replicate(
+                outputs("eventscount.final.total"),
+                name="eventscount.final.total_concatenated",
+            )
+
+            Sum.replicate(
+                outputs("eventscount.final.total"),
+                name="eventscount.final.total_alltime",
+                replicate_outputs=index["detector"],
+            )
+
+            Concatenation.replicate(
+                outputs("eventscount.final.total_alltime"),
+                name="eventscount.final.total_alltime_concatenated"
+            )
+
             #
             # Statistic
             #
@@ -1411,7 +1427,7 @@ class model_dayabay_v0:
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
 
-    def set_parameters(self, parameter_values: dict[str,float | str] = {}):
+    def set_parameters(self, parameter_values: dict[str, float | str] = {}):
         parameters_storage = self.storage("parameter.all")
         for parname, svalue in parameter_values:
             value = float(svalue)
