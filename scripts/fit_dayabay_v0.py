@@ -35,7 +35,6 @@ def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
 
 def next_sample(storage: NodeStorage, parameter, val: tuple[float, float]) -> None:
     parameter.value = val[0]
-    print(parameter)
     for node in storage("nodes.pseudo.data").walkvalues():
         node.next_sample()
     parameter.value = val[1]
@@ -79,7 +78,11 @@ def main() -> None:
     input = parser.add_argument_group("input", "input related options")
     input.add_argument(
         "--input", nargs=2, action="append", metavar=("STAT_TYPE", "FILENAME"),
-        default=[], help="input file to compare to",
+        default=[], help="input file with fit to compare to",
+    )
+    input.add_argument(
+        "--input-profile", action="append",
+        default=[], help="input file with profile to compare to",
     )
 
     model = parser.add_argument_group("model", "model related options")
@@ -104,6 +107,19 @@ def main() -> None:
     pars.add_argument(
         "--min-par", nargs="*", default=[], help="choose minimization parameters",
     )
+    pars.add_argument(
+        "--profile-par", nargs=4,
+        metavar=("PARAMETER", "LEFT_EDGE", "RIGHT_EDGE", "N_POINTS"),
+        help="choose profiling parameters",
+    )
+
+    outputs = parser.add_argument_group("outputs", "set outputs")
+    outputs.add_argument(
+        "--fit-output", help="path to save fit, without extension",
+    )
+    outputs.add_argument(
+        "--profile-output", help="path to save plot and data, without extension",
+    )
 
     args = parser.parse_args()
 
@@ -113,11 +129,11 @@ def main() -> None:
         fission_fraction_normalized=args.fission_fraction_normalized,
     )
 
-    graph = model.graph
     storage = model.storage
     parameters = model.storage("parameter")
     statistic = model.storage("outputs.statistic")
 
+    from yaml import safe_dump
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
     chi2p_stat = statistic["stat.chi2p"]
     chi2p_syst = statistic["full.chi2p"]
@@ -125,12 +141,9 @@ def main() -> None:
     for (par_name, par_value) in args.par:
         mc_parameters[parameters[par_name]] = (par_value, parameters[par_name].value.copy())
 
-    minimizer_stat = IMinuitMinimizer(
-        statistic=chi2p_stat, parameters=[parameters[par_name] for par_name in args.min_par]
-    )
-    minimizer_syst = IMinuitMinimizer(
-        statistic=chi2p_syst, parameters=[parameters[par_name] for par_name in args.min_par]
-    )
+    minimization_pars = [parameters[par_name] for par_name in args.min_par]
+    minimizer_stat = IMinuitMinimizer(chi2p_stat, parameters=minimization_pars)
+    minimizer_syst = IMinuitMinimizer(chi2p_syst, parameters=minimization_pars)
 
     for stat_type, filename in args.input:
         minimizer = minimizer_stat if stat_type == "stat" else minimizer_syst
@@ -140,6 +153,40 @@ def main() -> None:
             print(f"Fit {stat_type}:{'GNA':>17}{'dag-flow':>12}  relative-error")
             compare_gna(dagflow_fit, filename)
             minimizer.push_initial_values()
+            if args.fit_output:
+                with open(f"{args.fit_output}-{stat_type}.yaml", "w") as f:
+                    safe_dump(fit, f)
+
+    if args.profile_par:
+        parameter, l_edge, r_edge, n_points = args.profile_par
+        profile_parameter = parameters[parameter]
+
+        assert profile_parameter not in minimization_pars, "You can not minimize profiling parameter"
+
+        from numpy import linspace, savetxt, vstack
+        from matplotlib import pyplot as plt
+        profile_values = linspace(float(l_edge), float(r_edge), int(n_points))
+        chi2_stat_values = []
+        chi2_syst_values = []
+        next_sample(storage, profile_parameter, (profile_parameter.value, profile_parameter.value))
+        for value in profile_values:
+            for chi2_values, minimizer in zip([chi2_stat_values, chi2_syst_values], [minimizer_stat, minimizer_syst]):
+                profile_parameter.value = value
+                fit = minimizer.fit()
+                chi2_values.append(fit["fun"])
+                minimizer.push_initial_values()
+
+        plt.plot(profile_values, chi2_stat_values, label="stat")
+        plt.plot(profile_values, chi2_syst_values, label="syst", linestyle="--")
+        plt.xlabel(profile_parameter.to_dict()["label"])
+        plt.ylabel(r"$\chi^2$")
+        plt.ylim(0, 20)
+        plt.legend()
+        plt.tight_layout()
+        if args.profile_output:
+            plt.savefig(f"{args.profile_output}.png")
+        
+            savetxt(f"{args.profile_output}.txt", vstack((profile_values, chi2_stat_values, chi2_syst_values)).T, header="parameter\tchi2stat\tchi2syst")
 
 
 if __name__ == "__main__":
