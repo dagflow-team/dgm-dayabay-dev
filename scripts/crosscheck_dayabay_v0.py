@@ -244,7 +244,7 @@ class Comparator:
             data_storage_gna = gnasource[path_gna]
         except KeyError:
             raise RuntimeError(f"GNA object {path_gna} not found")
-        data_storage_dgf = outputs_dgf.any(self._skey_dgf)
+        data_storage_dgf = outputs_dgf.get_any(self._skey_dgf)
 
         match data_storage_dgf, data_storage_gna:
             case Output(), Dataset():

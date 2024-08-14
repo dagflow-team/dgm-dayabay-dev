@@ -253,7 +253,7 @@ class NuisanceComparator:
             )
             _, normvalue_left, normvalue_right = results["normvalues"]
 
-            parsloc = self.parameters_dgf.any(self.cmpopts["location"])
+            parsloc = self.parameters_dgf.get_any(self.cmpopts["location"])
             keys_mapping = self.cmpopts.get("keys_mapping", lambda s: s)
             if isinstance(keys_mapping, dict):
                 keys_fcn = lambda s: keys_mapping.get(s, s)
