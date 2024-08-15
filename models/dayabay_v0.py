@@ -174,7 +174,7 @@ class model_dayabay_v0:
         )
 
         with (
-            Graph(close=self._close, strict=self._strict) as graph,
+            Graph(close_on_exit=self._close, strict=self._strict) as graph,
             storage,
             FileReader,
         ):

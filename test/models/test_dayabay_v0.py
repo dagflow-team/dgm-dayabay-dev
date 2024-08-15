@@ -5,7 +5,7 @@ from models.dayabay_v0 import model_dayabay_v0
 
 
 def test_dayabay_v0():
-    model = model_dayabay_v0(close=True, strict=False)
+    model = model_dayabay_v0(close_on_exit=True, strict=False)
 
     graph = model.graph
     storage = model.storage
