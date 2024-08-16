@@ -34,13 +34,6 @@ def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
     return gna_transformed == dagflow_transformed
 
 
-def next_sample(storage: NodeStorage, parameter, val: tuple[float, float]) -> None:
-    parameter.value = val[0]
-    for node in storage("nodes.pseudo.data").walkvalues():
-        node.next_sample()
-    parameter.value = val[1]
-
-
 def compare_gna(dagflow_fit: dict, gna_fit_filename: str) -> None:
     from matplotlib import pyplot as plt
     with open(gna_fit_filename, "r") as f:
@@ -84,9 +77,9 @@ def main(args: Namespace) -> None:
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
     chi2p_stat = statistic["stat.chi2p"]
     chi2p_syst = statistic["full.chi2p"]
-    mc_parameters = {}
+    mc_parameters = []
     for (par_name, par_value) in args.par:
-        mc_parameters[parameters[par_name]] = (par_value, parameters[par_name].value)
+        mc_parameters.append((parameters[par_name], (par_value, parameters[par_name].value)))
 
     if args.full_fit:
         minimization_pars = [par for par in parameters.any("all.oscprob").walkvalues()][:-1]
@@ -101,10 +94,10 @@ def main(args: Namespace) -> None:
         minimization_pars.extend([par for par in parameters.any("all.reactor.fission_fraction_scale").walkvalues()])
         minimization_pars.extend([par for par in parameters.any("all.bkg").walkvalues()])
         minimization_pars.extend([parameters.any("all.detector.global_normalization")])
-        next_sample(storage, parameters["all.detector.global_normalization"], (1, 1))
+        model.next_sample([(parameters["all.detector.global_normalization"], (1, 1.01))])
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
-        fit = minimizer_syst.fit()
+        fit = minimizer.fit()
         print(fit)
 
     minimization_pars = [parameters[par_name] for par_name in args.min_par]
@@ -112,8 +105,8 @@ def main(args: Namespace) -> None:
     minimizer_syst = IMinuitMinimizer(chi2p_syst, parameters=minimization_pars)
     for stat_type, filename in args.input:
         minimizer = minimizer_stat if stat_type == "stat" else minimizer_syst
-        for parameter, values in mc_parameters.items():
-            next_sample(storage, parameter, values)
+        for parameter in mc_parameters:
+            model.next_sample([parameter])
             dagflow_fit = minimizer.fit()
             print(f"Fit {stat_type}:{'GNA':>17}{'dag-flow':>12}  relative-error")
             compare_gna(dagflow_fit, filename)
@@ -133,7 +126,7 @@ def main(args: Namespace) -> None:
         profile_values = linspace(float(l_edge), float(r_edge), int(n_points))
         chi2_stat_values = []
         chi2_syst_values = []
-        next_sample(storage, profile_parameter, (profile_parameter.value, profile_parameter.value))
+        model.next_sample([(profile_parameter, (profile_parameter.value, profile_parameter.value))])
         for value in profile_values:
             for chi2_values, minimizer in zip([chi2_stat_values, chi2_syst_values], [minimizer_stat, minimizer_syst]):
                 profile_parameter.value = value
