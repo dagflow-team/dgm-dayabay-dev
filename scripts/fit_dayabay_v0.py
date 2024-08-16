@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from yaml import safe_load
+from argparse import Namespace
 
 from dagflow.logger import INFO1
 from dagflow.logger import INFO2
@@ -67,61 +68,7 @@ def compare_gna(dagflow_fit: dict, gna_fit_filename: str) -> None:
                 plt.savefig(f"output/comparison/{dagflow_par_name}.png")
 
 
-def main() -> None:
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
-
-    input = parser.add_argument_group("input", "input related options")
-    input.add_argument(
-        "--input", nargs=2, action="append", metavar=("STAT_TYPE", "FILENAME"),
-        default=[], help="input file with fit to compare to",
-    )
-    input.add_argument(
-        "--input-profile", action="append",
-        default=[], help="input file with profile to compare to",
-    )
-
-    model = parser.add_argument_group("model", "model related options")
-    model.add_argument(
-        "-s", "--source-type", "--source",
-        choices=("tsv", "hdf5", "root", "npz"), default="npz",
-        help="Data source type",
-    )
-    model.add_argument(
-        "--spec", choices=("linear", "exponential"), default="exponential",
-        help="antineutrino spectrum correction mode",
-    )
-    model.add_argument(
-        "--fission-fraction-normalized", action="store_true",
-        help="fission fraction correction",
-    )
-
-    pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value",
-    )
-    pars.add_argument(
-        "--min-par", nargs="*", default=[], help="choose minimization parameters",
-    )
-    pars.add_argument(
-        "--profile-par", nargs=4,
-        metavar=("PARAMETER", "LEFT_EDGE", "RIGHT_EDGE", "N_POINTS"),
-        help="choose profiling parameters",
-    )
-
-    outputs = parser.add_argument_group("outputs", "set outputs")
-    outputs.add_argument(
-        "--fit-output", help="path to save fit, without extension",
-    )
-    outputs.add_argument(
-        "--profile-output", help="path to save plot and data, without extension",
-    )
-
-    args = parser.parse_args()
+def main(args: Namespace) -> None:
 
     model = model_dayabay_v0(
         source_type=args.source_type,
@@ -139,12 +86,30 @@ def main() -> None:
     chi2p_syst = statistic["full.chi2p"]
     mc_parameters = {}
     for (par_name, par_value) in args.par:
-        mc_parameters[parameters[par_name]] = (par_value, parameters[par_name].value.copy())
+        mc_parameters[parameters[par_name]] = (par_value, parameters[par_name].value)
+
+    if args.full_fit:
+        minimization_pars = [par for par in parameters.any("all.oscprob").walkvalues()][:-1]
+        minimization_pars.extend([par for par in parameters.any("all.detector.eres").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.detector.lsnl_scale_a").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.detector.iav_offdiag_scale_factor").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.detector.detector_relative").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.reactor.energy_per_fission").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.reactor.nominal_thermal_power").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.reactor.snf_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.reactor.offequilibrium_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.reactor.fission_fraction_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters.any("all.bkg").walkvalues()])
+        minimization_pars.extend([parameters.any("all.detector.global_normalization")])
+        next_sample(storage, parameters["all.detector.global_normalization"], (1, 1))
+        chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
+        minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
+        fit = minimizer_syst.fit()
+        print(fit)
 
     minimization_pars = [parameters[par_name] for par_name in args.min_par]
     minimizer_stat = IMinuitMinimizer(chi2p_stat, parameters=minimization_pars)
     minimizer_syst = IMinuitMinimizer(chi2p_syst, parameters=minimization_pars)
-
     for stat_type, filename in args.input:
         minimizer = minimizer_stat if stat_type == "stat" else minimizer_syst
         for parameter, values in mc_parameters.items():
@@ -190,4 +155,63 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-v", "--verbose", default=0, action="count", help="verbosity level"
+    )
+
+    input = parser.add_argument_group("input", "input related options")
+    input.add_argument(
+        "--input", nargs=2, action="append", metavar=("STAT_TYPE", "FILENAME"),
+        default=[], help="input file with fit to compare to",
+    )
+    input.add_argument(
+        "--input-profile", action="append",
+        default=[], help="input file with profile to compare to",
+    )
+
+    model = parser.add_argument_group("model", "model related options")
+    model.add_argument(
+        "-s", "--source-type", "--source",
+        choices=("tsv", "hdf5", "root", "npz"), default="npz",
+        help="Data source type",
+    )
+    model.add_argument(
+        "--spec", choices=("linear", "exponential"), default="exponential",
+        help="antineutrino spectrum correction mode",
+    )
+    model.add_argument(
+        "--fission-fraction-normalized", action="store_true",
+        help="fission fraction correction",
+    )
+
+    pars = parser.add_argument_group("pars", "setup pars")
+    pars.add_argument(
+        "--par", nargs=2, action="append", default=[], help="set parameter value",
+    )
+    pars.add_argument(
+        "--min-par", nargs="*", default=[], help="choose minimization parameters",
+    )
+    pars.add_argument(
+        "--profile-par", nargs=4,
+        metavar=("PARAMETER", "LEFT_EDGE", "RIGHT_EDGE", "N_POINTS"),
+        help="choose profiling parameters",
+    )
+    pars.add_argument(
+        "--full-fit", default=None, choices=["stat", "syst"],
+        help="Fit model with all parameters",
+    )
+
+    outputs = parser.add_argument_group("outputs", "set outputs")
+    outputs.add_argument(
+        "--fit-output", help="path to save fit, without extension",
+    )
+    outputs.add_argument(
+        "--profile-output", help="path to save plot and data, without extension",
+    )
+
+    args = parser.parse_args()
+
+    main(args)
