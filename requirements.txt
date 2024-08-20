@@ -4,6 +4,7 @@ contextlib2
 coverage
 latexdatax
 matplotlib
+more-itertools
 numba
 numpy
 orderedset
