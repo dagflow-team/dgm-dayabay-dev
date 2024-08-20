@@ -1,5 +1,6 @@
 from collections.abc import Mapping, Sequence
 from itertools import product
+from more_itertools import ilen
 from pathlib import Path
 from typing import Literal
 
@@ -242,6 +243,7 @@ class model_dayabay_v0:
             outputs = storage.child("outputs")
             data = storage.child("data")
             parameters = storage("parameter")
+            parameters_nuisance = storage("parameter.normalized")
 
             # fmt: off
             #
@@ -1368,6 +1370,34 @@ class model_dayabay_v0:
                 outputs("eventscount.final.total_alltime"),
                 name="eventscount.final.total_alltime_concatenated"
             )
+
+            #
+            # Covariance matrices
+            #
+            from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
+            covariance_ad = CovarianceMatrixGroup()
+            covariance_ad.add_covariance_for("oscprob", parameters_nuisance["oscprob"])
+            covariance_ad.add_covariance_for("eres", parameters_nuisance["detector.eres"])
+            covariance_ad.add_covariance_for("lsnl", parameters_nuisance["detector.lsnl_scale_a"])
+            covariance_ad.add_covariance_for("iav", parameters_nuisance["detector.iav_offdiag_scale_factor"])
+            covariance_ad.add_covariance_for("detector_relative", parameters_nuisance["detector.detector_relative"])
+            covariance_ad.add_covariance_for("energy_per_fission", parameters_nuisance["reactor.energy_per_fission"])
+            covariance_ad.add_covariance_for("nominal_thermal_power", parameters_nuisance["reactor.nominal_thermal_power"])
+            covariance_ad.add_covariance_for("snf", parameters_nuisance["reactor.snf_scale"])
+            covariance_ad.add_covariance_for("neq", parameters_nuisance["reactor.offequilibrium_scale"])
+            covariance_ad.add_covariance_for("fission_fraction", parameters_nuisance["reactor.fission_fraction_scale"])
+            covariance_ad.add_covariance_for("bkg_rate", parameters_nuisance["bkg.rate"])
+            covariance_ad.add_covariance_for("hm_corr", parameters_nuisance["reactor_anue.spectrum_uncertainty.corr"])
+            covariance_ad.add_covariance_for("hm_uncorr", parameters_nuisance["reactor_anue.spectrum_uncertainty.uncorr"])
+            covariance_ad.add_covariance_sum()
+
+            outputs.get_value("eventscount.final.total_concatenated") >> covariance_ad
+
+            npars_cov = covariance_ad.get_parameters_count()
+            npars_nuisance = ilen(parameters_nuisance.walkitems())
+            if npars_cov!=npars_nuisance:
+                raise RuntimerError("Some parameters are missing from covariance matrix")
+
 
             #
             # Statistic
