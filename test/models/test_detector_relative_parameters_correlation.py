@@ -7,7 +7,7 @@ class CorrelatedTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        model = model_dayabay_v0(close_on_exit=True, strict=False)
+        model = model_dayabay_v0(close=True, strict=False)
         storage = model.storage
         cls.parameters_all = storage("parameter.all")
         cls.parameters_normalized = storage("parameter.normalized")
