@@ -82,18 +82,18 @@ def main(args: Namespace) -> None:
         mc_parameters.append((parameters[par_name], (par_value, parameters[par_name].value)))
 
     if args.full_fit:
-        minimization_pars = [par for par in parameters.any("all.oscprob").walkvalues()][:-1]
-        minimization_pars.extend([par for par in parameters.any("all.detector.eres").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.detector.lsnl_scale_a").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.detector.iav_offdiag_scale_factor").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.detector.detector_relative").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.reactor.energy_per_fission").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.reactor.nominal_thermal_power").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.reactor.snf_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.reactor.offequilibrium_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.reactor.fission_fraction_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters.any("all.bkg").walkvalues()])
-        minimization_pars.extend([parameters.any("all.detector.global_normalization")])
+        minimization_pars = [par for par in parameters("all.oscprob").walkvalues()][:-1]
+        minimization_pars.extend([par for par in parameters("all.detector.eres").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.detector.lsnl_scale_a").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.detector.iav_offdiag_scale_factor").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.detector.detector_relative").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.reactor.energy_per_fission").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.reactor.nominal_thermal_power").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.reactor.snf_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.reactor.offequilibrium_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.reactor.fission_fraction_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters("all.bkg").walkvalues()])
+        minimization_pars.extend([parameters.get_value("all.detector.global_normalization")])
         model.next_sample([(parameters["all.detector.global_normalization"], (1, 1.01))])
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)

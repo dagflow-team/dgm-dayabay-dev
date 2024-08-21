@@ -1475,9 +1475,9 @@ class model_dayabay_v0:
     def next_sample(self, parameters_values: list[float, tuple[float, float]]) -> None:
         storage = self.storage
         for parameter, (new_value, old_value) in parameters_values:
-            parameter.push(new_value)
+            parameter.push(float(new_value))
         for node in storage("nodes.pseudo.data").walkvalues():
             node.next_sample()
         for parameter, (new_value, old_value) in parameters_values:
-            parameter.push(old_value)
+            parameter.push(float(old_value))
 
