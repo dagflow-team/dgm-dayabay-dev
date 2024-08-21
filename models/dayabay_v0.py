@@ -1375,6 +1375,7 @@ class model_dayabay_v0:
             # Covariance matrices
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
+            covariance_ad = CovarianceMatrixGroup(store_to="covariance.detector")
             covariance_ad.add_covariance_for("oscprob", parameters_nuisance_normalized["oscprob"])
             covariance_ad.add_covariance_for("eres", parameters_nuisance_normalized["detector.eres"])
             covariance_ad.add_covariance_for("lsnl", parameters_nuisance_normalized["detector.lsnl_scale_a"])
