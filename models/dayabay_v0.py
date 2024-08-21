@@ -25,6 +25,8 @@ class model_dayabay_v0:
         "storage",
         "graph",
         "inactive_detectors",
+        "index",
+        "combinations",
         "_override_indices",
         "_path_data",
         "_source_type",
@@ -37,6 +39,8 @@ class model_dayabay_v0:
     storage: NodeStorage
     graph: Graph | None
     inactive_detectors: tuple[set[str], ...]
+    index: dict[str, tuple[str,...]]
+    combinations: dict[str, tuple[tuple[str,...],...]]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
     _source_type: SourceTypes
@@ -68,6 +72,8 @@ class model_dayabay_v0:
         self._fission_fraction_normalized = fission_fraction_normalized
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
+        self.index = {}
+        self.combinations = {}
 
         self.build()
 
@@ -98,7 +104,7 @@ class model_dayabay_v0:
         }
 
         # Provide a list of indices and their values. Values should be globally unique
-        index = {}
+        index = self.index
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
@@ -134,7 +140,7 @@ class model_dayabay_v0:
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
-        required_combinations = (
+        required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
             "reactor.isotope_offeq",
@@ -151,7 +157,7 @@ class model_dayabay_v0:
             "bkg.detector.period",
         )
         # Provide the combinations of indices
-        combinations = {}
+        combinations = self.combinations
         for combname in required_combinations:
             combitems = combname.split(".")
             items = []
