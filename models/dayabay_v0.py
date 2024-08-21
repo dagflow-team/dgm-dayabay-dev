@@ -1,9 +1,9 @@
 from collections.abc import Mapping, Sequence
 from itertools import product
-from more_itertools import ilen
 from pathlib import Path
 from typing import Literal
 
+from more_itertools import ilen
 from numpy import ndarray
 
 from dagflow.bundles.file_reader import FileReader
@@ -243,7 +243,7 @@ class model_dayabay_v0:
             outputs = storage.child("outputs")
             data = storage.child("data")
             parameters = storage("parameter")
-            parameters_nuisance = storage("parameter.normalized")
+            parameters_nuisance_normalized = storage("parameter.normalized")
 
             # fmt: off
             #
@@ -1351,24 +1351,24 @@ class model_dayabay_v0:
             Sum.replicate(
                 outputs("eventscount.final.ibd"),
                 outputs("eventscount.final.bkg"),
-                name="eventscount.final.total",
+                name="eventscount.final.by_detector_period",
                 replicate_outputs=combinations["detector.period"],
             )
 
             Concatenation.replicate(
-                outputs("eventscount.final.total"),
-                name="eventscount.final.total_concatenated",
+                outputs("eventscount.final.by_detector_period"),
+                name="eventscount.final.concatenated.detector_period",
             )
 
             Sum.replicate(
-                outputs("eventscount.final.total"),
-                name="eventscount.final.total_alltime",
+                outputs("eventscount.final.by_detector_period"),
+                name="eventscount.final.by_detector",
                 replicate_outputs=index["detector"],
             )
 
             Concatenation.replicate(
-                outputs("eventscount.final.total_alltime"),
-                name="eventscount.final.total_alltime_concatenated"
+                outputs("eventscount.final.by_detector"),
+                name="eventscount.final.concatenated.detector"
             )
 
             #
@@ -1376,25 +1376,25 @@ class model_dayabay_v0:
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
             covariance_ad = CovarianceMatrixGroup()
-            covariance_ad.add_covariance_for("oscprob", parameters_nuisance["oscprob"])
-            covariance_ad.add_covariance_for("eres", parameters_nuisance["detector.eres"])
-            covariance_ad.add_covariance_for("lsnl", parameters_nuisance["detector.lsnl_scale_a"])
-            covariance_ad.add_covariance_for("iav", parameters_nuisance["detector.iav_offdiag_scale_factor"])
-            covariance_ad.add_covariance_for("detector_relative", parameters_nuisance["detector.detector_relative"])
-            covariance_ad.add_covariance_for("energy_per_fission", parameters_nuisance["reactor.energy_per_fission"])
-            covariance_ad.add_covariance_for("nominal_thermal_power", parameters_nuisance["reactor.nominal_thermal_power"])
-            covariance_ad.add_covariance_for("snf", parameters_nuisance["reactor.snf_scale"])
-            covariance_ad.add_covariance_for("neq", parameters_nuisance["reactor.offequilibrium_scale"])
-            covariance_ad.add_covariance_for("fission_fraction", parameters_nuisance["reactor.fission_fraction_scale"])
-            covariance_ad.add_covariance_for("bkg_rate", parameters_nuisance["bkg.rate"])
-            covariance_ad.add_covariance_for("hm_corr", parameters_nuisance["reactor_anue.spectrum_uncertainty.corr"])
-            covariance_ad.add_covariance_for("hm_uncorr", parameters_nuisance["reactor_anue.spectrum_uncertainty.uncorr"])
+            covariance_ad.add_covariance_for("oscprob", parameters_nuisance_normalized["oscprob"])
+            covariance_ad.add_covariance_for("eres", parameters_nuisance_normalized["detector.eres"])
+            covariance_ad.add_covariance_for("lsnl", parameters_nuisance_normalized["detector.lsnl_scale_a"])
+            covariance_ad.add_covariance_for("iav", parameters_nuisance_normalized["detector.iav_offdiag_scale_factor"])
+            covariance_ad.add_covariance_for("detector_relative", parameters_nuisance_normalized["detector.detector_relative"])
+            covariance_ad.add_covariance_for("energy_per_fission", parameters_nuisance_normalized["reactor.energy_per_fission"])
+            covariance_ad.add_covariance_for("nominal_thermal_power", parameters_nuisance_normalized["reactor.nominal_thermal_power"])
+            covariance_ad.add_covariance_for("snf", parameters_nuisance_normalized["reactor.snf_scale"])
+            covariance_ad.add_covariance_for("neq", parameters_nuisance_normalized["reactor.offequilibrium_scale"])
+            covariance_ad.add_covariance_for("fission_fraction", parameters_nuisance_normalized["reactor.fission_fraction_scale"])
+            covariance_ad.add_covariance_for("bkg_rate", parameters_nuisance_normalized["bkg.rate"])
+            covariance_ad.add_covariance_for("hm_corr", parameters_nuisance_normalized["reactor_anue.spectrum_uncertainty.corr"])
+            covariance_ad.add_covariance_for("hm_uncorr", parameters_nuisance_normalized["reactor_anue.spectrum_uncertainty.uncorr"])
             covariance_ad.add_covariance_sum()
 
-            outputs.get_value("eventscount.final.total_concatenated") >> covariance_ad
+            outputs.get_value("eventscount.final.concatenated.detector_period") >> covariance_ad
 
             npars_cov = covariance_ad.get_parameters_count()
-            npars_nuisance = ilen(parameters_nuisance.walkitems())
+            npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
             if npars_cov!=npars_nuisance:
                 raise RuntimerError("Some parameters are missing from covariance matrix")
 
@@ -1412,7 +1412,7 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
                 replicate_inputs=combinations["detector.period"]
             )
-            outputs("eventscount.final.total") >> inputs("pseudo.data.input")
+            outputs("eventscount.final.by_detector_period") >> inputs("pseudo.data.input")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
@@ -1420,7 +1420,7 @@ class model_dayabay_v0:
                 name="statistic.stat.chi2p"
             )
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
-            outputs("eventscount.final.total") >> inputs("statistic.stat.chi2p.theory")
+            outputs("eventscount.final.by_detector_period") >> inputs("statistic.stat.chi2p.theory")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
 
             from dgf_statistics.CNPStat import CNPStat
@@ -1430,11 +1430,11 @@ class model_dayabay_v0:
                 name="statistic.staterr.cnp"
             )
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
-            outputs("eventscount.final.total") >> inputs("statistic.staterr.cnp.theory")
+            outputs("eventscount.final.by_detector_period") >> inputs("statistic.staterr.cnp.theory")
 
             Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
-            outputs("eventscount.final.total") >> inputs("statistic.stat.chi2cnp.theory")
+            outputs("eventscount.final.by_detector_period") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 
             Sum.replicate(outputs.get_value("statistic.stat.chi2p"), outputs.get_value("statistic.nuisance.all"), name="statistic.full.chi2p")
@@ -1457,9 +1457,19 @@ class model_dayabay_v0:
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
 
-    def set_parameters(self, parameter_values: dict[str, float | str] = {}):
+    def set_parameters(
+        self,
+        parameter_values: (
+            Mapping[str, float | str] | Sequence[tuple[str, float | int]]
+        ) = (),
+    ):
         parameters_storage = self.storage("parameter.all")
-        for parname, svalue in parameter_values:
+        if isinstance(parameter_values, Mapping):
+            iterable = parameter_values.items()
+        else:
+            iterable = parameter_values
+
+        for parname, svalue in iterable:
             value = float(svalue)
             par = parameters_storage[parname]
             par.push(value)
