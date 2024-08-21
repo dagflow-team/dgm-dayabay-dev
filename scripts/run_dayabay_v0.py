@@ -33,6 +33,10 @@ def main(opts: Namespace) -> None:
     graph = model.graph
     storage = model.storage
 
+    if opts.interactive:
+        from IPython import embed
+        embed(colors="neutral")
+
     if not graph.closed:
         print("Nodes")
         print(storage("nodes").to_table(truncate="auto"))
@@ -141,6 +145,11 @@ if __name__ == "__main__":
         choices=("tsv", "hdf5", "root", "npz"),
         default="tsv",
         help="Data source type",
+    )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Start IPython session",
     )
 
     plot = parser.add_argument_group("plot", "plotting related options")
