@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 
 from __future__ import annotations
-from argparse import Namespace
-from typing import TYPE_CHECKING, Sequence
 
-from dagflow.logger import INFO1, set_level
+from argparse import Namespace
+from typing import TYPE_CHECKING, Literal, Sequence
+
+from h5py import File
+
+from dagflow.lib import Jacobian, MatrixProductDDt, MatrixProductDVDt, SumMatOrDiag
+from dagflow.logger import INFO1, INFO2, INFO3, set_level
 from models.dayabay_v0 import model_dayabay_v0
 
 if TYPE_CHECKING:
+    from dagflow.node import Node
     from dagflow.output import Output
 
 set_level(INFO1)
@@ -25,29 +30,84 @@ def main(opts: Namespace) -> None:
         parameter_values=opts.setpar,
     )
 
-    prediction = model.storage["outputs.eventscount.final.total_alltime_concatenated"]
-    build_jacobian(model, prediction, opts.pars, normalized=True)
+    idx_detectors = model.index["detector"]
+    idx_detectors_periods = model.combinations["detector.period"]
+
+    prediction = model.storage["outputs.eventscount.final.concatenated.detector"]
+    jacobians = model.storage["outputs.covariance.detector.jacobians"]
+    covmats = model.storage["outputs.covariance.detector.covmat_syst"]
+
+    # prediction = model.storage["outputs.eventscount.final.concatenated.detector"]
+    # jacobians = model.storage["outputs.covariance.detector.jacobians"]
+    # covmats = model.storage["outputs.covariance.detector.covmat_syst"]
+
+    if opts.graph:
+        plot_graph([vt1, vt2], opts.graph)
+        print(f"Save graph: {opts.graph}")
 
 
 def build_jacobian(
-    model, prediction: Output, parnames: Sequence[str], *, normalized: bool
+    stat_unc2: Node,
+    model,
+    prediction: Output,
+    parnames: Sequence[str],
+    *,
+    mode: Literal["normalized", "group", "group_normalized"],
 ):
-    if normalized:
-        allpars = model.storage.get_dict("parameter.normalized")
-    else:
-        allpars = model.storage.get_dict("parameter.constrained")
+    allpars_norm = model.storage.get_dict("parameters.normalized")
+    allpars_group = model.storage.get_dict("parameters_group.constrained")
+    match mode:
+        case "normalized":
+            normalized = True
+            group = False
+        case "group_normalized":
+            normalized = True
+            group = True
+        case "group":
+            normalized = False
+            group = True
+        case _:
+            raise RuntimeError(f"Invalid mode {mode}")
 
-    from dagflow.lib.Jacobian import Jacobian
-
+    vsyst_list = []
     for parname in parnames:
-        pars = list(allpars.walkvalues(parname))
+        pars_cov = None
+        if group:
+            pargroup = allpars_group.get_value(parname)
+            assert pargroup.is_constrained
 
-        jac = Jacobian("jac", parameters=pars)
-        prediction >> jac
+            if normalized:
+                pars = pargroup.norm_parameters
+            else:
+                pars = pargroup.parameters
+                pars_cov = pargroup.constraint._covariance_node
+        else:
+            pars = list(allpars_norm.walkvalues(parname))
 
-        import IPython
+        with stat_unc2.graph.open():
+            jac = Jacobian(f"Jacobian: {parname}", parameters=pars)
+            prediction >> jac
 
-        IPython.embed(colors="neutral")
+            if normalized:
+                vsyst = MatrixProductDDt.from_args(f"V syst: {parname}", matrix=jac)
+            else:
+                vsyst = MatrixProductDVDt.from_args(
+                    f"V syst: {parname}", left=jac, square=pars_cov
+                )
+        vsyst_list.append(vsyst)
+
+    with stat_unc2.graph.open():
+        vtot = SumMatOrDiag.from_args(f"V total", stat_unc2, *vsyst_list)
+
+    return vtot
+
+
+def plot_graph(nodes: list[Node], output: str) -> None:
+    from dagflow.graphviz import GraphDot
+
+    GraphDot.from_nodes(
+        nodes, show="all", mindepth=-5, maxdepth=4, keep_direction=True
+    ).savegraph(output)
 
 
 if __name__ == "__main__":
@@ -87,5 +147,8 @@ if __name__ == "__main__":
     pars.add_argument(
         "--setpar", nargs=2, action="append", default=[], help="set parameter value"
     )
+
+    dot = parser.add_argument_group("graphviz", "plotting graphs")
+    dot.add_argument("--graph", help="plot the graph")
 
     main(parser.parse_args())
