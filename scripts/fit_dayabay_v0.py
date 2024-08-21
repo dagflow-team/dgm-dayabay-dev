@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from yaml import safe_load
 from argparse import Namespace
+from numpy import ndarray
 
 from dagflow.logger import INFO1
 from dagflow.logger import INFO2
@@ -26,6 +27,13 @@ gna_parameters_to_dagflow = {
     "dayabay.pmns.DeltaMSq23": "oscprob.DeltaMSq32",
     "dayabay.pmns.SinSqDouble13": "oscprob.SinSq2Theta13",
 }
+
+
+def _simplify_fit_dict(data: dict[str, bool | float | ndarray]) -> None:
+    for key, value in data.items():
+        if isinstance(value, ndarray):
+            data[key] = value.tolist()
+    data.pop("summary")
 
 
 def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
@@ -70,54 +78,63 @@ def main(args: Namespace) -> None:
     )
 
     storage = model.storage
-    parameters = model.storage("parameter")
+    parameters = model.storage("parameter.all")
     statistic = model.storage("outputs.statistic")
 
     from yaml import safe_dump
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
     chi2p_stat = statistic["stat.chi2p"]
     chi2p_syst = statistic["full.chi2p"]
-    mc_parameters = []
-    for (par_name, par_value) in args.par:
-        mc_parameters.append((parameters[par_name], (par_value, parameters[par_name].value)))
 
     if args.full_fit:
-        minimization_pars = [par for par in parameters("all.oscprob").walkvalues()][:-1]
-        minimization_pars.extend([par for par in parameters("all.detector.eres").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.detector.lsnl_scale_a").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.detector.iav_offdiag_scale_factor").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.detector.detector_relative").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.reactor.energy_per_fission").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.reactor.nominal_thermal_power").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.reactor.snf_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.reactor.offequilibrium_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.reactor.fission_fraction_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("all.bkg").walkvalues()])
-        minimization_pars.extend([parameters.get_value("all.detector.global_normalization")])
-        model.next_sample([(parameters["all.detector.global_normalization"], (1, 1.01))])
+        minimization_pars = [par for par in parameters("oscprob").walkvalues()][:-1]
+        minimization_pars.extend([par for par in parameters("detector.eres").walkvalues()])
+        minimization_pars.extend([par for par in parameters("detector.lsnl_scale_a").walkvalues()])
+        minimization_pars.extend([par for par in parameters("detector.iav_offdiag_scale_factor").walkvalues()])
+        minimization_pars.extend([par for par in parameters("detector.detector_relative").walkvalues()])
+        minimization_pars.extend([par for par in parameters("reactor.energy_per_fission").walkvalues()])
+        minimization_pars.extend([par for par in parameters("reactor.nominal_thermal_power").walkvalues()])
+        minimization_pars.extend([par for par in parameters("reactor.snf_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters("reactor.offequilibrium_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters("reactor.fission_fraction_scale").walkvalues()])
+        minimization_pars.extend([par for par in parameters("bkg").walkvalues()])
+        minimization_pars.extend([parameters.get_value("detector.global_normalization")])
+        model.set_parameters({"detector.global_normalization": 1.})
+        model.next_sample()
+        model.set_parameters({"detector.global_normalization": 1.})
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
         fit = minimizer.fit()
         print(fit)
+        if args.full_fit_output:
+            _simplify_fit_dict(dagflow_fit)
+            dagflow_fit = dict(**dagflow_fit)
+            with open(f"{args.full_fit_output}-{stat_type}.yaml", "w") as f:
+                safe_dump(dagflow_fit, f)
 
     minimization_pars = [parameters[par_name] for par_name in args.min_par]
     minimizer_stat = IMinuitMinimizer(chi2p_stat, parameters=minimization_pars)
     minimizer_syst = IMinuitMinimizer(chi2p_syst, parameters=minimization_pars)
     for stat_type, filename in args.input:
         minimizer = minimizer_stat if stat_type == "stat" else minimizer_syst
-        for parameter in mc_parameters:
-            model.next_sample([parameter])
+        for par_name, par_value in args.par:
+            par_value_init = parameters[par_name].value
+            model.set_parameters({par_name: par_value})
+            model.next_sample()
+            model.set_parameters({par_name: par_value_init})
             dagflow_fit = minimizer.fit()
             print(f"Fit {stat_type}:{'GNA':>17}{'dag-flow':>12}  relative-error")
             compare_gna(dagflow_fit, filename)
             minimizer.push_initial_values()
             if args.fit_output:
+                _simplify_fit_dict(dagflow_fit)
+                dagflow_fit = dict(**dagflow_fit)
                 with open(f"{args.fit_output}-{stat_type}.yaml", "w") as f:
-                    safe_dump(fit, f)
+                    safe_dump(dagflow_fit, f)
 
     if args.profile_par:
-        parameter, l_edge, r_edge, n_points = args.profile_par
-        profile_parameter = parameters[parameter]
+        profile_parameter_str, l_edge, r_edge, n_points = args.profile_par
+        profile_parameter = parameters[profile_parameter_str]
 
         assert profile_parameter not in minimization_pars, "You can not minimize profiling parameter"
 
@@ -126,7 +143,9 @@ def main(args: Namespace) -> None:
         profile_values = linspace(float(l_edge), float(r_edge), int(n_points))
         chi2_stat_values = []
         chi2_syst_values = []
-        model.next_sample([(profile_parameter, (profile_parameter.value, profile_parameter.value))])
+        model.set_parameters({profile_parameter_str: profile_parameter.value})
+        model.next_sample()
+        model.set_parameters({profile_parameter_str: profile_parameter.value})
         for value in profile_values:
             for chi2_values, minimizer in zip([chi2_stat_values, chi2_syst_values], [minimizer_stat, minimizer_syst]):
                 profile_parameter.value = value
@@ -200,6 +219,9 @@ if __name__ == "__main__":
     outputs = parser.add_argument_group("outputs", "set outputs")
     outputs.add_argument(
         "--fit-output", help="path to save fit, without extension",
+    )
+    outputs.add_argument(
+        "--full-fit-output", help="path to save full fit, without extension",
     )
     outputs.add_argument(
         "--profile-output", help="path to save plot and data, without extension",
