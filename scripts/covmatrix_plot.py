@@ -26,7 +26,7 @@ def main(opts: Namespace) -> None:
             elements = tuple(l.decode() for l in elements0)
         else:
             elements = tuple(
-                f"{l[0].decode()[-1]},{l[1].decode()[0]}" for l in elements0
+                f"{l[0].decode()[-2:]}:{l[1].decode()[0]}" for l in elements0
             )
     except KeyError:
         elements = None
@@ -35,8 +35,12 @@ def main(opts: Namespace) -> None:
     # edges = group["edges"][:]
     # widths = edges[1:] - edges[:-1]
 
-    figsize_1d = (12, 6)
-    figsize_2d = (8, 8)
+    if opts.mode == "detector":
+        figsize_1d = (12, 6)
+        figsize_2d = (6, 6)
+    else:
+        figsize_1d = (18, 6)
+        figsize_2d = (12, 12)
     plt.figure(figsize=figsize_1d)
     ax = plt.subplot(111, xlabel="", ylabel="entries", title="Model")
     ax.grid(axis="y")
@@ -73,7 +77,7 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=rf"Relatibe covariance matrix {name}, %²",
+            title=rf"Relative covariance matrix {name}, %²",
         )
         pcolorfast_with_blocks(matrix_cov_rel, blocks=elements)
 
