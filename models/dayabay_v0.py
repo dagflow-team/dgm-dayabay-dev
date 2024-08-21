@@ -242,8 +242,8 @@ class model_dayabay_v0:
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
             data = storage.child("data")
-            parameters = storage("parameter")
-            parameters_nuisance_normalized = storage("parameter.normalized")
+            parameters = storage("parameters")
+            parameters_nuisance_normalized = storage("parameters.normalized")
 
             # fmt: off
             #
@@ -298,8 +298,8 @@ class model_dayabay_v0:
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
             ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
-            ibd << storage("parameter.constant.ibd")
-            ibd << storage("parameter.constant.ibd.csc")
+            ibd << storage("parameters.constant.ibd")
+            ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics_sampler.mesh_edep") >> ibd.inputs["edep"]
             outputs.get_value("kinematics_sampler.mesh_costheta") >> ibd.inputs["costheta"]
             kinematic_integrator_enu = ibd.outputs["enu"]
@@ -1116,8 +1116,8 @@ class model_dayabay_v0:
                 parameters("all.detector.detector_relative"),
                 outputs.child("detector.parameters_relative"),
                 reorder_indices=[
-                    ["detector", "parameter"],
-                    ["parameter", "detector"],
+                    ["detector", "parameters"],
+                    ["parameters", "detector"],
                 ],
             )
 
@@ -1375,7 +1375,6 @@ class model_dayabay_v0:
             # Covariance matrices
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            covariance_ad = CovarianceMatrixGroup()
             covariance_ad.add_covariance_for("oscprob", parameters_nuisance_normalized["oscprob"])
             covariance_ad.add_covariance_for("eres", parameters_nuisance_normalized["detector.eres"])
             covariance_ad.add_covariance_for("lsnl", parameters_nuisance_normalized["detector.lsnl_scale_a"])
@@ -1463,7 +1462,7 @@ class model_dayabay_v0:
             Mapping[str, float | str] | Sequence[tuple[str, float | int]]
         ) = (),
     ):
-        parameters_storage = self.storage("parameter.all")
+        parameters_storage = self.storage("parameters.all")
         if isinstance(parameter_values, Mapping):
             iterable = parameter_values.items()
         else:
