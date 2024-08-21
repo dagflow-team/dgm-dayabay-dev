@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 from argparse import Namespace
-from typing import TYPE_CHECKING, Literal, Sequence
 
 from h5py import File
 
-from dagflow.lib import Jacobian, MatrixProductDDt, MatrixProductDVDt, SumMatOrDiag
-from dagflow.logger import INFO1, INFO2, INFO3, set_level
+from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
 from models.dayabay_v0 import model_dayabay_v0
-
-if TYPE_CHECKING:
-    from dagflow.node import Node
-    from dagflow.output import Output
 
 set_level(INFO1)
 
@@ -30,90 +24,44 @@ def main(opts: Namespace) -> None:
         parameter_values=opts.setpar,
     )
 
-    idx_detectors = model.index["detector"]
-    idx_detectors_periods = model.combinations["detector.period"]
+    ofile = File(opts.output, "w")
 
-    prediction = model.storage["outputs.eventscount.final.concatenated.detector"]
-    jacobians = model.storage["outputs.covariance.detector.jacobians"]
-    covmats = model.storage["outputs.covariance.detector.covmat_syst"]
+    outputs = model.storage["outputs"]
+    for mode in ("detector", "detector_period"):
+        edges = outputs[f"edges.energy_final"]
+        prediction = outputs[f"eventscount.final.concatenated.{mode}"]
+        jacobians = outputs[f"covariance.{mode}.jacobians"]
+        covmats = outputs[f"covariance.{mode}.covmat_syst"]
 
-    # prediction = model.storage["outputs.eventscount.final.concatenated.detector"]
-    # jacobians = model.storage["outputs.covariance.detector.jacobians"]
-    # covmats = model.storage["outputs.covariance.detector.covmat_syst"]
+        idx_tuple = (
+            model.index["detector"]
+            if mode == "detector"
+            else model.combinations["detector.period"]
+        )
+        # idx_str = tuple(".".join(idx) for idx in idx_tuple)
 
-    if opts.graph:
-        plot_graph([vt1, vt2], opts.graph)
-        print(f"Save graph: {opts.graph}")
+        group = ofile.create_group(mode)
 
+        group.create_dataset("elements", data=idx_tuple)
+        group.create_dataset("edges", data=edges.data)
+        group.create_dataset("model", data=prediction.data)
 
-def build_jacobian(
-    stat_unc2: Node,
-    model,
-    prediction: Output,
-    parnames: Sequence[str],
-    *,
-    mode: Literal["normalized", "group", "group_normalized"],
-):
-    allpars_norm = model.storage.get_dict("parameters.normalized")
-    allpars_group = model.storage.get_dict("parameters_group.constrained")
-    match mode:
-        case "normalized":
-            normalized = True
-            group = False
-        case "group_normalized":
-            normalized = True
-            group = True
-        case "group":
-            normalized = False
-            group = True
-        case _:
-            raise RuntimeError(f"Invalid mode {mode}")
+        for name, jacobian in jacobians.items():
+            logger.info(f"Compute {name} ({mode}), {jacobian.dd.shape[1]} pars")
+            group.create_dataset(f"jacobians/{name}", data=jacobian.data)
 
-    vsyst_list = []
-    for parname in parnames:
-        pars_cov = None
-        if group:
-            pargroup = allpars_group.get_value(parname)
-            assert pargroup.is_constrained
+        for name, covmat in covmats.items():
+            group.create_dataset(f"covmat_syst/{name}", data=covmat.data)
 
-            if normalized:
-                pars = pargroup.norm_parameters
-            else:
-                pars = pargroup.parameters
-                pars_cov = pargroup.constraint._covariance_node
-        else:
-            pars = list(allpars_norm.walkvalues(parname))
-
-        with stat_unc2.graph.open():
-            jac = Jacobian(f"Jacobian: {parname}", parameters=pars)
-            prediction >> jac
-
-            if normalized:
-                vsyst = MatrixProductDDt.from_args(f"V syst: {parname}", matrix=jac)
-            else:
-                vsyst = MatrixProductDVDt.from_args(
-                    f"V syst: {parname}", left=jac, square=pars_cov
-                )
-        vsyst_list.append(vsyst)
-
-    with stat_unc2.graph.open():
-        vtot = SumMatOrDiag.from_args(f"V total", stat_unc2, *vsyst_list)
-
-    return vtot
-
-
-def plot_graph(nodes: list[Node], output: str) -> None:
-    from dagflow.graphviz import GraphDot
-
-    GraphDot.from_nodes(
-        nodes, show="all", mindepth=-5, maxdepth=4, keep_direction=True
-    ).savegraph(output)
+    ofile.close()
+    print(f"Save output file: {opts.output}")
 
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
+    parser.add_argument("output", help="output h5py file")
     parser.add_argument(
         "-v", "--verbose", default=0, action="count", help="verbosity level"
     )
@@ -138,17 +86,9 @@ if __name__ == "__main__":
         help="fission fraction correction",
     )
 
-    covariance = parser.add_argument_group("covariance", "covariance options")
-    covariance.add_argument(
-        "-p", "--pars", nargs="+", default=[], help="parameters for covariance matrix"
-    )
-
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
         "--setpar", nargs=2, action="append", default=[], help="set parameter value"
     )
-
-    dot = parser.add_argument_group("graphviz", "plotting graphs")
-    dot.add_argument("--graph", help="plot the graph")
 
     main(parser.parse_args())
