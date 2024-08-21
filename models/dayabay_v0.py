@@ -1471,3 +1471,13 @@ class model_dayabay_v0:
             par = parameters_storage[parname]
             par.push(value)
             print(f"Set {parname}={svalue}")
+
+    def next_sample(self, parameters_values: list[float, tuple[float, float]]) -> None:
+        storage = self.storage
+        for parameter, (new_value, old_value) in parameters_values:
+            parameter.push(new_value)
+        for node in storage("nodes.pseudo.data").walkvalues():
+            node.next_sample()
+        for parameter, (new_value, old_value) in parameters_values:
+            parameter.push(old_value)
+
