@@ -165,7 +165,7 @@ class Comparator:
             set_level(globals()[f"INFO{opts.verbose}"])
 
         self.outputs_dgf = self.model.storage("outputs")
-        self.parameters_dgf = self.model.storage("parameter.all")
+        self.parameters_dgf = self.model.storage("parameters.all")
 
         with suppress(StopIteration):
             self.compare(
