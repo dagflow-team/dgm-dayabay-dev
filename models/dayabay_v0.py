@@ -1433,7 +1433,7 @@ class model_dayabay_v0:
                 name="cholesky.model",
                 replicate_outputs=combinations["detector.period"],
             )
-            outputs("eventscount.final.by_detector_period") >> inputs("cholesky.model")
+            outputs("eventscount.final.detector_period") >> inputs("cholesky.model")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
