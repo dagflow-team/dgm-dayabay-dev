@@ -1410,7 +1410,7 @@ class model_dayabay_v0:
             npars_cov = covariance_detector.get_parameters_count()
             npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
             if npars_cov!=npars_nuisance:
-                raise RuntimerError("Some parameters are missing from covariance matrix")
+                raise RuntimeError("Some parameters are missing from covariance matrix")
 
 
             #
