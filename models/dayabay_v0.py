@@ -1409,8 +1409,6 @@ class model_dayabay_v0:
 
             npars_cov = covariance_detector.get_parameters_count()
             npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
-            if npars_cov!=npars_nuisance:
-                raise RuntimeError("Some parameters are missing from covariance matrix")
 
 
             #
@@ -1421,28 +1419,53 @@ class model_dayabay_v0:
 
             from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
-                name="pseudo.data",
+                name="pseudo.data.detector_period",
                 mode="asimov",
                 replicate_outputs=combinations["detector.period"],
-                replicate_inputs=combinations["detector.period"]
+                replicate_inputs=combinations["detector.period"],
             )
-            outputs("eventscount.final.detector_period") >> inputs("pseudo.data.input")
+            outputs("eventscount.final.detector_period") >> inputs("pseudo.data.detector_period.input")
+
+            MonteCarlo.replicate(
+                name="pseudo.data.concatenated.detector",
+                mode="asimov",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("pseudo.data.concatenated.detector.input")
+
+            MonteCarlo.replicate(
+                name="covariance.data.concatenated.detector",
+                mode="asimov",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("covariance.data.concatenated.detector.input")
 
             from dagflow.lib.Cholesky import Cholesky
             Cholesky.replicate(
-                name="cholesky.model",
+                name="cholesky.stat.detector_period",
                 replicate_outputs=combinations["detector.period"],
             )
-            outputs("eventscount.final.detector_period") >> inputs("cholesky.model")
+            outputs("eventscount.final.detector_period") >> inputs("cholesky.stat.detector_period")
+
+            from dagflow.lib.SumMatOrDiag import SumMatOrDiag
+            SumMatOrDiag.replicate(name="covariance.detector.covmat_full")
+            outputs.get_value("covariance.data.concatenated.detector") >> nodes.get_value("covariance.detector.covmat_full")
+            outputs.get_value("covariance.detector.covmat_syst.sum") >> nodes.get_value("covariance.detector.covmat_full")
+
+            Cholesky.replicate(name="cholesky.covmat.full")
+            outputs.get_value("covariance.detector.covmat_full") >> inputs.get_value("cholesky.covmat.full")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
                 replicate_inputs=combinations["detector.period"],
-                name="statistic.stat.chi2p"
+                name="statistic.stat.chi2p",
             )
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
             outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2p.theory")
-            outputs("cholesky.model") >> inputs("statistic.stat.chi2p.errors")
+            outputs("cholesky.stat.detector_period") >> inputs("statistic.stat.chi2p.errors")
+            outputs("pseudo.data.detector_period") >> inputs("statistic.stat.chi2p.data")
+
+            Chi2.replicate(name="statistic.full.chi2p_covmat")
+            outputs.get_value("pseudo.data.concatenated.detector") >> inputs.get_value("statistic.full.chi2p_covmat.data")
+            outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("statistic.full.chi2p_covmat.theory")
+            outputs.get_value("cholesky.covmat.full") >> inputs.get_value("statistic.full.chi2p_covmat.errors")
 
             from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate(
@@ -1450,11 +1473,11 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
                 name="statistic.staterr.cnp"
             )
-            outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
+            outputs("pseudo.data.detector_period") >> inputs("statistic.staterr.cnp.data")
             outputs("eventscount.final.detector_period") >> inputs("statistic.staterr.cnp.theory")
 
             Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
+            outputs("pseudo.data.detector_period") >> inputs("statistic.stat.chi2cnp.data")
             outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 
