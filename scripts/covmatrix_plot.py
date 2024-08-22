@@ -7,9 +7,11 @@ from typing import TYPE_CHECKING
 
 from h5py import File
 from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from numpy import arange, diagonal, isnan
 from numpy.typing import NDArray
 
+from dagflow.logger import logger
 from dagflow.plot import add_colorbar
 
 if TYPE_CHECKING:
@@ -32,8 +34,15 @@ def main(opts: Namespace) -> None:
         elements = None
 
     model = group["model"][:]
-    # edges = group["edges"][:]
+    edges = group["edges"][:]
+    blocksize = edges.size - 1
     # widths = edges[1:] - edges[:-1]
+
+    if opts.output:
+        pdf = PdfPages(opts.output)
+        pdf.__enter__()
+    else:
+        pdf = None
 
     if opts.mode == "detector":
         figsize_1d = (12, 6)
@@ -45,32 +54,57 @@ def main(opts: Namespace) -> None:
     ax = plt.subplot(111, xlabel="", ylabel="entries", title="Model")
     ax.grid(axis="y")
     stairs_with_blocks(model, blocks=elements)
+    if pdf:
+        pdf.savefig()
 
     for name, matrix_cov in group["covmat_syst"].items():
         matrix_cov = matrix_cov[:]
-        array_sigma = diagonal(matrix_cov) ** 0.5
-        array_sigma_rel = 100 * (array_sigma / model)
-        matrix_cor = matrix_cov / array_sigma[None, :] / array_sigma[:, None]
-        matrix_cor[isnan(matrix_cor)] = 0.0
-        matrix_cov_rel = 100 * 100 * (matrix_cov / model[None, :] / model[:, None])
-
-        plt.figure(figsize=figsize_1d)
-        ax = plt.subplot(111, xlabel="", ylabel=r"$\sigma$", title="Uncertainty")
-        ax.grid(axis="y")
-        stairs_with_blocks(array_sigma, blocks=elements)
+        (
+            array_sigma,
+            array_sigma_rel,
+            matrix_cov_rel,
+            matrix_cor,
+            bmatrix_cov,
+            barray_sigma,
+            bmatrix_cor,
+        ) = covariance_get_matrices(matrix_cov, model, blocksize)
 
         plt.figure(figsize=figsize_1d)
         ax = plt.subplot(
-            111, xlabel="", ylabel=r"$\sigma$, %", title="Relative uncertainty"
+            111, xlabel="", ylabel=r"$\sigma$", title=f"Uncertainty {name} (diagonal)"
+        )
+        ax.grid(axis="y")
+        stairs_with_blocks(array_sigma, blocks=elements)
+        if pdf:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_1d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel=r"$\sigma$, %",
+            title=f"Relative uncertainty {name} (diagonal)",
         )
         ax.grid(axis="y")
         stairs_with_blocks(array_sigma_rel, blocks=elements)
+        if pdf:
+            pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
             111, xlabel="", ylabel="bin", title=f"Covariance matrix {name}"
         )
-        pcolorfast_with_blocks(matrix_cov, blocks=elements)
+        pcolor_with_blocks(matrix_cov, blocks=elements)
+        if pdf:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111, xlabel="", ylabel="bin", title=f"Covariance matrix {name} (blocks)"
+        )
+        pcolor_with_blocks(bmatrix_cov, blocks=elements)
+        if pdf:
+            pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
@@ -79,18 +113,114 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=rf"Relative covariance matrix {name}, %²",
         )
-        pcolorfast_with_blocks(matrix_cov_rel, blocks=elements)
+        pcolor_with_blocks(matrix_cov_rel, blocks=elements)
+        if pdf:
+            pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
             111, xlabel="", ylabel="bin", title=f"Correlation matrix {name}"
         )
-        pcolorfast_with_blocks(matrix_cor, blocks=elements)
+        pcolor_with_blocks(matrix_cor, blocks=elements)
+        if pdf:
+            pdf.savefig()
 
-        plt.show()
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111, xlabel="", ylabel="bin", title=f"Correlation matrix {name} (blocks)"
+        )
+        hm = pcolor_with_blocks(bmatrix_cor, blocks=elements)
+        heatmap_show_values(hm)
+
+        logger.info(f"Plot {name}")
+
+        if pdf:
+            pdf.savefig()
+
+        if opts.show:
+            plt.show()
+
+        if not opts.show:
+            plt.close("all")
+
+    if pdf:
+        pdf.__exit__(None, None, None)
+        logger.info(f"Write output file: {opts.output}")
 
     if opts.show:
         plt.show()
+
+
+def covariance_get_matrices(
+    matrix_cov: NDArray, model: NDArray, blocksize: int
+) -> tuple[
+    NDArray,
+    NDArray,
+    NDArray,
+    NDArray,
+    NDArray,
+    NDArray,
+    NDArray,
+]:
+    array_sigma = diagonal(matrix_cov) ** 0.5
+    array_sigma_rel = 100 * (array_sigma / model)
+    matrix_cor = matrix_cov / array_sigma[None, :] / array_sigma[:, None]
+    matrix_cor[isnan(matrix_cor)] = 0.0
+    matrix_cov_rel = 100 * 100 * (matrix_cov / model[None, :] / model[:, None])
+
+    bmatrix_cov = matrix_sum_blocks(matrix_cov, blocksize=blocksize)
+    barray_sigma = diagonal(bmatrix_cov) ** 0.5
+    bmatrix_cor = bmatrix_cov / barray_sigma[None, :] / barray_sigma[:, None]
+    bmatrix_cor[isnan(bmatrix_cor)] = 0.0
+
+    return (
+        array_sigma,
+        array_sigma_rel,
+        matrix_cov_rel,
+        matrix_cor,
+        bmatrix_cov,
+        barray_sigma,
+        bmatrix_cor,
+    )
+
+
+def heatmap_show_values(pc: "QuadMesh", fmt: str = "%.2f", **kwargs):
+    from numpy import mean
+
+    pc.update_scalarmappable()
+    ax = plt.gca()
+    for p, color, value in zip(pc.get_paths(), pc.get_facecolors(), pc.get_array().flatten()):
+        x, y = p.vertices[:-1].mean(0)
+        x -= 0.1 * (p.vertices[2, 0] - p.vertices[1, 0])
+        if mean(color[:3]) > 0.5:
+            color = (0.0, 0.0, 0.0)
+        else:
+            color = (1.0, 1.0, 1.0)
+        ax.text(x, y, fmt % value, ha="center", va="center", color=color, **kwargs)
+
+
+from numba import njit
+from numpy import empty
+
+
+@njit
+def matrix_sum_blocks(matrix: NDArray, blocksize: int) -> NDArray:
+    nr, nc = matrix.shape
+    assert nr == nc
+    assert (nr % blocksize) == 0
+
+    nblocks = nr // blocksize
+    ret = empty((nblocks, nblocks), dtype=matrix.dtype)
+    for row in range(nblocks):
+        for col in range(nblocks):
+            row1 = row * blocksize
+            row2 = row1 + blocksize
+            col1 = col * blocksize
+            col2 = col1 + blocksize
+
+            ret[row, col] = matrix[row1:row2, col1:col2].sum()
+
+    return ret
 
 
 def stairs_with_blocks(
@@ -103,7 +233,7 @@ def stairs_with_blocks(
     _plot_separators("x", xs, blocks, **sep_kwargs)
 
 
-def pcolorfast_with_blocks(
+def pcolor_with_blocks(
     data: NDArray,
     /,
     *args,
@@ -115,18 +245,27 @@ def pcolorfast_with_blocks(
     from numpy import fabs
     from numpy.ma import array
 
-    data = array(data, mask=(fabs(data) < 1.0e-9))
+    fdata = fabs(data)
+    dmin = data.min()
+    dmax = data.max()
+
+    bound = max(fabs(dmin), dmax)
+    vmin, vmax = -bound, bound
+
+    data = array(data, mask=(fdata < 1.0e-9))
     ax = plt.gca()
     ax.set_aspect("equal")
-    hm = ax.pcolorfast(data, *args, **kwargs)
+    hm = ax.pcolormesh(data, *args, vmin=vmin, vmax=vmax, **kwargs)
     if colorbar:
         add_colorbar(hm)
     ax.set_ylim(*reversed(ax.get_ylim()))
 
-    sep_kwargs = dict({"color": "white"}, **kwargs)
+    sep_kwargs = dict({"color": "red"}, **kwargs)
     positions = _get_blocks_data(data.shape[0], blocks)
     _plot_separators("x", positions, blocks, **sep_kwargs)
     _plot_separators("y", positions, blocks, **sep_kwargs)
+
+    return hm
 
 
 def _get_blocks_data(size: int, blocks: Sequence[str]) -> NDArray:
@@ -145,18 +284,33 @@ def _plot_separators(
     ypos: float = -0.1,
     **kwargs,
 ):
+    textopts = {"fontsize": "small"}
     ax = plt.gca()
     if axis == "x":
         linefcn = ax.axvline
 
         def textfcn(pos: float, text: str):
-            ax.text(pos, ypos, text, transform=ax.get_xaxis_transform(), ha="center")
+            ax.text(
+                pos,
+                ypos,
+                text,
+                transform=ax.get_xaxis_transform(),
+                ha="center",
+                **textopts,
+            )
 
     elif axis == "y":
         linefcn = ax.axhline
 
         def textfcn(pos: float, text: str):
-            ax.text(xpos, pos, text, transform=ax.get_yaxis_transform(), va="center")
+            ax.text(
+                xpos,
+                pos,
+                text,
+                transform=ax.get_yaxis_transform(),
+                va="center",
+                **textopts,
+            )
 
     else:
         raise ValueError(axis)
@@ -207,7 +361,7 @@ if __name__ == "__main__":
         choices=("detector", "detector_period"),
         help="mode",
     )
-    parser.add_argument("-o", "--output", help="output folder file")
+    parser.add_argument("-o", "--output", help="output pdf file")
     parser.add_argument("-s", "--show", action="store_true")
 
     main(parser.parse_args())
