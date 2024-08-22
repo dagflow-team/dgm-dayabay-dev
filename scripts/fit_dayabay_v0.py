@@ -78,7 +78,7 @@ def main(args: Namespace) -> None:
     )
 
     storage = model.storage
-    parameters = model.storage("parameter.all")
+    parameters = model.storage("parameters.all")
     statistic = model.storage("outputs.statistic")
 
     from yaml import safe_dump

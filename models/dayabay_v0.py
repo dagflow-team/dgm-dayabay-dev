@@ -1,9 +1,9 @@
 from collections.abc import Mapping, Sequence
 from itertools import product
-from more_itertools import ilen
 from pathlib import Path
 from typing import Literal
 
+from more_itertools import ilen
 from numpy import ndarray
 
 from dagflow.bundles.file_reader import FileReader
@@ -25,6 +25,8 @@ class model_dayabay_v0:
         "storage",
         "graph",
         "inactive_detectors",
+        "index",
+        "combinations",
         "_override_indices",
         "_path_data",
         "_source_type",
@@ -37,6 +39,8 @@ class model_dayabay_v0:
     storage: NodeStorage
     graph: Graph | None
     inactive_detectors: tuple[set[str], ...]
+    index: dict[str, tuple[str,...]]
+    combinations: dict[str, tuple[tuple[str,...],...]]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
     _source_type: SourceTypes
@@ -68,6 +72,8 @@ class model_dayabay_v0:
         self._fission_fraction_normalized = fission_fraction_normalized
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
+        self.index = {}
+        self.combinations = {}
 
         self.build()
 
@@ -98,7 +104,7 @@ class model_dayabay_v0:
         }
 
         # Provide a list of indices and their values. Values should be globally unique
-        index = {}
+        index = self.index
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
         index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
@@ -134,7 +140,7 @@ class model_dayabay_v0:
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
-        required_combinations = (
+        required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
             "reactor.isotope_offeq",
@@ -151,7 +157,7 @@ class model_dayabay_v0:
             "bkg.detector.period",
         )
         # Provide the combinations of indices
-        combinations = {}
+        combinations = self.combinations
         for combname in required_combinations:
             combitems = combname.split(".")
             items = []
@@ -242,8 +248,8 @@ class model_dayabay_v0:
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
             data = storage.child("data")
-            parameters = storage("parameter")
-            parameters_nuisance = storage("parameter.normalized")
+            parameters = storage("parameters")
+            parameters_nuisance_normalized = storage("parameters.normalized")
 
             # fmt: off
             #
@@ -298,8 +304,8 @@ class model_dayabay_v0:
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
             ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
-            ibd << storage("parameter.constant.ibd")
-            ibd << storage("parameter.constant.ibd.csc")
+            ibd << storage("parameters.constant.ibd")
+            ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics_sampler.mesh_edep") >> ibd.inputs["edep"]
             outputs.get_value("kinematics_sampler.mesh_costheta") >> ibd.inputs["costheta"]
             kinematic_integrator_enu = ibd.outputs["enu"]
@@ -1116,8 +1122,8 @@ class model_dayabay_v0:
                 parameters("all.detector.detector_relative"),
                 outputs.child("detector.parameters_relative"),
                 reorder_indices=[
-                    ["detector", "parameter"],
-                    ["parameter", "detector"],
+                    ["detector", "parameters"],
+                    ["parameters", "detector"],
                 ],
             )
 
@@ -1351,52 +1357,60 @@ class model_dayabay_v0:
             Sum.replicate(
                 outputs("eventscount.final.ibd"),
                 outputs("eventscount.final.bkg"),
-                name="eventscount.final.total",
+                name="eventscount.final.by_detector_period",
                 replicate_outputs=combinations["detector.period"],
             )
 
             Concatenation.replicate(
-                outputs("eventscount.final.total"),
-                name="eventscount.final.total_concatenated",
+                outputs("eventscount.final.by_detector_period"),
+                name="eventscount.final.concatenated.detector_period",
             )
 
             Sum.replicate(
-                outputs("eventscount.final.total"),
-                name="eventscount.final.total_alltime",
+                outputs("eventscount.final.by_detector_period"),
+                name="eventscount.final.by_detector",
                 replicate_outputs=index["detector"],
             )
 
             Concatenation.replicate(
-                outputs("eventscount.final.total_alltime"),
-                name="eventscount.final.total_alltime_concatenated"
+                outputs("eventscount.final.by_detector"),
+                name="eventscount.final.concatenated.detector"
             )
 
             #
             # Covariance matrices
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            covariance_ad = CovarianceMatrixGroup()
-            covariance_ad.add_covariance_for("oscprob", parameters_nuisance["oscprob"])
-            covariance_ad.add_covariance_for("eres", parameters_nuisance["detector.eres"])
-            covariance_ad.add_covariance_for("lsnl", parameters_nuisance["detector.lsnl_scale_a"])
-            covariance_ad.add_covariance_for("iav", parameters_nuisance["detector.iav_offdiag_scale_factor"])
-            covariance_ad.add_covariance_for("detector_relative", parameters_nuisance["detector.detector_relative"])
-            covariance_ad.add_covariance_for("energy_per_fission", parameters_nuisance["reactor.energy_per_fission"])
-            covariance_ad.add_covariance_for("nominal_thermal_power", parameters_nuisance["reactor.nominal_thermal_power"])
-            covariance_ad.add_covariance_for("snf", parameters_nuisance["reactor.snf_scale"])
-            covariance_ad.add_covariance_for("neq", parameters_nuisance["reactor.offequilibrium_scale"])
-            covariance_ad.add_covariance_for("fission_fraction", parameters_nuisance["reactor.fission_fraction_scale"])
-            covariance_ad.add_covariance_for("bkg_rate", parameters_nuisance["bkg.rate"])
-            covariance_ad.add_covariance_for("hm_corr", parameters_nuisance["reactor_anue.spectrum_uncertainty.corr"])
-            covariance_ad.add_covariance_for("hm_uncorr", parameters_nuisance["reactor_anue.spectrum_uncertainty.uncorr"])
-            covariance_ad.add_covariance_sum()
+            covariance_detector = CovarianceMatrixGroup(store_to="covariance.detector")
+            covariance_detector_period = CovarianceMatrixGroup(store_to="covariance.detector_period")
 
-            outputs.get_value("eventscount.final.total_concatenated") >> covariance_ad
+            for name, parameters_source in (
+                    ("oscprob", "oscprob"),
+                    ("eres", "detector.eres"),
+                    ("lsnl", "detector.lsnl_scale_a"),
+                    ("iav", "detector.iav_offdiag_scale_factor"),
+                    ("detector_relative", "detector.detector_relative"),
+                    ("energy_per_fission", "reactor.energy_per_fission"),
+                    ("nominal_thermal_power", "reactor.nominal_thermal_power"),
+                    ("snf", "reactor.snf_scale"),
+                    ("neq", "reactor.offequilibrium_scale"),
+                    ("fission_fraction", "reactor.fission_fraction_scale"),
+                    ("bkg_rate", "bkg.rate"),
+                    ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
+                    ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr")
+                    ):
+                covariance_detector.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
+                covariance_detector_period.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
+            covariance_detector.add_covariance_sum()
+            covariance_detector_period.add_covariance_sum()
 
-            npars_cov = covariance_ad.get_parameters_count()
-            npars_nuisance = ilen(parameters_nuisance.walkitems())
+            outputs.get_value("eventscount.final.concatenated.detector") >> covariance_detector
+            outputs.get_value("eventscount.final.concatenated.detector_period") >> covariance_detector_period
+
+            npars_cov = covariance_detector.get_parameters_count()
+            npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
             if npars_cov!=npars_nuisance:
-                raise RuntimerError("Some parameters are missing from covariance matrix")
+                raise RuntimeError("Some parameters are missing from covariance matrix")
 
 
             #
@@ -1412,14 +1426,14 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
                 replicate_inputs=combinations["detector.period"]
             )
-            outputs("eventscount.final.total") >> inputs("pseudo.data.input")
+            outputs("eventscount.final.by_detector_period") >> inputs("pseudo.data.input")
 
             from dagflow.lib.Cholesky import Cholesky
             Cholesky.replicate(
                 name="cholesky.model",
                 replicate_outputs=combinations["detector.period"],
             )
-            outputs("eventscount.final.total") >> inputs("cholesky.model")
+            outputs("eventscount.final.by_detector_period") >> inputs("cholesky.model")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
@@ -1427,7 +1441,7 @@ class model_dayabay_v0:
                 name="statistic.stat.chi2p"
             )
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
-            outputs("eventscount.final.total") >> inputs("statistic.stat.chi2p.theory")
+            outputs("eventscount.final.by_detector_period") >> inputs("statistic.stat.chi2p.theory")
             outputs("cholesky.model") >> inputs("statistic.stat.chi2p.errors")
 
             from dgf_statistics.CNPStat import CNPStat
@@ -1437,11 +1451,11 @@ class model_dayabay_v0:
                 name="statistic.staterr.cnp"
             )
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
-            outputs("eventscount.final.total") >> inputs("statistic.staterr.cnp.theory")
+            outputs("eventscount.final.by_detector_period") >> inputs("statistic.staterr.cnp.theory")
 
             Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
-            outputs("eventscount.final.total") >> inputs("statistic.stat.chi2cnp.theory")
+            outputs("eventscount.final.by_detector_period") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 
             Sum.replicate(outputs.get_value("statistic.stat.chi2p"), outputs.get_value("statistic.nuisance.all"), name="statistic.full.chi2p")
@@ -1464,9 +1478,19 @@ class model_dayabay_v0:
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
 
-    def set_parameters(self, parameter_values: dict[str, float | str] = {}):
-        parameters_storage = self.storage("parameter.all")
-        for parname, svalue in parameter_values.items():
+    def set_parameters(
+        self,
+        parameter_values: (
+            Mapping[str, float | str] | Sequence[tuple[str, float | int]]
+        ) = (),
+    ):
+        parameters_storage = self.storage("parameters.all")
+        if isinstance(parameter_values, Mapping):
+            iterable = parameter_values.items()
+        else:
+            iterable = parameter_values
+
+        for parname, svalue in iterable:
             value = float(svalue)
             par = parameters_storage[parname]
             par.push(value)

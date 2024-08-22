@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
 from __future__ import annotations
+
 from argparse import Namespace
-from typing import TYPE_CHECKING, Sequence
 
-from dagflow.logger import INFO1, set_level
+from h5py import File
+
+from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
 from models.dayabay_v0 import model_dayabay_v0
-
-if TYPE_CHECKING:
-    from dagflow.output import Output
 
 set_level(INFO1)
 
@@ -25,35 +24,44 @@ def main(opts: Namespace) -> None:
         parameter_values=opts.setpar,
     )
 
-    prediction = model.storage["outputs.eventscount.final.total_alltime_concatenated"]
-    build_jacobian(model, prediction, opts.pars, normalized=True)
+    ofile = File(opts.output, "w")
 
+    outputs = model.storage["outputs"]
+    for mode in ("detector", "detector_period"):
+        edges = outputs[f"edges.energy_final"]
+        prediction = outputs[f"eventscount.final.concatenated.{mode}"]
+        jacobians = outputs[f"covariance.{mode}.jacobians"]
+        covmats = outputs[f"covariance.{mode}.covmat_syst"]
 
-def build_jacobian(
-    model, prediction: Output, parnames: Sequence[str], *, normalized: bool
-):
-    if normalized:
-        allpars = model.storage.get_dict("parameter.normalized")
-    else:
-        allpars = model.storage.get_dict("parameter.constrained")
+        idx_tuple = (
+            model.index["detector"]
+            if mode == "detector"
+            else model.combinations["detector.period"]
+        )
+        # idx_str = tuple(".".join(idx) for idx in idx_tuple)
 
-    from dagflow.lib.Jacobian import Jacobian
+        group = ofile.create_group(mode)
 
-    for parname in parnames:
-        pars = list(allpars.walkvalues(parname))
+        group.create_dataset("elements", data=idx_tuple)
+        group.create_dataset("edges", data=edges.data)
+        group.create_dataset("model", data=prediction.data)
 
-        jac = Jacobian("jac", parameters=pars)
-        prediction >> jac
+        for name, jacobian in jacobians.items():
+            logger.info(f"Compute {name} ({mode}), {jacobian.dd.shape[1]} pars")
+            group.create_dataset(f"jacobians/{name}", data=jacobian.data)
 
-        import IPython
+        for name, covmat in covmats.items():
+            group.create_dataset(f"covmat_syst/{name}", data=covmat.data)
 
-        IPython.embed(colors="neutral")
+    ofile.close()
+    print(f"Save output file: {opts.output}")
 
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
+    parser.add_argument("output", help="output h5py file")
     parser.add_argument(
         "-v", "--verbose", default=0, action="count", help="verbosity level"
     )
@@ -76,11 +84,6 @@ if __name__ == "__main__":
         "--fission-fraction-normalized",
         action="store_true",
         help="fission fraction correction",
-    )
-
-    covariance = parser.add_argument_group("covariance", "covariance options")
-    covariance.add_argument(
-        "-p", "--pars", nargs="+", default=[], help="parameters for covariance matrix"
     )
 
     pars = parser.add_argument_group("pars", "setup pars")
