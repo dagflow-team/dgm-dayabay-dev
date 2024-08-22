@@ -1357,23 +1357,23 @@ class model_dayabay_v0:
             Sum.replicate(
                 outputs("eventscount.final.ibd"),
                 outputs("eventscount.final.bkg"),
-                name="eventscount.final.by_detector_period",
+                name="eventscount.final.detector_period",
                 replicate_outputs=combinations["detector.period"],
             )
 
             Concatenation.replicate(
-                outputs("eventscount.final.by_detector_period"),
+                outputs("eventscount.final.detector_period"),
                 name="eventscount.final.concatenated.detector_period",
             )
 
             Sum.replicate(
-                outputs("eventscount.final.by_detector_period"),
-                name="eventscount.final.by_detector",
+                outputs("eventscount.final.detector_period"),
+                name="eventscount.final.detector",
                 replicate_outputs=index["detector"],
             )
 
             Concatenation.replicate(
-                outputs("eventscount.final.by_detector"),
+                outputs("eventscount.final.detector"),
                 name="eventscount.final.concatenated.detector"
             )
 
@@ -1426,7 +1426,7 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
                 replicate_inputs=combinations["detector.period"]
             )
-            outputs("eventscount.final.by_detector_period") >> inputs("pseudo.data.input")
+            outputs("eventscount.final.detector_period") >> inputs("pseudo.data.input")
 
             from dagflow.lib.Cholesky import Cholesky
             Cholesky.replicate(
@@ -1441,7 +1441,7 @@ class model_dayabay_v0:
                 name="statistic.stat.chi2p"
             )
             outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
-            outputs("eventscount.final.by_detector_period") >> inputs("statistic.stat.chi2p.theory")
+            outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2p.theory")
             outputs("cholesky.model") >> inputs("statistic.stat.chi2p.errors")
 
             from dgf_statistics.CNPStat import CNPStat
@@ -1451,11 +1451,11 @@ class model_dayabay_v0:
                 name="statistic.staterr.cnp"
             )
             outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
-            outputs("eventscount.final.by_detector_period") >> inputs("statistic.staterr.cnp.theory")
+            outputs("eventscount.final.detector_period") >> inputs("statistic.staterr.cnp.theory")
 
             Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
             outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
-            outputs("eventscount.final.by_detector_period") >> inputs("statistic.stat.chi2cnp.theory")
+            outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2cnp.theory")
             outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
 
             Sum.replicate(outputs.get_value("statistic.stat.chi2p"), outputs.get_value("statistic.nuisance.all"), name="statistic.full.chi2p")
