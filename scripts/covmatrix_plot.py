@@ -129,8 +129,8 @@ def main(opts: Namespace) -> None:
         ax = plt.subplot(
             111, xlabel="", ylabel="bin", title=f"Correlation matrix {name} (blocks)"
         )
-        hm = pcolor_with_blocks(bmatrix_cor, blocks=elements)
-        heatmap_show_values(hm)
+        hm = pcolor_with_blocks(bmatrix_cor, blocks=elements, pcolormesh=True)
+        heatmap_show_values(hm, lower_triangle=True)
 
         logger.info(f"Plot {name}")
 
@@ -184,14 +184,24 @@ def covariance_get_matrices(
     )
 
 
-def heatmap_show_values(pc: "QuadMesh", fmt: str = "%.2f", **kwargs):
-    from numpy import mean
+def heatmap_show_values(
+    pc: "QuadMesh", fmt: str = "%.2f", lower_triangle: bool = False, **kwargs
+):
+    from numpy import mean, unravel_index
 
     pc.update_scalarmappable()
+    data = pc.get_array()
     ax = plt.gca()
-    for p, color, value in zip(pc.get_paths(), pc.get_facecolors(), pc.get_array().flatten()):
-        x, y = p.vertices[:-1].mean(0)
-        x -= 0.1 * (p.vertices[2, 0] - p.vertices[1, 0])
+    for i, (path, color, value) in enumerate(
+        zip(pc.get_paths(), pc.get_facecolors(), data.flatten())
+    ):
+        x, y = path.vertices[:-1].mean(0)
+        row, col = unravel_index(i, data.shape)
+
+        if lower_triangle and col > row:
+            continue
+
+        x -= 0.1 * (path.vertices[2, 0] - path.vertices[1, 0])
         if mean(color[:3]) > 0.5:
             color = (0.0, 0.0, 0.0)
         else:
@@ -240,6 +250,7 @@ def pcolor_with_blocks(
     blocks: Sequence[str],
     sep_kwargs: Mapping = {},
     colorbar: bool = True,
+    pcolormesh: bool = False,
     **kwargs,
 ):
     from numpy import fabs
@@ -255,9 +266,13 @@ def pcolor_with_blocks(
     data = array(data, mask=(fdata < 1.0e-9))
     ax = plt.gca()
     ax.set_aspect("equal")
-    hm = ax.pcolormesh(data, *args, vmin=vmin, vmax=vmax, **kwargs)
+    if pcolormesh:
+        hm = ax.pcolormesh(data, *args, vmin=vmin, vmax=vmax, **kwargs)
+    else:
+        hm = ax.pcolorfast(data, *args, vmin=vmin, vmax=vmax, **kwargs)
+    hm.set_rasterized(True)
     if colorbar:
-        add_colorbar(hm)
+        add_colorbar(hm, rasterized=True)
     ax.set_ylim(*reversed(ax.get_ylim()))
 
     sep_kwargs = dict({"color": "red"}, **kwargs)
