@@ -27,7 +27,8 @@ def main(opts: Namespace) -> None:
         override_indices=override_indices,
         spectrum_correction_mode=opts.spec,
         fission_fraction_normalized=opts.fission_fraction_normalized,
-        parameter_values=opts.par
+        concatenation=opts.concatenation,
+        parameter_values=opts.par,
     )
 
     graph = model.graph
@@ -191,6 +192,10 @@ if __name__ == "__main__":
     model = parser.add_argument_group("model", "model related options")
     model.add_argument("--spec", choices=("linear", "exponential"), help="antineutrino spectrum correction mode")
     model.add_argument("--fission-fraction-normalized", action="store_true", help="fission fraction correction")
+    model.add_argument(
+        "--concatenation", default="detector-period", choices=["detector", "detector-period"],
+        help="type of concatenation for chi-squared calculation"
+    )
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
