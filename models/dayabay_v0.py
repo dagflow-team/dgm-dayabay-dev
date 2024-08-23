@@ -1409,6 +1409,8 @@ class model_dayabay_v0:
 
             npars_cov = covariance_detector.get_parameters_count()
             npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
+            if npars_cov!=npars_nuisance:
+                raise RuntimeError("Some parameters are missing from covariance matrix")
 
 
             #
@@ -1427,10 +1429,22 @@ class model_dayabay_v0:
             outputs("eventscount.final.detector_period") >> inputs("pseudo.data.detector_period.input")
 
             MonteCarlo.replicate(
+                name="pseudo.data.concatenated.detector_period",
+                mode="asimov",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector_period") >> inputs.get_value("pseudo.data.concatenated.detector_period.input")
+
+            MonteCarlo.replicate(
                 name="pseudo.data.concatenated.detector",
                 mode="asimov",
             )
             outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("pseudo.data.concatenated.detector.input")
+
+            MonteCarlo.replicate(
+                name="covariance.data.concatenated.detector_period",
+                mode="asimov",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector_period") >> inputs.get_value("covariance.data.concatenated.detector_period.input")
 
             MonteCarlo.replicate(
                 name="covariance.data.concatenated.detector",
@@ -1445,13 +1459,30 @@ class model_dayabay_v0:
             )
             outputs("eventscount.final.detector_period") >> inputs("cholesky.stat.detector_period")
 
+            Cholesky.replicate(
+                name="cholesky.stat.concatenated.detector_period",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector_period") >> inputs.get_value("cholesky.stat.concatenated.detector_period")
+
+            Cholesky.replicate(
+                name="cholesky.stat.concatenated.detector",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("cholesky.stat.concatenated.detector")
+
             from dagflow.lib.SumMatOrDiag import SumMatOrDiag
+            SumMatOrDiag.replicate(name="covariance.detector_period.covmat_full")
+            outputs.get_value("covariance.data.concatenated.detector_period") >> nodes.get_value("covariance.detector_period.covmat_full")
+            outputs.get_value("covariance.detector_period.covmat_syst.sum") >> nodes.get_value("covariance.detector_period.covmat_full")
+
+            Cholesky.replicate(name="cholesky.covmat.detector_period.full")
+            outputs.get_value("covariance.detector_period.covmat_full") >> inputs.get_value("cholesky.covmat.detector_period.full")
+
             SumMatOrDiag.replicate(name="covariance.detector.covmat_full")
             outputs.get_value("covariance.data.concatenated.detector") >> nodes.get_value("covariance.detector.covmat_full")
             outputs.get_value("covariance.detector.covmat_syst.sum") >> nodes.get_value("covariance.detector.covmat_full")
 
-            Cholesky.replicate(name="cholesky.covmat.full")
-            outputs.get_value("covariance.detector.covmat_full") >> inputs.get_value("cholesky.covmat.full")
+            Cholesky.replicate(name="cholesky.covmat.detector.full")
+            outputs.get_value("covariance.detector.covmat_full") >> inputs.get_value("cholesky.covmat.detector.full")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
@@ -1462,10 +1493,29 @@ class model_dayabay_v0:
             outputs("cholesky.stat.detector_period") >> inputs("statistic.stat.chi2p.errors")
             outputs("pseudo.data.detector_period") >> inputs("statistic.stat.chi2p.data")
 
-            Chi2.replicate(name="statistic.full.chi2p_covmat")
-            outputs.get_value("pseudo.data.concatenated.detector") >> inputs.get_value("statistic.full.chi2p_covmat.data")
-            outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("statistic.full.chi2p_covmat.theory")
-            outputs.get_value("cholesky.covmat.full") >> inputs.get_value("statistic.full.chi2p_covmat.errors")
+            Chi2.replicate(
+                name="statistic.stat.chi2p_detector",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("statistic.stat.chi2p_detector.theory")
+            outputs.get_value("cholesky.stat.concatenated.detector") >> inputs.get_value("statistic.stat.chi2p_detector.errors")
+            outputs.get_value("pseudo.data.concatenated.detector") >> inputs.get_value("statistic.stat.chi2p_detector.data")
+
+            Chi2.replicate(
+                name="statistic.stat.chi2p_detector_period",
+            )
+            outputs.get_value("eventscount.final.concatenated.detector_period") >> inputs.get_value("statistic.stat.chi2p_detector_period.theory")
+            outputs.get_value("cholesky.stat.concatenated.detector_period") >> inputs.get_value("statistic.stat.chi2p_detector_period.errors")
+            outputs.get_value("pseudo.data.concatenated.detector_period") >> inputs.get_value("statistic.stat.chi2p_detector_period.data")
+
+            Chi2.replicate(name="statistic.full.chi2_covmat.detector")
+            outputs.get_value("pseudo.data.concatenated.detector") >> inputs.get_value("statistic.full.chi2_covmat.detector.data")
+            outputs.get_value("eventscount.final.concatenated.detector") >> inputs.get_value("statistic.full.chi2_covmat.detector.theory")
+            outputs.get_value("cholesky.covmat.detector.full") >> inputs.get_value("statistic.full.chi2_covmat.detector.errors")
+
+            Chi2.replicate(name="statistic.full.chi2_covmat.detector_period")
+            outputs.get_value("pseudo.data.concatenated.detector_period") >> inputs.get_value("statistic.full.chi2_covmat.detector_period.data")
+            outputs.get_value("eventscount.final.concatenated.detector_period") >> inputs.get_value("statistic.full.chi2_covmat.detector_period.theory")
+            outputs.get_value("cholesky.covmat.detector_period.full") >> inputs.get_value("statistic.full.chi2_covmat.detector_period.errors")
 
             from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate(
@@ -1500,6 +1550,8 @@ class model_dayabay_v0:
                 raise RuntimeError(
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
+
+    # TODO: Add touch for frozen transformations
 
     def set_parameters(
         self,
