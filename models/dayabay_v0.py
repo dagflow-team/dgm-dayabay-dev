@@ -1499,7 +1499,10 @@ class model_dayabay_v0:
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
 
-    # TODO: Add touch for frozen transformations
+    def touch(self) -> None:
+        frozen_nodes = ("pseudo.data", "cholesky.stat.frozen")
+        for node in frozen_nodes:
+            self.storage.get_value(f"nodes.{node}").touch()
 
     def set_parameters(
         self,
