@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 
 def main(opts: Namespace) -> None:
+    cmap = "RdBu_r"
+
     ifile = File(opts.input, "r")
     group = ifile[opts.mode]
 
@@ -94,7 +96,7 @@ def main(opts: Namespace) -> None:
         ax = plt.subplot(
             111, xlabel="", ylabel="bin", title=f"Covariance matrix {name}"
         )
-        pcolor_with_blocks(matrix_cov, blocks=elements)
+        pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap)
         if pdf:
             pdf.savefig()
 
@@ -102,7 +104,20 @@ def main(opts: Namespace) -> None:
         ax = plt.subplot(
             111, xlabel="", ylabel="bin", title=f"Covariance matrix {name} (blocks)"
         )
-        pcolor_with_blocks(bmatrix_cov, blocks=elements)
+        pcolor_with_blocks(bmatrix_cov, blocks=elements, cmap=cmap)
+        if pdf:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Covariance matrix {name} ({elements[0]})",
+        )
+        pcolor_with_blocks(
+            matrix_cov[:blocksize, :blocksize], blocks=elements[:1], cmap=cmap
+        )
         if pdf:
             pdf.savefig()
 
@@ -113,7 +128,20 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=rf"Relative covariance matrix {name}, %²",
         )
-        pcolor_with_blocks(matrix_cov_rel, blocks=elements)
+        pcolor_with_blocks(matrix_cov_rel, blocks=elements, cmap=cmap)
+        if pdf:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Relative covariance matrix {name} ({elements[0]})",
+        )
+        pcolor_with_blocks(
+            matrix_cov_rel[:blocksize, :blocksize], blocks=elements[:1], cmap=cmap
+        )
         if pdf:
             pdf.savefig()
 
@@ -121,7 +149,24 @@ def main(opts: Namespace) -> None:
         ax = plt.subplot(
             111, xlabel="", ylabel="bin", title=f"Correlation matrix {name}"
         )
-        pcolor_with_blocks(matrix_cor, blocks=elements)
+        pcolor_with_blocks(matrix_cor, blocks=elements, cmap=cmap)
+        if pdf:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Correlation matrix {name} ({elements[0]})",
+        )
+        hm = pcolor_with_blocks(
+            matrix_cor[:blocksize, :blocksize],
+            blocks=elements[:1],
+            pcolormesh=True,
+            cmap=cmap,
+        )
+        # heatmap_show_values(hm, lower_triangle=True)
         if pdf:
             pdf.savefig()
 
@@ -129,7 +174,9 @@ def main(opts: Namespace) -> None:
         ax = plt.subplot(
             111, xlabel="", ylabel="bin", title=f"Correlation matrix {name} (blocks)"
         )
-        hm = pcolor_with_blocks(bmatrix_cor, blocks=elements, pcolormesh=True)
+        hm = pcolor_with_blocks(
+            bmatrix_cor, blocks=elements, pcolormesh=True, cmap=cmap
+        )
         heatmap_show_values(hm, lower_triangle=True)
 
         logger.info(f"Plot {name}")
@@ -248,22 +295,22 @@ def pcolor_with_blocks(
     /,
     *args,
     blocks: Sequence[str],
-    sep_kwargs: Mapping = {},
     colorbar: bool = True,
     pcolormesh: bool = False,
+    sep_kwargs: Mapping = {},
     **kwargs,
 ):
     from numpy import fabs
     from numpy.ma import array
 
-    fdata = fabs(data)
     dmin = data.min()
     dmax = data.max()
 
     bound = max(fabs(dmin), dmax)
     vmin, vmax = -bound, bound
 
-    data = array(data, mask=(fdata < 1.0e-9))
+    # fdata = fabs(data)
+    # data = array(data, mask=(fdata < 1.0e-9))
     ax = plt.gca()
     ax.set_aspect("equal")
     if pcolormesh:
@@ -275,7 +322,11 @@ def pcolor_with_blocks(
         add_colorbar(hm, rasterized=True)
     ax.set_ylim(*reversed(ax.get_ylim()))
 
-    sep_kwargs = dict({"color": "red"}, **kwargs)
+    nblocks = len(blocks)
+    if nblocks < 2:
+        return hm
+
+    sep_kwargs = dict({"color": "green"}, **sep_kwargs)
     positions = _get_blocks_data(data.shape[0], blocks)
     _plot_separators("x", positions, blocks, **sep_kwargs)
     _plot_separators("y", positions, blocks, **sep_kwargs)
