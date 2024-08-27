@@ -1,5 +1,6 @@
 from collections.abc import Mapping, Sequence
 from itertools import product
+from os.path import relpath
 from pathlib import Path
 from typing import Literal
 
@@ -40,8 +41,8 @@ class model_dayabay_v0:
     storage: NodeStorage
     graph: Graph | None
     inactive_detectors: tuple[set[str], ...]
-    index: dict[str, tuple[str,...]]
-    combinations: dict[str, tuple[tuple[str,...],...]]
+    index: dict[str, tuple[str, ...]]
+    combinations: dict[str, tuple[tuple[str, ...], ...]]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
     _source_type: SourceTypes
@@ -259,7 +260,7 @@ class model_dayabay_v0:
             #
             # Create nodes
             #
-            labels = LoadYaml(__file__.replace(".py", "_labels.yaml"))
+            labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
 
             from numpy import arange, concatenate, linspace
 
