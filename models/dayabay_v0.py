@@ -1452,12 +1452,17 @@ class model_dayabay_v0:
             outputs.get_value("covariance.covmat_full.stat_unfrozen") >> inputs.get_value("cholesky.covmat_full.stat_unfrozen")
 
             from dgf_statistics.Chi2 import Chi2
-            Chi2.replicate(name="statistic.stat.chi2p")  # NOTE: (1) chi-squared Pearson stat (fixed errors)
+            Chi2.replicate(name="statistic.stat.chi2p")  # NOTE: (1) chi-squared Pearson stat (fixed Pearson errors)
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2p.theory")
             outputs.get_value("cholesky.stat.frozen") >> inputs.get_value("statistic.stat.chi2p.errors")
             outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p.data")
 
-            Chi2.replicate(name="statistic.full.chi2_covmat")  # NOTE: (5) chi-squared Pearson stat (fixed errors)
+            Chi2.replicate(name="statistic.stat.chi2p_biased")
+            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2p_biased.theory")
+            outputs.get_value("cholesky.stat.unfrozen") >> inputs.get_value("statistic.stat.chi2p_biased.errors")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p_biased.data")
+
+            Chi2.replicate(name="statistic.full.chi2_covmat")  # NOTE: (5) chi-squared Pearson stat (fixed Pearson errors)
             outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2_covmat.data")
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2_covmat.theory")
             outputs.get_value("cholesky.covmat_full.stat_frozen") >> inputs.get_value("statistic.full.chi2_covmat.errors")
@@ -1472,15 +1477,32 @@ class model_dayabay_v0:
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2cnp.theory")
             outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
 
-            Sum.replicate(  # NOTE: (2) chi-squared Pearson stat + pull (fixed errors)
+            Sum.replicate(  # NOTE: (2) chi-squared Pearson stat + pull (fixed Pearson errors)
                 outputs.get_value("statistic.stat.chi2p"),
                 outputs.get_value("statistic.nuisance.all"),
                 name="statistic.full.chi2p",
             )
-            Sum.replicate(  # NOTE: (4) chi-squared CNP stat + pull (fixed errors)
+            Sum.replicate(  # NOTE: (4) chi-squared CNP stat + pull (fixed Pearson errors)
                 outputs.get_value("statistic.stat.chi2cnp"),
                 outputs.get_value("statistic.nuisance.all"),
                 name="statistic.full.chi2cnp",
+            )
+
+            from dagflow.lib.LogProdDiag import LogProdDiag
+            LogProdDiag.replicate(name="statistic.log_prod_diag")
+            outputs.get_value("covariance.covmat_full.stat_unfrozen") >> inputs.get_value("statistic.log_prod_diag")
+
+            Sum.replicate(  # NOTE: (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
+                outputs.get_value("statistic.stat.chi2p_biased"),
+                outputs.get_value("statistic.log_prod_diag"),
+                name="statistic.stat.chi2p_unbiased",
+            )
+
+            Sum.replicate(  # NOTE: (8) chi-squared Pearson stat + log|V| + pull (unfixed Pearson errors)
+                outputs.get_value("statistic.stat.chi2p_biased"),
+                outputs.get_value("statistic.log_prod_diag"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2p_unbiased",
             )
             # fmt: on
 
