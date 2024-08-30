@@ -29,6 +29,8 @@ def main(opts: Namespace) -> None:
         fission_fraction_normalized=opts.fission_fraction_normalized,
         concatenation=opts.concatenation,
         parameter_values=opts.par,
+        monte_carlo_mode=opts.data_mc_mode,
+        seed=opts.seed,
     )
 
     graph = model.graph
@@ -195,6 +197,12 @@ if __name__ == "__main__":
     model.add_argument(
         "--concatenation", default="detector-period", choices=["detector", "detector-period"],
         help="type of concatenation for chi-squared calculation"
+    )
+    model.add_argument("--seed", default=0, type=int, help="seed of randomization")
+    model.add_argument(
+        "--data-mc-mode", default="asimov",
+        choices=["asimov", "normalstats", "poisson"],
+        help="type of data to be analyzed",
     )
 
     pars = parser.add_argument_group("pars", "setup pars")

@@ -75,11 +75,15 @@ def main(args: Namespace) -> None:
         source_type=args.source_type,
         spectrum_correction_mode=args.spec,
         fission_fraction_normalized=args.fission_fraction_normalized,
+        monte_carlo_mode=args.data_mc_mode,
+        seed=args.seed,
     )
 
     storage = model.storage
     parameters = model.storage("parameters.all")
     statistic = model.storage("outputs.statistic")
+
+    model.touch()
 
     from yaml import safe_dump
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
@@ -126,6 +130,7 @@ def main(args: Namespace) -> None:
             print(f"Fit {stat_type}:{'GNA':>17}{'dag-flow':>12}  relative-error")
             compare_gna(dagflow_fit, filename)
             minimizer.push_initial_values()
+            import IPython; IPython.embed()
             if args.fit_output:
                 _simplify_fit_dict(dagflow_fit)
                 dagflow_fit = dict(**dagflow_fit)
@@ -197,6 +202,12 @@ if __name__ == "__main__":
     model.add_argument(
         "--fission-fraction-normalized", action="store_true",
         help="fission fraction correction",
+    )
+    model.add_argument("--seed", default=0, type=int, help="seed of randomization")
+    model.add_argument(
+        "--data-mc-mode", default="asimov",
+        choices=["asimov", "normalstats", "poisson"],
+        help="type of data to be analyzed",
     )
 
     pars = parser.add_argument_group("pars", "setup pars")
