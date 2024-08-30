@@ -54,7 +54,7 @@ class model_dayabay_v0:
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _concatenation: Literal["detector", "detector-period"]
     _fission_fraction_normalized: bool
-    _monte_carlo_mode: Literal["asimov", "normal", "normalstats", "poison", "covariance"]
+    _monte_carlo_mode: Literal["asimov", "normal", "normalstats", "poisson", "covariance"]
     _generator: Generator
 
     def __init__(
@@ -67,7 +67,7 @@ class model_dayabay_v0:
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
         seed: int = 0,
-        monte_carlo_mode: Literal["asimov", "normal", "normalstats", "poison", "covariance"] = "asimov",
+        monte_carlo_mode: Literal["asimov", "normal", "normalstats", "poisson", "covariance"] = "asimov",
         concatenation: Literal["detector", "detector-period"] = "detector-period",
         parameter_values: dict[str, float | str] = {},
     ):
@@ -1432,10 +1432,10 @@ class model_dayabay_v0:
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
             from dgf_statistics.MonteCarlo import MonteCarlo
-            MonteCarlo.replicate(name="pseudo.data", mode=self._monte_carlo_mode)
+            MonteCarlo.replicate(name="pseudo.data", mode=self._monte_carlo_mode, generator=self._generator)
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("pseudo.data.input")
 
-            MonteCarlo.replicate(name="covariance.data.frozen", mode="asimov")
+            MonteCarlo.replicate(name="covariance.data.frozen", mode="asimov", generator=self._generator)
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("covariance.data.frozen.input")
 
             from dagflow.lib.Cholesky import Cholesky
