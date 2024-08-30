@@ -6,6 +6,7 @@ from typing import Literal
 
 from more_itertools import ilen
 from numpy import ndarray
+from numpy.random import Generator
 
 from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
@@ -36,6 +37,8 @@ class model_dayabay_v0:
         "_spectrum_correction_mode",
         "_concatenation",
         "_fission_fraction_normalized",
+        "_monte_carlo_mode",
+        "_generator",
     )
 
     storage: NodeStorage
@@ -51,6 +54,8 @@ class model_dayabay_v0:
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _concatenation: Literal["detector", "detector-period"]
     _fission_fraction_normalized: bool
+    _monte_carlo_mode: Literal["asimov", "normal", "normalstats", "poison", "covariance"]
+    _generator: Generator
 
     def __init__(
         self,
@@ -61,6 +66,8 @@ class model_dayabay_v0:
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
+        seed: int = 0,
+        monte_carlo_mode: Literal["asimov", "normal", "normalstats", "poison", "covariance"] = "asimov",
         concatenation: Literal["detector", "detector-period"] = "detector-period",
         parameter_values: dict[str, float | str] = {},
     ):
@@ -75,6 +82,8 @@ class model_dayabay_v0:
         self._spectrum_correction_mode = spectrum_correction_mode
         self._fission_fraction_normalized = fission_fraction_normalized
         self._concatenation = concatenation
+        self._monte_carlo_mode = monte_carlo_mode
+        self._generator = self._create_generator(seed)
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         self.index = {}
@@ -1423,7 +1432,7 @@ class model_dayabay_v0:
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
             from dgf_statistics.MonteCarlo import MonteCarlo
-            MonteCarlo.replicate(name="pseudo.data", mode="asimov")
+            MonteCarlo.replicate(name="pseudo.data", mode=self._monte_carlo_mode)
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("pseudo.data.input")
 
             MonteCarlo.replicate(name="covariance.data.frozen", mode="asimov")
@@ -1522,8 +1531,15 @@ class model_dayabay_v0:
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
 
+    @staticmethod
+    def _create_generator(seed: int) -> Generator:
+        from numpy.random import SeedSequence, MT19937
+        sequence, = SeedSequence(seed).spawn(1)
+        algo = MT19937(seed=sequence.spawn(1)[0])
+        return Generator(algo)
+
     def touch(self) -> None:
-        frozen_nodes = ("pseudo.data", "cholesky.stat.frozen")
+        frozen_nodes = ("pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full.stat_unfrozen")
         for node in frozen_nodes:
             self.storage.get_value(f"nodes.{node}").touch()
 
@@ -1546,6 +1562,4 @@ class model_dayabay_v0:
             print(f"Set {parname}={svalue}")
 
     def next_sample(self) -> None:
-        for node in self.storage("nodes.pseudo.data").walkvalues():
-            node.next_sample()
-
+        self.storage.get_value("nodes.pseudo.data").next_sample()
