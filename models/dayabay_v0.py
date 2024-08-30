@@ -258,6 +258,24 @@ class model_dayabay_v0:
                 },
             )
 
+            # Statistic constants for write-handed CNP
+            load_parameters(
+                format="value",
+                state="fixed",
+                parameters={
+                    "stats": {
+                        "pearson": 2 / 3,
+                        "neyman": 1 / 3,
+                    }
+                },
+                labels={
+                    "stats": {
+                        "pearson": "Pearson coefficient",
+                        "neyman": "Neyman coefficient",
+                    }
+                },
+            )
+
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
@@ -1446,19 +1464,26 @@ class model_dayabay_v0:
             outputs.get_value("covariance.data.frozen") >> inputs.get_value("cholesky.stat.frozen")
 
             from dagflow.lib.SumMatOrDiag import SumMatOrDiag
-            SumMatOrDiag.replicate(name="covariance.covmat_full.stat_frozen")
-            outputs.get_value("covariance.data.frozen") >> nodes.get_value("covariance.covmat_full.stat_frozen")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full.stat_frozen")
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_frozen")
+            outputs.get_value("covariance.data.frozen") >> nodes.get_value("covariance.covmat_full_p.stat_frozen")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_frozen")
 
-            Cholesky.replicate(name="cholesky.covmat_full.stat_frozen")
-            outputs.get_value("covariance.covmat_full.stat_frozen") >> inputs.get_value("cholesky.covmat_full.stat_frozen")
+            Cholesky.replicate(name="cholesky.covmat_full_p.stat_frozen")
+            outputs.get_value("covariance.covmat_full_p.stat_frozen") >> inputs.get_value("cholesky.covmat_full_p.stat_frozen")
 
-            SumMatOrDiag.replicate(name="covariance.covmat_full.stat_unfrozen")
-            outputs.get_value("eventscount.final.concatenated") >> nodes.get_value("covariance.covmat_full.stat_unfrozen")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full.stat_unfrozen")
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_unfrozen")
+            outputs.get_value("eventscount.final.concatenated") >> nodes.get_value("covariance.covmat_full_p.stat_unfrozen")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_unfrozen")
 
-            Cholesky.replicate(name="cholesky.covmat_full.stat_unfrozen")
-            outputs.get_value("covariance.covmat_full.stat_unfrozen") >> inputs.get_value("cholesky.covmat_full.stat_unfrozen")
+            Cholesky.replicate(name="cholesky.covmat_full_p.stat_unfrozen")
+            outputs.get_value("covariance.covmat_full_p.stat_unfrozen") >> inputs.get_value("cholesky.covmat_full_p.stat_unfrozen")
+
+            SumMatOrDiag.replicate(name="covariance.covmat_full_n")
+            outputs.get_value("pseudo.data") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
+
+            Cholesky.replicate(name="cholesky.covmat_full_n")
+            outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(name="statistic.stat.chi2p")  # NOTE: (1) chi-squared Pearson stat (fixed Pearson errors)
@@ -1466,15 +1491,30 @@ class model_dayabay_v0:
             outputs.get_value("cholesky.stat.frozen") >> inputs.get_value("statistic.stat.chi2p.errors")
             outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p.data")
 
-            Chi2.replicate(name="statistic.stat.chi2p_biased")
+            Chi2.replicate(name="statistic.stat.chi2n")  # NOTE: (2-2) chi-squared Neyman stat
+            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2n.theory")
+            outputs.get_value("cholesky.stat.frozen") >> inputs.get_value("statistic.stat.chi2n.errors")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2n.data")
+
+            Chi2.replicate(name="statistic.stat.chi2p_biased")  # NOTE: (2-1)
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2p_biased.theory")
             outputs.get_value("cholesky.stat.unfrozen") >> inputs.get_value("statistic.stat.chi2p_biased.errors")
             outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p_biased.data")
 
-            Chi2.replicate(name="statistic.full.chi2_covmat")  # NOTE: (5) chi-squared Pearson stat (fixed Pearson errors)
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2_covmat.data")
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2_covmat.theory")
-            outputs.get_value("cholesky.covmat_full.stat_frozen") >> inputs.get_value("statistic.full.chi2_covmat.errors")
+            Chi2.replicate(name="statistic.full.chi2p_covmat_frozen")  # NOTE: (5) chi-squared Pearson syst (fixed Pearson errors)
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.data")
+            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.theory")
+            outputs.get_value("cholesky.covmat_full_p.stat_frozen") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.errors")
+
+            Chi2.replicate(name="statistic.full.chi2n_covmat")  # NOTE: (2-3) chi-squared Neyman syst
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
+            outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
+
+            Chi2.replicate(name="statistic.full.chi2p_covmat_unfrozen")  # NOTE: (2-4) Pearson unfrozen stat errors
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.data")
+            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.theory")
+            outputs.get_value("cholesky.covmat_full_p.stat_unfrozen") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.errors")
 
             from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate(name="statistic.staterr.cnp")
@@ -1499,7 +1539,7 @@ class model_dayabay_v0:
 
             from dagflow.lib.LogProdDiag import LogProdDiag
             LogProdDiag.replicate(name="statistic.log_prod_diag")
-            outputs.get_value("covariance.covmat_full.stat_unfrozen") >> inputs.get_value("statistic.log_prod_diag")
+            outputs.get_value("cholesky.covmat_full_p.stat_unfrozen") >> inputs.get_value("statistic.log_prod_diag")
 
             Sum.replicate(  # NOTE: (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
                 outputs.get_value("statistic.stat.chi2p_biased"),
@@ -1512,6 +1552,22 @@ class model_dayabay_v0:
                 outputs.get_value("statistic.log_prod_diag"),
                 outputs.get_value("statistic.nuisance.all"),
                 name="statistic.full.chi2p_unbiased",
+            )
+
+            Product.replicate(
+                outputs.get_value("statistic.full.chi2p_covmat_unfrozen"),
+                parameters.get_value("all.stats.pearson"),
+                name="statistic.handler.pearson",
+            )
+            Product.replicate(
+                outputs.get_value("statistic.full.chi2n_covmat"),
+                parameters.get_value("all.stats.neyman"),
+                name="statistic.handler.neyman",
+            )
+            Sum.replicate(  # NOTE: (2-4) CNP covmat
+                outputs.get_value("statistic.handler.pearson"),
+                outputs.get_value("statistic.handler.neyman"),
+                name="statistic.full.chi2cnp_covmat",
             )
             # fmt: on
 
