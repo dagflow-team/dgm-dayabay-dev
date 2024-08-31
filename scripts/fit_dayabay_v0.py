@@ -8,7 +8,6 @@ from dagflow.logger import INFO2
 from dagflow.logger import INFO3
 from dagflow.logger import DEBUG as INFO4
 from dagflow.logger import set_level
-from dagflow.storage import NodeStorage
 
 from models.dayabay_v0 import model_dayabay_v0
 
@@ -130,7 +129,6 @@ def main(args: Namespace) -> None:
             print(f"Fit {stat_type}:{'GNA':>17}{'dag-flow':>12}  relative-error")
             compare_gna(dagflow_fit, filename)
             minimizer.push_initial_values()
-            import IPython; IPython.embed()
             if args.fit_output:
                 _simplify_fit_dict(dagflow_fit)
                 dagflow_fit = dict(**dagflow_fit)

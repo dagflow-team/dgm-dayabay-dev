@@ -1555,18 +1555,18 @@ class model_dayabay_v0:
             )
 
             Product.replicate(
-                outputs.get_value("statistic.full.chi2p_covmat_unfrozen"),
                 parameters.get_value("all.stats.pearson"),
-                name="statistic.handler.pearson",
+                outputs.get_value("statistic.full.chi2p_covmat_unfrozen"),
+                name="statistic.helper.pearson",
             )
             Product.replicate(
-                outputs.get_value("statistic.full.chi2n_covmat"),
                 parameters.get_value("all.stats.neyman"),
-                name="statistic.handler.neyman",
+                outputs.get_value("statistic.full.chi2n_covmat"),
+                name="statistic.helper.neyman",
             )
             Sum.replicate(  # NOTE: (2-4) CNP covmat
-                outputs.get_value("statistic.handler.pearson"),
-                outputs.get_value("statistic.handler.neyman"),
+                outputs.get_value("statistic.helper.pearson"),
+                outputs.get_value("statistic.helper.neyman"),
                 name="statistic.full.chi2cnp_covmat",
             )
             # fmt: on
@@ -1595,7 +1595,7 @@ class model_dayabay_v0:
         return Generator(algo)
 
     def touch(self) -> None:
-        frozen_nodes = ("pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full.stat_unfrozen")
+        frozen_nodes = ("pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full_p.stat_frozen")
         for node in frozen_nodes:
             self.storage.get_value(f"nodes.{node}").touch()
 
