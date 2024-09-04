@@ -17,9 +17,36 @@ from multikeydict.nestedmkdict import NestedMKDict
 set_level(INFO1)
 
 
-def minus_one(*values):
+def minus_one(parname: tuple[str,...], *values: float) -> tuple[float,...]:
+    match parname:
+        case ("spectrum_correction", "corr_unc"):
+            return values
+
     return tuple(v - 1.0 for v in values)
 
+def hmuncmapping(key: tuple[str,...]) -> tuple[str,...]:
+    match key:
+        case ("corr_unc",):
+            return ("corr",)
+        case ("uncorr_unc", isotope, energy):
+            idx = int(energy.rsplit("_", 1)[-1])
+            return ("uncorr", isotope, f"unc_scale_{idx:03d}")
+
+    raise RuntimeError(f"Do not know how to map {key}")
+
+def default_setter(parname: tuple[str,...], par, value: float, normvalue: float) -> float:
+    par.value = value
+    return value
+
+def uncorr_normalized_setter(key: tuple[str,...], par, value: float, normvalue: float) -> float:
+    match key:
+        case ("spectrum_correction", "uncorr_unc", *_):
+            par.normvalue = normvalue
+
+            return normvalue
+
+    par.value = value
+    return value
 
 comparison = {
     "default": {"rtol": 1.0e-8},
@@ -29,42 +56,31 @@ comparison = {
     "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
     "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
     "bkg_rate_lihe": {"location": "all.bkg.rate.lihe", "rtol": 1.0e-8},
-    "effunc_uncorr": {
-        "location": "all.detector.detector_relative",
-        "keys_mapping": lambda t: (t+("efficiency_factor",)),
-        "rtol": 1.0e-8
-    },
-    "escale": {
-        "location": "all.detector.detector_relative",
-        "keys_mapping": lambda t: (t+("energy_scale_factor",)),
-        "rtol": 1.0e-8,
-    },
-    "eres": {
-        "location": "all.detector.eres",
-        "keys_mapping": {
-            ("a",): ("a_nonuniform",),
-            ("b",): ("b_stat",),
-            ("c",): ("c_noise",),
-        },
-        "rtol": 1.0e-8,
-    },
+    "effunc_uncorr": {"location": "all.detector.detector_relative", "keys_mapping": lambda t: (t+("efficiency_factor",)), "rtol": 1.0e-8},
+    "escale": {"location": "all.detector.detector_relative", "keys_mapping": lambda t: (t+("energy_scale_factor",)), "rtol": 1.0e-8},
+    "eres": {"location": "all.detector.eres", "keys_mapping": {("a",): ("a_nonuniform",), ("b",): ("b_stat",), ("c",): ("c_noise",), }, "rtol": 1.0e-8},
     "global_norm": {"location": "all.detector.global_normalization", "rtol": 1.0e-8},
     "lsnl_weight": {"location": "all.detector.lsnl_scale_a", "rtol": 1.0e-8},
     "DeltaMSq12": {"location": "all.oscprob.DeltaMSq21", "rtol": 1.0e-8},
     "DeltaMSq23": {"location": "all.oscprob.DeltaMSq32", "rtol": 1.0e-8},
     "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
     "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
-    "spectral_weights": {
-        "location": "all.neutrino_per_fission",
-        "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
-        "rtol": 1.0e-8,
-    },
+    "spectral_weights": {"location": "all.neutrino_per_fission_factor", "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),), "rtol": 1.0e-8},
     # Reactor
     "nominal_thermal_power": {"location": "all.reactor.nominal_thermal_power", "rtol": 1.0e-8},
     "fission_fractions_corr": {"location": "all.reactor.fission_fraction_scale", "rtol": 1.0e-8},
     "eper_fission": {"location": "all.reactor.energy_per_fission", "rtol": 1.0e-8},
     "offeq_scale": {"location": "all.reactor.offequilibrium_scale", "rtol": 1.0e-8},
     "snf_scale": {"location": "all.reactor.snf_scale", "rtol": 1.0e-8},
+    "spectrum_correction": {
+        "skip": False,
+        "location": "all.reactor_anue.spectrum_uncertainty",
+        "keys_mapping": hmuncmapping,
+        "atol": 0.3,
+        "rtol": 1.e-4,
+        "value_fcn": minus_one,
+        "value_setter": uncorr_normalized_setter
+        }
 }
 
 
@@ -100,6 +116,9 @@ class NuisanceComparator:
         "diff",
         "n_success",
         "n_fail",
+        "n_pars",
+        "n_values",
+        "n_hists",
     )
     opts: Namespace
     outputs_dgf: NestedMKDict
@@ -135,6 +154,10 @@ class NuisanceComparator:
     n_success: int
     n_fail: int
 
+    n_pars: int
+    n_values: int
+    n_hists: int
+
     def __init__(self, opts: Namespace):
         self.cmpopts = {}
 
@@ -155,11 +178,14 @@ class NuisanceComparator:
 
         self.n_success = 0
         self.n_fail = 0
+        self.n_pars = 0
+        self.n_values = 0
+        self.n_hists = 0
 
-        self.value_central = -1111.1111
-        self.value_current = -1111.1111
-        self.value_left = -1111.1111
-        self.value_right = -1111.1111
+        self.value_central = "default"
+        self.value_current = "default"
+        self.value_left = "default"
+        self.value_right = "default"
 
         self.outputs_dgf_default = NestedMKDict(sep=".")
         self.outputs_gna_default = NestedMKDict(sep=".")
@@ -178,6 +204,8 @@ class NuisanceComparator:
 
         with suppress(StopIteration):
             self.process()
+
+        logger.info(f"Processed {self.n_pars} parameters ({self.n_values} values) and {self.n_hists} histograms: {self.n_success} sucess / {self.n_fail} fail")
 
     def _skip_par(self, parname: str) -> bool:
         parname = parname.lower()
@@ -218,12 +246,14 @@ class NuisanceComparator:
                     skipped.add(parname)
                 continue
 
-            value_fcn = self.cmpopts.get("value_fcn", lambda *v: v)
+            value_fcn = self.cmpopts.get("value_fcn", lambda s, *v: v)
             self.value_central, self.value_left, self.value_right = value_fcn(
+                paritems,
                 *results["values"]
             )
+            _, normvalue_left, normvalue_right = results["normvalues"]
 
-            parsloc = self.parameters_dgf.any(self.cmpopts["location"])
+            parsloc = self.parameters_dgf.get_any(self.cmpopts["location"])
             keys_mapping = self.cmpopts.get("keys_mapping", lambda s: s)
             if isinstance(keys_mapping, dict):
                 keys_fcn = lambda s: keys_mapping.get(s, s)
@@ -235,6 +265,8 @@ class NuisanceComparator:
                 self.value_central *= par.value
                 self.value_left *= self.value_central
                 self.value_right *= self.value_central
+
+            setter = self.cmpopts.get("value_setter", default_setter)
 
             if par.value != self.value_central:
                 logger.error(
@@ -250,18 +282,21 @@ class NuisanceComparator:
             self.skey_par_dgf = self.cmpopts["location"]
             self.skey2_par_dgf = ""
 
-            self.value_current = self.value_right
-            par.push(self.value_current)
+            par.push()
+
+            self.value_current = setter(paritems, par, self.value_right, normvalue_right)
             logger.log(INFO1, f"{parname}: v={self.valuestring}")
             self.process_par_offset(results_right)
 
-            self.value_current = self.value_left
-            par.value = self.value_current
+            self.value_current = setter(paritems, par, self.value_left, normvalue_left)
             logger.log(INFO1, f"{parname}: v={self.valuestring}")
             self.process_par_offset(results_left)
 
             par.pop()
             self.check_default("restore", check_change=False)
+
+            self.n_pars += 1
+            self.n_values += 3
 
     def check_default(
         self, label="default", *, save: bool = False, check_change: bool = True
@@ -348,7 +383,9 @@ class NuisanceComparator:
         logger.error(f"      max rel diff {self.maxreldiff:.2g}")
 
         if self.opts.plot_on_failure:
-            self.plot_1d()
+            ss = self.opts.plot_filter
+            if not ss or ss in self.cmpstring:
+                self.plot_1d()
 
         if self.opts.embed_on_failure:
             try:
@@ -490,6 +527,7 @@ class NuisanceComparator:
         return float(self.cmpopts.get("rtol", 0.0))
 
     def data_consistent(self, gna: NDArray, dgf: NDArray) -> bool:
+        self.n_hists += 1
         try:
             status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
         except ValueError:
@@ -527,7 +565,9 @@ def iterate_mappings_till_key(
             yield from iterate_mappings_till_key(submapping, target_key, head=retkey)
 
 
-def get_orderless(storage: NestedMKDict | Any, key: list[str]) -> Any:
+from multikeydict.typing import KeyLike, properkey
+def get_orderless(storage: NestedMKDict | Any, key: KeyLike) -> Any:
+    key = properkey(key)
     if not key:
         return storage
     for pkey in permutations(key):
@@ -571,6 +611,9 @@ if __name__ == "__main__":
     )
     crosscheck.add_argument(
         "-p", "--plot-on-failure", action="store_true", help="plot on failure"
+    )
+    crosscheck.add_argument(
+        "--plot-filter", help="plot only comparisons with substring"
     )
     crosscheck.add_argument(
         "-x", "--exit-on-failure", action="store_true", help="exit on failure"

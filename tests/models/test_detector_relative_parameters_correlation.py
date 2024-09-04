@@ -9,8 +9,8 @@ class CorrelatedTest(unittest.TestCase):
     def setUpClass(cls):
         model = model_dayabay_v0(close=True, strict=False)
         storage = model.storage
-        cls.parameters_all = storage("parameter.all")
-        cls.parameters_normalized = storage("parameter.normalized")
+        cls.parameters_all = storage("parameters.all")
+        cls.parameters_normalized = storage("parameters.normalized")
 
         cls.efficiency_factor_path = "detector.detector_relative.{detector}.efficiency_factor"
         cls.energy_scale_path = "detector.detector_relative.{detector}.energy_scale_factor"
