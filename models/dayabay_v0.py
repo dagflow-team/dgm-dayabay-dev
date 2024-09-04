@@ -1595,7 +1595,10 @@ class model_dayabay_v0:
         return Generator(algo)
 
     def touch(self) -> None:
-        frozen_nodes = ("pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full_p.stat_frozen")
+        frozen_nodes = (
+            "pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full_p.stat_frozen",
+            "cholesky.covmat_full_p.stat_unfrozen", "cholesky.covmat_full_n",
+        )
         for node in frozen_nodes:
             self.storage.get_value(f"nodes.{node}").touch()
 
