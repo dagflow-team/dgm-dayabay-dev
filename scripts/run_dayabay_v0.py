@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
-from yaml import Loader, load
-
 from dagflow.graph import Graph
 from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
+from dagflow.logger import INFO1, INFO2, INFO3, set_level
 from dagflow.storage import NodeStorage
-from models import dayabay_models
+from models import load_model, available_models
 
 # from dagflow.plot import plot_auto
 
@@ -19,25 +17,18 @@ def main(opts: Namespace) -> None:
         opts.verbose = min(opts.verbose, 3)
         set_level(globals()[f"INFO{opts.verbose}"])
 
-    if opts.model_options:
-        model_options = load(opts.model_options, Loader)
-        if not isinstance(model_options, dict):
-            raise RuntimeError("Option --model_options expects a dictionary (yaml)")
-    else:
-        model_options = {}
-
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
-    logger.info(f"Execute Daya Bay model {opts.version}")
-    model = dayabay_models[opts.version](
-        close=opts.close,
-        strict=opts.strict,
-        source_type=opts.source_type,
-        override_indices=override_indices,
-        spectrum_correction_mode=opts.spec,
-        fission_fraction_normalized=opts.fission_fraction_normalized,
-        parameter_values=opts.par,
-        **model_options,
-    )
+    model = load_model(
+            opts.version,
+            model_options=opts.model_options,
+            close=opts.close,
+            strict=opts.strict,
+            source_type=opts.source_type,
+            override_indices=override_indices,
+            spectrum_correction_mode=opts.spec,
+            fission_fraction_normalized=opts.fission_fraction_normalized,
+            parameter_values=opts.par
+            )
 
     graph = model.graph
     storage = model.storage
@@ -229,10 +220,10 @@ if __name__ == "__main__":
     model.add_argument(
         "--version",
         default="v0",
-        choices=tuple(dayabay_models.keys()),
+        choices=available_models(),
         help="model version",
     )
-    model.add_argument("--model-options", "--mo", help="Model options as yaml dict")
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(

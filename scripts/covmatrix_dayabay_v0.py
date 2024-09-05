@@ -7,7 +7,7 @@ from argparse import Namespace
 from h5py import File
 
 from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
-from models.dayabay_v0 import model_dayabay_v0
+from models import load_model, available_models
 
 set_level(INFO1)
 
@@ -17,7 +17,9 @@ def main(opts: Namespace) -> None:
         opts.verbose = min(opts.verbose, 3)
         set_level(globals()[f"INFO{opts.verbose}"])
 
-    model = model_dayabay_v0(
+    model = load_model(
+        opts.version,
+        model_options=opts.model_options,
         source_type=opts.source_type,
         spectrum_correction_mode=opts.spec,
         fission_fraction_normalized=opts.fission_fraction_normalized,
@@ -85,6 +87,13 @@ if __name__ == "__main__":
         action="store_true",
         help="fission fraction correction",
     )
+    model.add_argument(
+        "--version",
+        default="v0",
+        choices=available_models(),
+        help="model version",
+    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
