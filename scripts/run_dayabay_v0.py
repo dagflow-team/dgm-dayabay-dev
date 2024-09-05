@@ -1,33 +1,42 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
-from dagflow.graph import Graph
-from dagflow.logger import INFO1
-from dagflow.logger import INFO2
-from dagflow.logger import INFO3
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import set_level
-from dagflow.storage import NodeStorage
+from yaml import Loader, load
 
-from models.dayabay_v0 import model_dayabay_v0
+from dagflow.graph import Graph
+from dagflow.logger import DEBUG as INFO4
+from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
+from dagflow.storage import NodeStorage
+from models import dayabay_models
+
 # from dagflow.plot import plot_auto
 
 set_level(INFO1)
+
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
         opts.verbose = min(opts.verbose, 3)
         set_level(globals()[f"INFO{opts.verbose}"])
 
+    if opts.model_options:
+        model_options = load(opts.model_options, Loader)
+        if not isinstance(model_options, dict):
+            raise RuntimeError("Option --model_options expects a dictionary (yaml)")
+    else:
+        model_options = {}
+
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
-    model = model_dayabay_v0(
+    logger.info(f"Execute Daya Bay model {opts.version}")
+    model = dayabay_models[opts.version](
         close=opts.close,
         strict=opts.strict,
         source_type=opts.source_type,
         override_indices=override_indices,
         spectrum_correction_mode=opts.spec,
         fission_fraction_normalized=opts.fission_fraction_normalized,
-        parameter_values=opts.par
+        parameter_values=opts.par,
+        **model_options,
     )
 
     graph = model.graph
@@ -35,6 +44,7 @@ def main(opts: Namespace) -> None:
 
     if opts.interactive:
         from IPython import embed
+
         embed(colors="neutral")
 
     if not graph.closed:
@@ -82,7 +92,7 @@ def main(opts: Namespace) -> None:
             show="all",
             mindepth=opts.mindepth,
             maxdepth=opts.maxdepth,
-            keep_direction = True
+            keep_direction=True,
         ).savegraph(filepath)
 
 
@@ -137,7 +147,9 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('-v', '--verbose', default=0, action='count', help='verbosity level')
+    parser.add_argument(
+        "-v", "--verbose", default=0, action="count", help="verbosity level"
+    )
     parser.add_argument(
         "-s",
         "--source-type",
@@ -157,13 +169,20 @@ if __name__ == "__main__":
         "--plot-all", help="plot all the nodes to the folder", metavar="folder"
     )
     plot.add_argument(
-        "--plot", nargs="+", help="plot the nodes in storages", metavar=("folder", "storage")
+        "--plot",
+        nargs="+",
+        help="plot the nodes in storages",
+        metavar=("folder", "storage"),
     )
 
     storage = parser.add_argument_group("storage", "storage related options")
     storage.add_argument("-P", "--print-all", action="store_true", help="print all")
-    storage.add_argument("-p", "--print", action="append", nargs="+", default=[], help="print all")
-    storage.add_argument("-l", "--latex", action="store_true", help="print latex tables with parameters")
+    storage.add_argument(
+        "-p", "--print", action="append", nargs="+", default=[], help="print all"
+    )
+    storage.add_argument(
+        "-l", "--latex", action="store_true", help="print latex tables with parameters"
+    )
 
     graph = parser.add_argument_group("graph", "graph related options")
     graph.add_argument(
@@ -183,14 +202,37 @@ if __name__ == "__main__":
     )
 
     dot = parser.add_argument_group("graphviz", "plotting graphs")
-    dot.add_argument("-g", "--graph-from-node", nargs=2, help="plot the graph starting from the node", metavar=("node", "file"))
+    dot.add_argument(
+        "-g",
+        "--graph-from-node",
+        nargs=2,
+        help="plot the graph starting from the node",
+        metavar=("node", "file"),
+    )
     dot.add_argument("--mindepth", "--md", type=int, help="minimal depth")
     dot.add_argument("--maxdepth", "--Md", type=int, help="maximaldepth depth")
-    dot.add_argument("--graph-auto", "--ga", action="store_true", help="plot graphs auto")
+    dot.add_argument(
+        "--graph-auto", "--ga", action="store_true", help="plot graphs auto"
+    )
 
     model = parser.add_argument_group("model", "model related options")
-    model.add_argument("--spec", choices=("linear", "exponential"), help="antineutrino spectrum correction mode")
-    model.add_argument("--fission-fraction-normalized", action="store_true", help="fission fraction correction")
+    model.add_argument(
+        "--spec",
+        choices=("linear", "exponential"),
+        help="antineutrino spectrum correction mode",
+    )
+    model.add_argument(
+        "--fission-fraction-normalized",
+        action="store_true",
+        help="fission fraction correction",
+    )
+    model.add_argument(
+        "--version",
+        default="v0",
+        choices=tuple(dayabay_models.keys()),
+        help="model version",
+    )
+    model.add_argument("--model-options", "--mo", help="Model options as yaml dict")
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
