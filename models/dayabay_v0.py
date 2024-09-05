@@ -1442,6 +1442,25 @@ class model_dayabay_v0:
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
+            from dagflow.lib.ParArrayInput import ParArrayInput
+            parinp_initial = ParArrayInput(
+                name="pseudo.parameters.inputs.initial",
+                parameters=list(parameters_nuisance_normalized.walkvalues()),
+            )
+            parinp_mc = ParArrayInput(
+                name="pseudo.parameters.inputs.toymc",
+                parameters=list(parameters_nuisance_normalized.walkvalues()),
+            )
+            centrals = Array(
+                "pseudo.parameters.values",
+                [0. for _ in range(npars_nuisance)],
+                dtype="d",
+            )
+            errors = Array(
+                "pseudo.parameters.errors",
+                [1. for _ in range(npars_nuisance)],
+                dtype="d",
+            )
 
             #
             # Statistic
@@ -1451,10 +1470,19 @@ class model_dayabay_v0:
 
             from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(name="pseudo.data", mode=self._monte_carlo_mode, generator=self._generator)
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("pseudo.data.input")
+            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("pseudo.data.data")
 
             MonteCarlo.replicate(name="covariance.data.frozen", mode="asimov", generator=self._generator)
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("covariance.data.frozen.input")
+            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("covariance.data.frozen.data")
+
+            MonteCarlo.replicate(name="pseudo.parameters.toymc", mode="normal", generator=self._generator)
+            centrals >> inputs.get_value("pseudo.parameters.toymc.data")
+            errors >> inputs.get_value("pseudo.parameters.toymc.errors")
+            outputs.get_value("pseudo.parameters.toymc") >> parinp_mc
+            centrals >> parinp_initial
+            nodes["pseudo.parameters.inputs.central"] = centrals
+            nodes["pseudo.parameters.inputs.toymc"] = parinp_mc
+            nodes["pseudo.parameters.inputs.initial"] = parinp_initial
 
             from dagflow.lib.Cholesky import Cholesky
             Cholesky.replicate(name="cholesky.stat.unfrozen")
@@ -1596,8 +1624,7 @@ class model_dayabay_v0:
 
     def touch(self) -> None:
         frozen_nodes = (
-            "pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full_p.stat_frozen",
-            "cholesky.covmat_full_p.stat_unfrozen", "cholesky.covmat_full_n",
+            "pseudo.data", "cholesky.stat.frozen",
         )
         for node in frozen_nodes:
             self.storage.get_value(f"nodes.{node}").touch()
@@ -1621,4 +1648,7 @@ class model_dayabay_v0:
             print(f"Set {parname}={svalue}")
 
     def next_sample(self) -> None:
+        self.storage.get_value("nodes.pseudo.parameters.toymc").next_sample()
+        self.storage.get_value("nodes.pseudo.parameters.inputs.toymc").touch()
         self.storage.get_value("nodes.pseudo.data").next_sample()
+        self.storage.get_value("nodes.pseudo.parameters.inputs.initial").touch()
