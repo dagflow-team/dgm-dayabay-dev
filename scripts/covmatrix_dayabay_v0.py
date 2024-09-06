@@ -21,8 +21,6 @@ def main(opts: Namespace) -> None:
         opts.version,
         model_options=opts.model_options,
         source_type=opts.source_type,
-        spectrum_correction_mode=opts.spec,
-        fission_fraction_normalized=opts.fission_fraction_normalized,
         parameter_values=opts.setpar,
     )
 
@@ -77,16 +75,6 @@ if __name__ == "__main__":
     )
 
     model = parser.add_argument_group("model", "model related options")
-    model.add_argument(
-        "--spec",
-        choices=("linear", "exponential"),
-        help="antineutrino spectrum correction mode",
-    )
-    model.add_argument(
-        "--fission-fraction-normalized",
-        action="store_true",
-        help="fission fraction correction",
-    )
     model.add_argument(
         "--version",
         default="v0",
