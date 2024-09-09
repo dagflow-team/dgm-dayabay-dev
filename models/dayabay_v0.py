@@ -1491,6 +1491,9 @@ class model_dayabay_v0:
             Cholesky.replicate(name="cholesky.stat.frozen")
             outputs.get_value("covariance.data.frozen") >> inputs.get_value("cholesky.stat.frozen")
 
+            Cholesky.replicate(name="cholesky.stat.data.frozen")
+            outputs.get_value("pseudo.data") >> inputs.get_value("cholesky.stat.data.frozen")
+
             from dagflow.lib.SumMatOrDiag import SumMatOrDiag
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_frozen")
             outputs.get_value("covariance.data.frozen") >> nodes.get_value("covariance.covmat_full_p.stat_frozen")
@@ -1521,7 +1524,7 @@ class model_dayabay_v0:
 
             Chi2.replicate(name="statistic.stat.chi2n")  # NOTE: (2-2) chi-squared Neyman stat
             outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2n.theory")
-            outputs.get_value("cholesky.stat.frozen") >> inputs.get_value("statistic.stat.chi2n.errors")
+            outputs.get_value("cholesky.stat.data.frozen") >> inputs.get_value("statistic.stat.chi2n.errors")
             outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2n.data")
 
             Chi2.replicate(name="statistic.stat.chi2p_biased")  # NOTE: (2-1)
@@ -1624,7 +1627,8 @@ class model_dayabay_v0:
 
     def touch(self) -> None:
         frozen_nodes = (
-            "pseudo.data", "cholesky.stat.frozen",
+            "pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full_p.stat_frozen",
+            "cholesky.covmat_full_p.stat_unfrozen", "cholesky.covmat_full_n", "covariance.data.frozen",
         )
         for node in frozen_nodes:
             self.storage.get_value(f"nodes.{node}").touch()
