@@ -1,9 +1,3 @@
-from collections.abc import Sequence
-
-from numba import njit
-from numpy import empty
-from numpy.typing import NDArray
-
 from multikeydict.nestedmkdict import NestedMKDict
 
 
@@ -37,7 +31,7 @@ def sync_reactor_detector_data(
         reactor_day[period] = reactor_day_p_new
 
         for key, data in reactor_data.walkitems():
-            if key[0]=='days':
+            if key[0] == "days":
                 continue
             if not period in key:
                 continue
