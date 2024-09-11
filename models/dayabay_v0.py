@@ -1427,7 +1427,7 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
                 replicate_inputs=combinations["detector.period"]
             )
-            outputs("eventscount.final.detector_period") >> inputs("pseudo.data.input")
+            outputs("eventscount.final.detector_period") >> inputs("pseudo.data")
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
