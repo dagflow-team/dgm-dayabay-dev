@@ -320,11 +320,11 @@ class model_dayabay_v0:
                 name="oscprob",
                 distance_unit="m",
                 replicate_outputs=combinations["reactor.detector"],
-                oscprobArgConversion = True
+                surprobArgConversion = True
             )
             kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
-            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs("oscprob.oscprobArgConversion")
+            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs("oscprob.surprobArgConversion")
             nodes("oscprob") << parameters("free.oscprob")
             nodes("oscprob") << parameters("constrained.oscprob")
             nodes("oscprob") << parameters("constant.oscprob")
