@@ -1,7 +1,9 @@
 from collections.abc import Mapping, Sequence
 from itertools import product
+from logging import Logger
 from os.path import relpath
 from pathlib import Path
+from time import time
 from typing import Literal
 
 from more_itertools import ilen
@@ -15,6 +17,7 @@ from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.lib.InterpolatorGroup import InterpolatorGroup
+from dagflow.logger import INFO1, get_logger
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -39,6 +42,8 @@ class model_dayabay_v0:
         "_fission_fraction_normalized",
         "_monte_carlo_mode",
         "_generator",
+        "_debug",
+        "_logger",
     )
 
     storage: NodeStorage
@@ -51,6 +56,8 @@ class model_dayabay_v0:
     _source_type: SourceTypes
     _strict: bool
     _close: bool
+    _debug: bool
+    _logger: Logger
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _concatenation: Literal["detector", "detector-period"]
     _fission_fraction_normalized: bool
@@ -63,6 +70,7 @@ class model_dayabay_v0:
         source_type: SourceTypes = "npz",
         strict: bool = True,
         close: bool = True,
+        debug: bool = False,
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
@@ -73,6 +81,8 @@ class model_dayabay_v0:
     ):
         self._strict = strict
         self._close = close
+        self._debug = debug
+        self._logger = get_logger()
 
         self.graph = None
         self.storage = NodeStorage()
@@ -94,7 +104,113 @@ class model_dayabay_v0:
         if parameter_values:
             self.set_parameters(parameter_values)
 
+    def _load_parameters(self, *, path_parameters, index, combinations):
+        self._logger.log(INFO1, "\x1b[34mLoading parameters...\x1b[0m")
+        self._load_parameters_oscprob_ibd_conversion(path_parameters=path_parameters)
+        self._load_parameters_detector(path_parameters=path_parameters, index=index)
+        self._load_parameters_reactor(
+            path_parameters=path_parameters, index=index, combinations=combinations
+        )
+        self._load_parameters_norm_bkg(path_parameters=path_parameters)
+        self._logger.log(INFO1, "\x1b[34mParameters are loaded!\x1b[0m")
+
+    def _load_parameters_oscprob_ibd_conversion(self, *, path_parameters):
+        load_parameters(path="oscprob", load=path_parameters / "oscprob.yaml")
+        load_parameters(path="oscprob", load=path_parameters / "oscprob_solar.yaml", joint_nuisance=True)
+        load_parameters(path="oscprob", load=path_parameters / "oscprob_constants.yaml")
+
+        load_parameters(path="ibd", load=path_parameters / "pdg2012.yaml")
+        load_parameters(path="ibd.csc", load=path_parameters / "ibd_constants.yaml")
+        load_parameters(path="conversion", load=path_parameters / "conversion_thermal_power.yaml")
+        load_parameters(path="conversion", load=path_parameters / "conversion_oscprob_argument.yaml")
+
+        load_parameters(load=path_parameters / "baselines.yaml")
+
+    def _load_parameters_detector(self, *, path_parameters, index):
+        load_parameters(path="detector", load=path_parameters / "detector_efficiency.yaml")
+        load_parameters(path="detector", load=path_parameters / "detector_normalization.yaml")
+        load_parameters(path="detector", load=path_parameters / "detector_nprotons_correction.yaml")
+        load_parameters(path="detector", load=path_parameters / "detector_eres.yaml")
+        load_parameters(
+            path="detector",
+            load=path_parameters / "detector_lsnl.yaml",
+            replicate=index["lsnl_nuisance"],
+        )
+        load_parameters(
+            path="detector",
+            load=path_parameters / "detector_iav_offdiag_scale.yaml",
+            replicate=index["detector"],
+        )
+        load_parameters(
+            path="detector",
+            load=path_parameters / "detector_relative.yaml",
+            replicate=index["detector"],
+            replica_key_offset=1,
+        )
+
+    def _load_parameters_reactor(self, *, path_parameters, index, combinations):
+        load_parameters(path="reactor", load=path_parameters / "reactor_energy_per_fission.yaml")
+        load_parameters(
+            path="reactor",
+            load=path_parameters / "reactor_thermal_power_nominal.yaml",
+            replicate=index["reactor"],
+        )
+        load_parameters(
+            path="reactor", load=path_parameters / "reactor_snf.yaml", replicate=index["reactor"]
+        )
+        load_parameters(
+            path="reactor",
+            load=path_parameters / "reactor_offequilibrium_correction.yaml",
+            replicate=combinations["reactor.isotope_offeq"],
+        )
+        load_parameters(path="reactor", load=path_parameters / "reactor_snf_fission_fractions.yaml")
+        load_parameters(
+            path="reactor",
+            load=path_parameters / "reactor_fission_fraction_scale.yaml",
+            replicate=index["reactor"],
+            replica_key_offset=1,
+        )
+
+    def _load_parameters_norm_bkg(self, *, path_parameters):
+        load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
+
+        # Normalization constants
+        load_parameters(
+            format="value",
+            state="fixed",
+            parameters={
+                "conversion": {
+                    "seconds_in_day_inverse": 1 / (60 * 60 * 24),
+                }
+            },
+            labels={
+                "conversion": {
+                    "seconds_in_day_inverse": "One divided by seconds in day",
+                }
+            },
+        )
+
+        # Statistic constants for write-handed CNP
+        load_parameters(
+            format="value",
+            state="fixed",
+            parameters={
+                "stats": {
+                    "pearson": 2 / 3,
+                    "neyman": 1 / 3,
+                }
+            },
+            labels={
+                "stats": {
+                    "pearson": "Pearson coefficient",
+                    "neyman": "Neyman coefficient",
+                }
+            },
+        )
+
     def build(self):
+        self._logger.log(INFO1, "\x1b[34mStart building the model...\x1b[0m")
+        starttime = time()
         storage = self.storage
         path_data = self._path_data
 
@@ -141,15 +257,11 @@ class model_dayabay_v0:
         index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
         # index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muon')
         index["bkg"] = ("acc", "lihe", "fastn", "amc", "alphan")
-        index["spec"] = tuple(
-            f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
-        )
+        index["spec"] = tuple(f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges)))
 
         index.update(self._override_indices)
 
-        index_all = (
-            index["isotope"] + index["detector"] + index["reactor"] + index["period"]
-        )
+        index_all = index["isotope"] + index["detector"] + index["reactor"] + index["period"]
         set_all = set(index_all)
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
@@ -183,19 +295,14 @@ class model_dayabay_v0:
 
         combinations["anue_source.reactor.isotope.detector"] = (
             tuple(("main",) + cmb for cmb in combinations["reactor.isotope.detector"])
-            + tuple(
-                ("offeq",) + cmb
-                for cmb in combinations["reactor.isotope_offeq.detector"]
-            )
+            + tuple(("offeq",) + cmb for cmb in combinations["reactor.isotope_offeq.detector"])
             + tuple(("snf",) + cmb for cmb in combinations["reactor.detector"])
         )
 
-        spectrum_correction_is_exponential = (
-            self._spectrum_correction_mode == "exponential"
-        )
+        spectrum_correction_is_exponential = self._spectrum_correction_mode == "exponential"
 
         with (
-            Graph(close_on_exit=self._close, strict=self._strict) as graph,
+            Graph(close_on_exit=self._close, strict=self._strict, debug=self._debug) as graph,
             storage,
             FileReader,
         ):
@@ -204,77 +311,7 @@ class model_dayabay_v0:
             #
             # Load parameters
             #
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob.yaml")
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob_solar.yaml", joint_nuisance=True)
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml"
-            )
-
-            load_parameters(path="ibd",        load=path_parameters/"pdg2012.yaml")
-            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml"
-            )
-            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.yaml")
-            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
-
-            load_parameters(                   load=path_parameters/"baselines.yaml")
-
-            load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
-                            replicate=index["lsnl_nuisance"])
-            load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
-                            replicate=index["detector"])
-            load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
-                            replicate=index["detector"], replica_key_offset=1)
-
-            load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
-            load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
-                            replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
-                            replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
-                            replicate=combinations["reactor.isotope_offeq"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
-            load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
-                            replicate=index["reactor"], replica_key_offset=1)
-
-            load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
-            # fmt: on
-
-            # Normalization constants
-            load_parameters(
-                format="value",
-                state="fixed",
-                parameters={
-                    "conversion": {
-                        "seconds_in_day_inverse": 1 / (60 * 60 * 24),
-                    }
-                },
-                labels={
-                    "conversion": {
-                        "seconds_in_day_inverse": "One divided by seconds in day",
-                    }
-                },
-            )
-
-            # Statistic constants for write-handed CNP
-            load_parameters(
-                format="value",
-                state="fixed",
-                parameters={
-                    "stats": {
-                        "pearson": 2 / 3,
-                        "neyman": 1 / 3,
-                    }
-                },
-                labels={
-                    "stats": {
-                        "pearson": "Pearson coefficient",
-                        "neyman": "Neyman coefficient",
-                    }
-                },
-            )
+            self._load_parameters(path_parameters=path_parameters, index=index, combinations=combinations)
 
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
@@ -282,7 +319,7 @@ class model_dayabay_v0:
             data = storage.child("data")
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
-
+            
             # fmt: off
             #
             # Create nodes
@@ -294,6 +331,7 @@ class model_dayabay_v0:
             #
             # Define binning
             #
+            self._logger.log(INFO1, "\x1b[34mDefine binning...\x1b[0m")
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
 
@@ -317,6 +355,7 @@ class model_dayabay_v0:
             #
             # Integration, kinematics
             #
+            self._logger.log(INFO1, "\x1b[34mIntegration and kinematics...\x1b[0m")
             integration_orders_edep, _ = Array.from_value("kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
             integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 3, edges=edges_costheta)
 
@@ -345,17 +384,18 @@ class model_dayabay_v0:
             #
             # Oscillations
             #
+            self._logger.log(INFO1, "\x1b[34mOscillations...\x1b[0m")
             from dgf_reactoranueosc.NueSurvivalProbability import \
                 NueSurvivalProbability
             NueSurvivalProbability.replicate(
                 name="oscprob",
                 distance_unit="m",
                 replicate_outputs=combinations["reactor.detector"],
-                oscprobArgConversion = True
+                surprobArgConversion = True
             )
             kinematic_integrator_enu >> inputs("oscprob.enu")
             parameters("constant.baseline") >> inputs("oscprob.L")
-            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs("oscprob.oscprobArgConversion")
+            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs("oscprob.surprobArgConversion")
             nodes("oscprob") << parameters("free.oscprob")
             nodes("oscprob") << parameters("constrained.oscprob")
             nodes("oscprob") << parameters("constant.oscprob")
@@ -363,6 +403,7 @@ class model_dayabay_v0:
             #
             # Nominal antineutrino spectrum
             #
+            self._logger.log(INFO1, "\x1b[34mNominal antineutrino spectrum...\x1b[0m")
             load_graph(
                 name = "reactor_anue.neutrino_per_fission_per_MeV_input",
                 filenames = path_arrays / f"reactor_anue_spectra_50kev.{self._source_type}",
@@ -380,6 +421,7 @@ class model_dayabay_v0:
             #     - introduced for the consistency with GNA
             #     - to be removed in v1 TODO
             #
+            self._logger.log(INFO1, "\x1b[34mPre-interpolate input spectrum on coarser grid...\x1b[0m")
             InterpolatorGroup.replicate(
                 method = "exp",
                 names = {
@@ -395,6 +437,7 @@ class model_dayabay_v0:
             #
             # Interpolate for the integration mesh
             #
+            self._logger.log(INFO1, "\x1b[34mInterpolate for the integration mesh...\x1b[0m")
             InterpolatorGroup.replicate(
                 method = "exp",
                 names = {
@@ -413,6 +456,7 @@ class model_dayabay_v0:
             #
             # SNF and OffEQ normalization factors
             #
+            self._logger.log(INFO1, "\x1b[34mSNF and OffEQ normalization factors...\x1b[0m")
             load_parameters(
                 format="value",
                 state="fixed",
@@ -433,6 +477,7 @@ class model_dayabay_v0:
             #
             # Offequilibrium correction
             #
+            self._logger.log(INFO1, "\x1b[34mOffequilibrium correction...\x1b[0m")
             load_graph(
                 name = "reactor_offequilibrium_anue.correction_input",
                 x = "enu",
@@ -460,6 +505,7 @@ class model_dayabay_v0:
             #
             # SNF correction
             #
+            self._logger.log(INFO1, "\x1b[34mSNF correction...\x1b[0m")
             load_graph(
                 name = "snf_anue.correction_input",
                 x = "enu",
@@ -489,6 +535,7 @@ class model_dayabay_v0:
             #   - correlated between isotopes
             #   - uncorrelated between energy intervals
             #
+            self._logger.log(INFO1, "\x1b[34mReactor antineutrino spectral correction...\x1b[0m")
             if spectrum_correction_is_exponential:
                 neutrino_per_fission_correction_central_value = 0.0
             else:
@@ -546,6 +593,7 @@ class model_dayabay_v0:
             #       - uncorrelated between isotopes and energy intervals
             #       - correlated between isotopes and energy intervals
             #
+            self._logger.log(INFO1, "\x1b[34mHuber+Mueller spectrum shape uncertainties...\x1b[0m")
             load_graph(
                 name = "reactor_anue.spectrum_uncertainty",
                 filenames = path_arrays / f"reactor_anue_spectra_unc_50kev.{self._source_type}",
@@ -643,6 +691,7 @@ class model_dayabay_v0:
             #
             # Antineutrino spectrum with corrections
             #
+            self._logger.log(INFO1, "\x1b[34mAntineutrino spectrum with corrections...\x1b[0m")
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                     outputs.get_value("reactor_anue.spec_free_correction_interpolated"),
@@ -664,6 +713,7 @@ class model_dayabay_v0:
             #
             # Livetime
             #
+            self._logger.log(INFO1, "\x1b[34mLivetime...\x1b[0m")
             from dagflow.bundles.load_record import load_record_data
             load_record_data(
                 name = "daily_data.detector_all",
@@ -742,6 +792,7 @@ class model_dayabay_v0:
             #
             # Neutrino rate
             #
+            self._logger.log(INFO1, "\x1b[34mNeutrino rate...\x1b[0m")
             Product.replicate(
                     parameters("all.reactor.nominal_thermal_power"),
                     parameters.get_value("all.conversion.reactorPowerConversion"),
@@ -767,6 +818,7 @@ class model_dayabay_v0:
             #
             # Fission fraction normalized
             #
+            self._logger.log(INFO1, "\x1b[34mFission fraction normalized...\x1b[0m")
             if self._fission_fraction_normalized:
                 Sum.replicate(
                     outputs("daily_data.reactor.fission_fraction_scaled"),
@@ -948,6 +1000,7 @@ class model_dayabay_v0:
             #
             # Average SNF Spectrum
             #
+            self._logger.log(INFO1, "\x1b[34mAverage SNF Spectrum...\x1b[0m")
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                     outputs("reactor.fissions_per_second_snf"),
@@ -972,6 +1025,7 @@ class model_dayabay_v0:
             # Integrand: flux × oscillation probability × cross section
             # [Nν·cm²/fission/proton]
             #
+            self._logger.log(INFO1, "\x1b[34mIntegrand: flux × oscillation probability × cross section...\x1b[0m")
             Product.replicate(
                     outputs.get_value("ibd.crosssection"),
                     outputs.get_value("ibd.jacobian"),
@@ -1015,6 +1069,7 @@ class model_dayabay_v0:
             #  - offeq: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × offequilibrium scale[r,i] × offeq_factor(=1)
             #  - snf:                                effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
             #
+            self._logger.log(INFO1, "\x1b[34mMultiply by scaling factors...\x1b[0m")
             Product.replicate(
                     outputs("kinematics_integral.main"),
                     outputs("reactor_detector.number_of_fissions_nprotons_per_cm2"),
@@ -1066,6 +1121,7 @@ class model_dayabay_v0:
             #
             # Detector effects
             #
+            self._logger.log(INFO1, "\x1b[34mDetector effects...\x1b[0m")
             load_array(
                 name = "detector.iav",
                 filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
@@ -1264,6 +1320,7 @@ class model_dayabay_v0:
             #
             # Backgrounds
             #
+            self._logger.log(INFO1, "\x1b[34mBackgrounds...\x1b[0m")
             from dagflow.bundles.load_hist import load_hist
             bkg_names = {
                 'acc': "accidental",
@@ -1413,7 +1470,9 @@ class model_dayabay_v0:
             #
             # Covariance matrices
             #
+            self._logger.log(INFO1, "\x1b[34mCovariance matrices...\x1b[0m")
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
+
             # covariance_detector = CovarianceMatrixGroup(store_to="covariance.detector")
             covariance = CovarianceMatrixGroup(store_to="covariance")
 
@@ -1466,6 +1525,7 @@ class model_dayabay_v0:
             # Statistic
             #
             # Create Nuisance parameters
+            self._logger.log(INFO1, "\x1b[34mStatistic...\x1b[0m")
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
             from dgf_statistics.MonteCarlo import MonteCarlo
@@ -1617,28 +1677,52 @@ class model_dayabay_v0:
                 raise RuntimeError(
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
+        self._logger.log(
+            INFO1, f"\x1b[34mModel is built! Time taken: {time()-starttime:0.1f} seconds.\x1b[0m"
+        )
 
     @staticmethod
     def _create_generator(seed: int) -> Generator:
-        from numpy.random import SeedSequence, MT19937
-        sequence, = SeedSequence(seed).spawn(1)
+        from numpy.random import MT19937, SeedSequence
+
+        (sequence,) = SeedSequence(seed).spawn(1)
         algo = MT19937(seed=sequence.spawn(1)[0])
         return Generator(algo)
 
     def touch(self) -> None:
+        self._logger.log(INFO1, "\x1b[34mEvaluate the model...\x1b[0m")
+        evaltime = time()
+
         frozen_nodes = (
-            "pseudo.data", "cholesky.stat.frozen", "cholesky.covmat_full_p.stat_frozen",
-            "cholesky.covmat_full_p.stat_unfrozen", "cholesky.covmat_full_n", "covariance.data.frozen",
+            "pseudo.data",
+            "cholesky.stat.frozen",
+            "cholesky.covmat_full_p.stat_frozen",
+            "cholesky.covmat_full_p.stat_unfrozen",
+            "cholesky.covmat_full_n",
+            "covariance.data.frozen",
         )
         for node in frozen_nodes:
             self.storage.get_value(f"nodes.{node}").touch()
 
+        evaltime = time() - evaltime
+        nodes = self.graph._nodes
+        nodesnum = len(nodes)
+        ncalls = sum(node._n_calls for node in nodes)
+        self._logger.log(INFO1, f"\x1b[34mTotal nodes number: {nodesnum}.\x1b[0m")
+        self._logger.log(INFO1, f"\x1b[34mTotal ncalls number: {ncalls}.\x1b[0m")
+        self._logger.log(INFO1, f"\x1b[34mTotal evaluation time: {evaltime:0.1f} s.\x1b[0m")
+        self._logger.log(
+            INFO1, f"\x1b[34mAveraged evaluation time per node: {evaltime*1000/nodesnum:0.1f} ms.\x1b[0m"
+        )
+        self._logger.log(
+            INFO1, f"\x1b[34mAveraged evaluation time per call: {evaltime*1e6/ncalls:0.1f} mcs.\x1b[0m"
+        )
+
     def set_parameters(
         self,
-        parameter_values: (
-            Mapping[str, float | str] | Sequence[tuple[str, float | int]]
-        ) = (),
+        parameter_values: Mapping[str, float | str] | Sequence[tuple[str, float | int]] = (),
     ):
+        self._logger.log(INFO1, "\x1b[34mSet parameters...\x1b[0m")
         parameters_storage = self.storage("parameters.all")
         if isinstance(parameter_values, Mapping):
             iterable = parameter_values.items()
@@ -1652,6 +1736,7 @@ class model_dayabay_v0:
             print(f"Set {parname}={svalue}")
 
     def next_sample(self) -> None:
+        self._logger.log(INFO1, "\x1b[34mNext sample...\x1b[0m")
         self.storage.get_value("nodes.pseudo.parameters.toymc").next_sample()
         self.storage.get_value("nodes.pseudo.parameters.inputs.toymc").touch()
         self.storage.get_value("nodes.pseudo.data").next_sample()

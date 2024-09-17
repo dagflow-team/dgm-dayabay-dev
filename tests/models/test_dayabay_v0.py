@@ -1,11 +1,14 @@
 from dagflow.graph import Graph
-from dagflow.plot import plot_auto
 from dagflow.storage import NodeStorage
 from models.dayabay_v0 import model_dayabay_v0
 
+from dagflow.logger import INFO1, set_level
 
-def test_dayabay_v0():
-    model = model_dayabay_v0(close=True, strict=False)
+set_level(INFO1)
+
+
+def test_dayabay_v0(debug_graph):
+    model = model_dayabay_v0(close=True, strict=False, debug=debug_graph)
 
     graph = model.graph
     storage = model.storage
@@ -21,6 +24,7 @@ def test_dayabay_v0():
         plot_graph(graph, storage)
         return
 
+    model.touch()
     print(storage.to_table(truncate=True))
     if len(storage("inputs"))>0:
         print("Not connected inputs")

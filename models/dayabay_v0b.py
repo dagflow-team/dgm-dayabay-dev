@@ -341,7 +341,7 @@ class model_dayabay_v0b:
             try:
                 filename_anue_spectrum, filename_anue_spectrum_unc = anue_cfg["models"][anue_modelname]
             except KeyError:
-                raise RuntimeError(f"Unable to load anue model {anue_modelname}. Available models: {', '.join(anue_cfg["models"].keys())}")
+                raise RuntimeError(f"Unable to load anue model {anue_modelname}. Available models: {', '.join(anue_cfg['models'].keys())}")
 
             #
             # Nominal antineutrino spectrum
