@@ -17,9 +17,9 @@ for file in \
                                 -o $dirname/"$basename"_diff.pdf
 end
 
-sem -j $jobs ./scripts/covmatrix_plot.py output/covariance_matrix_v0b_ffnorm.hdf5 \
-                            --subtract output/covariance_matrix_v0b_50keV_scaled_approx.hdf5 \
-                            -o output/covariance_matrix_v0b_ffnorm_diff.pdf
+sem -j $jobs ./scripts/covmatrix_plot.py output/covariance_matrix_v0b_ffnorm_scaled.hdf5 \
+                            --subtract output/covariance_matrix_v0b_ffnorm_nonscaled.hdf5 \
+                            -o output/covariance_matrix_v0b_ffnorm_scaled_diff.pdf
 
 
 sem --wait
