@@ -35,7 +35,8 @@ class model_dayabay_v0b:
         "_close",
         "_spectrum_correction_mode",
         "_fission_fraction_normalized",
-        "_anue_spectrum_model"
+        "_anue_spectrum_model",
+        "_covmatrix_kwargs",
     )
 
     storage: NodeStorage
@@ -51,6 +52,7 @@ class model_dayabay_v0b:
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _fission_fraction_normalized: bool
     _anue_spectrum_model: str | None
+    _covmatrix_kwargs: Mapping
 
     def __init__(
         self,
@@ -62,6 +64,7 @@ class model_dayabay_v0b:
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
         anue_spectrum_model: str | None = None,
+        covmatrix_kwargs: Mapping = {},
         parameter_values: dict[str, float | str] = {},
     ):
         self._strict = strict
@@ -75,6 +78,7 @@ class model_dayabay_v0b:
         self._spectrum_correction_mode = spectrum_correction_mode
         self._fission_fraction_normalized = fission_fraction_normalized
         self._anue_spectrum_model = anue_spectrum_model
+        self._covmatrix_kwargs = covmatrix_kwargs
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         self.index = {}
@@ -1396,8 +1400,8 @@ class model_dayabay_v0b:
             # Covariance matrices
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            covariance_detector = CovarianceMatrixGroup(store_to="covariance.detector")
-            covariance_detector_period = CovarianceMatrixGroup(store_to="covariance.detector_period")
+            covariance_detector = CovarianceMatrixGroup(store_to="covariance.detector", **self._covmatrix_kwargs)
+            covariance_detector_period = CovarianceMatrixGroup(store_to="covariance.detector_period", **self._covmatrix_kwargs)
 
             for name, parameters_source in (
                     ("oscprob", "oscprob"),
