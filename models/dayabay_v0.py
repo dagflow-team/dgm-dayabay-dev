@@ -1689,8 +1689,32 @@ class model_dayabay_v0:
         algo = MT19937(seed=sequence.spawn(1)[0])
         return Generator(algo)
 
-    def touch(self) -> None:
+    def eval(self, force_computation:bool = False):
         self._logger.log(INFO1, "\x1b[34mEvaluate the model...\x1b[0m")
+
+        nodes = self.graph._nodes
+        nodesnum = len(nodes)
+
+        evaltime = time()
+        for node in nodes:
+            node.touch(force_computation=force_computation)
+        evaltime = time() - evaltime
+
+        ncalls = sum(node._n_calls for node in nodes)
+        if ncalls == 0: ncalls = 1
+        self._logger.log(INFO1, f"\x1b[34mTotal nodes number: {nodesnum}.\x1b[0m")
+        self._logger.log(INFO1, f"\x1b[34mTotal ncalls number: {ncalls}.\x1b[0m")
+        self._logger.log(INFO1, f"\x1b[34mTotal evaluation time: {evaltime:0.1f} s.\x1b[0m")
+        self._logger.log(
+            INFO1, f"\x1b[34mAveraged evaluation time per node: {evaltime*1000/nodesnum:0.1f} ms.\x1b[0m"
+        )
+        self._logger.log(
+            INFO1, f"\x1b[34mAveraged evaluation time per call: {evaltime*1e6/ncalls:0.1f} µs.\x1b[0m"
+        )
+        return ncalls, evaltime
+
+    def touch(self, force_computation:bool = False) -> None:
+        self._logger.log(INFO1, "\x1b[34mTouch the model...\x1b[0m")
         evaltime = time()
 
         frozen_nodes = (
@@ -1702,20 +1726,21 @@ class model_dayabay_v0:
             "covariance.data.frozen",
         )
         for node in frozen_nodes:
-            self.storage.get_value(f"nodes.{node}").touch()
+            self.storage.get_value(f"nodes.{node}").touch(force_computation=force_computation)
 
         evaltime = time() - evaltime
         nodes = self.graph._nodes
         nodesnum = len(nodes)
         ncalls = sum(node._n_calls for node in nodes)
+        if ncalls == 0: ncalls = 1
         self._logger.log(INFO1, f"\x1b[34mTotal nodes number: {nodesnum}.\x1b[0m")
         self._logger.log(INFO1, f"\x1b[34mTotal ncalls number: {ncalls}.\x1b[0m")
-        self._logger.log(INFO1, f"\x1b[34mTotal evaluation time: {evaltime:0.1f} s.\x1b[0m")
+        self._logger.log(INFO1, f"\x1b[34mTotal touch time: {evaltime:0.1f} s.\x1b[0m")
         self._logger.log(
-            INFO1, f"\x1b[34mAveraged evaluation time per node: {evaltime*1000/nodesnum:0.1f} ms.\x1b[0m"
+            INFO1, f"\x1b[34mAveraged touch time per node: {evaltime*1000/nodesnum:0.1f} ms.\x1b[0m"
         )
         self._logger.log(
-            INFO1, f"\x1b[34mAveraged evaluation time per call: {evaltime*1e6/ncalls:0.1f} mcs.\x1b[0m"
+            INFO1, f"\x1b[34mAveraged touch time per call: {evaltime*1e6/ncalls:0.1f} µs.\x1b[0m"
         )
 
     def set_parameters(
