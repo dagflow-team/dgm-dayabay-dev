@@ -60,6 +60,15 @@ def test_dayabay_v0_invalidation_histo():
     plt.tight_layout()
     plt.savefig("output/tainted_nodes_histo.png")
 
+    df2 = df.copy()
+    df2["evaltime"] *= 1e3
+    _ = df2.plot.hist(column=["evaltime"], bins=100)
+    plt.xlim(0, 25)
+    plt.ylim(0, 100)
+    plt.xlabel("time [ms]")
+    plt.tight_layout()
+    plt.savefig("output/evaltime_histo.png")
+
     df = df.drop_duplicates(subset=["ntainted"], keep="first")
     print(f"Unique parameters: npars={len(df.index)}")
     for key in ("ntainted", "evaltime"):
