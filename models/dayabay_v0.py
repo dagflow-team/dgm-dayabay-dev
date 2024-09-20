@@ -44,6 +44,7 @@ class model_dayabay_v0:
         "_generator",
         "_debug",
         "_logger",
+        "_include_covariance",
     )
 
     storage: NodeStorage
@@ -57,6 +58,7 @@ class model_dayabay_v0:
     _strict: bool
     _close: bool
     _debug: bool
+    _include_covariance: bool  # flag to get rid of covariance part of the model
     _logger: Logger
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _concatenation: Literal["detector", "detector-period"]
@@ -71,6 +73,7 @@ class model_dayabay_v0:
         strict: bool = True,
         close: bool = True,
         debug: bool = False,
+        include_covariance: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
@@ -82,6 +85,7 @@ class model_dayabay_v0:
         self._strict = strict
         self._close = close
         self._debug = debug
+        self._include_covariance = include_covariance
         self._logger = get_logger()
 
         self.graph = None
@@ -1470,196 +1474,197 @@ class model_dayabay_v0:
             #
             # Covariance matrices
             #
-            self._logger.log(INFO1, "\x1b[34mCovariance matrices...\x1b[0m")
-            from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
+            if self._include_covariance:
+                self._logger.log(INFO1, "\x1b[34mCovariance matrices...\x1b[0m")
+                from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
 
-            # covariance_detector = CovarianceMatrixGroup(store_to="covariance.detector")
-            covariance = CovarianceMatrixGroup(store_to="covariance")
+                # covariance_detector = CovarianceMatrixGroup(store_to="covariance.detector")
+                covariance = CovarianceMatrixGroup(store_to="covariance")
 
-            for name, parameters_source in (
-                    ("oscprob", "oscprob"),
-                    ("eres", "detector.eres"),
-                    ("lsnl", "detector.lsnl_scale_a"),
-                    ("iav", "detector.iav_offdiag_scale_factor"),
-                    ("detector_relative", "detector.detector_relative"),
-                    ("energy_per_fission", "reactor.energy_per_fission"),
-                    ("nominal_thermal_power", "reactor.nominal_thermal_power"),
-                    ("snf", "reactor.snf_scale"),
-                    ("neq", "reactor.offequilibrium_scale"),
-                    ("fission_fraction", "reactor.fission_fraction_scale"),
-                    ("bkg_rate", "bkg.rate"),
-                    ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
-                    ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr")
-            ):
-                covariance.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
-            covariance.add_covariance_sum()
+                for name, parameters_source in (
+                        ("oscprob", "oscprob"),
+                        ("eres", "detector.eres"),
+                        ("lsnl", "detector.lsnl_scale_a"),
+                        ("iav", "detector.iav_offdiag_scale_factor"),
+                        ("detector_relative", "detector.detector_relative"),
+                        ("energy_per_fission", "reactor.energy_per_fission"),
+                        ("nominal_thermal_power", "reactor.nominal_thermal_power"),
+                        ("snf", "reactor.snf_scale"),
+                        ("neq", "reactor.offequilibrium_scale"),
+                        ("fission_fraction", "reactor.fission_fraction_scale"),
+                        ("bkg_rate", "bkg.rate"),
+                        ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
+                        ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr")
+                ):
+                    covariance.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
+                covariance.add_covariance_sum()
 
-            outputs.get_value("eventscount.final.concatenated") >> covariance
+                outputs.get_value("eventscount.final.concatenated") >> covariance
 
-            npars_cov = covariance.get_parameters_count()
-            npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
-            if npars_cov!=npars_nuisance:
-                raise RuntimeError("Some parameters are missing from covariance matrix")
+                npars_cov = covariance.get_parameters_count()
+                npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
+                if npars_cov!=npars_nuisance:
+                    raise RuntimeError("Some parameters are missing from covariance matrix")
 
-            from dagflow.lib.ParArrayInput import ParArrayInput
-            parinp_initial = ParArrayInput(
-                name="pseudo.parameters.inputs.initial",
-                parameters=list(parameters_nuisance_normalized.walkvalues()),
-            )
-            parinp_mc = ParArrayInput(
-                name="pseudo.parameters.inputs.toymc",
-                parameters=list(parameters_nuisance_normalized.walkvalues()),
-            )
-            centrals = Array(
-                "pseudo.parameters.values",
-                [0. for _ in range(npars_nuisance)],
-                dtype="d",
-            )
-            errors = Array(
-                "pseudo.parameters.errors",
-                [1. for _ in range(npars_nuisance)],
-                dtype="d",
-            )
+                from dagflow.lib.ParArrayInput import ParArrayInput
+                parinp_initial = ParArrayInput(
+                    name="pseudo.parameters.inputs.initial",
+                    parameters=list(parameters_nuisance_normalized.walkvalues()),
+                )
+                parinp_mc = ParArrayInput(
+                    name="pseudo.parameters.inputs.toymc",
+                    parameters=list(parameters_nuisance_normalized.walkvalues()),
+                )
+                centrals = Array(
+                    "pseudo.parameters.values",
+                    [0. for _ in range(npars_nuisance)],
+                    dtype="d",
+                )
+                errors = Array(
+                    "pseudo.parameters.errors",
+                    [1. for _ in range(npars_nuisance)],
+                    dtype="d",
+                )
 
-            #
-            # Statistic
-            #
-            # Create Nuisance parameters
-            self._logger.log(INFO1, "\x1b[34mStatistic...\x1b[0m")
-            Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
+                #
+                # Statistic
+                #
+                # Create Nuisance parameters
+                self._logger.log(INFO1, "\x1b[34mStatistic...\x1b[0m")
+                Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
-            from dgf_statistics.MonteCarlo import MonteCarlo
-            MonteCarlo.replicate(name="pseudo.data", mode=self._monte_carlo_mode, generator=self._generator)
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("pseudo.data.data")
+                from dgf_statistics.MonteCarlo import MonteCarlo
+                MonteCarlo.replicate(name="pseudo.data", mode=self._monte_carlo_mode, generator=self._generator)
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("pseudo.data.data")
 
-            MonteCarlo.replicate(name="covariance.data.frozen", mode="asimov", generator=self._generator)
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("covariance.data.frozen.data")
+                MonteCarlo.replicate(name="covariance.data.frozen", mode="asimov", generator=self._generator)
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("covariance.data.frozen.data")
 
-            MonteCarlo.replicate(name="pseudo.parameters.toymc", mode="normal", generator=self._generator)
-            centrals >> inputs.get_value("pseudo.parameters.toymc.data")
-            errors >> inputs.get_value("pseudo.parameters.toymc.errors")
-            outputs.get_value("pseudo.parameters.toymc") >> parinp_mc
-            centrals >> parinp_initial
-            nodes["pseudo.parameters.inputs.central"] = centrals
-            nodes["pseudo.parameters.inputs.toymc"] = parinp_mc
-            nodes["pseudo.parameters.inputs.initial"] = parinp_initial
+                MonteCarlo.replicate(name="pseudo.parameters.toymc", mode="normal", generator=self._generator)
+                centrals >> inputs.get_value("pseudo.parameters.toymc.data")
+                errors >> inputs.get_value("pseudo.parameters.toymc.errors")
+                outputs.get_value("pseudo.parameters.toymc") >> parinp_mc
+                centrals >> parinp_initial
+                nodes["pseudo.parameters.inputs.central"] = centrals
+                nodes["pseudo.parameters.inputs.toymc"] = parinp_mc
+                nodes["pseudo.parameters.inputs.initial"] = parinp_initial
 
-            from dagflow.lib.Cholesky import Cholesky
-            Cholesky.replicate(name="cholesky.stat.unfrozen")
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("cholesky.stat.unfrozen")
+                from dagflow.lib.Cholesky import Cholesky
+                Cholesky.replicate(name="cholesky.stat.unfrozen")
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("cholesky.stat.unfrozen")
 
-            Cholesky.replicate(name="cholesky.stat.frozen")
-            outputs.get_value("covariance.data.frozen") >> inputs.get_value("cholesky.stat.frozen")
+                Cholesky.replicate(name="cholesky.stat.frozen")
+                outputs.get_value("covariance.data.frozen") >> inputs.get_value("cholesky.stat.frozen")
 
-            Cholesky.replicate(name="cholesky.stat.data.frozen")
-            outputs.get_value("pseudo.data") >> inputs.get_value("cholesky.stat.data.frozen")
+                Cholesky.replicate(name="cholesky.stat.data.frozen")
+                outputs.get_value("pseudo.data") >> inputs.get_value("cholesky.stat.data.frozen")
 
-            from dagflow.lib.SumMatOrDiag import SumMatOrDiag
-            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_frozen")
-            outputs.get_value("covariance.data.frozen") >> nodes.get_value("covariance.covmat_full_p.stat_frozen")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_frozen")
+                from dagflow.lib.SumMatOrDiag import SumMatOrDiag
+                SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_frozen")
+                outputs.get_value("covariance.data.frozen") >> nodes.get_value("covariance.covmat_full_p.stat_frozen")
+                outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_frozen")
 
-            Cholesky.replicate(name="cholesky.covmat_full_p.stat_frozen")
-            outputs.get_value("covariance.covmat_full_p.stat_frozen") >> inputs.get_value("cholesky.covmat_full_p.stat_frozen")
+                Cholesky.replicate(name="cholesky.covmat_full_p.stat_frozen")
+                outputs.get_value("covariance.covmat_full_p.stat_frozen") >> inputs.get_value("cholesky.covmat_full_p.stat_frozen")
 
-            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_unfrozen")
-            outputs.get_value("eventscount.final.concatenated") >> nodes.get_value("covariance.covmat_full_p.stat_unfrozen")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_unfrozen")
+                SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_unfrozen")
+                outputs.get_value("eventscount.final.concatenated") >> nodes.get_value("covariance.covmat_full_p.stat_unfrozen")
+                outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_unfrozen")
 
-            Cholesky.replicate(name="cholesky.covmat_full_p.stat_unfrozen")
-            outputs.get_value("covariance.covmat_full_p.stat_unfrozen") >> inputs.get_value("cholesky.covmat_full_p.stat_unfrozen")
+                Cholesky.replicate(name="cholesky.covmat_full_p.stat_unfrozen")
+                outputs.get_value("covariance.covmat_full_p.stat_unfrozen") >> inputs.get_value("cholesky.covmat_full_p.stat_unfrozen")
 
-            SumMatOrDiag.replicate(name="covariance.covmat_full_n")
-            outputs.get_value("pseudo.data") >> nodes.get_value("covariance.covmat_full_n")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
+                SumMatOrDiag.replicate(name="covariance.covmat_full_n")
+                outputs.get_value("pseudo.data") >> nodes.get_value("covariance.covmat_full_n")
+                outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
 
-            Cholesky.replicate(name="cholesky.covmat_full_n")
-            outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
+                Cholesky.replicate(name="cholesky.covmat_full_n")
+                outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
-            from dgf_statistics.Chi2 import Chi2
-            Chi2.replicate(name="statistic.stat.chi2p")  # NOTE: (1) chi-squared Pearson stat (fixed Pearson errors)
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2p.theory")
-            outputs.get_value("cholesky.stat.frozen") >> inputs.get_value("statistic.stat.chi2p.errors")
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p.data")
+                from dgf_statistics.Chi2 import Chi2
+                Chi2.replicate(name="statistic.stat.chi2p")  # NOTE: (1) chi-squared Pearson stat (fixed Pearson errors)
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2p.theory")
+                outputs.get_value("cholesky.stat.frozen") >> inputs.get_value("statistic.stat.chi2p.errors")
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p.data")
 
-            Chi2.replicate(name="statistic.stat.chi2n")  # NOTE: (2-2) chi-squared Neyman stat
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2n.theory")
-            outputs.get_value("cholesky.stat.data.frozen") >> inputs.get_value("statistic.stat.chi2n.errors")
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2n.data")
+                Chi2.replicate(name="statistic.stat.chi2n")  # NOTE: (2-2) chi-squared Neyman stat
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2n.theory")
+                outputs.get_value("cholesky.stat.data.frozen") >> inputs.get_value("statistic.stat.chi2n.errors")
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2n.data")
 
-            Chi2.replicate(name="statistic.stat.chi2p_biased")  # NOTE: (2-1)
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2p_biased.theory")
-            outputs.get_value("cholesky.stat.unfrozen") >> inputs.get_value("statistic.stat.chi2p_biased.errors")
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p_biased.data")
+                Chi2.replicate(name="statistic.stat.chi2p_biased")  # NOTE: (2-1)
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2p_biased.theory")
+                outputs.get_value("cholesky.stat.unfrozen") >> inputs.get_value("statistic.stat.chi2p_biased.errors")
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p_biased.data")
 
-            Chi2.replicate(name="statistic.full.chi2p_covmat_frozen")  # NOTE: (5) chi-squared Pearson syst (fixed Pearson errors)
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.data")
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.theory")
-            outputs.get_value("cholesky.covmat_full_p.stat_frozen") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.errors")
+                Chi2.replicate(name="statistic.full.chi2p_covmat_frozen")  # NOTE: (5) chi-squared Pearson syst (fixed Pearson errors)
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.data")
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.theory")
+                outputs.get_value("cholesky.covmat_full_p.stat_frozen") >> inputs.get_value("statistic.full.chi2p_covmat_frozen.errors")
 
-            Chi2.replicate(name="statistic.full.chi2n_covmat")  # NOTE: (2-3) chi-squared Neyman syst
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2n_covmat.data")
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
-            outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
+                Chi2.replicate(name="statistic.full.chi2n_covmat")  # NOTE: (2-3) chi-squared Neyman syst
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
+                outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
 
-            Chi2.replicate(name="statistic.full.chi2p_covmat_unfrozen")  # NOTE: (2-4) Pearson unfrozen stat errors
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.data")
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.theory")
-            outputs.get_value("cholesky.covmat_full_p.stat_unfrozen") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.errors")
+                Chi2.replicate(name="statistic.full.chi2p_covmat_unfrozen")  # NOTE: (2-4) Pearson unfrozen stat errors
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.data")
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.theory")
+                outputs.get_value("cholesky.covmat_full_p.stat_unfrozen") >> inputs.get_value("statistic.full.chi2p_covmat_unfrozen.errors")
 
-            from dgf_statistics.CNPStat import CNPStat
-            CNPStat.replicate(name="statistic.staterr.cnp")
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.staterr.cnp.data")
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.staterr.cnp.theory")
+                from dgf_statistics.CNPStat import CNPStat
+                CNPStat.replicate(name="statistic.staterr.cnp")
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.staterr.cnp.data")
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.staterr.cnp.theory")
 
-            Chi2.replicate(name="statistic.stat.chi2cnp")  # NOTE: (3) chi-squared CNP stat
-            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2cnp.data")
-            outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2cnp.theory")
-            outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
+                Chi2.replicate(name="statistic.stat.chi2cnp")  # NOTE: (3) chi-squared CNP stat
+                outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2cnp.data")
+                outputs.get_value("eventscount.final.concatenated") >> inputs.get_value("statistic.stat.chi2cnp.theory")
+                outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
 
-            Sum.replicate(  # NOTE: (2) chi-squared Pearson stat + pull (fixed Pearson errors)
-                outputs.get_value("statistic.stat.chi2p"),
-                outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2p",
-            )
-            Sum.replicate(  # NOTE: (4) chi-squared CNP stat + pull (fixed Pearson errors)
-                outputs.get_value("statistic.stat.chi2cnp"),
-                outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2cnp",
-            )
+                Sum.replicate(  # NOTE: (2) chi-squared Pearson stat + pull (fixed Pearson errors)
+                    outputs.get_value("statistic.stat.chi2p"),
+                    outputs.get_value("statistic.nuisance.all"),
+                    name="statistic.full.chi2p",
+                )
+                Sum.replicate(  # NOTE: (4) chi-squared CNP stat + pull (fixed Pearson errors)
+                    outputs.get_value("statistic.stat.chi2cnp"),
+                    outputs.get_value("statistic.nuisance.all"),
+                    name="statistic.full.chi2cnp",
+                )
 
-            from dagflow.lib.LogProdDiag import LogProdDiag
-            LogProdDiag.replicate(name="statistic.log_prod_diag")
-            outputs.get_value("cholesky.covmat_full_p.stat_unfrozen") >> inputs.get_value("statistic.log_prod_diag")
+                from dagflow.lib.LogProdDiag import LogProdDiag
+                LogProdDiag.replicate(name="statistic.log_prod_diag")
+                outputs.get_value("cholesky.covmat_full_p.stat_unfrozen") >> inputs.get_value("statistic.log_prod_diag")
 
-            Sum.replicate(  # NOTE: (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
-                outputs.get_value("statistic.stat.chi2p_biased"),
-                outputs.get_value("statistic.log_prod_diag"),
-                name="statistic.stat.chi2p_unbiased",
-            )
+                Sum.replicate(  # NOTE: (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
+                    outputs.get_value("statistic.stat.chi2p_biased"),
+                    outputs.get_value("statistic.log_prod_diag"),
+                    name="statistic.stat.chi2p_unbiased",
+                )
 
-            Sum.replicate(  # NOTE: (8) chi-squared Pearson stat + log|V| + pull (unfixed Pearson errors)
-                outputs.get_value("statistic.stat.chi2p_biased"),
-                outputs.get_value("statistic.log_prod_diag"),
-                outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2p_unbiased",
-            )
+                Sum.replicate(  # NOTE: (8) chi-squared Pearson stat + log|V| + pull (unfixed Pearson errors)
+                    outputs.get_value("statistic.stat.chi2p_biased"),
+                    outputs.get_value("statistic.log_prod_diag"),
+                    outputs.get_value("statistic.nuisance.all"),
+                    name="statistic.full.chi2p_unbiased",
+                )
 
-            Product.replicate(
-                parameters.get_value("all.stats.pearson"),
-                outputs.get_value("statistic.full.chi2p_covmat_unfrozen"),
-                name="statistic.helper.pearson",
-            )
-            Product.replicate(
-                parameters.get_value("all.stats.neyman"),
-                outputs.get_value("statistic.full.chi2n_covmat"),
-                name="statistic.helper.neyman",
-            )
-            Sum.replicate(  # NOTE: (2-4) CNP covmat
-                outputs.get_value("statistic.helper.pearson"),
-                outputs.get_value("statistic.helper.neyman"),
-                name="statistic.full.chi2cnp_covmat",
-            )
+                Product.replicate(
+                    parameters.get_value("all.stats.pearson"),
+                    outputs.get_value("statistic.full.chi2p_covmat_unfrozen"),
+                    name="statistic.helper.pearson",
+                )
+                Product.replicate(
+                    parameters.get_value("all.stats.neyman"),
+                    outputs.get_value("statistic.full.chi2n_covmat"),
+                    name="statistic.helper.neyman",
+                )
+                Sum.replicate(  # NOTE: (2-4) CNP covmat
+                    outputs.get_value("statistic.helper.pearson"),
+                    outputs.get_value("statistic.helper.neyman"),
+                    name="statistic.full.chi2cnp_covmat",
+                )
             # fmt: on
 
         processed_keys_set = set()
@@ -1689,7 +1694,7 @@ class model_dayabay_v0:
         algo = MT19937(seed=sequence.spawn(1)[0])
         return Generator(algo)
 
-    def eval(self, force_computation:bool = False):
+    def eval(self, force_computation: bool = False):
         self._logger.log(INFO1, "\x1b[34mEvaluate the model...\x1b[0m")
 
         nodes = self.graph._nodes
@@ -1701,7 +1706,8 @@ class model_dayabay_v0:
         evaltime = time() - evaltime
 
         ncalls = sum(node._n_calls for node in nodes)
-        if ncalls == 0: ncalls = 1
+        if ncalls == 0:
+            ncalls = 1
         self._logger.log(INFO1, f"\x1b[34mTotal nodes number: {nodesnum}.\x1b[0m")
         self._logger.log(INFO1, f"\x1b[34mTotal ncalls number: {ncalls}.\x1b[0m")
         self._logger.log(INFO1, f"\x1b[34mTotal evaluation time: {evaltime:0.1f} s.\x1b[0m")
@@ -1713,7 +1719,7 @@ class model_dayabay_v0:
         )
         return ncalls, evaltime
 
-    def touch(self, force_computation:bool = False) -> None:
+    def touch(self, force_computation: bool = False) -> None:
         self._logger.log(INFO1, "\x1b[34mTouch the model...\x1b[0m")
         evaltime = time()
 
@@ -1732,7 +1738,8 @@ class model_dayabay_v0:
         nodes = self.graph._nodes
         nodesnum = len(nodes)
         ncalls = sum(node._n_calls for node in nodes)
-        if ncalls == 0: ncalls = 1
+        if ncalls == 0:
+            ncalls = 1
         self._logger.log(INFO1, f"\x1b[34mTotal nodes number: {nodesnum}.\x1b[0m")
         self._logger.log(INFO1, f"\x1b[34mTotal ncalls number: {ncalls}.\x1b[0m")
         self._logger.log(INFO1, f"\x1b[34mTotal touch time: {evaltime:0.1f} s.\x1b[0m")
