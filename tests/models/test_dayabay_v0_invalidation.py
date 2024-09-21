@@ -8,47 +8,47 @@ from models.dayabay_v0 import model_dayabay_v0
 set_level(INFO1)
 
 
-#def test_dayabay_v0_invalidation():
-#    model = model_dayabay_v0(close=True, strict=False, include_covariance=False)
-#
-#    graph = model.graph
-#    if not graph.closed:
-#        raise RuntimeError("The model graph is not closed!")
-#
-#    storage = model.storage
-#    nodes = graph._nodes
-#
-#    get_n_tainted = lambda: len([flag for node in nodes if (flag := node.fd.tainted)])
-#    logger = model._logger
-#
-#    logger.log(INFO1, f"Number of tainted nodes before evaluation: {get_n_tainted()}.")
-#    for force in (True, False):
-#        logger.log(INFO1, f"Evaluating full model: force_computation={force}.")
-#        model.eval(force_computation=force)
-#        logger.log(INFO1, f"Number of tainted nodes after evaluation: {get_n_tainted()}.")
-#
-#    parameters = storage("parameters.all")
-#    with open("output/tainted.txt", "w") as f:
-#        f.write("# parname\tntainted\tevaltime\tevaltime+tainttime\n")
-#        for keys, par in parameters.walkitems():
-#            for node in nodes:
-#                node._n_calls = 0
-#            parname = ".".join(keys)
-#            logger.log(INFO1, f"Tainting parameter {parname}...")
-#
-#            tainttime = time()
-#            par._value_output._node.taint_children()
-#            tainttime = time() - tainttime
-#
-#            ntainted = get_n_tainted()
-#            logger.log(INFO1, f"Number of tainted nodes after taint: {ntainted}.")
-#
-#            logger.log(INFO1, "Reevaluating model...")
-#            _, evaltime = model.eval(force_computation=False)
-#            f.write(f"{parname}\t{ntainted}\t{evaltime}\t{evaltime+tainttime}\n")
-#
-#            ntainted = get_n_tainted()
-#            assert ntainted == 0
+def test_dayabay_v0_invalidation():
+    model = model_dayabay_v0(close=True, strict=False, include_covariance=False)
+
+    graph = model.graph
+    if not graph.closed:
+        raise RuntimeError("The model graph is not closed!")
+
+    storage = model.storage
+    nodes = graph._nodes
+
+    get_n_tainted = lambda: len([flag for node in nodes if (flag := node.fd.tainted)])
+    logger = model._logger
+
+    logger.log(INFO1, f"Number of tainted nodes before evaluation: {get_n_tainted()}.")
+    for force in (True, False):
+        logger.log(INFO1, f"Evaluating full model: force_computation={force}.")
+        model.eval(force_computation=force)
+        logger.log(INFO1, f"Number of tainted nodes after evaluation: {get_n_tainted()}.")
+
+    parameters = storage("parameters.all")
+    with open("output/tainted.txt", "w") as f:
+        f.write("# parname\tntainted\tevaltime\tevaltime+tainttime\n")
+        for keys, par in parameters.walkitems():
+            for node in nodes:
+                node._n_calls = 0
+            parname = ".".join(keys)
+            logger.log(INFO1, f"Tainting parameter {parname}...")
+
+            tainttime = time()
+            par._value_output._node.taint_children()
+            tainttime = time() - tainttime
+
+            ntainted = get_n_tainted()
+            logger.log(INFO1, f"Number of tainted nodes after taint: {ntainted}.")
+
+            logger.log(INFO1, "Reevaluating model...")
+            _, evaltime = model.eval(force_computation=False)
+            f.write(f"{parname}\t{ntainted}\t{evaltime}\t{evaltime+tainttime}\n")
+
+            ntainted = get_n_tainted()
+            assert ntainted == 0
 
 
 def test_dayabay_v0_invalidation_histo():
@@ -95,12 +95,13 @@ def draw_time_hist(df, arg, meanv, maxv):
     result = df.copy()
     result[arg] *= 1e3
     _ = result.plot.hist(column=[arg], bins=100, legend=False)
-    xmax, ymax = 50, 200
+    xmax, ymax = 50, 1e3
     plt.xlim(0, xmax)
-    plt.ylim(0, ymax)
+    plt.ylim(0.1, ymax)
+    plt.yscale("log")
     plt.title(f"{arg} distribution")
     plt.xlabel("time [ms]")
-    plt.text(0.75*xmax, 0.9*ymax, f"mean={meanv*1e3:0.3f}ms")
-    plt.text(0.75*xmax, 0.85*ymax, f"max={maxv*1e3:0.3f}ms")
+    plt.text(0.75*xmax, 0.5*ymax, f"mean={meanv*1e3:0.3f}ms")
+    plt.text(0.75*xmax, 0.35*ymax, f"max={maxv*1e3:0.3f}ms")
     plt.tight_layout()
     plt.savefig(f"output/{arg}_histo.png", dpi=200)
