@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
@@ -35,6 +36,7 @@ class model_dayabay_v0:
         "_close",
         "_spectrum_correction_mode",
         "_fission_fraction_normalized",
+        "_merge_integration",
     )
 
     storage: NodeStorage
@@ -49,6 +51,7 @@ class model_dayabay_v0:
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _fission_fraction_normalized: bool
+    _merge_integration: bool
 
     def __init__(
         self,
@@ -59,6 +62,7 @@ class model_dayabay_v0:
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         fission_fraction_normalized: bool = False,
+        merge_integration: bool = False,
         parameter_values: dict[str, float | str] = {},
     ):
         self._strict = strict
@@ -71,6 +75,7 @@ class model_dayabay_v0:
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode
         self._fission_fraction_normalized = fission_fraction_normalized
+        self._merge_integration = merge_integration
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         self.index = {}
@@ -298,7 +303,8 @@ class model_dayabay_v0:
                     "x": "mesh_edep",
                     "y": "mesh_costheta"
                 },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"]
+                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
+                single_node = self._merge_integration
             )
             integration_orders_edep >> integrator("ordersX")
             integration_orders_costheta >> integrator("ordersY")
@@ -1466,7 +1472,8 @@ class model_dayabay_v0:
         labels_mk = NestedMKDict(labels, sep=".")
         if self._strict:
             for key in processed_keys_set:
-                labels_mk.delete_with_parents(key)
+                with suppress(KeyError):
+                    labels_mk.delete_with_parents(key)
             if labels_mk:
                 raise RuntimeError(
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
