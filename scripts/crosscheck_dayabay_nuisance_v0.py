@@ -200,7 +200,7 @@ class NuisanceComparator:
         self.skey_gna = "fine"
         self.skey_dgf = opts.object
         self.outputs_dgf = self.model.storage(f"outputs.{self.skey_dgf}")
-        self.parameters_dgf = self.model.storage("parameter")
+        self.parameters_dgf = self.model.storage("parameters")
 
         with suppress(StopIteration):
             self.process()
