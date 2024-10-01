@@ -1,8 +1,8 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 from more_itertools import ilen
 from numpy import ndarray
@@ -14,11 +14,16 @@ from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.lib.InterpolatorGroup import InterpolatorGroup
+from dagflow.logger import logger
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
+FutureType = Literal[
+    "pdg", "xsec", "conversion", "fix-neq-shape", "lsnl-curves", "lsnl-matrix"
+]
+Features = set(get_args(FutureType))
 
 
 class model_dayabay_v0b:
@@ -37,6 +42,7 @@ class model_dayabay_v0b:
         "_fission_fraction_normalized",
         "_anue_spectrum_model",
         "_covmatrix_kwargs",
+        "_future",
     )
 
     storage: NodeStorage
@@ -52,7 +58,8 @@ class model_dayabay_v0b:
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _fission_fraction_normalized: bool
     _anue_spectrum_model: str | None
-    _covmatrix_kwargs: Mapping
+    _covmatrix_kwargs: dict[str, str]
+    _future: set[FutureType]
 
     def __init__(
         self,
@@ -66,6 +73,7 @@ class model_dayabay_v0b:
         anue_spectrum_model: str | None = None,
         covmatrix_kwargs: Mapping = {},
         parameter_values: dict[str, float | str] = {},
+        future: Collection[FutureType] = {},
     ):
         self._strict = strict
         self._close = close
@@ -78,7 +86,9 @@ class model_dayabay_v0b:
         self._spectrum_correction_mode = spectrum_correction_mode
         self._fission_fraction_normalized = fission_fraction_normalized
         self._anue_spectrum_model = anue_spectrum_model
-        self._covmatrix_kwargs = covmatrix_kwargs
+        self._covmatrix_kwargs = dict(covmatrix_kwargs)
+        self._future = set(future)
+        assert all(f in Features for f in self._future)
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         self.index = {}
@@ -204,11 +214,22 @@ class model_dayabay_v0b:
             load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml"
             )
 
-            load_parameters(path="ibd",        load=path_parameters/"pdg2012.yaml")
-            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml"
-            )
-            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.yaml")
-            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
+            if "pdg" in self._future:
+                load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
+            else:
+                load_parameters(path="ibd",        load=path_parameters/"pdg2012.yaml")
+
+            if "xsec" in self._future:
+                load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants_future.yaml")
+            else:
+                load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml")
+
+            if "conversion" in self._future:
+                load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power_future.py")
+                load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument_future.py")
+            else:
+                load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.yaml")
+                load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
 
             load_parameters(                   load=path_parameters/"baselines.yaml")
 
@@ -638,15 +659,26 @@ class model_dayabay_v0b:
                     replicate_outputs=index["isotope"],
                     )
 
-            Product.replicate(
-                    outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs("reactor_offequilibrium_anue.correction_interpolated"),
-                    outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # NOTE: removed in v0c as HM corrections should not be applied to NEQ
-                    name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
-                    allow_skip_inputs = True,
-                    skippable_inputs_should_contain = ("U238",),
-                    replicate_outputs=index["isotope_offeq"],
-                    )
+            if "fix-neq-shape" in self._future:
+                logger.warning("HM uncertainties do not affect NEQ")
+                Product.replicate(
+                        outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                        outputs("reactor_offequilibrium_anue.correction_interpolated"),
+                        name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
+                        allow_skip_inputs = True,
+                        skippable_inputs_should_contain = ("U238",),
+                        replicate_outputs=index["isotope_offeq"],
+                        )
+            else:
+                Product.replicate(
+                        outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                        outputs("reactor_offequilibrium_anue.correction_interpolated"),
+                        outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # NOTE: removed in v0c as HM corrections should not be applied to NEQ
+                        name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
+                        allow_skip_inputs = True,
+                        skippable_inputs_should_contain = ("U238",),
+                        replicate_outputs=index["isotope_offeq"],
+                        )
 
             #
             # Livetime
@@ -1082,16 +1114,30 @@ class model_dayabay_v0b:
                 replicate_outputs = index["lsnl"],
             )
 
-            # Coarse LSNL model, consistent with GNA implementation
-            from dgf_detector.bundles.cross_check_refine_lsnl_data import \
-                cross_check_refine_lsnl_data
-            cross_check_refine_lsnl_data(
-                storage("data.detector.lsnl.curves"),
-                edepname = 'edep',
-                nominalname = 'evis_parts.nominal',
-                newmin = 0.5,
-                newmax = 12.1
-            )
+            if "lsnl-curves" in self._future:
+                # Refine LSNL curves: interpolate with smaller step
+                logger.warning("Pre-interpolate LSNL curves")
+                from dgf_detector.bundles.refine_lsnl_data import \
+                    refine_lsnl_data
+                refine_lsnl_data(
+                    storage("data.detector.lsnl.curves"),
+                    edepname = 'edep',
+                    nominalname = 'evis_parts.nominal',
+                    refine_times = 4,
+                    newmin = 0.5,
+                    newmax = 12.1
+                )
+            else:
+                # Coarse LSNL model, consistent with GNA implementation
+                from dgf_detector.bundles.cross_check_refine_lsnl_data import \
+                    cross_check_refine_lsnl_data
+                cross_check_refine_lsnl_data(
+                    storage("data.detector.lsnl.curves"),
+                    edepname = 'edep',
+                    nominalname = 'evis_parts.nominal',
+                    newmin = 0.5,
+                    newmax = 12.1
+                )
 
             Array.from_storage(
                 "detector.lsnl.curves",
@@ -1112,18 +1158,23 @@ class model_dayabay_v0b:
             Sum.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_parts.nominal"),
                 outputs("detector.lsnl.curves.evis_parts_scaled"),
-                name="detector.lsnl.curves.evis_common"
+                name="detector.lsnl.curves.evis_coarse"
             )
 
+            #
+            # Force Evis(Edep) to be grow monotonously
+            # - Required by matrix calculation algorithm
+            # - Introduced to achieve stable minimization
+            # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
             from dgf_detector.Monotonize import Monotonize
             Monotonize.replicate(
-                    name="detector.lsnl.curves.evis_common_monotonic",
+                    name="detector.lsnl.curves.evis_coarse_monotonic",
                     index_fraction = 0.5,
                     gradient = 1.0,
                     with_x = True
                     )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_common_monotonic.x")
-            outputs.get_value("detector.lsnl.curves.evis_common") >> inputs.get_value("detector.lsnl.curves.evis_common_monotonic.y")
+            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.x")
+            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.y")
 
             from multikeydict.tools import remap_items
             remap_items(
@@ -1135,65 +1186,104 @@ class model_dayabay_v0b:
                 ],
             )
 
-            # TODO:
-            # - Introduce trigger
-            # - multiply by scale for proper backward interpolation
-            old_interpolation = False
+            if "lsnl-matrix" in self._future:
+                # Interpolate Evis(Edep)
+                InterpolatorGroup.replicate(
+                    method = "linear",
+                    names = {
+                        "indexer": "detector.lsnl.indexer_fwd",
+                        "interpolator": "detector.lsnl.interpolated_fwd",
+                        },
+                )
+                outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
+                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
 
-            InterpolatorGroup.replicate(
-                method = "linear",
-                names = {
-                    "indexer": "detector.lsnl.indexer_fwd",
-                    "interpolator": "detector.lsnl.interpolated_fwd",
-                    },
-            )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.evis_common_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
-            edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
+                # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.interpolated_fwd"),
+                    outputs("detector.parameters_relative.energy_scale_factor"),
+                    name="detector.lsnl.curves.evis",
+                    replicate_outputs = index["detector"]
+                )
 
-            # TODO:
-            # - for backward interpolation need multiple X definitions (detectors)
-            # - thus need to replicate the indexer
-            InterpolatorGroup.replicate(
-                method = "linear",
-                names = {
-                    "indexer": "detector.lsnl.indexer_bwd",
-                    "interpolator": "detector.lsnl.interpolated_bwd",
-                    },
-                replicate_xcoarse = True,
-                replicate_outputs = index["detector"]
-            )
-            outputs.get_value("detector.lsnl.curves.evis_common_monotonic") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
-            edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
+                # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic"),
+                    outputs("detector.parameters_relative.energy_scale_factor"),
+                    name="detector.lsnl.curves.evis_coarse_monotonic_scaled",
+                    replicate_outputs = index["detector"]
+                )
 
-            Product.replicate(
-                outputs.get_value("detector.lsnl.interpolated_fwd"),
-                outputs("detector.parameters_relative.energy_scale_factor"),
-                name="detector.lsnl.curves.evis",
-                replicate_outputs = index["detector"]
-            )
+                # Interpolate Edep(Evis[detector])
+                InterpolatorGroup.replicate(
+                    method = "linear",
+                    names = {
+                        "indexer": "detector.lsnl.indexer_bwd",
+                        "interpolator": "detector.lsnl.interpolated_bwd",
+                        },
+                    replicate_xcoarse = True,
+                    replicate_outputs = index["detector"]
+                )
+                outputs.get_dict("detector.lsnl.curves.evis_coarse_monotonic_scaled") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
+                outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
+                edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
 
-            from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
-            AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
-            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
-            outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModifiedBackwards")
+                # Build LSNL matrix
+                from dgf_detector.AxisDistortionMatrix import \
+                    AxisDistortionMatrix
+                AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
+                edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+                outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
+                outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModifiedBackwards")
+            else:
+                InterpolatorGroup.replicate(
+                    method = "linear",
+                    names = {
+                        "indexer": "detector.lsnl.indexer_fwd",
+                        "interpolator": "detector.lsnl.interpolated_fwd",
+                        },
+                )
+                outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
+                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
 
-            # TODO: Outdated LSNL matrix (cross check), remove
-            from dgf_detector.AxisDistortionMatrixLinearLegacy import \
-                AxisDistortionMatrixLinearLegacy
-            AxisDistortionMatrixLinearLegacy.replicate(
-                name="detector.lsnl.matrix_linear",
-                replicate_outputs=index["detector"],
-                min_value_modified=0.7001
-            )
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix_linear.EdgesOriginal")
-            outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
+                # TODO:
+                # - for backward interpolation need multiple X definitions (detectors)
+                # - thus need to replicate the indexer
+                InterpolatorGroup.replicate(
+                    method = "linear",
+                    names = {
+                        "indexer": "detector.lsnl.indexer_bwd",
+                        "interpolator": "detector.lsnl.interpolated_bwd",
+                        },
+                    replicate_xcoarse = True,
+                    replicate_outputs = index["detector"]
+                )
+                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
+                outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
+                edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
+
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.interpolated_fwd"),
+                    outputs("detector.parameters_relative.energy_scale_factor"),
+                    name="detector.lsnl.curves.evis",
+                    replicate_outputs = index["detector"]
+                )
+
+                # TODO: Outdated LSNL matrix (cross check), remove
+                from dgf_detector.AxisDistortionMatrixLinearLegacy import \
+                    AxisDistortionMatrixLinearLegacy
+                AxisDistortionMatrixLinearLegacy.replicate(
+                    name="detector.lsnl.matrix",
+                    replicate_outputs=index["detector"],
+                    min_value_modified=0.7001
+                )
+                edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+                outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix.EdgesModified")
 
             VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
-            # outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
-            outputs("detector.lsnl.matrix_linear") >> inputs("eventscount.evis.matrix")
+            outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             from dgf_detector.EnergyResolution import EnergyResolution
