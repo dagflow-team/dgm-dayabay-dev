@@ -21,7 +21,13 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 FutureType = Literal[
-    "pdg", "xsec", "conversion", "hm-spectra", "fix-neq-shape", "lsnl-curves", "lsnl-matrix"
+    "pdg",
+    "xsec",
+    "conversion",
+    "hm-spectra",
+    "fix-neq-shape",
+    "lsnl-curves",
+    "lsnl-matrix",
 ]
 Features = set(get_args(FutureType))
 
@@ -39,10 +45,11 @@ class model_dayabay_v0b:
         "_strict",
         "_close",
         "_spectrum_correction_mode",
-        "_fission_fraction_normalized",
         "_anue_spectrum_model",
         "_covmatrix_kwargs",
         "_future",
+        "_covariance_matrices",
+        "_frozen_nodes",
     )
 
     storage: NodeStorage
@@ -56,10 +63,11 @@ class model_dayabay_v0b:
     _strict: bool
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
-    _fission_fraction_normalized: bool
     _anue_spectrum_model: str | None
-    _covmatrix_kwargs: dict[str, str]
+    _covmatrix_kwargs: dict
     _future: set[FutureType]
+    _covariance_matrices: dict
+    _frozen_nodes: dict[str, tuple]
 
     def __init__(
         self,
@@ -69,7 +77,6 @@ class model_dayabay_v0b:
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
-        fission_fraction_normalized: bool = False,
         anue_spectrum_model: str | None = None,
         covmatrix_kwargs: Mapping = {},
         parameter_values: dict[str, float | str] = {},
@@ -84,7 +91,6 @@ class model_dayabay_v0b:
         self._source_type = source_type
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode
-        self._fission_fraction_normalized = fission_fraction_normalized
         self._anue_spectrum_model = anue_spectrum_model
         self._covmatrix_kwargs = dict(covmatrix_kwargs)
         self._future = set(future)
@@ -93,6 +99,9 @@ class model_dayabay_v0b:
         if "hm-spectra" in self._future and self._anue_spectrum_model is None:
             logger.warning("Future: HM properly interpolated to 50 keV")
             self._anue_spectrum_model = "50keV_scaled_approx"
+
+        self._covariance_matrices = {}
+        self._frozen_nodes = {}
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         self.index = {}
@@ -787,64 +796,26 @@ class model_dayabay_v0b:
                     replicate_outputs=combinations["reactor.isotope.period"],
                     )
 
-            #
-            # Fission fraction normalized
-            #
-            if self._fission_fraction_normalized:
-                Sum.replicate(
+            Product.replicate(
+                    parameters("all.reactor.energy_per_fission"),
                     outputs("daily_data.reactor.fission_fraction_scaled"),
-                    name="daily_data.reactor.fission_fraction_scaled_normalization_factor",
-                    replicate_outputs=combinations["reactor.period"],
-                )
-
-                Division.replicate(
-                    outputs("daily_data.reactor.fission_fraction_scaled"),
-                    outputs("daily_data.reactor.fission_fraction_scaled_normalization_factor"),
-                    name="daily_data.reactor.fission_fraction_scaled_normalized",
+                    name = "reactor.energy_per_fission_weighted_MeV",
                     replicate_outputs=combinations["reactor.isotope.period"],
-                )
+                    )
 
-                Product.replicate(
-                        parameters("all.reactor.energy_per_fission"),
-                        outputs("daily_data.reactor.fission_fraction_scaled_normalized"),
-                        name = "reactor.energy_per_fission_weighted_MeV",
-                        replicate_outputs=combinations["reactor.isotope.period"],
-                        )
+            Sum.replicate(
+                    outputs("reactor.energy_per_fission_weighted_MeV"),
+                    name = "reactor.energy_per_fission_average_MeV",
+                    replicate_outputs=combinations["reactor.period"],
+                    )
 
-                Sum.replicate(
-                        outputs("reactor.energy_per_fission_weighted_MeV"),
-                        name = "reactor.energy_per_fission_average_MeV",
-                        replicate_outputs=combinations["reactor.period"],
-                        )
-
-                Product.replicate(
-                        outputs("daily_data.reactor.power"),
-                        outputs("daily_data.reactor.fission_fraction_scaled_normalized"),
-                        outputs("reactor.thermal_power_nominal_MeVs"),
-                        name = "reactor.thermal_power_isotope_MeV_per_second",
-                        replicate_outputs=combinations["reactor.isotope.period"],
-                        )
-            else:
-                Product.replicate(
-                        parameters("all.reactor.energy_per_fission"),
-                        outputs("daily_data.reactor.fission_fraction_scaled"),
-                        name = "reactor.energy_per_fission_weighted_MeV",
-                        replicate_outputs=combinations["reactor.isotope.period"],
-                        )
-
-                Sum.replicate(
-                        outputs("reactor.energy_per_fission_weighted_MeV"),
-                        name = "reactor.energy_per_fission_average_MeV",
-                        replicate_outputs=combinations["reactor.period"],
-                        )
-
-                Product.replicate(
-                        outputs("daily_data.reactor.power"),
-                        outputs("daily_data.reactor.fission_fraction_scaled"),
-                        outputs("reactor.thermal_power_nominal_MeVs"),
-                        name = "reactor.thermal_power_isotope_MeV_per_second",
-                        replicate_outputs=combinations["reactor.isotope.period"],
-                        )
+            Product.replicate(
+                    outputs("daily_data.reactor.power"),
+                    outputs("daily_data.reactor.fission_fraction_scaled"),
+                    outputs("reactor.thermal_power_nominal_MeVs"),
+                    name = "reactor.thermal_power_isotope_MeV_per_second",
+                    replicate_outputs=combinations["reactor.isotope.period"],
+                    )
 
             Division.replicate(
                     outputs("reactor.thermal_power_isotope_MeV_per_second"),
@@ -1475,8 +1446,8 @@ class model_dayabay_v0b:
             # Covariance matrices
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            covariance_detector = CovarianceMatrixGroup(store_to="covariance.detector", **self._covmatrix_kwargs)
-            covariance_detector_period = CovarianceMatrixGroup(store_to="covariance.detector_period", **self._covmatrix_kwargs)
+            self._covariance_matrices["detector"] = (covariance_detector := CovarianceMatrixGroup(store_to="covariance.detector", **self._covmatrix_kwargs))
+            self._covariance_matrices["detector_period"] = (covariance_detector_period := CovarianceMatrixGroup(store_to="covariance.detector_period", **self._covmatrix_kwargs))
 
             for name, parameters_source in (
                     ("oscprob", "oscprob"),
@@ -1521,6 +1492,7 @@ class model_dayabay_v0b:
                 replicate_inputs=combinations["detector.period"]
             )
             outputs("eventscount.final.detector_period") >> inputs("pseudo.data")
+            self._frozen_nodes["pseudodata"] = tuple(nodes.get_dict("pseudo.data").walkvalues())
 
             from dgf_statistics.Chi2 import Chi2
             Chi2.replicate(
@@ -1564,6 +1536,20 @@ class model_dayabay_v0b:
                 raise RuntimeError(
                     f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
                 )
+
+        # Ensure stem nodes are calculated
+        for output in outputs.get_dict("eventscount.final.detector").walkvalues():
+            output.touch()
+
+    def update_frozen_nodes(self):
+        for nodes in self._frozen_nodes.values():
+            for node in nodes:
+                node.unfreeze()
+                node.touch()
+
+    def update_covariance_matrices(self):
+        for covmat in self._covariance_matrices.values():
+            covmat.update_matrices()
 
     def set_parameters(
         self,
