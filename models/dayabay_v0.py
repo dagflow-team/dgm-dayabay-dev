@@ -629,7 +629,7 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                     outputs("reactor_offequilibrium_anue.correction_interpolated"),
-                    outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # NOTE: remove in v1 as HM corrections should not be applied to NEQ
+                    outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # TODO: remove in v1 as HM corrections should not be applied to NEQ
                     name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = ("U238",),
@@ -1183,20 +1183,6 @@ class model_dayabay_v0:
             )
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix_linear.EdgesOriginal")
             outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix_linear.EdgesModified")
-
-            # # TODO: masked LSNL matrix (cross check)
-            # from numpy import ones
-            # lsnl_mask = ones((240, 240), dtype="d")
-            # lsnl_mask[:14,:] = 0.0
-            # lsnl_mask[:,:16] = 0.0
-            # lsnl_mask[:,232:] = 0.0
-            # Array.make_stored("detector.lsnl.gna_mask", lsnl_mask)
-            # Product.replicate(
-            #     outputs("detector.lsnl.matrix_linear"),
-            #     outputs.get_value("detector.lsnl.gna_mask"),
-            #     name="detector.lsnl.matrix_linear_masked",
-            #     replicate_outputs=index["detector"]
-            # )
 
             VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
             # outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
