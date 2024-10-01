@@ -21,7 +21,7 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 FutureType = Literal[
-    "pdg", "xsec", "conversion", "fix-neq-shape", "lsnl-curves", "lsnl-matrix"
+    "pdg", "xsec", "conversion", "hm-spectra", "fix-neq-shape", "lsnl-curves", "lsnl-matrix"
 ]
 Features = set(get_args(FutureType))
 
@@ -89,6 +89,10 @@ class model_dayabay_v0b:
         self._covmatrix_kwargs = dict(covmatrix_kwargs)
         self._future = set(future)
         assert all(f in Features for f in self._future)
+
+        if "hm-spectra" in self._future and self._anue_spectrum_model is None:
+            logger.warning("Future: HM properly interpolated to 50 keV")
+            self._anue_spectrum_model = "50keV_scaled_approx"
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         self.index = {}
@@ -660,7 +664,7 @@ class model_dayabay_v0b:
                     )
 
             if "fix-neq-shape" in self._future:
-                logger.warning("HM uncertainties do not affect NEQ")
+                logger.warning("Future: HM uncertainties do not affect NEQ")
                 Product.replicate(
                         outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                         outputs("reactor_offequilibrium_anue.correction_interpolated"),
@@ -1116,7 +1120,7 @@ class model_dayabay_v0b:
 
             if "lsnl-curves" in self._future:
                 # Refine LSNL curves: interpolate with smaller step
-                logger.warning("Pre-interpolate LSNL curves")
+                logger.warning("Future: Pre-interpolate LSNL curves")
                 from dgf_detector.bundles.refine_lsnl_data import \
                     refine_lsnl_data
                 refine_lsnl_data(
