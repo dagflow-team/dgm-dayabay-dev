@@ -26,7 +26,6 @@ def main(opts: Namespace) -> None:
             source_type=opts.source_type,
             override_indices=override_indices,
             spectrum_correction_mode=opts.spec,
-            fission_fraction_normalized=opts.fission_fraction_normalized,
             parameter_values=opts.par
             )
 

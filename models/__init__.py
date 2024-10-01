@@ -10,10 +10,14 @@ _dayabay_models = {
     "v0b": model_dayabay_v0b,
 }
 
+_available_sources = ("tsv", "hdf5", "root", "npz")
+
 
 def available_models() -> tuple[str, ...]:
     return tuple(_dayabay_models.keys())
 
+def available_sources() -> tuple[str, ...]:
+    return _available_sources
 
 def load_model(version, model_options: Mapping | str = {}, **kwargs):
     if isinstance(model_options, str):
