@@ -80,7 +80,7 @@ class model_dayabay_v0b:
         anue_spectrum_model: str | None = None,
         covmatrix_kwargs: Mapping = {},
         parameter_values: dict[str, float | str] = {},
-        future: Collection[FutureType] = {},
+        future: Collection[FutureType] | FutureType = (),
     ):
         self._strict = strict
         self._close = close
@@ -93,8 +93,10 @@ class model_dayabay_v0b:
         self._spectrum_correction_mode = spectrum_correction_mode
         self._anue_spectrum_model = anue_spectrum_model
         self._covmatrix_kwargs = dict(covmatrix_kwargs)
-        self._future = set(future)
+        self._future = set((future,)) if isinstance(future, str) else set(future)
         assert all(f in Features for f in self._future)
+        if self._future:
+            logger.info(f"Future options: {', '.join(self._future)}")
 
         if "hm-spectra" in self._future and self._anue_spectrum_model is None:
             logger.warning("Future: HM properly interpolated to 50 keV")
@@ -1162,6 +1164,7 @@ class model_dayabay_v0b:
             )
 
             if "lsnl-matrix" in self._future:
+                logger.warning("Future: precise LSNL matrix computation")
                 # Interpolate Evis(Edep)
                 InterpolatorGroup.replicate(
                     method = "linear",
@@ -1223,22 +1226,6 @@ class model_dayabay_v0b:
                 outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
                 edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
 
-                # TODO:
-                # - for backward interpolation need multiple X definitions (detectors)
-                # - thus need to replicate the indexer
-                InterpolatorGroup.replicate(
-                    method = "linear",
-                    names = {
-                        "indexer": "detector.lsnl.indexer_bwd",
-                        "interpolator": "detector.lsnl.interpolated_bwd",
-                        },
-                    replicate_xcoarse = True,
-                    replicate_outputs = index["detector"]
-                )
-                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
-                outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
-                edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
-
                 Product.replicate(
                     outputs.get_value("detector.lsnl.interpolated_fwd"),
                     outputs("detector.parameters_relative.energy_scale_factor"),
@@ -1283,6 +1270,12 @@ class model_dayabay_v0b:
                 outputs("eventscount.erec"),
                 name = "eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
+            )
+
+            Sum.replicate(
+                outputs("eventscount.fine.ibd_normalized"),
+                name = "eventscount.fine.ibd_normalized_detector",
+                replicate_outputs=combinations["detector"],
             )
 
             from dgf_detector.Rebin import Rebin

@@ -1213,6 +1213,12 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"],
             )
 
+            Sum.replicate(
+                outputs("eventscount.fine.ibd_normalized"),
+                name = "eventscount.fine.ibd_normalized_detector",
+                replicate_outputs=combinations["detector"],
+            )
+
             from dgf_detector.Rebin import Rebin
             Rebin.replicate(
                 names={"matrix": "detector.rebin_matrix_ibd", "product": "eventscount.final.ibd"},
