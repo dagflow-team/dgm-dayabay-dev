@@ -2,15 +2,28 @@
 from argparse import Namespace
 
 from matplotlib import pyplot as plt
+from numpy import log, where
 
 from dagflow.logger import DEBUG as INFO4
 from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
-from dagflow.plot import plot_auto
-from dagflow.storage import NodeStorage
 from models import available_models, available_sources, load_model
 from multikeydict.nestedmkdict import NestedMKDict
+from multikeydict.tools import mkmap
 
-# from dagflow.plot import plot_auto
+plt.style.use(
+    {
+        "figure.figsize": (6.4, 6.4),
+        "axes.formatter.limits": (-2, 4),
+        "axes.formatter.use_mathtext": True,
+        "axes.grid": True,
+        "xtick.minor.visible": True,
+        "ytick.minor.visible": True,
+        "xtick.top": True,
+        "ytick.right": True,
+        "lines.markerfacecolor": "none",
+        "savefig.dpi": 300,
+    }
+)
 
 set_level(INFO1)
 
@@ -25,7 +38,7 @@ def main(opts: Namespace) -> None:
         opts.version_a,
         model_options=opts.model_options_a,
         source_type=opts.source_type,
-        parameter_values=opts.par,
+        parameter_values=opts.par0,
     )
 
     logger.info(f"Create model B: {opts.version_b}")
@@ -33,45 +46,108 @@ def main(opts: Namespace) -> None:
         opts.version_b,
         model_options=opts.model_options_b,
         source_type=opts.source_type,
-        parameter_values=opts.par,
+        parameter_values=opts.par0,
     )
 
-    source = "outputs.eventscount.final.detector"
-    plot(
-        modelA.storage.get_dict(source),
-        modelB.storage.get_dict(source),
-        opts.version_a,
-        opts.version_b,
-    )
+    get_hist = lambda output: (output.dd.axes_edges[0].data, output.data.copy())
+
+    # source = "outputs.eventscount.final.detector"
+    source = "outputs.eventscount.fine.ibd_normalized_detector"
+    sourceA = modelA.storage.get_dict(source)
+    sourceB = modelB.storage.get_dict(source)
+    hists0_A = mkmap(get_hist, sourceA)
+    hists0_B = mkmap(get_hist, sourceB)
+    plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=source, opts=opts)
+
+    if opts.par:
+        title = "\n".join(f"{par}={value}" for (par, value) in opts.par)
+        modelA.set_parameters(opts.par)
+        modelB.set_parameters(opts.par)
+        hists1_A = mkmap(get_hist, sourceA)
+        hists1_B = mkmap(get_hist, sourceB)
+
+        make_diff = lambda eh0, eh1: (eh0[0], eh0[1] - eh1[1])
+        histsD_A = mkmap(make_diff, hists1_A, hists0_A)
+        histsD_B = mkmap(make_diff, hists1_B, hists0_B)
+
+        plot(
+            histsD_A,
+            histsD_B,
+            opts.version_a,
+            opts.version_b,
+            title=f"{source}\n{title}",
+            ylabel="mod−def",
+            opts=opts,
+        )
+
+    if opts.show:
+        plt.show()
 
 
-def plot(storageA: NestedMKDict, storageB: NestedMKDict, labelA: str, labelB: str):
-    for key, outputA in storageA.walkitems():
-        outputB = storageB[key]
+def plot(
+    storageA: NestedMKDict,
+    storageB: NestedMKDict,
+    labelA: str,
+    labelB: str,
+    *,
+    opts: Namespace,
+    title: str = "",
+    xlabel: str = "E, MeV",
+    ylabel: str = "entries",
+):
+    for key, (edgesA, dataA) in storageA.walkitems():
+        _, dataB = storageB[key]
 
-        _, (ax, axr) = plt.subplots(
-            2,
+        _, (ax, axd, axr) = plt.subplots(
+            3,
             1,
             sharex=True,
-            height_ratios=(3, 1),
+            height_ratios=(3, 1, 1),
             gridspec_kw={"hspace": 0},
         )
         plt.sca(ax)
-        plot_auto(outputA, label=labelA)
-        plot_auto(outputB, label=labelB)
+        if title:
+            ktitle = f"{title}: {'.'.join(key)}"
+        else:
+            ktitle = f"{'.'.join(key)}"
+        ax.set_title(ktitle)
+        if ylabel:
+            ax.set_ylabel(ylabel)
+
+        ax.stairs(dataA, edgesA, label=labelA)
+        ax.stairs(dataB, edgesA, label=labelB)
         ax.legend()
-        ax.set_ylabel("entries")
+
+        diff = dataA - dataB
+        lratio = log(dataA / dataB)
+        lratio[dataB == 0] = 0.0
+        istart_ratio = where(dataB>0)[0][0]
+        lratiom = lratio[istart_ratio:]
+
+        sdiff = diff.sum()
+        tratio = sdiff / dataB.sum()
+
+        plt.sca(axd)
+        axd.stairs(diff, edgesA, label=f"sum={sdiff:.2f}")
+        axd.set_ylabel(f"{labelA}−{labelB}", size="small")
+        if opts.ylim:
+            axd.set_ylim(*opts.ylim)
+        if opts.dlim:
+            axd.set_ylim(*opts.dlim)
+        axd.legend(fontsize="small")
 
         plt.sca(axr)
-        diff = outputA.data - outputB.data
-        edges = outputA.dd.axes_edges[0].data
-        axr.stairs(diff, edges)
-        axr.set_xlabel(ax.get_xlabel())
-        axr.set_ylabel(f"{labelA}—{labelB}")
+        axr.stairs(lratiom, edgesA[istart_ratio:], label=f"ratio={tratio*100:.2f} %")
+        axr.set_ylabel(f"log({labelA}/{labelB})", size="small")
+        axr.set_ylim(lratiom.min()*0.9, lratiom.max()*1.1)
+        if opts.ylim:
+            axr.set_ylim(*opts.ylim)
+        if opts.llim:
+            axr.set_ylim(*opts.llim)
+        axr.legend(fontsize="small")
 
-        import IPython; IPython.embed(colors='neutral')
-
-    plt.show()
+        if xlabel:
+            ax.set_xlabel(xlabel)
 
 
 if __name__ == "__main__":
@@ -82,7 +158,6 @@ if __name__ == "__main__":
         "-v", "--verbose", default=0, action="count", help="verbosity level"
     )
     parser.add_argument(
-        "-s",
         "--source-type",
         "--source",
         choices=available_sources(),
@@ -110,7 +185,23 @@ if __name__ == "__main__":
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
+        "--par0",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set initial parameter value",
+    )
+    pars.add_argument(
+        "--par",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set comparison parameter value",
     )
 
+    plotargs = parser.add_argument_group("plot", "plot related options")
+    plotargs.add_argument("--llim", type=float, nargs=2, help="log ratio limits")
+    plotargs.add_argument("--dlim", type=float, nargs=2, help="diff limits")
+    plotargs.add_argument("--ylim", type=float, nargs=2, help="log ratio/diff limits")
+    plotargs.add_argument("-s", "--show", action="store_true", help="show plots")
     main(parser.parse_args())
