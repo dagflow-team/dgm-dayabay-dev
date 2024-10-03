@@ -2,7 +2,7 @@
 from argparse import Namespace
 
 from matplotlib import pyplot as plt
-from numpy import log, where
+from numpy import log, where, nanmin, nanmax
 
 from dagflow.logger import DEBUG as INFO4
 from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
@@ -139,7 +139,7 @@ def plot(
         plt.sca(axr)
         axr.stairs(lratiom, edgesA[istart_ratio:], label=f"ratio={tratio*100:.2f} %")
         axr.set_ylabel(f"log({labelA}/{labelB})", size="small")
-        axr.set_ylim(lratiom.min()*0.9, lratiom.max()*1.1)
+        axr.set_ylim(min(nanmin(lratiom)*0.9, nanmin(lratiom)*1.1), max(nanmax(lratiom)*0.9, nanmax(lratiom)*1.1))
         if opts.ylim:
             axr.set_ylim(*opts.ylim)
         if opts.llim:
