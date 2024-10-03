@@ -28,6 +28,7 @@ FutureType = Literal[
     "fix-neq-shape",
     "lsnl-curves",
     "lsnl-matrix",
+    "short-baselines"
 ]
 Features = set(get_args(FutureType))
 
@@ -230,23 +231,30 @@ class model_dayabay_v0b:
             )
 
             if "pdg" in self._future:
+                logger.warning("Future: latest PDG particle constants")
                 load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
             else:
                 load_parameters(path="ibd",        load=path_parameters/"pdg2012.yaml")
 
             if "xsec" in self._future:
+                logger.warning("Future: latest IBD constants")
                 load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants_future.yaml")
             else:
                 load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml")
 
             if "conversion" in self._future:
+                logger.warning("Future: latest conversion constants")
                 load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power_future.py")
                 load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument_future.py")
             else:
                 load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.yaml")
                 load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
 
-            load_parameters(                   load=path_parameters/"baselines.yaml")
+            if "short-baselines" in self._future:
+                logger.warning("Future: truncated baselines")
+                load_parameters(                   load=path_parameters/"baselines_short.yaml")
+            else:
+                load_parameters(                   load=path_parameters/"baselines_precise.yaml")
 
             load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
