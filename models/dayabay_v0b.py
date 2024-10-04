@@ -25,6 +25,7 @@ FutureType = Literal[
     "xsec",
     "conversion",
     "hm-spectra",
+    "hm-preinterpolate",
     "fix-neq-shape",
     "lsnl-curves",
     "lsnl-matrix",
@@ -404,26 +405,6 @@ class model_dayabay_v0b:
             )
 
             #
-            # Pre-interpolate input spectrum on coarser grid
-            # NOTE:
-            #     - not needed with the current scheme:
-            #         - spectrum correction applied by multiplication
-            #     - introduced for the consistency with GNA
-            #     - to be removed in v1 TODO
-            #
-            InterpolatorGroup.replicate(
-                method = "exp",
-                names = {
-                    "indexer": "reactor_anue.spec_indexer_pre",
-                    "interpolator": "reactor_anue.neutrino_per_fission_per_MeV_nominal_pre",
-                    },
-                replicate_outputs = index["isotope"],
-            )
-            outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.xcoarse")
-            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.ycoarse")
-            outputs.get_value("reactor_anue.spec_model_edges") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.xfine")
-
-            #
             # Interpolate for the integration mesh
             #
             InterpolatorGroup.replicate(
@@ -434,11 +415,33 @@ class model_dayabay_v0b:
                     },
                 replicate_outputs = index["isotope"],
             )
-            # Commented in favor of pre-interpolated part (below)
-            # outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
-            # outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
-            outputs.get_value("reactor_anue.spec_model_edges") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
-            outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
+
+            if "hm-preinterpolate" in self._future:
+                outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
+                outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
+            else:
+                # Pre-interpolate input spectrum on coarser grid
+                # NOTE:
+                #     - not needed with the current scheme:
+                #         - spectrum correction applied by multiplication
+                #     - introduced for the consistency with GNA
+                #     - to be removed in v1 TODO
+                #
+                InterpolatorGroup.replicate(
+                    method = "exp",
+                    names = {
+                        "indexer": "reactor_anue.spec_indexer_pre",
+                        "interpolator": "reactor_anue.neutrino_per_fission_per_MeV_nominal_pre",
+                        },
+                    replicate_outputs = index["isotope"],
+                )
+                outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.xcoarse")
+                outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.ycoarse")
+                outputs.get_value("reactor_anue.spec_model_edges") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.xfine")
+
+                outputs.get_value("reactor_anue.spec_model_edges") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
+                outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
+
             kinematic_integrator_enu >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine")
 
             #
@@ -1147,7 +1150,7 @@ class model_dayabay_v0b:
             )
 
             #
-            # Force Evis(Edep) to be grow monotonously
+            # Force Evis(Edep) to grow monotonously
             # - Required by matrix calculation algorithm
             # - Introduced to achieve stable minimization
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
@@ -1241,7 +1244,6 @@ class model_dayabay_v0b:
                     replicate_outputs = index["detector"]
                 )
 
-                # TODO: Outdated LSNL matrix (cross check), remove
                 from dgf_detector.AxisDistortionMatrixLinearLegacy import \
                     AxisDistortionMatrixLinearLegacy
                 AxisDistortionMatrixLinearLegacy.replicate(
