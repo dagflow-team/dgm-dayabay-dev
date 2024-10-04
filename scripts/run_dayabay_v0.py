@@ -5,7 +5,7 @@ from dagflow.graph import Graph
 from dagflow.logger import DEBUG as INFO4
 from dagflow.logger import INFO1, INFO2, INFO3, set_level
 from dagflow.storage import NodeStorage
-from models import load_model, available_models
+from models import available_models, load_model
 
 # from dagflow.plot import plot_auto
 
@@ -19,15 +19,15 @@ def main(opts: Namespace) -> None:
 
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
     model = load_model(
-            opts.version,
-            model_options=opts.model_options,
-            close=opts.close,
-            strict=opts.strict,
-            source_type=opts.source_type,
-            override_indices=override_indices,
-            spectrum_correction_mode=opts.spec,
-            parameter_values=opts.par
-            )
+        opts.version,
+        model_options=opts.model_options,
+        close=opts.close,
+        strict=opts.strict,
+        source_type=opts.source_type,
+        override_indices=override_indices,
+        spectrum_correction_mode=opts.spec,
+        parameter_values=opts.par,
+    )
 
     graph = model.graph
     storage = model.storage
@@ -71,6 +71,17 @@ def main(opts: Namespace) -> None:
 
     if opts.graph_auto:
         plot_graph(graph, storage)
+
+    if opts.graphs:
+        mindepth = opts.mindepth or -2
+        maxdepth = opts.maxdepth or +1
+        storage["nodes"].savegraphs(
+            opts.graphs,
+            mindepth=mindepth,
+            maxdepth=maxdepth,
+            keep_direction=True,
+            show="all",
+        )
 
     if opts.graph_from_node:
         from dagflow.graphviz import GraphDot
@@ -204,6 +215,7 @@ if __name__ == "__main__":
     dot.add_argument(
         "--graph-auto", "--ga", action="store_true", help="plot graphs auto"
     )
+    dot.add_argument("--graphs", help="save partial graphs from every node")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
@@ -222,7 +234,9 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
+    model.add_argument(
+        "--model-options", "--mo", default={}, help="Model options as yaml dict"
+    )
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
