@@ -2,10 +2,12 @@
 
 set modes $argv
 
-set modes_simple pdg xsec conversion hm-spectra lsnl-curves short-baselines
+set keys_simple pdg xsec conversion hm-spectra lsnl-curves short-baselines hm-preinterpolate
 set keys_other lsnl-matrix fix-neq-shape
-set keys_all $modes_simple $keys_other
+set keys_all $keys_simple $keys_other
 set keys_all_str (string join ", " -- $keys_all)
+
+set modes_simple $keys_simple
 set modes_other lsnl-matrix0 $keys_other
 set modes_all $modes_other $modes_simple
 if test ! $argv
