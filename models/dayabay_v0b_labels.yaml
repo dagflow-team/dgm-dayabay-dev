@@ -84,12 +84,12 @@ neutrino_cm2_per_MeV_per_fission_per_proton:
     main:
       group:
         text: "#ν̅{space_key} reator (main) [cm²/MeV/fission/proton]"
-    offeq:
+    neq:
       group:
-        text: "#ν̅{space_key} NEQ [cm²/MeV/fission/proton]"
+        text: "#ν̅{space_key} from Non-EQuilibrium correction (NEQ) [cm²/MeV/fission/proton]"
     snf:
       group:
-        text: "#ν̅{space_key} SNF [cm²/MeV/second/proton]"
+        text: "#ν̅{space_key} Spent Nuclear Fuel (SNF) [cm²/MeV/second/proton]"
 kinematics_integral:
   group:
     text: "Partial #events from {space_key}"

@@ -143,7 +143,7 @@ class model_dayabay_v0b:
         index = self.index
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
-        index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
+        index["isotope_neq"] = ("U235", "Pu239", "Pu241")
         index["detector"] = (
             "AD11",
             "AD12",
@@ -156,7 +156,7 @@ class model_dayabay_v0b:
         )
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
-        index["anue_source"] = ("main", "offeq", "snf")
+        index["anue_source"] = ("main", "neq", "snf")
         index["anue_unc"] = ("uncorr", "corr")
         index["period"] = ("6AD", "8AD", "7AD")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
@@ -179,13 +179,13 @@ class model_dayabay_v0b:
         required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
-            "reactor.isotope_offeq",
+            "reactor.isotope_neq",
             "reactor.period",
             "reactor.isotope.period",
             "reactor.isotope.detector",
-            "reactor.isotope_offeq.detector",
+            "reactor.isotope_neq.detector",
             "reactor.isotope.detector.period",
-            "reactor.isotope_offeq.detector.period",
+            "reactor.isotope_neq.detector.period",
             "reactor.detector.period",
             "detector.period",
             "anue_unc.isotope",
@@ -206,8 +206,8 @@ class model_dayabay_v0b:
         combinations["anue_source.reactor.isotope.detector"] = (
             tuple(("main",) + cmb for cmb in combinations["reactor.isotope.detector"])
             + tuple(
-                ("offeq",) + cmb
-                for cmb in combinations["reactor.isotope_offeq.detector"]
+                ("neq",) + cmb
+                for cmb in combinations["reactor.isotope_neq.detector"]
             )
             + tuple(("snf",) + cmb for cmb in combinations["reactor.detector"])
         )
@@ -273,8 +273,8 @@ class model_dayabay_v0b:
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
                             replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
-                            replicate=combinations["reactor.isotope_offeq"])
+            load_parameters(path="reactor",    load=path_parameters/"reactor_nonequilibrium_correction.yaml",
+                            replicate=combinations["reactor.isotope_neq"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
                             replicate=index["reactor"], replica_key_offset=1)
@@ -445,7 +445,7 @@ class model_dayabay_v0b:
             kinematic_integrator_enu >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine")
 
             #
-            # SNF and OffEQ normalization factors
+            # SNF and NEQ normalization factors
             #
             load_parameters(
                 format="value",
@@ -453,43 +453,43 @@ class model_dayabay_v0b:
                 parameters={
                     "reactor": {
                         "snf_factor": 1.0,
-                        "offeq_factor": 1.0,
+                        "neq_factor": 1.0,
                     }
                 },
                 labels={
                     "reactor": {
-                        "snf_factor": "Common SNF factor",
-                        "offeq_factor": "Common offequilibrium factor",
+                        "snf_factor": "Common Spent Nuclear Fuel (SNF) factor",
+                        "neq_factor": "Common Non-EQuilibrium (NEQ) factor",
                     }
                 },
             )
 
             #
-            # Offequilibrium correction
+            # Non-EQuilibrium correction
             #
             load_graph(
-                name = "reactor_offequilibrium_anue.correction_input",
+                name = "reactor_nonequilibrium_anue.correction_input",
                 x = "enu",
-                y = "offequilibrium_correction",
+                y = "nonequilibrium_correction",
                 merge_x = True,
-                filenames = path_arrays / f"offequilibrium_correction.{self._source_type}",
-                replicate_outputs = index["isotope_offeq"],
+                filenames = path_arrays / f"nonequilibrium_correction.{self._source_type}",
+                replicate_outputs = index["isotope_neq"],
                 dtype = "d"
             )
 
             InterpolatorGroup.replicate(
                 method = "linear",
                 names = {
-                    "indexer": "reactor_offequilibrium_anue.correction_indexer",
-                    "interpolator": "reactor_offequilibrium_anue.correction_interpolated",
+                    "indexer": "reactor_nonequilibrium_anue.correction_indexer",
+                    "interpolator": "reactor_nonequilibrium_anue.correction_interpolated",
                     },
-                replicate_outputs = index["isotope_offeq"],
+                replicate_outputs = index["isotope_neq"],
                 underflow = "constant",
                 overflow = "constant",
             )
-            outputs.get_value("reactor_offequilibrium_anue.correction_input.enu") >> inputs.get_value("reactor_offequilibrium_anue.correction_interpolated.xcoarse")
-            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_offequilibrium_anue.correction_interpolated.xfine")
+            outputs.get_value("reactor_nonequilibrium_anue.correction_input.enu") >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xcoarse")
+            outputs("reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction") >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xfine")
 
             #
             # SNF correction
@@ -689,21 +689,21 @@ class model_dayabay_v0b:
                 logger.warning("Future: HM uncertainties do not affect NEQ")
                 Product.replicate(
                         outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                        outputs("reactor_offequilibrium_anue.correction_interpolated"),
-                        name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
+                        outputs("reactor_nonequilibrium_anue.correction_interpolated"),
+                        name = "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                         allow_skip_inputs = True,
                         skippable_inputs_should_contain = ("U238",),
-                        replicate_outputs=index["isotope_offeq"],
+                        replicate_outputs=index["isotope_neq"],
                         )
             else:
                 Product.replicate(
                         outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                        outputs("reactor_offequilibrium_anue.correction_interpolated"),
+                        outputs("reactor_nonequilibrium_anue.correction_interpolated"),
                         outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # NOTE: removed in v0c as HM corrections should not be applied to NEQ
-                        name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
+                        name = "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                         allow_skip_inputs = True,
                         skippable_inputs_should_contain = ("U238",),
-                        replicate_outputs=index["isotope_offeq"],
+                        replicate_outputs=index["isotope_neq"],
                         )
 
             #
@@ -912,9 +912,9 @@ class model_dayabay_v0b:
 
             Product.replicate(
                     outputs("reactor_detector.nfissions_nprotons_per_cm2"),
-                    parameters("all.reactor.offequilibrium_scale"),
-                    parameters.get_value("all.reactor.offeq_factor"),
-                    name = "reactor_detector.nfissions_nprotons_per_cm2_offeq",
+                    parameters("all.reactor.nonequilibrium_scale"),
+                    parameters.get_value("all.reactor.neq_factor"),
+                    name = "reactor_detector.nfissions_nprotons_per_cm2_neq",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     )
 
@@ -1001,9 +1001,9 @@ class model_dayabay_v0b:
 
             Product.replicate(
                     outputs("ibd.crosssection_jacobian_oscillations"),
-                    outputs("reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal"),
-                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.offeq",
-                    replicate_outputs=combinations["reactor.isotope_offeq.detector"]
+                    outputs("reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"),
+                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.neq",
+                    replicate_outputs=combinations["reactor.isotope_neq.detector"]
             )
 
             Product.replicate(
@@ -1013,14 +1013,14 @@ class model_dayabay_v0b:
                     replicate_outputs=combinations["reactor.detector"]
             )
             outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.main") >> inputs("kinematics_integral.main")
-            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.offeq") >> inputs("kinematics_integral.offeq")
+            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.neq") >> inputs("kinematics_integral.neq")
             outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.snf") >> inputs("kinematics_integral.snf")
 
             #
             # Multiply by the scaling factors:
-            #  - main:  fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
-            #  - offeq: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × offequilibrium scale[r,i] × offeq_factor(=1)
-            #  - snf:                                effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
+            #  - main: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
+            #  - neq:  fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × nonequilibrium scale[r,i] × neq_factor(=1)
+            #  - snf:                               effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
             #
             Product.replicate(
                     outputs("kinematics_integral.main"),
@@ -1030,10 +1030,10 @@ class model_dayabay_v0b:
                     )
 
             Product.replicate(
-                    outputs("kinematics_integral.offeq"),
-                    outputs("reactor_detector.nfissions_nprotons_per_cm2_offeq"),
-                    name = "eventscount.parts.offeq",
-                    replicate_outputs = combinations["reactor.isotope_offeq.detector.period"],
+                    outputs("kinematics_integral.neq"),
+                    outputs("reactor_detector.nfissions_nprotons_per_cm2_neq"),
+                    name = "eventscount.parts.neq",
+                    replicate_outputs = combinations["reactor.isotope_neq.detector.period"],
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = ("U238",)
                     )
@@ -1447,7 +1447,7 @@ class model_dayabay_v0b:
                     ("energy_per_fission", "reactor.energy_per_fission"),
                     ("nominal_thermal_power", "reactor.nominal_thermal_power"),
                     ("snf", "reactor.snf_scale"),
-                    ("neq", "reactor.offequilibrium_scale"),
+                    ("neq", "reactor.nonequilibrium_scale"),
                     ("fission_fraction", "reactor.fission_fraction_scale"),
                     ("bkg_rate", "bkg.rate"),
                     ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
