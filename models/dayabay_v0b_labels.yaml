@@ -83,38 +83,38 @@ neutrino_cm2_per_MeV_per_fission_per_proton:
   part:
     main:
       group:
-        text: "Nν̅{space_key} [cm²/MeV/fission/proton] (main)"
+        text: "#ν̅{space_key} reator (main) [cm²/MeV/fission/proton]"
     offeq:
       group:
-        text: "Nν̅{space_key} [cm²/MeV/fission/proton] (offequilibrium)"
+        text: "#ν̅{space_key} NEQ [cm²/MeV/fission/proton]"
     snf:
       group:
-        text: "Nν̅{space_key} [cm²/MeV/second/proton] (SNF)"
+        text: "#ν̅{space_key} SNF [cm²/MeV/second/proton]"
 kinematics_integral:
   group:
-    text: "# events {space_key}"
-    axis: "# events"
+    text: "Partial #events from {space_key}"
+    axis: "#events"
 eventscount:
   parts:
     group:
-      text: "# events {space_key}"
-      axis: "# events"
+      text: "#events {space_key}"
+      axis: "#events"
   raw:
     group:
-      text: "# events before detector effects {space_key}"
-      axis: "# events"
+      text: "#events before detector effects {space_key}"
+      axis: "#events"
   iav:
     group:
-      text: "# events (IAV){space_key}"
-      axis: "# events"
+      text: "#events (IAV){space_key}"
+      axis: "#events"
   evis:
     group:
-      text: "# events (IAV, LSNL){space_key}"
-      axis: "# events"
+      text: "#events (IAV, LSNL){space_key}"
+      axis: "#events"
   erec:
     group:
-      text: "# events (IAV, LSNL, Erec){space_key}"
-      axis: "# events"
+      text: "#events (IAV, LSNL, Erec){space_key}"
+      axis: "#events"
 oscprob:
   group:
     text: "ν̅(e) survival probability{space_key} []"
@@ -132,6 +132,10 @@ reactor_anue:
       enu:
           text: "Input ν̅ spectrum neutrino energy (Eν) [MeV]"
           axis: '$E_{\nu} [MeV]'
+reactor_detector:
+  nfissions_nprotons_per_cm2:
+    group:
+      text: "#fissions × #target protons × baseline factor{space_key} [#/cm⁻²]"
 detector:
   iav:
     matrix_raw:

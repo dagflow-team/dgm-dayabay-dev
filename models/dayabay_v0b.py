@@ -870,7 +870,7 @@ class model_dayabay_v0b:
             Product.replicate(
                     outputs("reactor.fissions_per_second"),
                     outputs("daily_data.detector.efflivetime"),
-                    name = "reactor_detector.number_of_fissions_daily",
+                    name = "reactor_detector.nfissions_daily",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = self.inactive_detectors
@@ -879,8 +879,8 @@ class model_dayabay_v0b:
             # Total effective number of fissions from a Reactor seen in the Detector during Period
             from dagflow.lib import ArraySum
             ArraySum.replicate(
-                    outputs("reactor_detector.number_of_fissions_daily"),
-                    name = "reactor_detector.number_of_fissions",
+                    outputs("reactor_detector.nfissions_daily"),
+                    name = "reactor_detector.nfissions",
                     )
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
@@ -902,19 +902,19 @@ class model_dayabay_v0b:
 
             # Number of fissions × N protons × ε / (4πL²)  (main)
             Product.replicate(
-                    outputs("reactor_detector.number_of_fissions"),
+                    outputs("reactor_detector.nfissions"),
                     outputs("detector.nprotons"),
                     outputs("baseline_factor_per_cm2"),
                     parameters.get_value("all.detector.efficiency"),
-                    name = "reactor_detector.number_of_fissions_nprotons_per_cm2",
+                    name = "reactor_detector.nfissions_nprotons_per_cm2",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     )
 
             Product.replicate(
-                    outputs("reactor_detector.number_of_fissions_nprotons_per_cm2"),
+                    outputs("reactor_detector.nfissions_nprotons_per_cm2"),
                     parameters("all.reactor.offequilibrium_scale"),
                     parameters.get_value("all.reactor.offeq_factor"),
-                    name = "reactor_detector.number_of_fissions_nprotons_per_cm2_offeq",
+                    name = "reactor_detector.nfissions_nprotons_per_cm2_offeq",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     )
 
@@ -1024,14 +1024,14 @@ class model_dayabay_v0b:
             #
             Product.replicate(
                     outputs("kinematics_integral.main"),
-                    outputs("reactor_detector.number_of_fissions_nprotons_per_cm2"),
+                    outputs("reactor_detector.nfissions_nprotons_per_cm2"),
                     name = "eventscount.parts.main",
                     replicate_outputs = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
                     outputs("kinematics_integral.offeq"),
-                    outputs("reactor_detector.number_of_fissions_nprotons_per_cm2_offeq"),
+                    outputs("reactor_detector.nfissions_nprotons_per_cm2_offeq"),
                     name = "eventscount.parts.offeq",
                     replicate_outputs = combinations["reactor.isotope_offeq.detector.period"],
                     allow_skip_inputs = True,
