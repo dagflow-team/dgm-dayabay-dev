@@ -38,7 +38,7 @@ edges:
     latex: "Reconstructed energy $E_{\\rm rec}$ edges [MeV]"
     axis: "$E_{\\rm rec}$ [MeV]"
     plotmethod: 'none'
-kinematics_sampler:
+kinematics_integration:
   ordersx:
     text: "Evis integration orders (precision)"
     latex: "$E_{\\rm vis}$ integration orders (precision)"
@@ -49,6 +49,9 @@ kinematics_sampler:
     latex: "$\\cos\\theta$ integration orders (precision)"
     axis: "order"
     plotmethod: 'none'
+kinematics_sampler:
+  node:
+    text: "dE, dcosθ integration sampler"
   mesh_edep:
     text: "Deposinted energy integration mesh"
     axis: "$E_{\\rm dep}$ [MeV]"
@@ -71,6 +74,11 @@ ibd:
     text: "dEν/dEdep Jacobian []"
     axis: "$dE_{\\nu}/dE_{\\rm dep}$"
     latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
+  crosssection_jacobian:
+    text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ) [cm⁻²]"
+  crosssection_jacobian_oscillations:
+    group:
+      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν){space_key} [cm⁻²]"
 neutrino_cm2_per_MeV_per_fission_per_proton:
   part:
     main:

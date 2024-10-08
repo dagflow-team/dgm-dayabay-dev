@@ -29,7 +29,7 @@ FutureType = Literal[
     "fix-neq-shape",
     "lsnl-curves",
     "lsnl-matrix",
-    "short-baselines"
+    "short-baselines",
 ]
 Features = set(get_args(FutureType))
 
@@ -339,8 +339,8 @@ class model_dayabay_v0b:
             #
             # Integration, kinematics
             #
-            integration_orders_edep, _ = Array.from_value("kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
-            integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 3, edges=edges_costheta)
+            Array.from_value("kinematics_integration.ordersx", 5, edges=edges_energy_edep, store=True)
+            Array.from_value("kinematics_integration.ordersy", 3, edges=edges_costheta, store=True)
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
             integrator, _ = IntegratorGroup.replicate(
@@ -353,8 +353,8 @@ class model_dayabay_v0b:
                 },
                 replicate_outputs = combinations["anue_source.reactor.isotope.detector"]
             )
-            integration_orders_edep >> integrator("ordersX")
-            integration_orders_costheta >> integrator("ordersY")
+            outputs.get_value("kinematics_integration.ordersx") >> integrator("ordersX")
+            outputs.get_value("kinematics_integration.ordersy") >> integrator("ordersY")
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
             ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
