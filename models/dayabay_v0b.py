@@ -1045,20 +1045,6 @@ class model_dayabay_v0b:
                     replicate_outputs = combinations["reactor.detector.period"]
                     )
 
-            # Debug node: eventscount.reactor_active_periods
-            Sum.replicate(
-                outputs("eventscount.parts.main"),
-                outputs("eventscount.parts.offeq"),
-                name="eventscount.reactor_active_periods",
-                replicate_outputs=combinations["detector.period"]
-            )
-            # Debug node: eventscount.reactor_snf_periods
-            Sum.replicate(
-                outputs("eventscount.parts.snf"),
-                name="eventscount.snf_periods",
-                replicate_outputs=combinations["detector.period"]
-            )
-
             Sum.replicate(
                 outputs("eventscount.parts"),
                 name="eventscount.raw",
