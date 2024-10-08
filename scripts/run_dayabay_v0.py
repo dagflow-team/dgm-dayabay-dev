@@ -25,7 +25,6 @@ def main(opts: Namespace) -> None:
         strict=opts.strict,
         source_type=opts.source_type,
         override_indices=override_indices,
-        spectrum_correction_mode=opts.spec,
         parameter_values=opts.par,
     )
 
@@ -224,16 +223,6 @@ if __name__ == "__main__":
     dot.add_argument("--graphs", help="save partial graphs from every node")
 
     model = parser.add_argument_group("model", "model related options")
-    model.add_argument(
-        "--spec",
-        choices=("linear", "exponential"),
-        help="antineutrino spectrum correction mode",
-    )
-    model.add_argument(
-        "--fission-fraction-normalized",
-        action="store_true",
-        help="fission fraction correction",
-    )
     model.add_argument(
         "--version",
         default="v0",
