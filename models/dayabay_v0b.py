@@ -293,7 +293,7 @@ class model_dayabay_v0b:
                 },
                 labels={
                     "conversion": {
-                        "seconds_in_day_inverse": "One divided by seconds in day",
+                        "seconds_in_day_inverse": "Fraction of a day in a second",
                     }
                 },
             )
