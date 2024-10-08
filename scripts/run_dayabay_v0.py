@@ -81,6 +81,12 @@ def main(opts: Namespace) -> None:
             maxdepth=maxdepth,
             keep_direction=True,
             show="all",
+            accept_index={
+                "reactor": [0],
+                "detector": [0, 1],
+                "isotope": [0],
+                "period": [2],
+            },
         )
 
     if opts.graph_from_node:
