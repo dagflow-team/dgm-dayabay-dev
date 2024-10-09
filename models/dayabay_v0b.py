@@ -1193,13 +1193,13 @@ class model_dayabay_v0b:
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
             from dgf_detector.Monotonize import Monotonize
             Monotonize.replicate(
-                    name="detector.lsnl.curves.evis_coarse_monotonic",
+                    name="detector.lsnl.curves.evis_coarse_monotonous",
                     index_fraction = 0.5,
                     gradient = 1.0,
                     with_x = True
                     )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.x")
-            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.y")
+            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.x")
+            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.y")
 
             from multikeydict.tools import remap_items
             remap_items(
@@ -1222,7 +1222,7 @@ class model_dayabay_v0b:
                         },
                 )
                 outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
-                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
                 edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
 
                 # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
@@ -1235,9 +1235,9 @@ class model_dayabay_v0b:
 
                 # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
                 Product.replicate(
-                    outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic"),
+                    outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
                     outputs("detector.parameters_relative.energy_scale_factor"),
-                    name="detector.lsnl.curves.evis_coarse_monotonic_scaled",
+                    name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
                     replicate_outputs = index["detector"]
                 )
 
@@ -1251,7 +1251,7 @@ class model_dayabay_v0b:
                     replicate_xcoarse = True,
                     replicate_outputs = index["detector"]
                 )
-                outputs.get_dict("detector.lsnl.curves.evis_coarse_monotonic_scaled") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
+                outputs.get_dict("detector.lsnl.curves.evis_coarse_monotonous_scaled") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
                 outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
                 edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
 
@@ -1271,7 +1271,7 @@ class model_dayabay_v0b:
                         },
                 )
                 outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
-                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
                 edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
 
                 Product.replicate(

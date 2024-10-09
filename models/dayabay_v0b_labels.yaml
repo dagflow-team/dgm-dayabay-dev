@@ -78,47 +78,75 @@ ibd:
     text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ) [cm⁻²]"
   crosssection_jacobian_oscillations:
     group:
-      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν){space_key} [cm⁻²]"
+      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key} [cm⁻²]"
 neutrino_cm2_per_MeV_per_fission_per_proton:
   part:
     main:
       group:
-        text: "#ν̅  from reator (main) from {space_key} [cm²/MeV/fission/proton]"
+        text: "# of ν̅  from reator (main) from {key} [cm²/MeV/fission/proton]"
     neq:
       group:
-        text: "#ν̅  from Non-EQuilibrium correction (NEQ) from {space_key} [cm²/MeV/fission/proton]"
+        text: "# of ν̅  from Non-EQuilibrium correction (NEQ) from {key} [cm²/MeV/fission/proton]"
     snf:
       group:
-        text: "#ν̅  from Spent Nuclear Fuel (SNF) from {space_key} [cm²/MeV/second/proton]"
+        text: "# of ν̅  from Spent Nuclear Fuel (SNF) from {key} [cm²/MeV/second/proton]"
 kinematics_integral:
   group:
-    text: "Partial #events from{space_key}"
-    axis: "#events"
+    text: "Partial # of events from {key}"
+    axis: "# of events"
+daily_data:
+  detector:
+    eff:
+      group:
+        text: "Daily detector efficiency {key}"
+    efflivetime:
+      group:
+        text: "Daily detector effective livetime {key} [s]"
+    livetime:
+      group:
+        text: "Daily detector wallclock livetime {key} [s]"
+  reactor:
+    power:
+      group:
+        text: "Daily fractional reactor power for {key}"
+    fission_fraction:
+      group:
+        text: "Daily fission fraction for {key}"
+    fission_fraction_scaled:
+      group:
+        text: "Corrected (fit) daily fission fraction for {key}"
+reactor:
+  energy_per_fission_weighted_MeV:
+    group:
+      text: "Partial energy per fission (weighted with fission fraction) for {key} [MeV]"
+  thermal_power_isotope_MeV_per_second:
+    group:
+      text: "Partial thermal power for {index[1]} in {index[0]} during {index[2]} [MeV/s]"
 eventscount:
   parts:
     group:
-      text: "Partial #events from{space_key}"
-      axis: "#events"
+      text: "Partial # of IBD events from {key}"
+      axis: "# of IBD events"
   raw:
     group:
-      text: "#events before detector effects{space_key}"
-      axis: "#events"
+      text: "# of IBD events before detector effects in {index[0]} during {index[1]}"
+      axis: "# of IBD events"
   iav:
     group:
-      text: "#events (IAV) in{space_key}"
-      axis: "#events"
+      text: "# of IBD events (IAV) in {index[0]} during {index[1]}"
+      axis: "# of IBD events"
   evis:
     group:
-      text: "#events (IAV, LSNL) in{space_key}"
-      axis: "#events"
+      text: "# of IBD events (IAV, LSNL) in {index[0]} during {index[1]}"
+      axis: "# of IBD events"
   erec:
     group:
-      text: "#events (IAV, LSNL, Erec) in{space_key}"
-      axis: "#events"
+      text: "# of IBD events (IAV, LSNL, Erec) in {index[0]} during {index[1]}"
+      axis: "# of IBD events"
   fine:
     bkg:
       group:
-        text: "#background events in{space_key}"
+        text: "Total # of background events in {index[0]} during {index[1]}"
 bkg:
   erec:
     text: "Reconstructed energy (Erec) edges [MeV]"
@@ -128,41 +156,134 @@ bkg:
   spectrum:
     acc: 
       group:
-        text: "# accidental background events in{space_key}"
+        text: "# of accidental background events in {key}"
+    alphan: 
+      group:
+        text: "# of ¹³C(α,n)¹⁶O background events in {key}"
+    amc: 
+      group:
+        text: "# of ²⁴¹Am¹³C related background events in {key}"
+    fastn: 
+      group:
+        text: "# of fast neutron background events in {key}"
+    lihe: 
+      group:
+        text: "# of ⁹Li/⁸He background events in {key}"
   spectrum_per_day:
     acc: 
       group:
-        text: "Rate of accidental background events in{space_key} [#/day]"
+        text: "Rate of accidental background events in {key} [#/day]"
+    alphan: 
+      group:
+        text: "Rate of ¹³C(α,n)¹⁶O background events in {key} [#/day]"
+    amc: 
+      group:
+        text: "Rate of ²⁴¹Am¹³C related background events in {key} [#/day]"
+    fastn: 
+      group:
+        text: "Rate of fast neutron background events in {key} [#/day]"
+    lihe: 
+      group:
+        text: "Rate of ⁹Li/⁸He background events in {key} [#/day]"
   spectrum_shape:
     acc: 
       group:
-        text: "Shape of spectrum of accidental background events in{space_key}"
+        text: "Shape of spectrum of accidental background events in {key}"
+    alphan: 
+      group:
+        text: "Shape of spectrum of ¹³C(α,n)¹⁶O background events in {key}"
+    amc: 
+      group:
+        text: "Shape of spectrum of ²⁴¹Am¹³C related background events in {key}"
+    fastn: 
+      group:
+        text: "Shape of spectrum of fast neutron background events in {key}"
+    lihe: 
+      group:
+        text: "Shape of spectrum of ⁹Li/⁸He background events in {key}"
 oscprob:
   group:
-    text: "ν̅(e) survival probability{space_key} []"
-    latex: "$\\bar{{\\nu}}_e$ survival probability{space_key}"
+    text: "ν̅(e) survival probability {key} []"
+    latex: "$\\bar{{\\nu}}_e$ survival probability {key}"
     axis: "$P_{{\\rm ee}}$"
     plotmethod: "slicesy"
 reactor_anue:
     neutrino_per_fission_per_MeV_nominal:
       group:
-        text: "Nominal ν̅ spectrum{space_key} (interpolated), [#/fission/MeV]"
+        text: "Nominal ν̅ spectrum {key} (interpolated), [#/fission/MeV]"
     neutrino_per_fission_per_MeV_input:
       spec:
         group:
-          text: "Input ν̅ spectrum{space_key}, [#/fission/MeV]"
+          text: "Input ν̅ spectrum {key}, [#/fission/MeV]"
       enu:
           text: "Input ν̅ spectrum neutrino energy (Eν) [MeV]"
           axis: '$E_{\nu} [MeV]'
 reactor_detector:
+  nfissions_daily:
+    group:
+      text: "Daily observable # of fissions for {key} [#]"
   nfissions_nprotons_per_cm2:
     group:
-      text: "#fissions × #target protons × baseline factor{space_key} [#/cm⁻²]"
+      text: "#fissions × #target protons × baseline factor {key} [#/cm⁻²]"
 detector:
+  livetime:
+    group:
+      text: "Wallclock detector livetime {key} [s]"
+  efflivetime:
+    group:
+      text: "Effective detector livetime {key} [s]"
+  efflivetime_days:
+    group:
+      text: "Effective detector livetime {key} [day]"
   iav:
     matrix_raw:
       text: "IAV matrix (MC)"
+    matrix_rescaled:
+      group:
+        text: "IAV matrix with adjusted (fit) offdiagonal elements at {key}"
+  lsnl:
+    curves:
+      edep:
+        text: "LSNL input coarse deposited energy for Evis(Edep), MeV"
+      evis_parts:
+        group:
+          text: "Input coarse Evisᵢ(Edep) {key} curve for LSNL, MeV"
+      evis_parts_scaled:
+        group:
+          text: "Input coarse scaled (fit) Evisᵢ(Edep) {key} curve for LSNL, MeV"
+      evis_coarse:
+        text: "Input coarse Evis(Edep) for LSNL, MeV"
+      evis_coarse_monotonous:
+        text: "Input coarse LSNL Evis(Edep), ensured to be monotonous, MeV"
+      evis:
+        group:
+          text: "Visible energy (LSNL×relative energy scale) for {key}, MeV"
+    indexer_fwd:
+      text: "Segment lookup for Evis(Edep) interpolation for LSNL correction"
+    interpolated_fwd:
+      text: "Interpolated Evis(Edep) for LSNL correction, MeV"
+    matrix:
+      group:
+        text: "Energy scale correction matrix (LSNL×relative energy scale) for {key}"
+  eres:
+    e_bincenter:
+      text: "Bin centers for visible energy (Evis) [MeV]"
+    sigma_rel:
+      text: "Relative energy resolution width σ(Evis)/Evis"
+    matrix:
+      text: "Energy resolution matrix"
 baseline_factor_per_cm2:
   group:
-    text: "1/(4πL²) factor{space_key}, cm⁻²"
-    latex: "$1/\\left(4\\pi^2\\right)$ factor{space_key}, cm$^{-2}$"
+    text: "1/(4πL²) factor {key}, cm⁻²"
+    latex: "$1/\\left(4\\pi^2\\right)$ factor {key}, cm$^{-2}$"
+statistic:
+  nuisance:
+    all:
+      text: "χ² nuisance term"
+    parts:
+      detector:
+        detector_relative:
+          text: "χ² nuisance term for relative detector parmeters (efficiency, energy scale)"
+      reactor:
+        fission_fraction_scale:
+          text: "χ² nuisance term for fission fraction uncertainty"
