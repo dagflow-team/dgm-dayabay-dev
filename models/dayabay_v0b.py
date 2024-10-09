@@ -2,10 +2,10 @@ from collections.abc import Collection, Mapping, Sequence
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 
-from more_itertools import ilen
 from numpy import ndarray
+from numpy.random import Generator
 
 from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
@@ -48,10 +48,13 @@ class model_dayabay_v0b:
         "_close",
         "_spectrum_correction_mode",
         "_anue_spectrum_model",
-        "_covmatrix_kwargs",
         "_future",
-        "_covariance_matrices",
+        "_covmatrix_kwargs",
+        "_covariance_matrix",
         "_frozen_nodes",
+        "_concatenation_mode",
+        "_monte_carlo_mode",
+        "_random_generator",
     )
 
     storage: NodeStorage
@@ -66,9 +69,14 @@ class model_dayabay_v0b:
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _anue_spectrum_model: str | None
-    _covmatrix_kwargs: dict
     _future: set[FutureType]
-    _covariance_matrices: dict
+    _concatenation_mode: Literal["detector", "detector_period"]
+    _monte_carlo_mode: Literal[
+        "asimov", "normal", "normal-stats", "poisson", "covariance"
+    ]
+    _random_generator: Generator
+    _covmatrix_kwargs: dict
+    _covariance_matrix: Any
     _frozen_nodes: dict[str, tuple]
 
     def __init__(
@@ -81,6 +89,12 @@ class model_dayabay_v0b:
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         anue_spectrum_model: str | None = None,
         covmatrix_kwargs: Mapping = {},
+        seed: int = 0,
+        monte_carlo_mode: Literal[
+            "asimov", "normal", "normal-stats", "poisson", "covariance"
+        ] = "asimov",
+        concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
+        merge_integration: bool = False,
         parameter_values: dict[str, float | str] = {},
         future: Collection[FutureType] | FutureType = (),
     ):
@@ -95,6 +109,10 @@ class model_dayabay_v0b:
         self._spectrum_correction_mode = spectrum_correction_mode
         self._anue_spectrum_model = anue_spectrum_model
         self._covmatrix_kwargs = dict(covmatrix_kwargs)
+        self._concatenation_mode = concatenation_mode
+        self._monte_carlo_mode = monte_carlo_mode
+        self._random_generator = self._create_random_generator(seed)
+
         self._future = set((future,)) if isinstance(future, str) else set(future)
         assert all(f in Features for f in self._future)
         if self._future:
@@ -104,7 +122,7 @@ class model_dayabay_v0b:
             logger.warning("Future: HM properly interpolated to 50 keV")
             self._anue_spectrum_model = "50keV_scaled_approx"
 
-        self._covariance_matrices = {}
+        self._covariance_matrix = None
         self._frozen_nodes = {}
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
@@ -206,8 +224,7 @@ class model_dayabay_v0b:
         combinations["anue_source.reactor.isotope.detector"] = (
             tuple(("main",) + cmb for cmb in combinations["reactor.isotope.detector"])
             + tuple(
-                ("neq",) + cmb
-                for cmb in combinations["reactor.isotope_neq.detector"]
+                ("neq",) + cmb for cmb in combinations["reactor.isotope_neq.detector"]
             )
             + tuple(("snf",) + cmb for cmb in combinations["reactor.detector"])
         )
@@ -215,6 +232,22 @@ class model_dayabay_v0b:
         spectrum_correction_is_exponential = (
             self._spectrum_correction_mode == "exponential"
         )
+
+        systematic_uncertainties_groups = [
+            ("oscprob", "oscprob"),
+            ("eres", "detector.eres"),
+            ("lsnl", "detector.lsnl_scale_a"),
+            ("iav", "detector.iav_offdiag_scale_factor"),
+            ("detector_relative", "detector.detector_relative"),
+            ("energy_per_fission", "reactor.energy_per_fission"),
+            ("nominal_thermal_power", "reactor.nominal_thermal_power"),
+            ("snf", "reactor.snf_scale"),
+            ("neq", "reactor.nonequilibrium_scale"),
+            ("fission_fraction", "reactor.fission_fraction_scale"),
+            ("bkg_rate", "bkg.rate"),
+            ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
+            ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr"),
+        ]
 
         with (
             Graph(close_on_exit=self._close, strict=self._strict) as graph,
@@ -298,6 +331,24 @@ class model_dayabay_v0b:
                 },
             )
 
+            # Statistic constants for write-handed CNP
+            load_parameters(
+                format="value",
+                state="fixed",
+                parameters={
+                    "stats": {
+                        "pearson": 2 / 3,
+                        "neyman": 1 / 3,
+                    }
+                },
+                labels={
+                    "stats": {
+                        "pearson": "Pearson CNP coefficient",
+                        "neyman": "Neyman CNP coefficient",
+                    }
+                },
+            )
+
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
@@ -351,7 +402,7 @@ class model_dayabay_v0b:
                     "x": "mesh_edep",
                     "y": "mesh_costheta"
                 },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"]
+                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
             )
             outputs.get_value("kinematics_integration.ordersx") >> integrator("ordersX")
             outputs.get_value("kinematics_integration.ordersy") >> integrator("ordersY")
@@ -699,7 +750,7 @@ class model_dayabay_v0b:
                 Product.replicate(
                         outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                         outputs("reactor_nonequilibrium_anue.correction_interpolated"),
-                        outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # NOTE: removed in v0c as HM corrections should not be applied to NEQ
+                        outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"),
                         name = "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                         allow_skip_inputs = True,
                         skippable_inputs_should_contain = ("U238",),
@@ -1431,41 +1482,31 @@ class model_dayabay_v0b:
                 name="eventscount.final.concatenated.detector"
             )
 
+            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self._concatenation_mode}"],
+
             #
             # Covariance matrices
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            self._covariance_matrices["detector"] = (covariance_detector := CovarianceMatrixGroup(store_to="covariance.detector", **self._covmatrix_kwargs))
-            self._covariance_matrices["detector_period"] = (covariance_detector_period := CovarianceMatrixGroup(store_to="covariance.detector_period", **self._covmatrix_kwargs))
+            self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance", **self._covmatrix_kwargs)
 
-            for name, parameters_source in (
-                    ("oscprob", "oscprob"),
-                    ("eres", "detector.eres"),
-                    ("lsnl", "detector.lsnl_scale_a"),
-                    ("iav", "detector.iav_offdiag_scale_factor"),
-                    ("detector_relative", "detector.detector_relative"),
-                    ("energy_per_fission", "reactor.energy_per_fission"),
-                    ("nominal_thermal_power", "reactor.nominal_thermal_power"),
-                    ("snf", "reactor.snf_scale"),
-                    ("neq", "reactor.nonequilibrium_scale"),
-                    ("fission_fraction", "reactor.fission_fraction_scale"),
-                    ("bkg_rate", "bkg.rate"),
-                    ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
-                    ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr")
-                    ):
-                covariance_detector.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
-                covariance_detector_period.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
-            covariance_detector.add_covariance_sum()
-            covariance_detector_period.add_covariance_sum()
+            for name, parameters_source in systematic_uncertainties_groups:
+                self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
+            self._covariance_matrix.add_covariance_sum()
 
-            outputs.get_value("eventscount.final.concatenated.detector") >> covariance_detector
-            outputs.get_value("eventscount.final.concatenated.detector_period") >> covariance_detector_period
+            outputs.get_value("eventscount.final.concatenated.selected") >> self._covariance_matrix
 
-            npars_cov = covariance_detector.get_parameters_count()
-            npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
+            npars_cov = self._covariance_matrix.get_parameters_count()
+            list_parameters_nuisance_normalized = list(parameters_nuisance_normalized.walkvalues())
+            npars_nuisance = len(list_parameters_nuisance_normalized)
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
+            from dagflow.lib.ParArrayInput import ParArrayInput
+            parinp_mc = ParArrayInput(
+                name="pseudo.parameters.inputs",
+                parameters=list_parameters_nuisance_normalized,
+            )
 
             #
             # Statistic
@@ -1476,38 +1517,157 @@ class model_dayabay_v0b:
             from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="pseudo.data",
-                mode="asimov",
-                replicate_outputs=combinations["detector.period"],
-                replicate_inputs=combinations["detector.period"]
+                mode=self._monte_carlo_mode,
+                generator=self._random_generator,
             )
-            outputs("eventscount.final.detector_period") >> inputs("pseudo.data")
-            self._frozen_nodes["pseudodata"] = tuple(nodes.get_dict("pseudo.data").walkvalues())
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("pseudo.data.data")
+            self._frozen_nodes["pseudodata"] = (nodes.get_value("pseudo.data"),)
+
+            MonteCarlo.replicate(
+                name="covariance.data.fixed",
+                mode="asimov",
+                generator=self._random_generator,
+            )
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("covariance.data.fixed.data")
+            self._frozen_nodes["covariance_data_fixed"] = (nodes.get_value("covariance.data.fixed"),)
+
+            MonteCarlo.replicate(
+                name="pseudo.parameters.toymc",
+                mode="normal-unit",
+                shape=(npars_nuisance,),
+                generator=self._random_generator,
+            )
+            outputs.get_value("pseudo.parameters.toymc") >> parinp_mc
+            nodes["pseudo.parameters.inputs"] = parinp_mc
+
+            from dagflow.lib.Cholesky import Cholesky
+            Cholesky.replicate(name="cholesky.stat.variable")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("cholesky.stat.variable")
+
+            Cholesky.replicate(name="cholesky.stat.fixed")
+            outputs.get_value("covariance.data.fixed") >> inputs.get_value("cholesky.stat.fixed")
+
+            Cholesky.replicate(name="cholesky.stat.data.fixed")
+            outputs.get_value("pseudo.data") >> inputs.get_value("cholesky.stat.data.fixed")
+
+            from dagflow.lib.SumMatOrDiag import SumMatOrDiag
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
+            outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
+
+            Cholesky.replicate(name="cholesky.covmat_full_p.stat_fixed")
+            outputs.get_value("covariance.covmat_full_p.stat_fixed") >> inputs.get_value("cholesky.covmat_full_p.stat_fixed")
+
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_variable")
+            outputs.get_value("eventscount.final.concatenated.selected") >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+
+            Cholesky.replicate(name="cholesky.covmat_full_p.stat_variable")
+            outputs.get_value("covariance.covmat_full_p.stat_variable") >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
+
+            SumMatOrDiag.replicate(name="covariance.covmat_full_n")
+            outputs.get_value("pseudo.data") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
+
+            Cholesky.replicate(name="cholesky.covmat_full_n")
+            outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
             from dgf_statistics.Chi2 import Chi2
-            Chi2.replicate(
-                replicate_inputs=combinations["detector.period"],
-                name="statistic.stat.chi2p"
-            )
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
-            outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2p.theory")
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
+
+            # (1) chi-squared Pearson stat (fixed Pearson errors)
+            Chi2.replicate(name="statistic.stat.chi2p_iterative")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
+            outputs.get_value("cholesky.stat.fixed") >> inputs.get_value("statistic.stat.chi2p_iterative.errors")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
+
+            # (2-2) chi-squared Neyman stat
+            Chi2.replicate(name="statistic.stat.chi2n")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2n.theory")
+            outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value("statistic.stat.chi2n.errors")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2n.data")
+
+            # (2-1)
+            Chi2.replicate(name="statistic.stat.chi2p")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
+            outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2p.data")
+
+            # (5) chi-squared Pearson syst (fixed Pearson errors)
+            Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
+            outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.errors")
+
+            # (2-3) chi-squared Neyman syst
+            Chi2.replicate(name="statistic.full.chi2n_covmat")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
+            outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
+
+            # (2-4) Pearson variable stat errors
+            Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
+            outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
             from dgf_statistics.CNPStat import CNPStat
-            CNPStat.replicate(
-                replicate_inputs=combinations["detector.period"],
-                replicate_outputs=combinations["detector.period"],
-                name="statistic.staterr.cnp"
+            CNPStat.replicate(name="statistic.staterr.cnp")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.staterr.cnp.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
+
+            # (3) chi-squared CNP stat
+            Chi2.replicate(name="statistic.stat.chi2cnp")
+            outputs.get_value("pseudo.data") >> inputs.get_value("statistic.stat.chi2cnp.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2cnp.theory")
+            outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
+
+            # (2) chi-squared Pearson stat + pull (fixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p_iterative"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2p_iterative",
             )
-            outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
-            outputs("eventscount.final.detector_period") >> inputs("statistic.staterr.cnp.theory")
+            # (4) chi-squared CNP stat + pull (fixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2cnp"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2cnp",
+            )
 
-            Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
-            outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2cnp.theory")
-            outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
+            from dagflow.lib.LogProdDiag import LogProdDiag
+            LogProdDiag.replicate(name="statistic.log_prod_diag")
+            outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.log_prod_diag")
 
-            Sum.replicate(outputs.get_value("statistic.stat.chi2p"), outputs.get_value("statistic.nuisance.all"), name="statistic.full.chi2p")
-            Sum.replicate(outputs.get_value("statistic.stat.chi2cnp"), outputs.get_value("statistic.nuisance.all"), name="statistic.full.chi2cnp")
+            # (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p"),
+                outputs.get_value("statistic.log_prod_diag"),
+                name="statistic.stat.chi2p_unbiased",
+            )
+
+            # (8) chi-squared Pearson stat + log|V| + pull (unfixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p_unbiased"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2p_unbiased",
+            )
+
+            Product.replicate(
+                parameters.get_value("all.stats.pearson"),
+                outputs.get_value("statistic.full.chi2p_covmat_variable"),
+                name="statistic.helper.pearson",
+            )
+            Product.replicate(
+                parameters.get_value("all.stats.neyman"),
+                outputs.get_value("statistic.full.chi2n_covmat"),
+                name="statistic.helper.neyman",
+            )
+            # (2-4) CNP covmat
+            Sum.replicate(
+                outputs.get_value("statistic.helper.pearson"),
+                outputs.get_value("statistic.helper.neyman"),
+                name="statistic.full.chi2cnp_covmat",
+            )
             # fmt: on
 
         processed_keys_set = set()
@@ -1527,7 +1687,18 @@ class model_dayabay_v0b:
                 )
 
         # Ensure stem nodes are calculated
-        for output in outputs.get_dict("eventscount.final.detector").walkvalues():
+        self._touch()
+
+    @staticmethod
+    def _create_random_generator(seed: int) -> Generator:
+        from numpy.random import MT19937, SeedSequence
+
+        (sequence,) = SeedSequence(seed).spawn(1)
+        algo = MT19937(seed=sequence.spawn(1)[0])
+        return Generator(algo)
+
+    def _touch(self):
+        for output in self.storage["outputs"].get_dict("eventscount.final.detector").walkvalues():
             output.touch()
 
     def update_frozen_nodes(self):
@@ -1536,9 +1707,8 @@ class model_dayabay_v0b:
                 node.unfreeze()
                 node.touch()
 
-    def update_covariance_matrices(self):
-        for covmat in self._covariance_matrices.values():
-            covmat.update_matrices()
+    def update_covariance_matrix(self):
+        self._covariance_matrix.update_matrices()
 
     def set_parameters(
         self,
@@ -1557,3 +1727,17 @@ class model_dayabay_v0b:
             par = parameters_storage[parname]
             par.push(value)
             print(f"Set {parname}={svalue}")
+
+    def next_sample(
+        self, *, mc_parameters: bool = True, mc_statistics: bool = True
+    ) -> None:
+        if mc_parameters:
+            self.storage.get_value("nodes.pseudo.parameters.toymc").next_sample()
+            self.storage.get_value("nodes.pseudo.parameters.inputs").touch()
+
+        if mc_statistics:
+            self.storage.get_value("nodes.pseudo.data").next_sample()
+
+        if mc_parameters:
+            self.storage.get_value("nodes.pseudo.parameters.toymc").reset()
+            self.storage.get_value("nodes.pseudo.parameters.inputs").touch()
