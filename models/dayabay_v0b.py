@@ -21,6 +21,7 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 FutureType = Literal[
+    "all",
     "pdg",
     "xsec",
     "conversion",
@@ -115,6 +116,9 @@ class model_dayabay_v0b:
 
         self._future = set((future,)) if isinstance(future, str) else set(future)
         assert all(f in Features for f in self._future)
+        if "all" in self._future:
+            self._future = set(Features)
+            self._future.remove("all")
         if self._future:
             logger.info(f"Future options: {', '.join(self._future)}")
 
@@ -1102,11 +1106,6 @@ class model_dayabay_v0b:
                 replicate_outputs=combinations["detector.period"]
             )
 
-            # Sum.replicate(
-            #     outputs("eventscount.periods.raw"),
-            #     name="eventscount.raw",
-            #     replicate_outputs=index["detector"]
-            # )
             #
             # Detector effects
             #
@@ -1452,11 +1451,11 @@ class model_dayabay_v0b:
                     )
 
             Rebin.replicate(
-                    names={"matrix": "detector.rebin_bkg_matrix", "product": "eventscount.final.bkg"},
+                    names={"matrix": "detector.rebin_matrix_bkg", "product": "eventscount.final.bkg"},
                     replicate_outputs=combinations["detector.period"],
             )
-            edges_energy_erec >> inputs.get_value("detector.rebin_bkg_matrix.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_bkg_matrix.edges_new")
+            edges_energy_erec >> inputs.get_value("detector.rebin_matrix_bkg.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin_matrix_bkg.edges_new")
             outputs("eventscount.fine.bkg") >> inputs("eventscount.final.bkg")
 
             Sum.replicate(
