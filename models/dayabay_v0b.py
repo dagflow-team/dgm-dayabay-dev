@@ -671,7 +671,7 @@ class model_dayabay_v0b:
                         "corr": (0.0, 1.0)
                         },
                     labels={
-                        "corr": "Correlated neutrino per fission uncertainty"
+                        "corr": "Correlated ν̅ spectrum shape uncertainty"
                         },
                     joint_nuisance = False
                     )
@@ -696,7 +696,7 @@ class model_dayabay_v0b:
                     replicate_outputs = index["isotope"]
                     )
 
-            single_unity = Array("single_unity", [1.0], dtype="d", mark="1")
+            single_unity = Array("single_unity", [1.0], dtype="d", mark="1", label="Array of 1 element =1")
             Sum.replicate(
                     outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
                     single_unity,
