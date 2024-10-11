@@ -74,18 +74,25 @@ def main(opts: Namespace) -> None:
     if opts.graphs:
         mindepth = opts.mindepth or -2
         maxdepth = opts.maxdepth or +1
+        accept_index = {
+                "reactor": [0],
+                "detector": [0, 1],
+                "isotope": [0],
+                "period": [2],
+            }
         storage["nodes"].savegraphs(
             opts.graphs,
             mindepth=mindepth,
             maxdepth=maxdepth,
             keep_direction=True,
             show="all",
-            accept_index={
+            accept_index=accept_index,
+            filter={
                 "reactor": [0],
                 "detector": [0, 1],
                 "isotope": [0],
                 "period": [2],
-            },
+            }
         )
 
     if opts.graph_from_node:
