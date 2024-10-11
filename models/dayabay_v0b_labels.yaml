@@ -502,25 +502,98 @@ covariance:
       text: "Jacobian for correlated ν̅ spectrum parameters"
     hm_uncorr:
       text: "Jacobian for uncorrelated ν̅ spectrum parameters"
+  covmat_syst:
+    oscprob:
+      text: "Systematic covariance matrix for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+    eres:
+      text: "Systematic covariance matrix for energy resolution parameters"
+    lsnl:
+      text: "Systematic covariance matrix for Liquid Scintillator Non-Linearity (LSNL) parameters"
+    iav:
+      text: "Systematic covariance matrix for Inner Acrylic Vessel (IAV) parameters"
+    detector_relative:
+      text: "Systematic covariance matrix for relative detector efficiency and energy scale parameters"
+    energy_per_fission:
+      text: "Systematic covariance matrix for average fission energy parameters"
+    nominal_thermal_power:
+      text: "Systematic covariance matrix for reactor thermal power parameters"
+    snf:
+      text: "Systematic covariance matrix for spent nuclear fuel parameters"
+    neq:
+      text: "Systematic covariance matrix for non-equilibrium correction parameters"
+    fission_fraction:
+      text: "Systematic covariance matrix for fission fraction parameters"
+    bkg_rate:
+      text: "Systematic covariance matrix for background rate parameters"
+    hm_corr:
+      text: "Systematic covariance matrix for correlated ν̅ spectrum parameters"
+    hm_uncorr:
+      text: "Systematic covariance matrix for uncorrelated ν̅ spectrum parameters"
+    sum:
+      text: "Systematic covariance matrix"
   data:
     fixed:
       text: "Statistical variance (fixed) for covariance matrix calculation"
-  # covmat_full_p
+  covmat_full_p:
+    stat_fixed:
+      text: "Full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+    stat_variable:
+      text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+  covmat_full_n:
+    text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
 cholesky:
   stat:
     variable:
-      text: "Pearson's statistical uncertainty (variable)"
+      text: "Pearson's statistical uncertainty, variable"
+    fixed:
+      text: "Pearson's statistical uncertainty, fixed"
+    data:
+      fixed:
+        text: "Neyman's statistical uncertainty"
+  covmat_full_p:
+    stat_fixed:
+      text: "Cholesky decomposition of full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+    stat_variable:
+      text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+  covmat_full_n:
+    text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
 statistic:
   staterr:
     cnp:
       text: "CNP statistical uncertainty (variable)"
+  log_prod_diag:
+    text: "2ln\\|V\\| unbiasing term for χ²"
+  helper:
+    neyman:
+      text: "Neyman's contribution to CNP χ²\\nstat+syst, covariance matrix"
+    pearson:
+      text: "Pearson's contribution to CNP χ²\\nstat+syst, covariance matrix"
   stat:
     chi2cnp:
-      text: "Combined Neyman-Pearson's χ², statistical uncertainties"
+      text: "Combined Neyman-Pearson's χ² with statistical uncertainties"
     chi2p:
-      text: "Pearson's χ², statistical uncertainties"
+      text: "Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+    chi2p_unbiased:
+      text: "Unbiased Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+    chi2p_iterative:
+      text: "Pearson's χ² with statistical uncertainties\\nfixed stat uncertainties"
     chi2n:
-      text: "Neyman's χ², statistical uncertainties"
+      text: "Neyman's χ² with statistical uncertainties"
+  full:
+    chi2cnp:
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\nnuisance terms"
+    chi2cnp_covmat:
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix"
+    chi2p_unbiased:
+      text: "Unbiased Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, nuisance terms"
+    chi2p_covmat_fixed:
+      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties, covariance matrix"
+    chi2p_covmat_variable:
+      text: "Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, covariance matrix"
+    chi2p_iterative:
+      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties"
+    chi2n_covmat:
+      text: "Neyman's χ² with statistical and systematic uncertainties\\ncovariance matrix"
   nuisance:
     all:
       text: "χ² nuisance term"
@@ -528,6 +601,45 @@ statistic:
       detector:
         detector_relative:
           text: "χ² nuisance term for relative detector parmeters (efficiency, energy scale)"
+        eres:
+          text: "χ² nuisance term for energy resolution parameters"
+        detector_relative:
+          text: "χ² nuisance term for relative detector efficiency and energy scale parameters"
+        iav_offdiag_scale_factor:
+          text: "χ² nuisance term for Inner Acrylic Vessel (IAV) parameters"
+        lsnl_scale_a:
+          text: "χ² nuisance term for Liquid Scintillator Non-Linearity (LSNL) parameters"
       reactor:
         fission_fraction_scale:
           text: "χ² nuisance term for fission fraction uncertainty"
+        energy_per_fission:
+          text: "χ² nuisance term for average fission energy parameters"
+        nominal_thermal_power:
+          text: "χ² nuisance term for reactor thermal power parameters"
+        fission_fraction_scale:
+          text: "χ² nuisance term for fission fraction parameters"
+        snf_scale:
+          text: "χ² nuisance term for spent nuclear fuel parameters"
+        nonequilibrium_scale:
+          text: "χ² nuisance term for non-equilibrium correction parameters"
+      reactor_anue:
+        spectrum_uncertainty:
+          corr:
+            text: "χ² nuisance term for correlated ν̅ spectrum parameters"
+          uncorr:
+            group:
+              text: "χ² nuisance term for uncorrelated ν̅ spectrum parameters for {key}"
+      oscprob:
+        text: "χ² nuisance term for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      bkg:
+        rate:
+          acc:
+            text: "χ² nuisance term for parameters for background rate\\naccidentals"
+          alphan:
+            text: "χ² nuisance term for parameters for background rate\\n¹³C(α,n)¹⁶O"
+          amc:
+            text: "χ² nuisance term for parameters for background rate\\n²⁴¹Am¹³C"
+          fastn:
+            text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
+          lihe:
+            text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
