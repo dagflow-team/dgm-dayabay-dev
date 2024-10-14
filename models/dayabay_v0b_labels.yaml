@@ -80,27 +80,27 @@ ibd:
       text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key} [cm⁻²/proton]"
 neutrino_cm2_per_MeV_per_fission_per_proton:
   part:
-    main:
+    nu_main:
       group:
-        text: "Partial IBD rate for reator (main) for {key} [#ν·cm²/MeV/fission/proton]"
-    neq:
+        text: "Partial differential IBD rate for reator (main) for {key} [#ν·cm²/MeV/fission/proton]"
+    nu_neq:
       group:
-        text: "Partial IBD rate for reactor (non-equilibrium) for {key} [#ν·cm²/MeV/fission/proton]"
-    snf:
+        text: "Partial differential IBD rate for reactor (non-equilibrium) for {key} [#ν·cm²/MeV/fission/proton]"
+    nu_snf:
       group:
-        text: "Partial IBD rate for spent nuclear fuel for {key} [#ν·cm²/MeV/s/proton]"
+        text: "Partial differential IBD rate for spent nuclear fuel for {key} [#ν·cm²/MeV/s/proton]"
 kinematics_integral:
-  main:
+  nu_main:
     group:
-      text: "Partial rate of IBD events from reactor (main) for {key} [#ν·cm²/fission/proton]\\nintegrated"
+      text: "Partial integrated rate of IBD events from reactor (main) for {key} [#ν·cm²/fission/proton]\\nintegrated"
       axis: "IBD flux [cm²/fission/proton]"
-  neq:
+  nu_neq:
     group:
-      text: "Partial rate of IBD events from reactor (non-equilibrium) for {key} [#ν·cm²/fission/proton]\\nintegrated"
+      text: "Partial integrated rate of IBD events from reactor (non-equilibrium) for {key} [#ν·cm²/fission/proton]\\nintegrated"
       axis: "IBD flux [cm²/fission/proton]"
-  snf:
+  nu_snf:
     group:
-      text: "Partial rate of IBD events from spent nuclear fuel for {key} [#ν·cm²/s/proton]\\nintegrated"
+      text: "Partial integrated rate of IBD events from spent nuclear fuel for {key} [#ν·cm²/s/proton]\\nintegrated"
       axis: "IBD flux [cm²/proton]"
 daily_data:
   detector:
@@ -155,15 +155,15 @@ reactor:
       text: "Fractional thermal power for {index[1]} in {index[0]} [MeV/s]\\nreference for spent nuclear fuel"
 eventscount:
   parts:
-    main:
+    nu_main:
       group:
         text: "Partial # of IBD events for {key} [#ν]\\nfrom reactor (main)"
         axis: "# of IBD events"
-    neq:
+    nu_neq:
       group:
         text: "Partial # of IBD events for {key} [#ν]\\nfrom non-equilibrium"
         axis: "# of IBD events"
-    snf:
+    nu_snf:
       group:
         text: "Partial # of IBD events for {key} [#ν]\\nfrom spent nuclear fuel"
         axis: "# of IBD events"
@@ -294,27 +294,24 @@ reactor_anue:
         text: "Nominal ν̅ spectrum for non-equilibrium for {key} [#ν/fission/MeV]"
   spec_indexer:
     text: "Lookup segment index\\nfor interpolation of input ν̅ spectrum"
-  spec_model_edges:
-    text: "Eν segment edges [MeV]\\nfor parametrization of reactor ν̅ spectrum shape"
-    axis: '$E_{\nu}$ [MeV]'
-  spec_free_correction:
-    text: "Free correction weights for ν̅ spectrum shape\\nat input Eν"
-  spec_free_correction_input:
-    text: "Free correction (parameters) for ν̅ spectrum shape\\nat input Eν"
-  spec_free_correction_interpolated:
-    text: "Free correction weights for ν̅ spectrum shape\\ninterpolated"
-  spec_free_correction_indexer:
-    text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape"
+  spectrum_free_correction:
+    spec_model_edges:
+      text: "Eν segment edges [MeV]\\nfor parametrization of reactor ν̅ spectrum shape"
+      axis: '$E_{\nu}$ [MeV]'
+    input:
+      text: "Free correction (parameters) for ν̅ spectrum shape\\nat input Eν"
+    correction:
+      text: "Free correction weights for ν̅ spectrum shape\\nat input Eν"
+    interpolated:
+      text: "Free correction weights for ν̅ spectrum shape\\ninterpolated"
+    indexer:
+      text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape"
   spectrum_uncertainty:
     enu_centers:
       text: "Eν segment centers [MeV]\\nfor parametrization of uncertainties of ν̅ spectrum shape"
       axis: '$E_{\nu}$ [MeV]'
     correction_index:
       text: "Lookup segment index\\nfor interpolation of uncertainties of ν̅ spectrum shape"
-    correction:
-      full:
-        group:
-          text: "Constrained correction factor for ν̅ spectrum shape of {key}\\ncorrelated × uncorrelated, fit, at input Eν"
     correction_interpolated:
       group:
         text: "Constrained correction factor for ν̅ spectrum shape of {key}\\ncorrelated × uncorrelated, fit, interpolated"
@@ -396,6 +393,10 @@ reactor_detector:
   livetime_nprotons_per_cm2_snf:
     group:
       text: "Scaled (fit) #target protons × effective livetime × baseline factor {key} [#protons·s/cm²]\\nfor spent nuclear fuel IBD flux"
+  baseline_factor_per_cm2:
+    group:
+      text: "1/(4πL²) factor {key} [cm⁻²]"
+      latex: "$1/\\left(4\\pi^2\\right)$ factor {key} [cm$^{-2}$]"
 detector:
   nprotons:
     group:
@@ -462,12 +463,11 @@ detector:
     text: "Rebinning matrix for IBD events"
   rebin_matrix_bkg:
     text: "Rebinning matrix for background events"
-baseline_factor_per_cm2:
-  group:
-    text: "1/(4πL²) factor {key} [cm⁻²]"
-    latex: "$1/\\left(4\\pi^2\\right)$ factor {key} [cm$^{-2}$]"
-pseudo:
-  data:
+mc:
+  parameters:
+    toymc: "MC values for nuisance parameters (nomal unit)"
+data:
+  pseudo:
     text: "(Pseudo) data node for likelihood"
 covariance:
   jacobians:
