@@ -609,7 +609,7 @@ class model_dayabay_v0:
                         "corr": (0.0, 1.0)
                         },
                     labels={
-                        "corr": "Correlated neutrino per fission uncertainty"
+                        "corr": "Correlated ν̅ spectrum shape uncertainty"
                         },
                     joint_nuisance = False
                     )
@@ -634,7 +634,7 @@ class model_dayabay_v0:
                     replicate_outputs = index["isotope"]
                     )
 
-            single_unity = Array("single_unity", [1.0], dtype="d", mark="1")
+            single_unity = Array("single_unity", [1.0], dtype="d", mark="1", label="Array of 1 element =1")
             Sum.replicate(
                     outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
                     single_unity,
@@ -1047,11 +1047,6 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector.period"]
             )
 
-            # Sum.replicate(
-            #     outputs("eventscount.periods.raw"),
-            #     name="eventscount.raw",
-            #     replicate_outputs=index["detector"]
-            # )
             #
             # Detector effects
             #
@@ -1124,13 +1119,13 @@ class model_dayabay_v0:
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
             from dgf_detector.Monotonize import Monotonize
             Monotonize.replicate(
-                    name="detector.lsnl.curves.evis_coarse_monotonic",
+                    name="detector.lsnl.curves.evis_coarse_monotonous",
                     index_fraction = 0.5,
                     gradient = 1.0,
                     with_x = True
                     )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.x")
-            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.y")
+            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.x")
+            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.y")
 
             from multikeydict.tools import remap_items
             remap_items(
@@ -1151,7 +1146,7 @@ class model_dayabay_v0:
                     },
             )
             outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+            outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
             edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
 
             # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
@@ -1334,11 +1329,11 @@ class model_dayabay_v0:
                     )
 
             Rebin.replicate(
-                    names={"matrix": "detector.rebin_bkg_matrix", "product": "eventscount.final.bkg"},
+                    names={"matrix": "detector.rebin_matrix_bkg", "product": "eventscount.final.bkg"},
                     replicate_outputs=combinations["detector.period"],
             )
-            edges_energy_erec >> inputs.get_value("detector.rebin_bkg_matrix.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_bkg_matrix.edges_new")
+            edges_energy_erec >> inputs.get_value("detector.rebin_matrix_bkg.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin_matrix_bkg.edges_new")
             outputs("eventscount.fine.bkg") >> inputs("eventscount.final.bkg")
 
             Sum.replicate(

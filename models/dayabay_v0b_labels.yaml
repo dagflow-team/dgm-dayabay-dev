@@ -17,11 +17,6 @@ edges:
     latex: "Neutrino energy $E_{\\nu}$ bin edges [MeV]"
     axis: "$E_{\\nu}$ [MeV]"
     plotmethod: 'none'
-  # energy_epos:
-  #   text: "Positron energy (Epos) bin edges [MeV]"
-  #   latex: "Positron energy $E_{e}$ bin edges [MeV]"
-  #   axis: "$E_{e}$ [MeV]"
-  #   plotmethod: 'none'
   energy_edep:
     text: "Deposited energy (Edep) bin edges [MeV]"
     latex: "Deposited energy $E_{\\rm dep}$ bin edges [MeV]"

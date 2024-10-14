@@ -5,37 +5,36 @@ edges:
     axis: "$\\cos\\theta$"
     plotmethod: 'none'
   energy_common:
-    text: "Common energy (E) edges [MeV]"
-    axis: "Common energy [MeV]"
+    text: "Common energy (E) bin edges [MeV]"
+    axis: "$E$ [MeV]"
+    plotmethod: 'none'
+  energy_final:
+    text: "Final reconstructed energy (Erec) bin edges [MeV]"
+    axis: "$E_{\\rm rec}$ [MeV]"
     plotmethod: 'none'
   energy_enu:
-    text: "Neutrino energy (Eν) edges [MeV]"
-    latex: "Neutrino energy $E_{\\nu}$ edges [MeV]"
+    text: "Neutrino energy (Eν) bin edges [MeV]"
+    latex: "Neutrino energy $E_{\\nu}$ bin edges [MeV]"
     axis: "$E_{\\nu}$ [MeV]"
     plotmethod: 'none'
-  # energy_epos:
-  #   text: "Positron energy (Epos) edges [MeV]"
-  #   latex: "Positron energy $E_{e}$ edges [MeV]"
-  #   axis: "$E_{e}$ [MeV]"
-  #   plotmethod: 'none'
   energy_edep:
-    text: "Deposited energy (Edep) edges [MeV]"
-    latex: "Deposited energy $E_{\\rm dep}$ edges [MeV]"
+    text: "Deposited energy (Edep) bin edges [MeV]"
+    latex: "Deposited energy $E_{\\rm dep}$ bin edges [MeV]"
     axis: "$E_{\\rm dep}$ [MeV]"
     plotmethod: 'none'
   energy_escint:
-    text: "Deposited in scintillator energy (Escint) edges [MeV]"
-    latex: "Deposited in scintillator energy $E_{\\rm scint}$ edges [MeV]"
+    text: "Deposited in scintillator energy (Escint) bin edges [MeV]"
+    latex: "Deposited in scintillator energy $E_{\\rm scint}$ bin edges [MeV]"
     axis: "$E_{\\rm scint}$ [MeV]"
     plotmethod: 'none'
   energy_evis:
-    text: "Visible energy (Evis) edges [MeV]"
-    latex: "Visible energy $E_{\\rm vis}$ edges [MeV]"
+    text: "Visible energy (Evis) bin edges [MeV]"
+    latex: "Visible energy $E_{\\rm vis}$ bin edges [MeV]"
     axis: "$E_{\\rm vis}$ [MeV]"
     plotmethod: 'none'
   energy_erec:
-    text: "Reconstructed energy (Erec) edges [MeV]"
-    latex: "Reconstructed energy $E_{\\rm rec}$ edges [MeV]"
+    text: "Reconstructed energy (Erec) bin edges [MeV]"
+    latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV]"
     axis: "$E_{\\rm rec}$ [MeV]"
     plotmethod: 'none'
 kinematics_integration:
@@ -62,12 +61,12 @@ kinematics_sampler:
     plotmethod: 'none'
 ibd:
   crosssection:
-    text:  "IBD cross section σ(Eν,cosθ) [cm⁻²]"
+    text:  "IBD cross section σ(Eν,cosθ) [cm⁻²/proton]"
     plottitle: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
     latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
     axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
   enu:
-    text: "Eν mesh [MeV]"
+    text: "Eν mesh [MeV]\\nfor integration"
     latex: "$E_{\\nu}$ mesh [MeV]"
     axis: "$E_{\\nu}$ [MeV]"
   jacobian:
@@ -75,94 +74,558 @@ ibd:
     axis: "$dE_{\\nu}/dE_{\\rm dep}$"
     latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
   crosssection_jacobian:
-    text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ) [cm⁻²]"
+    text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ) [cm⁻²/proton]"
   crosssection_jacobian_oscillations:
     group:
-      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν){space_key} [cm⁻²]"
+      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key} [cm⁻²/proton]"
 neutrino_cm2_per_MeV_per_fission_per_proton:
   part:
     main:
       group:
-        text: "#ν̅  from reator (main) from {space_key} [cm²/MeV/fission/proton]"
+        text: "Partial IBD rate for reator (main) for {key} [#ν·cm²/MeV/fission/proton]"
     neq:
       group:
-        text: "#ν̅  from Non-EQuilibrium correction (NEQ) from {space_key} [cm²/MeV/fission/proton]"
+        text: "Partial IBD rate for reactor (non-equilibrium) for {key} [#ν·cm²/MeV/fission/proton]"
     snf:
       group:
-        text: "#ν̅  from Spent Nuclear Fuel (SNF) from {space_key} [cm²/MeV/second/proton]"
+        text: "Partial IBD rate for spent nuclear fuel for {key} [#ν·cm²/MeV/s/proton]"
 kinematics_integral:
-  group:
-    text: "Partial #events from{space_key}"
-    axis: "#events"
+  main:
+    group:
+      text: "Partial rate of IBD events from reactor (main) for {key} [#ν·cm²/fission/proton]\\nintegrated"
+      axis: "IBD flux [cm²/fission/proton]"
+  neq:
+    group:
+      text: "Partial rate of IBD events from reactor (non-equilibrium) for {key} [#ν·cm²/fission/proton]\\nintegrated"
+      axis: "IBD flux [cm²/fission/proton]"
+  snf:
+    group:
+      text: "Partial rate of IBD events from spent nuclear fuel for {key} [#ν·cm²/s/proton]\\nintegrated"
+      axis: "IBD flux [cm²/proton]"
+daily_data:
+  detector:
+    eff:
+      group:
+        text: "Daily detector efficiency {key}"
+    efflivetime:
+      group:
+        text: "Daily detector effective livetime {key} [s]"
+    livetime:
+      group:
+        text: "Daily detector wall clock livetime {key} [s]"
+  reactor:
+    power:
+      group:
+        text: "Daily fractional reactor power for {key}"
+    fission_fraction:
+      group:
+        text: "Daily fission fraction for {key}"
+    fission_fraction_scaled:
+      group:
+        text: "Corrected (fit) daily fission fraction for {key}"
+reactor:
+  energy_per_fission_weighted_MeV:
+    group:
+      text: "Partial energy per fission for {key} [MeV/fission]\\nweighted with fission fraction"
+  energy_per_fission_average_MeV:
+    group:
+      text: "Average energy per fission in {index[0]} during {index[1]} [MeV/fission]"
+  thermal_power_nominal_MeVs:
+    group:
+      text: "Reactor {key} thermal power (fit) Wth [MeV/s]"
+  thermal_power_nominal_MeVs_central:
+    group:
+      text: "Reactor {key} fixed (central) thermal power Wth [MeV/s]"
+  thermal_power_isotope_MeV_per_second:
+    group:
+      text: "Fractional thermal power for {index[1]} in {index[0]} during {index[2]} [MeV/s]"
+  fissions_per_second:
+    group:
+      text: "Fissions per second of {index[1]} in {index[0]} during {index[2]} [#fissions/s]"
+  energy_per_fission_snf_weighted_MeV:
+    group:
+      text: "Partial energy per fission for {key} [MeV/fission]\\nfor spent nuclear fuel, weighted with fission fraction"
+  energy_per_fission_snf_average_MeV:
+    text: "Average energy per fission for spent nuclear fuel [MeV/fission]"
+  fissions_per_second_snf:
+    group: 
+      text: "# of fissions per second for {key} [#fissions/s]\\nfor spent nuclear fuel"
+  thermal_power_snf_isotope_MeV_per_second:
+    group:
+      text: "Fractional thermal power for {index[1]} in {index[0]} [MeV/s]\\nreference for spent nuclear fuel"
 eventscount:
   parts:
-    group:
-      text: "Partial #events from{space_key}"
-      axis: "#events"
+    main:
+      group:
+        text: "Partial # of IBD events for {key} [#ν]\\nfrom reactor (main)"
+        axis: "# of IBD events"
+    neq:
+      group:
+        text: "Partial # of IBD events for {key} [#ν]\\nfrom non-equilibrium"
+        axis: "# of IBD events"
+    snf:
+      group:
+        text: "Partial # of IBD events for {key} [#ν]\\nfrom spent nuclear fuel"
+        axis: "# of IBD events"
   raw:
     group:
-      text: "#events before detector effects{space_key}"
-      axis: "#events"
+      text: "# of IBD events in {index[0]} during {index[1]} [#ν]\\nbefore detector effects"
+      axis: "# of IBD events"
   iav:
     group:
-      text: "#events (IAV) in{space_key}"
-      axis: "#events"
+      text: "# of IBD events (IAV) in {index[0]} during {index[1]} [#ν]"
+      axis: "# of IBD events"
   evis:
     group:
-      text: "#events (IAV, LSNL) in{space_key}"
-      axis: "#events"
+      text: "# of IBD events (IAV, LSNL) in {index[0]} during {index[1]} [#ν]"
+      axis: "# of IBD events"
   erec:
     group:
-      text: "#events (IAV, LSNL, Erec) in{space_key}"
-      axis: "#events"
+      text: "# of IBD events (IAV, LSNL, Erec) in {index[0]} during {index[1]} [#ν]"
+      axis: "# of IBD events"
   fine:
+    ibd_normalized:
+      group:
+        text: "Scaled (fit) # of IBD events at {index[0]} during {index[1]} [#ν]\\nfine binning, global normalization and relative efficiency applied"
+    ibd_normalized_detector:
+      group:
+        text: "Scaled (fit) # of IBD events at {index[0]} [#ν]\\nfine binning, global normalization and relative efficiency applied"
     bkg:
       group:
-        text: "#background events in{space_key}"
+        text: "Total # of background events at {index[0]} during {index[1]} [#]\\nfine binning"
+    total:
+      group:
+        text: "# of IBD candidates at {index[0]} during {index[1]} [#]\\nfine binning"
+  final:
+    ibd:
+      group:
+        text: "# of IBD events at {index[0]} during {index[1]} [#]\\nfinal binning, global normalization and relative efficiency applied"
+    bkg:
+      group:
+        text: "Total # of background events at {index[0]} during {index[1]} [#]\\nfinal binning"
+    detector_period:
+      group:
+        text: "# of IBD candidates at {index[0]} during {index[1]} [#ν]\\nfinal binning"
+    detector:
+      group:
+        text: "# of IBD candidates at {index[0]} [#ν]\\nfinal binning"
+    concatenated:
+      detector_period:
+        text: "# of IBD candidates in all detectors and all periods [#ν]\\nconcatenated"
+      detector:
+        text: "# of IBD candidates in all detectors [#ν]\\nconcatenated"
 bkg:
   erec:
-    text: "Reconstructed energy (Erec) edges [MeV]"
-    latex: "Reconstructed energy $E_{\\rm rec}$ edges [MeV]"
+    text: "Reconstructed energy (Erec) bin edges [MeV]\\nfor background events"
+    latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV] (for background events)"
     axis: "$E_{\\rm rec}$ [MeV]"
     plotmethod: 'none'
   spectrum:
     acc: 
       group:
-        text: "# accidental background events in{space_key}"
+        text: "# of accidental background events in {key} [#]"
+    alphan: 
+      group:
+        text: "# of ¹³C(α,n)¹⁶O background events in {key} [#]"
+    amc: 
+      group:
+        text: "# of ²⁴¹Am¹³C related background events in {key} [#]"
+    fastn: 
+      group:
+        text: "# of fast neutron background events in {key} [#]"
+    lihe: 
+      group:
+        text: "# of ⁹Li/⁸He background events in {key} [#]"
   spectrum_per_day:
     acc: 
       group:
-        text: "Rate of accidental background events in{space_key} [#/day]"
+        text: "Rate of accidental background events in {key} [#/day]"
+    alphan: 
+      group:
+        text: "Rate of ¹³C(α,n)¹⁶O background events in {key} [#/day]"
+    amc: 
+      group:
+        text: "Rate of ²⁴¹Am¹³C related background events in {key} [#/day]"
+    fastn: 
+      group:
+        text: "Rate of fast neutron background events in {key} [#/day]"
+    lihe: 
+      group:
+        text: "Rate of ⁹Li/⁸He background events in {key} [#/day]"
   spectrum_shape:
     acc: 
       group:
-        text: "Shape of spectrum of accidental background events in{space_key}"
+        text: "Shape of spectrum of accidental background events in {key}"
+    alphan: 
+      group:
+        text: "Shape of spectrum of ¹³C(α,n)¹⁶O background events in {key}"
+    amc: 
+      group:
+        text: "Shape of spectrum of ²⁴¹Am¹³C related background events in {key}"
+    fastn: 
+      group:
+        text: "Shape of spectrum of fast neutron background events in {key}"
+    lihe: 
+      group:
+        text: "Shape of spectrum of ⁹Li/⁸He background events in {key}"
 oscprob:
   group:
-    text: "ν̅(e) survival probability{space_key} []"
-    latex: "$\\bar{{\\nu}}_e$ survival probability{space_key}"
+    text: "ν̅(e) survival probability {key}"
+    latex: "$\\bar{{\\nu}}_e$ survival probability {key}"
     axis: "$P_{{\\rm ee}}$"
     plotmethod: "slicesy"
 reactor_anue:
-    neutrino_per_fission_per_MeV_nominal:
+  neutrino_per_fission_per_MeV_nominal:
+    group:
+      text: "Nominal ν̅ spectrum {key} [#ν/fission/MeV]\\ninterpolated"
+  neutrino_per_fission_per_MeV_input:
+    spec:
       group:
-        text: "Nominal ν̅ spectrum{space_key} (interpolated), [#/fission/MeV]"
-    neutrino_per_fission_per_MeV_input:
-      spec:
+        text: "Input ν̅ spectrum for {key} [#ν/fission/MeV]"
+    enu:
+        text: "Input ν̅ spectrum neutrino energy (Eν) [MeV]"
+        axis: '$E_{\nu}$ [MeV]'
+  part:
+    neutrino_per_fission_per_MeV_main:
+      group:
+        text: "ν̅ spectrum (main) for {key} [#ν/fission/MeV]\\nfit free and constrained corrections"
+    neutrino_per_fission_per_MeV_neq_nominal:
+      group:
+        text: "Nominal ν̅ spectrum for non-equilibrium for {key} [#ν/fission/MeV]"
+  spec_indexer:
+    text: "Lookup segment index\\nfor interpolation of input ν̅ spectrum"
+  spec_model_edges:
+    text: "Eν segment edges [MeV]\\nfor parametrization of reactor ν̅ spectrum shape"
+    axis: '$E_{\nu}$ [MeV]'
+  spec_free_correction:
+    text: "Free correction weights for ν̅ spectrum shape\\nat input Eν"
+  spec_free_correction_input:
+    text: "Free correction (parameters) for ν̅ spectrum shape\\nat input Eν"
+  spec_free_correction_interpolated:
+    text: "Free correction weights for ν̅ spectrum shape\\ninterpolated"
+  spec_free_correction_indexer:
+    text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape"
+  spectrum_uncertainty:
+    enu_centers:
+      text: "Eν segment centers [MeV]\\nfor parametrization of uncertainties of ν̅ spectrum shape"
+      axis: '$E_{\nu}$ [MeV]'
+    correction_index:
+      text: "Lookup segment index\\nfor interpolation of uncertainties of ν̅ spectrum shape"
+    correction:
+      full:
         group:
-          text: "Input ν̅ spectrum{space_key}, [#/fission/MeV]"
-      enu:
-          text: "Input ν̅ spectrum neutrino energy (Eν) [MeV]"
-          axis: '$E_{\nu} [MeV]'
+          text: "Constrained correction factor for ν̅ spectrum shape of {key}\\ncorrelated × uncorrelated, fit, at input Eν"
+    correction_interpolated:
+      group:
+        text: "Constrained correction factor for ν̅ spectrum shape of {key}\\ncorrelated × uncorrelated, fit, interpolated"
+    uncertainty:
+      corr:
+        group:
+          text: "Correlated ν̅ spectrum shape uncertainty for {key}\\nat input Eν"
+      uncorr:
+        group:
+          text: "Uncorrelated ν̅ spectrum shape uncertainty for {key}\\nat input Eν"
+    scale:
+      uncorr:
+        group:
+          text: "Constrained correction to ν̅ spectrum shape for {key}\\nnormal unit, uncorrelated, fit, at input Eν"
+    correction:
+      corr:
+        group:
+          text: "Constrained correction to ν̅ spectrum shape for {key}\\ncorrelated, fit, at input Eν"
+      uncorr:
+        group:
+          text: "Constrained correction to ν̅ spectrum shape for {key}\\nuncorrelated, fit, at input Eν"
+      corr_factor:
+        group:
+          text: "Constrained correction factor to ν̅ spectrum shape for {key}\\ncorrelated, fit, at input Eν"
+      uncorr_factor:
+        group:
+          text: "Constrained correction factor to ν̅ spectrum shape for {key}\\nuncorrelated, fit, at input Eν"
+      full:
+        group:
+          text: "Constrained correction factor to ν̅ spectrum shape for {key}\\ncorrelated×uncorrelated, fit, at input Eν"
+reactor_nonequilibrium_anue:
+  correction_input:
+    enu:
+      text: "Eν segment centers [MeV]\\nnon-equilibrium ν̅ spectrum shape correction"
+      axis: '$E_{\nu}$ [MeV]'
+    nonequilibrium_correction:
+      group:
+        text: "Correction to ν̅ spectrum due to non-equilibrium correction to {key}\\nat input Eν"
+  correction_indexer:
+    text: "Lookup segment index\\nfor interpolation of NEQ ν̅ spectrum shape correction"
+  correction_interpolated:
+    group:
+      text: "Correction to ν̅ spectrum due to non-equilibrium correction to {key}\\ninterpolated"
+snf_anue:
+  correction_input:
+    enu:
+      text: "Eν segment centers [MeV]\\nspent nuclear fuel ν̅ spectrum shape correction"
+      axis: '$E_{\nu}$ [MeV]'
+    snf_correction:
+      group:
+        text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\nat input Eν"
+  correction_indexer:
+    text: "Lookup segment index\\nfor interpolation of SNF ν̅ spectrum shape correction"
+  correction_interpolated:
+    group:
+      text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\ninterpolated"
+  neutrino_per_second_isotope:
+    group:
+      text: "Partial rate of ν̅ from for {key} [#ν/s/MeV]\\nfor spent nuclear fuel "
+  neutrino_per_second:
+    group:
+      text: "Rate of ν̅ for {key} [#ν/s/MeV]\\nfor spent nuclear fuel"
+  neutrino_per_second_snf:
+    group:
+      text: "Rate of ν̅ from spent nuclear fuel for {key} [#ν/s/MeV]\\n interpolated"
 reactor_detector:
+  nfissions_daily:
+    group:
+      text: "Daily observable # of fissions for {key} [#fissions]"
+  nfissions:
+    group:
+      text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during {index[3]} [#fissions]"
   nfissions_nprotons_per_cm2:
     group:
-      text: "#fissions × #target protons × baseline factor{space_key} [#/cm⁻²]"
+      text: "#fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor main IBD flux"
+  nfissions_nprotons_per_cm2_neq:
+    group:
+      text: "Scaled (fit) #fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor non-equilibrium IBD flux"
+  livetime_nprotons_per_cm2_snf:
+    group:
+      text: "Scaled (fit) #target protons × effective livetime × baseline factor {key} [#protons·s/cm²]\\nfor spent nuclear fuel IBD flux"
 detector:
+  nprotons:
+    group:
+      text: "Actual # of target protons in {key} [#protons]"
+  normalization:
+    group:
+      text: "Detector normalization for {key}"
+  livetime:
+    group:
+      text: "Wall clock detector livetime {key} [s]"
+  efflivetime:
+    group:
+      text: "Effective detector livetime {key} [s]"
+  efflivetime_days:
+    group:
+      text: "Effective detector livetime {key} [day]"
   iav:
     matrix_raw:
       text: "IAV matrix (MC)"
+    matrix_rescaled:
+      group:
+        text: "IAV matrix with adjusted (fit) offdiagonal elements at {key}"
+  lsnl:
+    curves:
+      edep:
+        text: "LSNL input coarse deposited energy for Evis(Edep) [MeV]"
+      evis_parts:
+        group:
+          text: "Input coarse Evisᵢ(Edep) {key} curve for LSNL [MeV]"
+      evis_parts_scaled:
+        group:
+          text: "Input coarse Evisᵢ(Edep) {key} curve for LSNL [MeV]\\nscaled (fit relative energy scale)"
+      evis_coarse:
+        text: "Input coarse Evis(Edep) for LSNL [MeV]"
+      evis_coarse_monotonous:
+        text: "Input coarse LSNL Evis(Edep) [MeV]\\nensured to be monotonous"
+      evis:
+        group:
+          text: "Visible energy (LSNL×relative energy scale) for {key} [MeV]"
+    indexer_fwd:
+      text: "Segment lookup for Evis(Edep)\\ninterpolation for LSNL correction"
+    interpolated_fwd:
+      text: "Interpolated Evis(Edep) for LSNL correction [MeV]"
+    matrix:
+      group:
+        text: "Energy scale correction matrix for {key}\\nLSNL×relative energy scale"
+  eres:
+    e_bincenter:
+      text: "Bin centers for visible energy (Evis) [MeV]"
+    sigma_rel:
+      text: "Relative energy resolution width σ(Evis)/Evis"
+    matrix:
+      text: "Energy resolution matrix"
+  rebin_matrix_ibd:
+    text: "Rebinning matrix for IBD events"
+  rebin_matrix_bkg:
+    text: "Rebinning matrix for background events"
 baseline_factor_per_cm2:
   group:
-    text: "1/(4πL²) factor{space_key}, cm⁻²"
-    latex: "$1/\\left(4\\pi^2\\right)$ factor{space_key}, cm$^{-2}$"
+    text: "1/(4πL²) factor {key} [cm⁻²]"
+    latex: "$1/\\left(4\\pi^2\\right)$ factor {key} [cm$^{-2}$]"
+pseudo:
+  data:
+    text: "(Pseudo) data node for likelihood"
+covariance:
+  jacobians:
+    oscprob:
+      text: "Jacobian for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+    eres:
+      text: "Jacobian for energy resolution parameters"
+    lsnl:
+      text: "Jacobian for Liquid Scintillator Non-Linearity (LSNL) parameters"
+    iav:
+      text: "Jacobian for Inner Acrylic Vessel (IAV) parameters"
+    detector_relative:
+      text: "Jacobian for relative detector efficiency and energy scale parameters"
+    energy_per_fission:
+      text: "Jacobian for average fission energy parameters"
+    nominal_thermal_power:
+      text: "Jacobian for reactor thermal power parameters"
+    snf:
+      text: "Jacobian for spent nuclear fuel parameters"
+    neq:
+      text: "Jacobian for non-equilibrium correction parameters"
+    fission_fraction:
+      text: "Jacobian for fission fraction parameters"
+    bkg_rate:
+      text: "Jacobian for background rate parameters"
+    hm_corr:
+      text: "Jacobian for correlated ν̅ spectrum parameters"
+    hm_uncorr:
+      text: "Jacobian for uncorrelated ν̅ spectrum parameters"
+  covmat_syst:
+    oscprob:
+      text: "Systematic covariance matrix for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+    eres:
+      text: "Systematic covariance matrix for energy resolution parameters"
+    lsnl:
+      text: "Systematic covariance matrix for Liquid Scintillator Non-Linearity (LSNL) parameters"
+    iav:
+      text: "Systematic covariance matrix for Inner Acrylic Vessel (IAV) parameters"
+    detector_relative:
+      text: "Systematic covariance matrix for relative detector efficiency and energy scale parameters"
+    energy_per_fission:
+      text: "Systematic covariance matrix for average fission energy parameters"
+    nominal_thermal_power:
+      text: "Systematic covariance matrix for reactor thermal power parameters"
+    snf:
+      text: "Systematic covariance matrix for spent nuclear fuel parameters"
+    neq:
+      text: "Systematic covariance matrix for non-equilibrium correction parameters"
+    fission_fraction:
+      text: "Systematic covariance matrix for fission fraction parameters"
+    bkg_rate:
+      text: "Systematic covariance matrix for background rate parameters"
+    hm_corr:
+      text: "Systematic covariance matrix for correlated ν̅ spectrum parameters"
+    hm_uncorr:
+      text: "Systematic covariance matrix for uncorrelated ν̅ spectrum parameters"
+    sum:
+      text: "Systematic covariance matrix"
+  data:
+    fixed:
+      text: "Statistical variance (fixed) for covariance matrix calculation"
+  covmat_full_p:
+    stat_fixed:
+      text: "Full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+    stat_variable:
+      text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+  covmat_full_n:
+    text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+cholesky:
+  stat:
+    variable:
+      text: "Pearson's statistical uncertainty, variable"
+    fixed:
+      text: "Pearson's statistical uncertainty, fixed"
+    data:
+      fixed:
+        text: "Neyman's statistical uncertainty"
+  covmat_full_p:
+    stat_fixed:
+      text: "Cholesky decomposition of full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+    stat_variable:
+      text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+  covmat_full_n:
+    text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+statistic:
+  staterr:
+    cnp:
+      text: "CNP statistical uncertainty (variable)"
+  log_prod_diag:
+    text: "2ln\\|V\\| unbiasing term for χ²"
+  helper:
+    neyman:
+      text: "Neyman's contribution to CNP χ²\\nstat+syst, covariance matrix"
+    pearson:
+      text: "Pearson's contribution to CNP χ²\\nstat+syst, covariance matrix"
+  stat:
+    chi2cnp:
+      text: "Combined Neyman-Pearson's χ² with statistical uncertainties"
+    chi2p:
+      text: "Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+    chi2p_unbiased:
+      text: "Unbiased Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+    chi2p_iterative:
+      text: "Pearson's χ² with statistical uncertainties\\nfixed stat uncertainties"
+    chi2n:
+      text: "Neyman's χ² with statistical uncertainties"
+  full:
+    chi2cnp:
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\nnuisance terms"
+    chi2cnp_covmat:
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix"
+    chi2p_unbiased:
+      text: "Unbiased Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, nuisance terms"
+    chi2p_covmat_fixed:
+      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties, covariance matrix"
+    chi2p_covmat_variable:
+      text: "Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, covariance matrix"
+    chi2p_iterative:
+      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties"
+    chi2n_covmat:
+      text: "Neyman's χ² with statistical and systematic uncertainties\\ncovariance matrix"
+  nuisance:
+    all:
+      text: "χ² nuisance term"
+    parts:
+      detector:
+        detector_relative:
+          text: "χ² nuisance term for relative detector parmeters (efficiency, energy scale)"
+        eres:
+          text: "χ² nuisance term for energy resolution parameters"
+        detector_relative:
+          text: "χ² nuisance term for relative detector efficiency and energy scale parameters"
+        iav_offdiag_scale_factor:
+          text: "χ² nuisance term for Inner Acrylic Vessel (IAV) parameters"
+        lsnl_scale_a:
+          text: "χ² nuisance term for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      reactor:
+        fission_fraction_scale:
+          text: "χ² nuisance term for fission fraction uncertainty"
+        energy_per_fission:
+          text: "χ² nuisance term for average fission energy parameters"
+        nominal_thermal_power:
+          text: "χ² nuisance term for reactor thermal power parameters"
+        fission_fraction_scale:
+          text: "χ² nuisance term for fission fraction parameters"
+        snf_scale:
+          text: "χ² nuisance term for spent nuclear fuel parameters"
+        nonequilibrium_scale:
+          text: "χ² nuisance term for non-equilibrium correction parameters"
+      reactor_anue:
+        spectrum_uncertainty:
+          corr:
+            text: "χ² nuisance term for correlated ν̅ spectrum parameters"
+          uncorr:
+            group:
+              text: "χ² nuisance term for uncorrelated ν̅ spectrum parameters for {key}"
+      oscprob:
+        text: "χ² nuisance term for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      bkg:
+        rate:
+          acc:
+            text: "χ² nuisance term for parameters for background rate\\naccidentals"
+          alphan:
+            text: "χ² nuisance term for parameters for background rate\\n¹³C(α,n)¹⁶O"
+          amc:
+            text: "χ² nuisance term for parameters for background rate\\n²⁴¹Am¹³C"
+          fastn:
+            text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
+          lihe:
+            text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
