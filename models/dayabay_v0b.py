@@ -394,29 +394,29 @@ class model_dayabay_v0b:
             #
             # Integration, kinematics
             #
-            Array.from_value("kinematics_integration.ordersx", 5, edges=edges_energy_edep, store=True)
-            Array.from_value("kinematics_integration.ordersy", 3, edges=edges_costheta, store=True)
+            Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
+            Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
             integrator, _ = IntegratorGroup.replicate(
                 "2d",
                 names = {
-                    "sampler": "kinematics_sampler",
-                    "integrator": "kinematics_integral",
+                    "sampler": "kinematics.sampler",
+                    "integrator": "kinematics.integral",
                     "x": "mesh_edep",
                     "y": "mesh_costheta"
                 },
                 replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
             )
-            outputs.get_value("kinematics_integration.ordersx") >> integrator("ordersX")
-            outputs.get_value("kinematics_integration.ordersy") >> integrator("ordersY")
+            outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
+            outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
-            ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
+            ibd, _ = IBDXsecVBO1Group.make_stored(path="kinematics.ibd", use_edep=True)
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
-            outputs.get_value("kinematics_sampler.mesh_edep") >> ibd.inputs["edep"]
-            outputs.get_value("kinematics_sampler.mesh_costheta") >> ibd.inputs["costheta"]
+            outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
+            outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"]
             kinematic_integrator_enu = ibd.outputs["enu"]
 
             #
@@ -1032,41 +1032,41 @@ class model_dayabay_v0b:
             # [Nν·cm²/fission/proton]
             #
             Product.replicate(
-                    outputs.get_value("ibd.crosssection"),
-                    outputs.get_value("ibd.jacobian"),
-                    name="ibd.crosssection_jacobian",
+                    outputs.get_value("kinematics.ibd.crosssection"),
+                    outputs.get_value("kinematics.ibd.jacobian"),
+                    name="kinematics.ibd.crosssection_jacobian",
             )
 
             Product.replicate(
-                    outputs.get_value("ibd.crosssection_jacobian"),
+                    outputs.get_value("kinematics.ibd.crosssection_jacobian"),
                     outputs("oscprob"),
-                    name="ibd.crosssection_jacobian_oscillations",
+                    name="kinematics.ibd.crosssection_jacobian_oscillations",
                     replicate_outputs=combinations["reactor.detector"]
             )
 
             Product.replicate(
-                    outputs("ibd.crosssection_jacobian_oscillations"),
+                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
                     outputs("reactor_anue.part.neutrino_per_fission_per_MeV_main"),
-                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
+                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
                     replicate_outputs=combinations["reactor.isotope.detector"]
             )
 
             Product.replicate(
-                    outputs("ibd.crosssection_jacobian_oscillations"),
+                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
                     outputs("reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"),
-                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
+                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
                     replicate_outputs=combinations["reactor.isotope_neq.detector"]
             )
 
             Product.replicate(
-                    outputs("ibd.crosssection_jacobian_oscillations"),
+                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
                     outputs("snf_anue.neutrino_per_second_snf"),
-                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
+                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                     replicate_outputs=combinations["reactor.detector"]
             )
-            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main") >> inputs("kinematics_integral.nu_main")
-            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq") >> inputs("kinematics_integral.nu_neq")
-            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf") >> inputs("kinematics_integral.nu_snf")
+            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main") >> inputs("kinematics.integral.nu_main")
+            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq") >> inputs("kinematics.integral.nu_neq")
+            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf") >> inputs("kinematics.integral.nu_snf")
 
             #
             # Multiply by the scaling factors:
@@ -1075,14 +1075,14 @@ class model_dayabay_v0b:
             #  - nu_snf:                               effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
             #
             Product.replicate(
-                    outputs("kinematics_integral.nu_main"),
+                    outputs("kinematics.integral.nu_main"),
                     outputs("reactor_detector.nfissions_nprotons_per_cm2"),
                     name = "eventscount.parts.nu_main",
                     replicate_outputs = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
-                    outputs("kinematics_integral.nu_neq"),
+                    outputs("kinematics.integral.nu_neq"),
                     outputs("reactor_detector.nfissions_nprotons_per_cm2_neq"),
                     name = "eventscount.parts.nu_neq",
                     replicate_outputs = combinations["reactor.isotope_neq.detector.period"],
@@ -1091,7 +1091,7 @@ class model_dayabay_v0b:
                     )
 
             Product.replicate(
-                    outputs("kinematics_integral.nu_snf"),
+                    outputs("kinematics.integral.nu_snf"),
                     outputs("reactor_detector.livetime_nprotons_per_cm2_snf"),
                     name = "eventscount.parts.nu_snf",
                     replicate_outputs = combinations["reactor.detector.period"]
@@ -1323,11 +1323,11 @@ class model_dayabay_v0b:
 
             from dgf_detector.Rebin import Rebin
             Rebin.replicate(
-                names={"matrix": "detector.rebin_matrix_ibd", "product": "eventscount.final.ibd"},
+                names={"matrix": "detector.rebin.matrix_ibd", "product": "eventscount.final.ibd"},
                 replicate_outputs=combinations["detector.period"],
             )
-            edges_energy_erec >> inputs.get_value("detector.rebin_matrix_ibd.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_matrix_ibd.edges_new")
+            edges_energy_erec >> inputs.get_value("detector.rebin.matrix_ibd.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin.matrix_ibd.edges_new")
             outputs("eventscount.fine.ibd_normalized") >> inputs("eventscount.final.ibd")
 
             #
@@ -1448,11 +1448,11 @@ class model_dayabay_v0b:
                     )
 
             Rebin.replicate(
-                    names={"matrix": "detector.rebin_matrix_bkg", "product": "eventscount.final.bkg"},
+                    names={"matrix": "detector.rebin.matrix_bkg", "product": "eventscount.final.bkg"},
                     replicate_outputs=combinations["detector.period"],
             )
-            edges_energy_erec >> inputs.get_value("detector.rebin_matrix_bkg.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_matrix_bkg.edges_new")
+            edges_energy_erec >> inputs.get_value("detector.rebin.matrix_bkg.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin.matrix_bkg.edges_new")
             outputs("eventscount.fine.bkg") >> inputs("eventscount.final.bkg")
 
             Sum.replicate(

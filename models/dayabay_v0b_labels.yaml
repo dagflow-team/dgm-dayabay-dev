@@ -37,71 +37,72 @@ edges:
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV]"
     axis: "$E_{\\rm rec}$ [MeV]"
     plotmethod: 'none'
-kinematics_integration:
-  ordersx:
-    text: "Evis integration orders (precision)"
-    latex: "$E_{\\rm vis}$ integration orders (precision)"
-    axis: "order"
-    plotmethod: 'none'
-  ordersy:
-    text: "cosθ integration orders (precision)"
-    latex: "$\\cos\\theta$ integration orders (precision)"
-    axis: "order"
-    plotmethod: 'none'
-kinematics_sampler:
-  node:
-    text: "dE, dcosθ integration sampler"
-  mesh_edep:
-    text: "Deposinted energy integration mesh"
-    axis: "$E_{\\rm dep}$ [MeV]"
-    plotmethod: 'none'
-  mesh_costheta:
-    text: "cosθ integration mesh"
-    axis: "$\\cos\\theta$"
-    plotmethod: 'none'
-ibd:
-  crosssection:
-    text:  "IBD cross section σ(Eν,cosθ) [cm⁻²/proton]"
-    plottitle: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
-    latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
-    axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
-  enu:
-    text: "Eν mesh [MeV]\\nfor integration"
-    latex: "$E_{\\nu}$ mesh [MeV]"
-    axis: "$E_{\\nu}$ [MeV]"
-  jacobian:
-    text: "dEν/dEdep Jacobian"
-    axis: "$dE_{\\nu}/dE_{\\rm dep}$"
-    latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
-  crosssection_jacobian:
-    text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ) [cm⁻²/proton]"
-  crosssection_jacobian_oscillations:
-    group:
-      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key} [cm⁻²/proton]"
-neutrino_cm2_per_MeV_per_fission_per_proton:
-  part:
+kinematics:
+  integration:
+    ordersx:
+      text: "Evis integration orders (precision)"
+      latex: "$E_{\\rm vis}$ integration orders (precision)"
+      axis: "order"
+      plotmethod: 'none'
+    ordersy:
+      text: "cosθ integration orders (precision)"
+      latex: "$\\cos\\theta$ integration orders (precision)"
+      axis: "order"
+      plotmethod: 'none'
+  sampler:
+    node:
+      text: "dE, dcosθ integration sampler"
+    mesh_edep:
+      text: "Deposinted energy integration mesh"
+      axis: "$E_{\\rm dep}$ [MeV]"
+      plotmethod: 'none'
+    mesh_costheta:
+      text: "cosθ integration mesh"
+      axis: "$\\cos\\theta$"
+      plotmethod: 'none'
+  ibd:
+    crosssection:
+      text:  "IBD cross section σ(Eν,cosθ) [cm⁻²/proton]"
+      plottitle: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
+      latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
+      axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
+    enu:
+      text: "Eν mesh [MeV]\\nfor integration"
+      latex: "$E_{\\nu}$ mesh [MeV]"
+      axis: "$E_{\\nu}$ [MeV]"
+    jacobian:
+      text: "dEν/dEdep Jacobian"
+      axis: "$dE_{\\nu}/dE_{\\rm dep}$"
+      latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
+    crosssection_jacobian:
+      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ) [cm⁻²/proton]"
+    crosssection_jacobian_oscillations:
+      group:
+        text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key} [cm⁻²/proton]"
+  neutrino_cm2_per_MeV_per_fission_per_proton:
+    part:
+      nu_main:
+        group:
+          text: "Partial differential IBD rate for reator (main) for {key} [#ν·cm²/MeV/fission/proton]"
+      nu_neq:
+        group:
+          text: "Partial differential IBD rate for reactor (non-equilibrium) for {key} [#ν·cm²/MeV/fission/proton]"
+      nu_snf:
+        group:
+          text: "Partial differential IBD rate for spent nuclear fuel for {key} [#ν·cm²/MeV/s/proton]"
+  integral:
     nu_main:
       group:
-        text: "Partial differential IBD rate for reator (main) for {key} [#ν·cm²/MeV/fission/proton]"
+        text: "Partial integrated rate of IBD events from reactor (main) for {key} [#ν·cm²/fission/proton]\\nintegrated"
+        axis: "IBD flux [cm²/fission/proton]"
     nu_neq:
       group:
-        text: "Partial differential IBD rate for reactor (non-equilibrium) for {key} [#ν·cm²/MeV/fission/proton]"
+        text: "Partial integrated rate of IBD events from reactor (non-equilibrium) for {key} [#ν·cm²/fission/proton]\\nintegrated"
+        axis: "IBD flux [cm²/fission/proton]"
     nu_snf:
       group:
-        text: "Partial differential IBD rate for spent nuclear fuel for {key} [#ν·cm²/MeV/s/proton]"
-kinematics_integral:
-  nu_main:
-    group:
-      text: "Partial integrated rate of IBD events from reactor (main) for {key} [#ν·cm²/fission/proton]\\nintegrated"
-      axis: "IBD flux [cm²/fission/proton]"
-  nu_neq:
-    group:
-      text: "Partial integrated rate of IBD events from reactor (non-equilibrium) for {key} [#ν·cm²/fission/proton]\\nintegrated"
-      axis: "IBD flux [cm²/fission/proton]"
-  nu_snf:
-    group:
-      text: "Partial integrated rate of IBD events from spent nuclear fuel for {key} [#ν·cm²/s/proton]\\nintegrated"
-      axis: "IBD flux [cm²/proton]"
+        text: "Partial integrated rate of IBD events from spent nuclear fuel for {key} [#ν·cm²/s/proton]\\nintegrated"
+        axis: "IBD flux [cm²/proton]"
 daily_data:
   detector:
     eff:
@@ -459,10 +460,11 @@ detector:
       text: "Relative energy resolution width σ(Evis)/Evis"
     matrix:
       text: "Energy resolution matrix"
-  rebin_matrix_ibd:
-    text: "Rebinning matrix for IBD events"
-  rebin_matrix_bkg:
-    text: "Rebinning matrix for background events"
+  rebin:
+    matrix_ibd:
+      text: "Rebinning matrix for IBD events"
+    matrix_bkg:
+      text: "Rebinning matrix for background events"
 mc:
   parameters:
     toymc: 
@@ -598,11 +600,9 @@ statistic:
     parts:
       detector:
         detector_relative:
-          text: "χ² nuisance term for relative detector parmeters (efficiency, energy scale)"
+          text: "χ² nuisance term for relative detector efficiency and energy scale parameters"
         eres:
           text: "χ² nuisance term for energy resolution parameters"
-        detector_relative:
-          text: "χ² nuisance term for relative detector efficiency and energy scale parameters"
         iav_offdiag_scale_factor:
           text: "χ² nuisance term for Inner Acrylic Vessel (IAV) parameters"
         lsnl_scale_a:
@@ -614,8 +614,6 @@ statistic:
           text: "χ² nuisance term for average fission energy parameters"
         nominal_thermal_power:
           text: "χ² nuisance term for reactor thermal power parameters"
-        fission_fraction_scale:
-          text: "χ² nuisance term for fission fraction parameters"
         snf_scale:
           text: "χ² nuisance term for spent nuclear fuel parameters"
         nonequilibrium_scale:
