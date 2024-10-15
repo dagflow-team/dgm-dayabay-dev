@@ -1,9 +1,5 @@
 from collections.abc import Sequence
 
-from numba import njit
-from numpy import empty
-from numpy.typing import NDArray
-
 from multikeydict.nestedmkdict import NestedMKDict
 
 
@@ -20,7 +16,7 @@ def refine_detector_data(
     for det in detectors:
         day = source["day", det]
         step = day[1:] - day[:-1]
-        assert (step==1).all(), "Expect detector data for each day"
+        assert (step == 1).all(), "Expect detector data for each day"
 
         ndet = source["ndet", det]
         for periodname in periods:
@@ -36,7 +32,7 @@ def refine_detector_data(
             days = source["day", det][mask_period]
             days_stored = days_storage.setdefault(periodname, days)
             if days is not days_stored:
-                assert all(days==days_stored)
+                assert all(days == days_stored)
 
     if clean_source:
         for key in tuple(source.walkkeys()):

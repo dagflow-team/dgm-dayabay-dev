@@ -21,7 +21,7 @@ from multikeydict.nestedmkdict import NestedMKDict
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
 
-class model_dayabay_v0:
+class model_dayabay_v0c:
     __slots__ = (
         "storage",
         "graph",
@@ -40,7 +40,6 @@ class model_dayabay_v0:
         "_concatenation_mode",
         "_monte_carlo_mode",
         "_random_generator",
-        "_merge_integration",
     )
 
     storage: NodeStorage
@@ -62,7 +61,6 @@ class model_dayabay_v0:
     _covmatrix_kwargs: dict
     _covariance_matrix: Any
     _frozen_nodes: dict[str, tuple]
-    _merge_integration: bool
 
     def __init__(
         self,
@@ -78,7 +76,6 @@ class model_dayabay_v0:
             "asimov", "normal", "normal-stats", "poisson", "covariance"
         ] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
-        merge_integration: bool = False,
         parameter_values: dict[str, float | str] = {},
     ):
         self._strict = strict
@@ -86,7 +83,7 @@ class model_dayabay_v0:
 
         self.graph = None
         self.storage = NodeStorage()
-        self._path_data = Path("data/dayabay-v0")
+        self._path_data = Path("data/dayabay-v0c")
         self._source_type = source_type
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode
@@ -94,7 +91,6 @@ class model_dayabay_v0:
         self._concatenation_mode = concatenation_mode
         self._monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
-        self._merge_integration = merge_integration
 
         self._covariance_matrix = None
         self._frozen_nodes = {}
@@ -237,10 +233,11 @@ class model_dayabay_v0:
             load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml"
             )
 
-            load_parameters(path="ibd",        load=path_parameters/"pdg2012.yaml")
+            load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
             load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml")
-            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.yaml")
-            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
+
+            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.py")
+            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.py")
 
             load_parameters(                   load=path_parameters/"baselines.yaml")
 
@@ -314,6 +311,8 @@ class model_dayabay_v0:
             #
             # Create nodes
             #
+            labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
+
             from numpy import arange, concatenate, linspace
 
             #
@@ -355,7 +354,6 @@ class model_dayabay_v0:
                     "y": "mesh_costheta"
                 },
                 replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
-                single_node = self._merge_integration
             )
             outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
             outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
@@ -386,37 +384,18 @@ class model_dayabay_v0:
             nodes("oscprob") << parameters("constrained.oscprob")
             nodes("oscprob") << parameters("constant.oscprob")
 
+
             #
             # Nominal antineutrino spectrum
             #
             load_graph(
                 name = "reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames = path_arrays / f"reactor_anue_spectra_50kev.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self._source_type}",
                 x = "enu",
                 y = "spec",
                 merge_x = True,
                 replicate_outputs = index["isotope"],
             )
-
-            #
-            # Pre-interpolate input spectrum on coarser grid
-            # NOTE:
-            #     - not needed with the current scheme:
-            #         - spectrum correction applied by multiplication
-            #     - introduced for the consistency with GNA
-            #     - to be removed in v1 TODO
-            #
-            InterpolatorGroup.replicate(
-                method = "exp",
-                names = {
-                    "indexer": "reactor_anue.spec_indexer_pre",
-                    "interpolator": "reactor_anue.neutrino_per_fission_per_MeV_nominal_pre",
-                    },
-                replicate_outputs = index["isotope"],
-            )
-            outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.xcoarse")
-            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.ycoarse")
-            outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre.xfine")
 
             #
             # Interpolate for the integration mesh
@@ -429,9 +408,8 @@ class model_dayabay_v0:
                     },
                 replicate_outputs = index["isotope"],
             )
-            outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
-            outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal_pre") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
-
+            outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
+            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
             kinematic_integrator_enu >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine")
 
             #
@@ -569,7 +547,7 @@ class model_dayabay_v0:
             #
             load_graph(
                 name = "reactor_anue.spectrum_uncertainty",
-                filenames = path_arrays / f"reactor_anue_spectra_unc_50kev.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self._source_type}",
                 x = "enu_centers",
                 y = "uncertainty",
                 merge_x = True,
@@ -675,7 +653,6 @@ class model_dayabay_v0:
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                     outputs("reactor_nonequilibrium_anue.correction_interpolated"),
-                    outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"), # TODO: remove in v1 as HM corrections should not be applied to NEQ
                     name = "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = ("U238",),
@@ -1021,20 +998,6 @@ class model_dayabay_v0:
                     replicate_outputs = combinations["reactor.detector.period"]
                     )
 
-            # Debug node: eventscount.reactor_active_periods
-            Sum.replicate(
-                outputs("eventscount.parts.nu_main"),
-                outputs("eventscount.parts.nu_neq"),
-                name="eventscount.reactor_active_periods",
-                replicate_outputs=combinations["detector.period"]
-            )
-            # Debug node: eventscount.reactor_snf_periods
-            Sum.replicate(
-                outputs("eventscount.parts.nu_snf"),
-                name="eventscount.snf_periods",
-                replicate_outputs=combinations["detector.period"]
-            )
-
             Sum.replicate(
                 outputs("eventscount.parts"),
                 name="eventscount.raw",
@@ -1073,13 +1036,13 @@ class model_dayabay_v0:
                 replicate_outputs = index["lsnl"],
             )
 
-            # Coarse LSNL model, consistent with GNA implementation
-            from dgf_detector.bundles.cross_check_refine_lsnl_data import \
-                cross_check_refine_lsnl_data
-            cross_check_refine_lsnl_data(
+            # Refine LSNL curves: interpolate with smaller step
+            from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
+            refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
                 nominalname = 'evis_parts.nominal',
+                refine_times = 4,
                 newmin = 0.5,
                 newmax = 12.1
             )
@@ -1151,17 +1114,34 @@ class model_dayabay_v0:
                 replicate_outputs = index["detector"]
             )
 
-
-            from dgf_detector.AxisDistortionMatrixLinearLegacy import \
-                AxisDistortionMatrixLinearLegacy
-            AxisDistortionMatrixLinearLegacy.replicate(
-                    name="detector.lsnl.matrix",
-                replicate_outputs=index["detector"],
-                min_value_modified=0.7001
+            # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
+            Product.replicate(
+                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
+                outputs("detector.parameters_relative.energy_scale_factor"),
+                name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
+                replicate_outputs = index["detector"]
             )
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
-            outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix.EdgesModified")
 
+            # Interpolate Edep(Evis[detector])
+            InterpolatorGroup.replicate(
+                method = "linear",
+                names = {
+                    "indexer": "detector.lsnl.indexer_bwd",
+                    "interpolator": "detector.lsnl.interpolated_bwd",
+                    },
+                replicate_xcoarse = True,
+                replicate_outputs = index["detector"]
+            )
+            outputs.get_dict("detector.lsnl.curves.evis_coarse_monotonous_scaled") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
+            outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
+            edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
+
+            # Build LSNL matrix
+            from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
+            AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
+            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
+            outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModifiedBackwards")
             VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
@@ -1547,7 +1527,21 @@ class model_dayabay_v0:
             )
             # fmt: on
 
-        self._setup_labels()
+        processed_keys_set = set()
+        storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
+        storage("outputs").read_labels(labels, processed_keys_set=processed_keys_set)
+        storage("inputs").remove_connected_inputs()
+        storage.read_paths(index=index)
+        graph.build_index_dict(index)
+
+        labels_mk = NestedMKDict(labels, sep=".")
+        if self._strict:
+            for key in processed_keys_set:
+                labels_mk.delete_with_parents(key)
+            if labels_mk:
+                raise RuntimeError(
+                    f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
+                )
 
         # Ensure stem nodes are calculated
         self._touch()
@@ -1606,29 +1600,3 @@ class model_dayabay_v0:
         if mc_parameters:
             self.storage.get_value("nodes.mc.parameters.toymc").reset()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
-
-    def _setup_labels(self):
-        labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
-
-        processed_keys_set = set()
-        self.storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
-        self.storage("outputs").read_labels(
-            labels, processed_keys_set=processed_keys_set
-        )
-        self.storage("inputs").remove_connected_inputs()
-        self.storage.read_paths(index=self.index)
-        self.graph.build_index_dict(self.index)
-
-        labels_mk = NestedMKDict(labels, sep=".")
-        if not self._strict:
-            return
-
-        for key in processed_keys_set:
-            labels_mk.delete_with_parents(key)
-
-        if not labels_mk:
-            return
-
-        raise RuntimeError(
-            f"The following label groups were not used: {', '.join(unused_keys)}"
-        )

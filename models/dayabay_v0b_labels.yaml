@@ -434,6 +434,9 @@ detector:
         text: "Input coarse Evis(Edep) for LSNL [MeV]"
       evis_coarse_monotonous:
         text: "Input coarse LSNL Evis(Edep) [MeV]\\nensured to be monotonous"
+      evis_coarse_monotonous_scaled:
+        group:
+          text: "Input coarse LSNL Evis(Edep) for {key} [MeV]\\nensured to be monotonous and scaled (fit relative energy scale)"
       evis:
         group:
           text: "Visible energy (LSNL×relative energy scale) for {key} [MeV]"
@@ -441,6 +444,12 @@ detector:
       text: "Segment lookup for Evis(Edep)\\ninterpolation for LSNL correction"
     interpolated_fwd:
       text: "Interpolated Evis(Edep) for LSNL correction [MeV]"
+    indexer_bwd:
+      group:
+        text: "Segment lookup for Edep(Evis) for {key}\\ninverse interpolation for LSNL correction"
+    interpolated_bwd:
+      group:
+        text: "Interpolated Edep(Evis) for LSNL correction for {key} [MeV]"
     matrix:
       group:
         text: "Energy scale correction matrix for {key}\\nLSNL×relative energy scale"

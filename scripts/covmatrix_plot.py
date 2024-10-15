@@ -24,6 +24,19 @@ def main(opts: Namespace) -> None:
     ifile = File(opts.input, "r")
     group = ifile[opts.mode]
 
+    model = group["model"][:]
+    edges = group["edges"][:]
+    blocksize = edges.size - 1
+
+    sfile, sgroup, smodel = None, None, None
+    if opts.subtract:
+        sfile = File(opts.subtract, "r")
+        sgroup = sfile[opts.mode]
+        smodel = sgroup["model"][:]
+        plotmodel=model - smodel
+    else:
+        plotmodel = model
+
     try:
         elements0: NDArray = group["elements"][:]
         if isinstance(elements0[0], (str, bytes)):
@@ -35,17 +48,19 @@ def main(opts: Namespace) -> None:
     except KeyError:
         elements = None
 
-    model = group["model"][:]
-    edges = group["edges"][:]
-    blocksize = edges.size - 1
-    # widths = edges[1:] - edges[:-1]
 
-    if opts.output:
-        pdf = PdfPages(opts.output)
+    if opts.output is not None:
+        ofile = opts.output and opts.output[0] or opts.input.replace(".hdf5", ".pdf")
+        assert ofile != opts.input and ofile.endswith(".pdf")
+        pdf = PdfPages(ofile)
         pdf.__enter__()
     else:
+        ofile = None
         pdf = None
 
+    title_suffix = f" {opts.title_suffix}" if opts.title_suffix else ""
+    if opts.subtract:
+        title_suffix+=" [diff]"
     if opts.mode == "detector":
         figsize_1d = (12, 6)
         figsize_2d = (6, 6)
@@ -53,9 +68,9 @@ def main(opts: Namespace) -> None:
         figsize_1d = (18, 6)
         figsize_2d = (12, 12)
     plt.figure(figsize=figsize_1d)
-    ax = plt.subplot(111, xlabel="", ylabel="entries", title="Model")
+    ax = plt.subplot(111, xlabel="", ylabel="entries", title=f"Model{title_suffix}")
     ax.grid(axis="y")
-    stairs_with_blocks(model, blocks=elements)
+    stairs_with_blocks(plotmodel, blocks=elements)
     if pdf:
         pdf.savefig()
 
@@ -67,13 +82,32 @@ def main(opts: Namespace) -> None:
             matrix_cov_rel,
             matrix_cor,
             bmatrix_cov,
-            barray_sigma,
+            _,  # barray_sigma,
             bmatrix_cor,
         ) = covariance_get_matrices(matrix_cov, model, blocksize)
 
+        if sgroup is not None:
+            matrix_cov_subtract = sgroup["covmat_syst"][name][:]
+            (
+                array_sigma_subtract,
+                array_sigma_rel_subtract,
+                matrix_cov_rel_subtract,
+                matrix_cor_subtract,
+                bmatrix_cov_subtract,
+                _,  # barray_sigma_subtract,
+                bmatrix_cor_subtract,
+            ) = covariance_get_matrices(matrix_cov_subtract, smodel, blocksize)
+            matrix_cov = matrix_cov - matrix_cov_subtract
+            array_sigma -= array_sigma_subtract
+            array_sigma_rel -= array_sigma_rel_subtract
+            matrix_cov_rel -= matrix_cov_rel_subtract
+            matrix_cor -= matrix_cor_subtract
+            bmatrix_cov -= bmatrix_cov_subtract
+            bmatrix_cor -= bmatrix_cor_subtract
+
         plt.figure(figsize=figsize_1d)
         ax = plt.subplot(
-            111, xlabel="", ylabel=r"$\sigma$", title=f"Uncertainty {name} (diagonal)"
+            111, xlabel="", ylabel=r"$\sigma$", title=f"Uncertainty {name} (diagonal){title_suffix}"
         )
         ax.grid(axis="y")
         stairs_with_blocks(array_sigma, blocks=elements)
@@ -85,7 +119,7 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel=r"$\sigma$, %",
-            title=f"Relative uncertainty {name} (diagonal)",
+            title=f"Relative uncertainty {name} (diagonal){title_suffix}",
         )
         ax.grid(axis="y")
         stairs_with_blocks(array_sigma_rel, blocks=elements)
@@ -94,7 +128,7 @@ def main(opts: Namespace) -> None:
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Covariance matrix {name}"
+            111, xlabel="", ylabel="bin", title=f"Covariance matrix {name}{title_suffix}"
         )
         pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap)
         if pdf:
@@ -102,7 +136,7 @@ def main(opts: Namespace) -> None:
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Covariance matrix {name} (blocks)"
+            111, xlabel="", ylabel="bin", title=f"Covariance matrix {name} (blocks){title_suffix}"
         )
         pcolor_with_blocks(bmatrix_cov, blocks=elements, cmap=cmap)
         if pdf:
@@ -113,7 +147,7 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=f"Covariance matrix {name} ({elements[0]})",
+            title=f"Covariance matrix {name} ({elements[0]}){title_suffix}",
         )
         pcolor_with_blocks(
             matrix_cov[:blocksize, :blocksize], blocks=elements[:1], cmap=cmap
@@ -126,7 +160,7 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=rf"Relative covariance matrix {name}, %²",
+            title=rf"Relative covariance matrix {name}, %²{title_suffix}",
         )
         pcolor_with_blocks(matrix_cov_rel, blocks=elements, cmap=cmap)
         if pdf:
@@ -137,7 +171,7 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=f"Relative covariance matrix {name} ({elements[0]})",
+            title=f"Relative covariance matrix {name} ({elements[0]}){title_suffix}",
         )
         pcolor_with_blocks(
             matrix_cov_rel[:blocksize, :blocksize], blocks=elements[:1], cmap=cmap
@@ -147,7 +181,7 @@ def main(opts: Namespace) -> None:
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Correlation matrix {name}"
+            111, xlabel="", ylabel="bin", title=f"Correlation matrix {name}{title_suffix}"
         )
         pcolor_with_blocks(matrix_cor, blocks=elements, cmap=cmap)
         if pdf:
@@ -158,7 +192,7 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=f"Correlation matrix {name} ({elements[0]})",
+            title=f"Correlation matrix {name} ({elements[0]}){title_suffix}",
         )
         hm = pcolor_with_blocks(
             matrix_cor[:blocksize, :blocksize],
@@ -172,7 +206,7 @@ def main(opts: Namespace) -> None:
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Correlation matrix {name} (blocks)"
+            111, xlabel="", ylabel="bin", title=f"Correlation matrix {name} (blocks){title_suffix}"
         )
         hm = pcolor_with_blocks(
             bmatrix_cor, blocks=elements, pcolormesh=True, cmap=cmap
@@ -192,7 +226,7 @@ def main(opts: Namespace) -> None:
 
     if pdf:
         pdf.__exit__(None, None, None)
-        logger.info(f"Write output file: {opts.output}")
+        logger.info(f"Write output file: {ofile}")
 
     if opts.show:
         plt.show()
@@ -420,6 +454,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("input", help="input h5py file")
+    parser.add_argument("--subtract", help="input h5py file to subtract")
     parser.add_argument(
         "-m",
         "--mode",
@@ -427,7 +462,8 @@ if __name__ == "__main__":
         choices=("detector", "detector_period"),
         help="mode",
     )
-    parser.add_argument("-o", "--output", help="output pdf file")
+    parser.add_argument("-o", "--output", nargs="*", help="output pdf file")
     parser.add_argument("-s", "--show", action="store_true")
+    parser.add_argument("--title-suffix", help="figure title suffix")
 
     main(parser.parse_args())
