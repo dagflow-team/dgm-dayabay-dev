@@ -465,7 +465,10 @@ detector:
     text: "Rebinning matrix for background events"
 mc:
   parameters:
-    toymc: "MC values for nuisance parameters (nomal unit)"
+    toymc: 
+      text: "MC values for nuisance parameters (nomal unit)"
+    inputs: 
+      text: "Node to set nuisance parameters values"
 data:
   pseudo:
     text: "(Pseudo) data node for likelihood"
