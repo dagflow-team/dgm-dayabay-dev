@@ -1333,7 +1333,7 @@ class model_dayabay_v0c:
                 name="eventscount.final.concatenated.detector"
             )
 
-            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self._concatenation_mode}"],
+            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self._concatenation_mode}"]
 
             #
             # Covariance matrices
