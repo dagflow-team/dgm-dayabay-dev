@@ -1629,6 +1629,8 @@ class model_dayabay_v0:
         if not labels_mk:
             return
 
+        unused_keys = list(labels_mk.walkjoinedkeys())
+
         raise RuntimeError(
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
