@@ -178,7 +178,7 @@ class model_dayabay_v0b:
         )
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
-        index["anue_source"] = ("nu_main", "nu_neq", "nu_snf") # use capitals to avoid overlap with regular words
+        index["anue_source"] = ("nu_main", "nu_neq", "nu_snf")
         index["anue_unc"] = ("uncorr", "corr")
         index["period"] = ("6AD", "8AD", "7AD")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
@@ -231,10 +231,6 @@ class model_dayabay_v0b:
                 ("nu_neq",) + cmb for cmb in combinations["reactor.isotope_neq.detector"]
             )
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
-        )
-
-        spectrum_correction_is_exponential = (
-            self._spectrum_correction_mode == "exponential"
         )
 
         systematic_uncertainties_groups = [
@@ -588,7 +584,7 @@ class model_dayabay_v0b:
                     key = "neutrino_per_fission_factor",
                     values = 0.0,
                     labels = "Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction" \
-                           + (" (exp)" if spectrum_correction_is_exponential else " (linear)"),
+                           + (" (exp)" if self._spectrum_correction_mode == "exponential" else " (linear)"),
                     hide_nodes = True
                     )
 
@@ -599,7 +595,7 @@ class model_dayabay_v0b:
                     name = "reactor_anue.spectrum_free_correction.input"
                     )
             outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
-            if spectrum_correction_is_exponential:
+            if self._spectrum_correction_mode == "exponential":
                 from dagflow.lib import Exp
                 Exp.replicate(
                         outputs.get_value("reactor_anue.spectrum_free_correction.input"),
