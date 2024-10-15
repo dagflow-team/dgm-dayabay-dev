@@ -464,8 +464,10 @@ mc:
       text: "Node to set nuisance parameters values"
 data:
   pseudo:
-    proxy:
+    self:
       text: "(Pseudo) data node for likelihood"
+    proxy:
+      text: "(Proxy) data node for likelihood"
 covariance:
   jacobians:
     oscprob:
