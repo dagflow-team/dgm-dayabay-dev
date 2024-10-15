@@ -83,7 +83,7 @@ class model_dayabay_v0c:
 
         self.graph = None
         self.storage = NodeStorage()
-        self._path_data = Path("data/dayabay-v0b")  # TODO: v0c
+        self._path_data = Path("data/dayabay-v0c")
         self._source_type = source_type
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode
@@ -234,12 +234,12 @@ class model_dayabay_v0c:
             )
 
             load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
-            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants_future.yaml")
+            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml")
 
-            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power_future.py")
-            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument_future.py")
+            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.py")
+            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.py")
 
-            load_parameters(                   load=path_parameters/"baselines_short.yaml")
+            load_parameters(                   load=path_parameters/"baselines.yaml")
 
             load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
@@ -384,21 +384,13 @@ class model_dayabay_v0c:
             nodes("oscprob") << parameters("constrained.oscprob")
             nodes("oscprob") << parameters("constant.oscprob")
 
-            #
-            # Antineutrino spectrum configuration
-            #
-            anue_cfg = LoadYaml(path_data / "reactor_anue_spectrum_models.yaml")
-            try:
-                filename_anue_spectrum, filename_anue_spectrum_unc = anue_cfg["models"]["50keV_scaled_approx"]
-            except KeyError:
-                raise RuntimeError(f"Unable to load anue model {anue_modelname}. Available models: {', '.join(anue_cfg['models'].keys())}")
 
             #
             # Nominal antineutrino spectrum
             #
             load_graph(
                 name = "reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames = path_arrays / f"{filename_anue_spectrum}.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self._source_type}",
                 x = "enu",
                 y = "spec",
                 merge_x = True,
@@ -555,7 +547,7 @@ class model_dayabay_v0c:
             #
             load_graph(
                 name = "reactor_anue.spectrum_uncertainty",
-                filenames = path_arrays / f"{filename_anue_spectrum_unc}.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self._source_type}",
                 x = "enu_centers",
                 y = "uncertainty",
                 merge_x = True,
