@@ -1,4 +1,5 @@
 from collections.abc import Collection, Mapping, Sequence
+from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
@@ -226,9 +227,12 @@ class model_dayabay_v0b:
             combinations[combname] = tuple(items)
 
         combinations["anue_source.reactor.isotope.detector"] = (
-            tuple(("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"])
+            tuple(
+                ("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"]
+            )
             + tuple(
-                ("nu_neq",) + cmb for cmb in combinations["reactor.isotope_neq.detector"]
+                ("nu_neq",) + cmb
+                for cmb in combinations["reactor.isotope_neq.detector"]
             )
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
@@ -360,8 +364,6 @@ class model_dayabay_v0b:
             #
             # Create nodes
             #
-            labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
-
             from numpy import arange, concatenate, linspace
 
             #
@@ -1662,21 +1664,7 @@ class model_dayabay_v0b:
             )
             # fmt: on
 
-        processed_keys_set = set()
-        storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
-        storage("outputs").read_labels(labels, processed_keys_set=processed_keys_set)
-        storage("inputs").remove_connected_inputs()
-        storage.read_paths(index=index)
-        graph.build_index_dict(index)
-
-        labels_mk = NestedMKDict(labels, sep=".")
-        if self._strict:
-            for key in processed_keys_set:
-                labels_mk.delete_with_parents(key)
-            if labels_mk:
-                raise RuntimeError(
-                    f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
-                )
+        self._setup_labels()
 
         # Ensure stem nodes are calculated
         self._touch()
@@ -1735,3 +1723,42 @@ class model_dayabay_v0b:
         if mc_parameters:
             self.storage.get_value("nodes.mc.parameters.toymc").reset()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
+
+    def _setup_labels(self):
+        labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
+
+        processed_keys_set = set()
+        self.storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
+        self.storage("outputs").read_labels(
+            labels, processed_keys_set=processed_keys_set
+        )
+        self.storage("inputs").remove_connected_inputs()
+        self.storage.read_paths(index=self.index)
+        self.graph.build_index_dict(self.index)
+
+        labels_mk = NestedMKDict(labels, sep=".")
+        if not self._strict:
+            return
+
+        for key in processed_keys_set:
+            labels_mk.delete_with_parents(key)
+
+        if not labels_mk:
+            return
+
+        unused_keys = list(labels_mk.walkjoinedkeys())
+        may_ignore = {
+            "detector.lsnl.curves.evis_coarse_monotonous_scaled.group.text",
+            "detector.lsnl.indexer_bwd.group.text",
+            "detector.lsnl.interpolated_bwd.group.text",
+        }
+        for key in may_ignore:
+            with suppress(ValueError):
+                unused_keys.remove(key)
+
+        if not unused_keys:
+            return
+
+        raise RuntimeError(
+            f"The following label groups were not used: {', '.join(unused_keys)}"
+        )

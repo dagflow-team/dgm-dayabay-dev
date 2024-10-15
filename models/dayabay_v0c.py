@@ -2,10 +2,10 @@ from collections.abc import Mapping, Sequence
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from more_itertools import ilen
 from numpy import ndarray
+from numpy.random import Generator
 
 from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
@@ -35,8 +35,11 @@ class model_dayabay_v0c:
         "_close",
         "_spectrum_correction_mode",
         "_covmatrix_kwargs",
-        "_covariance_matrices",
+        "_covariance_matrix",
         "_frozen_nodes",
+        "_concatenation_mode",
+        "_monte_carlo_mode",
+        "_random_generator",
     )
 
     storage: NodeStorage
@@ -50,8 +53,13 @@ class model_dayabay_v0c:
     _strict: bool
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
+    _concatenation_mode: Literal["detector", "detector_period"]
+    _monte_carlo_mode: Literal[
+        "asimov", "normal", "normal-stats", "poisson", "covariance"
+    ]
+    _random_generator: Generator
     _covmatrix_kwargs: dict
-    _covariance_matrices: dict
+    _covariance_matrix: Any
     _frozen_nodes: dict[str, tuple]
 
     def __init__(
@@ -63,6 +71,11 @@ class model_dayabay_v0c:
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         covmatrix_kwargs: Mapping = {},
+        seed: int = 0,
+        monte_carlo_mode: Literal[
+            "asimov", "normal", "normal-stats", "poisson", "covariance"
+        ] = "asimov",
+        concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
     ):
         self._strict = strict
@@ -75,7 +88,11 @@ class model_dayabay_v0c:
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode
         self._covmatrix_kwargs = dict(covmatrix_kwargs)
-        self._covariance_matrices = {}
+        self._concatenation_mode = concatenation_mode
+        self._monte_carlo_mode = monte_carlo_mode
+        self._random_generator = self._create_random_generator(seed)
+
+        self._covariance_matrix = None
         self._frozen_nodes = {}
 
         self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
@@ -114,7 +131,7 @@ class model_dayabay_v0c:
         index = self.index
         index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
         index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
-        index["isotope_offeq"] = ("U235", "Pu239", "Pu241")
+        index["isotope_neq"] = ("U235", "Pu239", "Pu241")
         index["detector"] = (
             "AD11",
             "AD12",
@@ -127,7 +144,7 @@ class model_dayabay_v0c:
         )
         index["site"] = ("EH1", "EH2", "EH3")
         index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
-        index["anue_source"] = ("main", "offeq", "snf")
+        index["anue_source"] = ("nu_main", "nu_neq", "nu_snf")
         index["anue_unc"] = ("uncorr", "corr")
         index["period"] = ("6AD", "8AD", "7AD")
         index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
@@ -150,13 +167,13 @@ class model_dayabay_v0c:
         required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
-            "reactor.isotope_offeq",
+            "reactor.isotope_neq",
             "reactor.period",
             "reactor.isotope.period",
             "reactor.isotope.detector",
-            "reactor.isotope_offeq.detector",
+            "reactor.isotope_neq.detector",
             "reactor.isotope.detector.period",
-            "reactor.isotope_offeq.detector.period",
+            "reactor.isotope_neq.detector.period",
             "reactor.detector.period",
             "detector.period",
             "anue_unc.isotope",
@@ -175,17 +192,31 @@ class model_dayabay_v0c:
             combinations[combname] = tuple(items)
 
         combinations["anue_source.reactor.isotope.detector"] = (
-            tuple(("main",) + cmb for cmb in combinations["reactor.isotope.detector"])
-            + tuple(
-                ("offeq",) + cmb
-                for cmb in combinations["reactor.isotope_offeq.detector"]
+            tuple(
+                ("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"]
             )
-            + tuple(("snf",) + cmb for cmb in combinations["reactor.detector"])
+            + tuple(
+                ("nu_neq",) + cmb
+                for cmb in combinations["reactor.isotope_neq.detector"]
+            )
+            + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
 
-        spectrum_correction_is_exponential = (
-            self._spectrum_correction_mode == "exponential"
-        )
+        systematic_uncertainties_groups = [
+            ("oscprob", "oscprob"),
+            ("eres", "detector.eres"),
+            ("lsnl", "detector.lsnl_scale_a"),
+            ("iav", "detector.iav_offdiag_scale_factor"),
+            ("detector_relative", "detector.detector_relative"),
+            ("energy_per_fission", "reactor.energy_per_fission"),
+            ("nominal_thermal_power", "reactor.nominal_thermal_power"),
+            ("snf", "reactor.snf_scale"),
+            ("neq", "reactor.nonequilibrium_scale"),
+            ("fission_fraction", "reactor.fission_fraction_scale"),
+            ("bkg_rate", "bkg.rate"),
+            ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
+            ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr"),
+        ]
 
         with (
             Graph(close_on_exit=self._close, strict=self._strict) as graph,
@@ -203,12 +234,12 @@ class model_dayabay_v0c:
             )
 
             load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
-            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml"
-            )
-            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.yaml")
-            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.yaml")
+            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants_future.yaml")
 
-            load_parameters(                   load=path_parameters/"baselines.yaml")
+            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power_future.py")
+            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument_future.py")
+
+            load_parameters(                   load=path_parameters/"baselines_short.yaml")
 
             load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
@@ -226,8 +257,8 @@ class model_dayabay_v0c:
                             replicate=index["reactor"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
                             replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_offequilibrium_correction.yaml",
-                            replicate=combinations["reactor.isotope_offeq"])
+            load_parameters(path="reactor",    load=path_parameters/"reactor_nonequilibrium_correction.yaml",
+                            replicate=combinations["reactor.isotope_neq"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
                             replicate=index["reactor"], replica_key_offset=1)
@@ -246,7 +277,25 @@ class model_dayabay_v0c:
                 },
                 labels={
                     "conversion": {
-                        "seconds_in_day_inverse": "One divided by seconds in day",
+                        "seconds_in_day_inverse": "Fraction of a day in a second",
+                    }
+                },
+            )
+
+            # Statistic constants for write-handed CNP
+            load_parameters(
+                format="value",
+                state="fixed",
+                parameters={
+                    "stats": {
+                        "pearson": 2 / 3,
+                        "neyman": 1 / 3,
+                    }
+                },
+                labels={
+                    "stats": {
+                        "pearson": "Pearson CNP coefficient",
+                        "neyman": "Neyman CNP coefficient",
                     }
                 },
             )
@@ -287,34 +336,34 @@ class model_dayabay_v0c:
             edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
             edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
-            Array.make_stored("reactor_anue.spec_model_edges", antineutrino_model_edges)
+            Array.make_stored("reactor_anue.spectrum_free_correction.spec_model_edges", antineutrino_model_edges)
 
             #
             # Integration, kinematics
             #
-            integration_orders_edep, _ = Array.from_value("kinematics_sampler.ordersx", 5, edges=edges_energy_edep)
-            integration_orders_costheta, _ = Array.from_value("kinematics_sampler.ordersy", 3, edges=edges_costheta)
+            Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
+            Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
             integrator, _ = IntegratorGroup.replicate(
                 "2d",
                 names = {
-                    "sampler": "kinematics_sampler",
-                    "integrator": "kinematics_integral",
+                    "sampler": "kinematics.sampler",
+                    "integrator": "kinematics.integral",
                     "x": "mesh_edep",
                     "y": "mesh_costheta"
                 },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"]
+                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
             )
-            integration_orders_edep >> integrator("ordersX")
-            integration_orders_costheta >> integrator("ordersY")
+            outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
+            outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
-            ibd, _ = IBDXsecVBO1Group.make_stored(use_edep=True)
+            ibd, _ = IBDXsecVBO1Group.make_stored(path="kinematics.ibd", use_edep=True)
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
-            outputs.get_value("kinematics_sampler.mesh_edep") >> ibd.inputs["edep"]
-            outputs.get_value("kinematics_sampler.mesh_costheta") >> ibd.inputs["costheta"]
+            outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
+            outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"]
             kinematic_integrator_enu = ibd.outputs["enu"]
 
             #
@@ -339,9 +388,8 @@ class model_dayabay_v0c:
             # Antineutrino spectrum configuration
             #
             anue_cfg = LoadYaml(path_data / "reactor_anue_spectrum_models.yaml")
-            anue_modelname = self._anue_spectrum_model or anue_cfg["default"]
             try:
-                filename_anue_spectrum, filename_anue_spectrum_unc = anue_cfg["models"][anue_modelname]
+                filename_anue_spectrum, filename_anue_spectrum_unc = anue_cfg["models"]["50keV_scaled_approx"]
             except KeyError:
                 raise RuntimeError(f"Unable to load anue model {anue_modelname}. Available models: {', '.join(anue_cfg['models'].keys())}")
 
@@ -373,7 +421,7 @@ class model_dayabay_v0c:
             kinematic_integrator_enu >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine")
 
             #
-            # SNF and OffEQ normalization factors
+            # SNF and NEQ normalization factors
             #
             load_parameters(
                 format="value",
@@ -381,43 +429,43 @@ class model_dayabay_v0c:
                 parameters={
                     "reactor": {
                         "snf_factor": 1.0,
-                        "offeq_factor": 1.0,
+                        "neq_factor": 1.0,
                     }
                 },
                 labels={
                     "reactor": {
-                        "snf_factor": "Common SNF factor",
-                        "offeq_factor": "Common offequilibrium factor",
+                        "snf_factor": "Common Spent Nuclear Fuel (SNF) factor",
+                        "neq_factor": "Common Non-EQuilibrium (NEQ) factor",
                     }
                 },
             )
 
             #
-            # Offequilibrium correction
+            # Non-EQuilibrium correction
             #
             load_graph(
-                name = "reactor_offequilibrium_anue.correction_input",
+                name = "reactor_nonequilibrium_anue.correction_input",
                 x = "enu",
-                y = "offequilibrium_correction",
+                y = "nonequilibrium_correction",
                 merge_x = True,
-                filenames = path_arrays / f"offequilibrium_correction.{self._source_type}",
-                replicate_outputs = index["isotope_offeq"],
+                filenames = path_arrays / f"nonequilibrium_correction.{self._source_type}",
+                replicate_outputs = index["isotope_neq"],
                 dtype = "d"
             )
 
             InterpolatorGroup.replicate(
                 method = "linear",
                 names = {
-                    "indexer": "reactor_offequilibrium_anue.correction_indexer",
-                    "interpolator": "reactor_offequilibrium_anue.correction_interpolated",
+                    "indexer": "reactor_nonequilibrium_anue.correction_indexer",
+                    "interpolator": "reactor_nonequilibrium_anue.correction_interpolated",
                     },
-                replicate_outputs = index["isotope_offeq"],
+                replicate_outputs = index["isotope_neq"],
                 underflow = "constant",
                 overflow = "constant",
             )
-            outputs.get_value("reactor_offequilibrium_anue.correction_input.enu") >> inputs.get_value("reactor_offequilibrium_anue.correction_interpolated.xcoarse")
-            outputs("reactor_offequilibrium_anue.correction_input.offequilibrium_correction") >> inputs("reactor_offequilibrium_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_offequilibrium_anue.correction_interpolated.xfine")
+            outputs.get_value("reactor_nonequilibrium_anue.correction_input.enu") >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xcoarse")
+            outputs("reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction") >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xfine")
 
             #
             # SNF correction
@@ -451,55 +499,52 @@ class model_dayabay_v0c:
             #   - correlated between isotopes
             #   - uncorrelated between energy intervals
             #
-            if spectrum_correction_is_exponential:
-                neutrino_per_fission_correction_central_value = 0.0
-            else:
-                neutrino_per_fission_correction_central_value = 1.0
-
             from dagflow.bundles.make_y_parameters_for_x import \
                 make_y_parameters_for_x
             make_y_parameters_for_x(
-                    outputs.get_value("reactor_anue.spec_model_edges"),
+                    outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
                     namefmt = "spec_scale_{:02d}",
                     format = "value",
                     state = "variable",
                     key = "neutrino_per_fission_factor",
-                    values = neutrino_per_fission_correction_central_value,
+                    values = 0.0,
                     labels = "Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction" \
-                           + (" (exp)" if spectrum_correction_is_exponential else " (linear)"),
+                           + (" (exp)" if self._spectrum_correction_mode == "exponential" else " (linear)"),
                     hide_nodes = True
                     )
 
-            from dagflow.lib import Exp
             from dagflow.lib.Concatenation import Concatenation
 
-            if spectrum_correction_is_exponential:
-                Concatenation.replicate(
-                        parameters("all.neutrino_per_fission_factor"),
-                        name = "reactor_anue.spec_free_correction_input"
-                        )
+            Concatenation.replicate(
+                    parameters("all.neutrino_per_fission_factor"),
+                    name = "reactor_anue.spectrum_free_correction.input"
+                    )
+            outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
+            if self._spectrum_correction_mode == "exponential":
+                from dagflow.lib import Exp
                 Exp.replicate(
-                        outputs.get_value("reactor_anue.spec_free_correction_input"),
-                        name = "reactor_anue.spec_free_correction"
+                        outputs.get_value("reactor_anue.spectrum_free_correction.input"),
+                        name = "reactor_anue.spectrum_free_correction.correction"
                         )
-                outputs.get_value("reactor_anue.spec_free_correction_input").dd.axes_meshes = (outputs.get_value("reactor_anue.spec_model_edges"),)
             else:
-                Concatenation.replicate(
-                        parameters("all.neutrino_per_fission_factor"),
-                        name = "reactor_anue.spec_free_correction"
+                Array.from_value("reactor_anue.spectrum_free_correction.unity", 1.0, dtype="d", mark="1", label="Array of 1 element =1", shape=1, store=True)
+                Sum.replicate(
+                        outputs.get_value("reactor_anue.spectrum_free_correction.unity"),
+                        outputs.get_value("reactor_anue.spectrum_free_correction.input"),
+                        name = "reactor_anue.spectrum_free_correction.correction"
                         )
-                outputs.get_value("reactor_anue.spec_free_correction").dd.axes_meshes = (outputs.get_value("reactor_anue.spec_model_edges"),)
+                outputs.get_value("reactor_anue.spectrum_free_correction.correction").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
 
             InterpolatorGroup.replicate(
                 method = "exp",
                 names = {
-                    "indexer": "reactor_anue.spec_free_correction_indexer",
-                    "interpolator": "reactor_anue.spec_free_correction_interpolated"
+                    "indexer": "reactor_anue.spectrum_free_correction.indexer",
+                    "interpolator": "reactor_anue.spectrum_free_correction.interpolated"
                     },
             )
-            outputs.get_value("reactor_anue.spec_model_edges") >> inputs.get_value("reactor_anue.spec_free_correction_interpolated.xcoarse")
-            outputs.get_value("reactor_anue.spec_free_correction") >> inputs.get_value("reactor_anue.spec_free_correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_anue.spec_free_correction_interpolated.xfine")
+            outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges") >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xcoarse")
+            outputs.get_value("reactor_anue.spectrum_free_correction.correction") >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xfine")
 
             #
             # Huber+Mueller spectrum shape uncertainties
@@ -544,7 +589,7 @@ class model_dayabay_v0c:
                         "corr": (0.0, 1.0)
                         },
                     labels={
-                        "corr": "Correlated neutrino per fission uncertainty"
+                        "corr": "Correlated ν̅ spectrum shape uncertainty"
                         },
                     joint_nuisance = False
                     )
@@ -569,7 +614,7 @@ class model_dayabay_v0c:
                     replicate_outputs = index["isotope"]
                     )
 
-            single_unity = Array("single_unity", [1.0], dtype="d", mark="1")
+            single_unity = Array("single_unity", [1.0], dtype="d", mark="1", label="Array of 1 element =1")
             Sum.replicate(
                     outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
                     single_unity,
@@ -607,7 +652,7 @@ class model_dayabay_v0c:
             #
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs.get_value("reactor_anue.spec_free_correction_interpolated"),
+                    outputs.get_value("reactor_anue.spectrum_free_correction.interpolated"),
                     outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"),
                     name = "reactor_anue.part.neutrino_per_fission_per_MeV_main",
                     replicate_outputs=index["isotope"],
@@ -615,11 +660,11 @@ class model_dayabay_v0c:
 
             Product.replicate(
                     outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs("reactor_offequilibrium_anue.correction_interpolated"),
-                    name = "reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal",
+                    outputs("reactor_nonequilibrium_anue.correction_interpolated"),
+                    name = "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = ("U238",),
-                    replicate_outputs=index["isotope_offeq"],
+                    replicate_outputs=index["isotope_neq"],
                     )
 
             #
@@ -786,7 +831,7 @@ class model_dayabay_v0c:
             Product.replicate(
                     outputs("reactor.fissions_per_second"),
                     outputs("daily_data.detector.efflivetime"),
-                    name = "reactor_detector.number_of_fissions_daily",
+                    name = "reactor_detector.nfissions_daily",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = self.inactive_detectors
@@ -795,18 +840,18 @@ class model_dayabay_v0c:
             # Total effective number of fissions from a Reactor seen in the Detector during Period
             from dagflow.lib import ArraySum
             ArraySum.replicate(
-                    outputs("reactor_detector.number_of_fissions_daily"),
-                    name = "reactor_detector.number_of_fissions",
+                    outputs("reactor_detector.nfissions_daily"),
+                    name = "reactor_detector.nfissions",
                     )
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
             from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate(
-                name="baseline_factor_per_cm2",
+                name="reactor_detector.baseline_factor_per_cm2",
                 scale="m_to_cm",
                 replicate_outputs=combinations["reactor.detector"]
             )
-            parameters("constant.baseline") >> inputs("baseline_factor_per_cm2")
+            parameters("constant.baseline") >> inputs("reactor_detector.baseline_factor_per_cm2")
 
             # Number of protons per detector
             Product.replicate(
@@ -818,19 +863,19 @@ class model_dayabay_v0c:
 
             # Number of fissions × N protons × ε / (4πL²)  (main)
             Product.replicate(
-                    outputs("reactor_detector.number_of_fissions"),
+                    outputs("reactor_detector.nfissions"),
                     outputs("detector.nprotons"),
-                    outputs("baseline_factor_per_cm2"),
+                    outputs("reactor_detector.baseline_factor_per_cm2"),
                     parameters.get_value("all.detector.efficiency"),
-                    name = "reactor_detector.number_of_fissions_nprotons_per_cm2",
+                    name = "reactor_detector.nfissions_nprotons_per_cm2",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     )
 
             Product.replicate(
-                    outputs("reactor_detector.number_of_fissions_nprotons_per_cm2"),
-                    parameters("all.reactor.offequilibrium_scale"),
-                    parameters.get_value("all.reactor.offeq_factor"),
-                    name = "reactor_detector.number_of_fissions_nprotons_per_cm2_offeq",
+                    outputs("reactor_detector.nfissions_nprotons_per_cm2"),
+                    parameters("all.reactor.nonequilibrium_scale"),
+                    parameters.get_value("all.reactor.neq_factor"),
+                    name = "reactor_detector.nfissions_nprotons_per_cm2_neq",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     )
 
@@ -858,7 +903,7 @@ class model_dayabay_v0c:
             Product.replicate(
                     outputs("detector.efflivetime"),
                     outputs("detector.nprotons"),
-                    outputs("baseline_factor_per_cm2"),
+                    outputs("reactor_detector.baseline_factor_per_cm2"),
                     parameters("all.reactor.snf_scale"),
                     parameters.get_value("all.reactor.snf_factor"),
                     parameters.get_value("all.detector.efficiency"),
@@ -896,84 +941,70 @@ class model_dayabay_v0c:
             # [Nν·cm²/fission/proton]
             #
             Product.replicate(
-                    outputs.get_value("ibd.crosssection"),
-                    outputs.get_value("ibd.jacobian"),
-                    name="ibd.crosssection_jacobian",
+                    outputs.get_value("kinematics.ibd.crosssection"),
+                    outputs.get_value("kinematics.ibd.jacobian"),
+                    name="kinematics.ibd.crosssection_jacobian",
             )
 
             Product.replicate(
-                    outputs.get_value("ibd.crosssection_jacobian"),
+                    outputs.get_value("kinematics.ibd.crosssection_jacobian"),
                     outputs("oscprob"),
-                    name="ibd.crosssection_jacobian_oscillations",
+                    name="kinematics.ibd.crosssection_jacobian_oscillations",
                     replicate_outputs=combinations["reactor.detector"]
             )
 
             Product.replicate(
-                    outputs("ibd.crosssection_jacobian_oscillations"),
+                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
                     outputs("reactor_anue.part.neutrino_per_fission_per_MeV_main"),
-                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.main",
+                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
                     replicate_outputs=combinations["reactor.isotope.detector"]
             )
 
             Product.replicate(
-                    outputs("ibd.crosssection_jacobian_oscillations"),
-                    outputs("reactor_anue.part.neutrino_per_fission_per_MeV_offeq_nominal"),
-                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.offeq",
-                    replicate_outputs=combinations["reactor.isotope_offeq.detector"]
+                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
+                    outputs("reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"),
+                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
+                    replicate_outputs=combinations["reactor.isotope_neq.detector"]
             )
 
             Product.replicate(
-                    outputs("ibd.crosssection_jacobian_oscillations"),
+                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
                     outputs("snf_anue.neutrino_per_second_snf"),
-                    name="neutrino_cm2_per_MeV_per_fission_per_proton.part.snf",
+                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                     replicate_outputs=combinations["reactor.detector"]
             )
-            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.main") >> inputs("kinematics_integral.main")
-            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.offeq") >> inputs("kinematics_integral.offeq")
-            outputs("neutrino_cm2_per_MeV_per_fission_per_proton.part.snf") >> inputs("kinematics_integral.snf")
+            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main") >> inputs("kinematics.integral.nu_main")
+            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq") >> inputs("kinematics.integral.nu_neq")
+            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf") >> inputs("kinematics.integral.nu_snf")
 
             #
             # Multiply by the scaling factors:
-            #  - main:  fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
-            #  - offeq: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × offequilibrium scale[r,i] × offeq_factor(=1)
-            #  - snf:                                effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
+            #  - nu_main: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
+            #  - nu_neq:  fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × nonequilibrium scale[r,i] × neq_factor(=1)
+            #  - nu_snf:                               effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
             #
             Product.replicate(
-                    outputs("kinematics_integral.main"),
-                    outputs("reactor_detector.number_of_fissions_nprotons_per_cm2"),
-                    name = "eventscount.parts.main",
+                    outputs("kinematics.integral.nu_main"),
+                    outputs("reactor_detector.nfissions_nprotons_per_cm2"),
+                    name = "eventscount.parts.nu_main",
                     replicate_outputs = combinations["reactor.isotope.detector.period"]
                     )
 
             Product.replicate(
-                    outputs("kinematics_integral.offeq"),
-                    outputs("reactor_detector.number_of_fissions_nprotons_per_cm2_offeq"),
-                    name = "eventscount.parts.offeq",
-                    replicate_outputs = combinations["reactor.isotope_offeq.detector.period"],
+                    outputs("kinematics.integral.nu_neq"),
+                    outputs("reactor_detector.nfissions_nprotons_per_cm2_neq"),
+                    name = "eventscount.parts.nu_neq",
+                    replicate_outputs = combinations["reactor.isotope_neq.detector.period"],
                     allow_skip_inputs = True,
                     skippable_inputs_should_contain = ("U238",)
                     )
 
             Product.replicate(
-                    outputs("kinematics_integral.snf"),
+                    outputs("kinematics.integral.nu_snf"),
                     outputs("reactor_detector.livetime_nprotons_per_cm2_snf"),
-                    name = "eventscount.parts.snf",
+                    name = "eventscount.parts.nu_snf",
                     replicate_outputs = combinations["reactor.detector.period"]
                     )
-
-            # Debug node: eventscount.reactor_active_periods
-            Sum.replicate(
-                outputs("eventscount.parts.main"),
-                outputs("eventscount.parts.offeq"),
-                name="eventscount.reactor_active_periods",
-                replicate_outputs=combinations["detector.period"]
-            )
-            # Debug node: eventscount.reactor_snf_periods
-            Sum.replicate(
-                outputs("eventscount.parts.snf"),
-                name="eventscount.snf_periods",
-                replicate_outputs=combinations["detector.period"]
-            )
 
             Sum.replicate(
                 outputs("eventscount.parts"),
@@ -981,11 +1012,6 @@ class model_dayabay_v0c:
                 replicate_outputs=combinations["detector.period"]
             )
 
-            # Sum.replicate(
-            #     outputs("eventscount.periods.raw"),
-            #     name="eventscount.raw",
-            #     replicate_outputs=index["detector"]
-            # )
             #
             # Detector effects
             #
@@ -1058,13 +1084,13 @@ class model_dayabay_v0c:
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
             from dgf_detector.Monotonize import Monotonize
             Monotonize.replicate(
-                    name="detector.lsnl.curves.evis_coarse_monotonic",
+                    name="detector.lsnl.curves.evis_coarse_monotonous",
                     index_fraction = 0.5,
                     gradient = 1.0,
                     with_x = True
                     )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.x")
-            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonic.y")
+            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.x")
+            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.y")
 
             from multikeydict.tools import remap_items
             remap_items(
@@ -1085,7 +1111,7 @@ class model_dayabay_v0c:
                     },
             )
             outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+            outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
             edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
 
             # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
@@ -1098,9 +1124,9 @@ class model_dayabay_v0c:
 
             # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
             Product.replicate(
-                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonic"),
+                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
                 outputs("detector.parameters_relative.energy_scale_factor"),
-                name="detector.lsnl.curves.evis_coarse_monotonic_scaled",
+                name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
                 replicate_outputs = index["detector"]
             )
 
@@ -1114,7 +1140,7 @@ class model_dayabay_v0c:
                 replicate_xcoarse = True,
                 replicate_outputs = index["detector"]
             )
-            outputs.get_dict("detector.lsnl.curves.evis_coarse_monotonic_scaled") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
+            outputs.get_dict("detector.lsnl.curves.evis_coarse_monotonous_scaled") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
             outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
             edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
 
@@ -1160,11 +1186,11 @@ class model_dayabay_v0c:
 
             from dgf_detector.Rebin import Rebin
             Rebin.replicate(
-                names={"matrix": "detector.rebin_matrix_ibd", "product": "eventscount.final.ibd"},
+                names={"matrix": "detector.rebin.matrix_ibd", "product": "eventscount.final.ibd"},
                 replicate_outputs=combinations["detector.period"],
             )
-            edges_energy_erec >> inputs.get_value("detector.rebin_matrix_ibd.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_matrix_ibd.edges_new")
+            edges_energy_erec >> inputs.get_value("detector.rebin.matrix_ibd.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin.matrix_ibd.edges_new")
             outputs("eventscount.fine.ibd_normalized") >> inputs("eventscount.final.ibd")
 
             #
@@ -1285,11 +1311,11 @@ class model_dayabay_v0c:
                     )
 
             Rebin.replicate(
-                    names={"matrix": "detector.rebin_bkg_matrix", "product": "eventscount.final.bkg"},
+                    names={"matrix": "detector.rebin.matrix_bkg", "product": "eventscount.final.bkg"},
                     replicate_outputs=combinations["detector.period"],
             )
-            edges_energy_erec >> inputs.get_value("detector.rebin_bkg_matrix.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_bkg_matrix.edges_new")
+            edges_energy_erec >> inputs.get_value("detector.rebin.matrix_bkg.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin.matrix_bkg.edges_new")
             outputs("eventscount.fine.bkg") >> inputs("eventscount.final.bkg")
 
             Sum.replicate(
@@ -1315,41 +1341,31 @@ class model_dayabay_v0c:
                 name="eventscount.final.concatenated.detector"
             )
 
+            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self._concatenation_mode}"],
+
             #
             # Covariance matrices
             #
             from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            self._covariance_matrices["detector"] = (covariance_detector := CovarianceMatrixGroup(store_to="covariance.detector", **self._covmatrix_kwargs))
-            self._covariance_matrices["detector_period"] = (covariance_detector_period := CovarianceMatrixGroup(store_to="covariance.detector_period", **self._covmatrix_kwargs))
+            self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance", **self._covmatrix_kwargs)
 
-            for name, parameters_source in (
-                    ("oscprob", "oscprob"),
-                    ("eres", "detector.eres"),
-                    ("lsnl", "detector.lsnl_scale_a"),
-                    ("iav", "detector.iav_offdiag_scale_factor"),
-                    ("detector_relative", "detector.detector_relative"),
-                    ("energy_per_fission", "reactor.energy_per_fission"),
-                    ("nominal_thermal_power", "reactor.nominal_thermal_power"),
-                    ("snf", "reactor.snf_scale"),
-                    ("neq", "reactor.offequilibrium_scale"),
-                    ("fission_fraction", "reactor.fission_fraction_scale"),
-                    ("bkg_rate", "bkg.rate"),
-                    ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
-                    ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr")
-                    ):
-                covariance_detector.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
-                covariance_detector_period.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
-            covariance_detector.add_covariance_sum()
-            covariance_detector_period.add_covariance_sum()
+            for name, parameters_source in systematic_uncertainties_groups:
+                self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
+            self._covariance_matrix.add_covariance_sum()
 
-            outputs.get_value("eventscount.final.concatenated.detector") >> covariance_detector
-            outputs.get_value("eventscount.final.concatenated.detector_period") >> covariance_detector_period
+            outputs.get_value("eventscount.final.concatenated.selected") >> self._covariance_matrix
 
-            npars_cov = covariance_detector.get_parameters_count()
-            npars_nuisance = ilen(parameters_nuisance_normalized.walkitems())
+            npars_cov = self._covariance_matrix.get_parameters_count()
+            list_parameters_nuisance_normalized = list(parameters_nuisance_normalized.walkvalues())
+            npars_nuisance = len(list_parameters_nuisance_normalized)
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
+            from dagflow.lib.ParArrayInput import ParArrayInput
+            parinp_mc = ParArrayInput(
+                name="mc.parameters.inputs",
+                parameters=list_parameters_nuisance_normalized,
+            )
 
             #
             # Statistic
@@ -1359,39 +1375,158 @@ class model_dayabay_v0c:
 
             from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
-                name="pseudo.data",
-                mode="asimov",
-                replicate_outputs=combinations["detector.period"],
-                replicate_inputs=combinations["detector.period"]
+                name="data.pseudo",
+                mode=self._monte_carlo_mode,
+                generator=self._random_generator,
             )
-            outputs("eventscount.final.detector_period") >> inputs("pseudo.data")
-            self._frozen_nodes["pseudodata"] = tuple(nodes.get_dict("pseudo.data").walkvalues())
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("data.pseudo.data")
+            self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo"),)
+
+            MonteCarlo.replicate(
+                name="covariance.data.fixed",
+                mode="asimov",
+                generator=self._random_generator,
+            )
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("covariance.data.fixed.data")
+            self._frozen_nodes["covariance_data_fixed"] = (nodes.get_value("covariance.data.fixed"),)
+
+            MonteCarlo.replicate(
+                name="mc.parameters.toymc",
+                mode="normal-unit",
+                shape=(npars_nuisance,),
+                generator=self._random_generator,
+            )
+            outputs.get_value("mc.parameters.toymc") >> parinp_mc
+            nodes["mc.parameters.inputs"] = parinp_mc
+
+            from dagflow.lib.Cholesky import Cholesky
+            Cholesky.replicate(name="cholesky.stat.variable")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("cholesky.stat.variable")
+
+            Cholesky.replicate(name="cholesky.stat.fixed")
+            outputs.get_value("covariance.data.fixed") >> inputs.get_value("cholesky.stat.fixed")
+
+            Cholesky.replicate(name="cholesky.stat.data.fixed")
+            outputs.get_value("data.pseudo") >> inputs.get_value("cholesky.stat.data.fixed")
+
+            from dagflow.lib.SumMatOrDiag import SumMatOrDiag
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
+            outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
+
+            Cholesky.replicate(name="cholesky.covmat_full_p.stat_fixed")
+            outputs.get_value("covariance.covmat_full_p.stat_fixed") >> inputs.get_value("cholesky.covmat_full_p.stat_fixed")
+
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_variable")
+            outputs.get_value("eventscount.final.concatenated.selected") >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+
+            Cholesky.replicate(name="cholesky.covmat_full_p.stat_variable")
+            outputs.get_value("covariance.covmat_full_p.stat_variable") >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
+
+            SumMatOrDiag.replicate(name="covariance.covmat_full_n")
+            outputs.get_value("data.pseudo") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
+
+            Cholesky.replicate(name="cholesky.covmat_full_n")
+            outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
             from dgf_statistics.Chi2 import Chi2
-            Chi2.replicate(
-                replicate_inputs=combinations["detector.period"],
-                name="statistic.stat.chi2p"
-            )
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.data")
-            outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2p.theory")
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2p.errors")
+
+            # (1) chi-squared Pearson stat (fixed Pearson errors)
+            Chi2.replicate(name="statistic.stat.chi2p_iterative")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
+            outputs.get_value("cholesky.stat.fixed") >> inputs.get_value("statistic.stat.chi2p_iterative.errors")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
+
+            # (2-2) chi-squared Neyman stat
+            Chi2.replicate(name="statistic.stat.chi2n")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2n.theory")
+            outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value("statistic.stat.chi2n.errors")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.stat.chi2n.data")
+
+            # (2-1)
+            Chi2.replicate(name="statistic.stat.chi2p")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
+            outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.stat.chi2p.data")
+
+            # (5) chi-squared Pearson syst (fixed Pearson errors)
+            Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
+            outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.errors")
+
+            # (2-3) chi-squared Neyman syst
+            Chi2.replicate(name="statistic.full.chi2n_covmat")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
+            outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
+
+            # (2-4) Pearson variable stat errors
+            Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
+            outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
             from dgf_statistics.CNPStat import CNPStat
-            CNPStat.replicate(
-                replicate_inputs=combinations["detector.period"],
-                replicate_outputs=combinations["detector.period"],
-                name="statistic.staterr.cnp"
+            CNPStat.replicate(name="statistic.staterr.cnp")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.staterr.cnp.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
+
+            # (3) chi-squared CNP stat
+            Chi2.replicate(name="statistic.stat.chi2cnp")
+            outputs.get_value("data.pseudo") >> inputs.get_value("statistic.stat.chi2cnp.data")
+            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2cnp.theory")
+            outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
+
+            # (2) chi-squared Pearson stat + pull (fixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p_iterative"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2p_iterative",
             )
-            outputs("pseudo.data") >> inputs("statistic.staterr.cnp.data")
-            outputs("eventscount.final.detector_period") >> inputs("statistic.staterr.cnp.theory")
+            # (4) chi-squared CNP stat + pull (fixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2cnp"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2cnp",
+            )
 
-            Chi2.replicate(replicate_inputs=combinations["detector.period"], name="statistic.stat.chi2cnp")
-            outputs("pseudo.data") >> inputs("statistic.stat.chi2cnp.data")
-            outputs("eventscount.final.detector_period") >> inputs("statistic.stat.chi2cnp.theory")
-            outputs("statistic.staterr.cnp") >> inputs("statistic.stat.chi2cnp.errors")
+            from dagflow.lib.LogProdDiag import LogProdDiag
+            LogProdDiag.replicate(name="statistic.log_prod_diag")
+            outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.log_prod_diag")
 
-            Sum.replicate(outputs.get_value("statistic.stat.chi2p"), outputs.get_value("statistic.nuisance.all"), name="statistic.full.chi2p")
-            Sum.replicate(outputs.get_value("statistic.stat.chi2cnp"), outputs.get_value("statistic.nuisance.all"), name="statistic.full.chi2cnp")
+            # (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p"),
+                outputs.get_value("statistic.log_prod_diag"),
+                name="statistic.stat.chi2p_unbiased",
+            )
+
+            # (8) chi-squared Pearson stat + log|V| + pull (unfixed Pearson errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p_unbiased"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2p_unbiased",
+            )
+
+            Product.replicate(
+                parameters.get_value("all.stats.pearson"),
+                outputs.get_value("statistic.full.chi2p_covmat_variable"),
+                name="statistic.helper.pearson",
+            )
+            Product.replicate(
+                parameters.get_value("all.stats.neyman"),
+                outputs.get_value("statistic.full.chi2n_covmat"),
+                name="statistic.helper.neyman",
+            )
+            # (2-4) CNP covmat
+            Sum.replicate(
+                outputs.get_value("statistic.helper.pearson"),
+                outputs.get_value("statistic.helper.neyman"),
+                name="statistic.full.chi2cnp_covmat",
+            )
             # fmt: on
 
         processed_keys_set = set()
@@ -1411,7 +1546,20 @@ class model_dayabay_v0c:
                 )
 
         # Ensure stem nodes are calculated
-        for output in outputs.get_dict("eventscount.final.detector").walkvalues():
+        self._touch()
+
+    @staticmethod
+    def _create_random_generator(seed: int) -> Generator:
+        from numpy.random import MT19937, SeedSequence
+
+        (sequence,) = SeedSequence(seed).spawn(1)
+        algo = MT19937(seed=sequence.spawn(1)[0])
+        return Generator(algo)
+
+    def _touch(self):
+        for output in (
+            self.storage["outputs"].get_dict("eventscount.final.detector").walkvalues()
+        ):
             output.touch()
 
     def update_frozen_nodes(self):
@@ -1420,9 +1568,8 @@ class model_dayabay_v0c:
                 node.unfreeze()
                 node.touch()
 
-    def update_covariance_matrices(self):
-        for covmat in self._covariance_matrices.values():
-            covmat.update_matrices()
+    def update_covariance_matrix(self):
+        self._covariance_matrix.update_matrices()
 
     def set_parameters(
         self,
@@ -1441,3 +1588,17 @@ class model_dayabay_v0c:
             par = parameters_storage[parname]
             par.push(value)
             print(f"Set {parname}={svalue}")
+
+    def next_sample(
+        self, *, mc_parameters: bool = True, mc_statistics: bool = True
+    ) -> None:
+        if mc_parameters:
+            self.storage.get_value("nodes.mc.parameters.toymc").next_sample()
+            self.storage.get_value("nodes.mc.parameters.inputs").touch()
+
+        if mc_statistics:
+            self.storage.get_value("nodes.data.pseudo").next_sample()
+
+        if mc_parameters:
+            self.storage.get_value("nodes.mc.parameters.toymc").reset()
+            self.storage.get_value("nodes.mc.parameters.inputs").touch()
