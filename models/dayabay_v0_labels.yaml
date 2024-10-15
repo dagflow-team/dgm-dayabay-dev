@@ -465,9 +465,9 @@ mc:
 data:
   pseudo:
     self:
-      text: "(Pseudo) data node for likelihood"
+      text: "Pseudo data (this model) node for likelihood"
     proxy:
-      text: "(Proxy) data node for likelihood"
+      text: "Switcher of the data source for likelihood"
 covariance:
   jacobians:
     oscprob:
