@@ -25,8 +25,6 @@ def main(args: Namespace) -> None:
     parameters_constrained = model.storage("parameters.constrained")
     statistic = model.storage("outputs.statistic")
 
-    model.touch()
-
     parameters_groups = {
         "free": ["oscprob"],
         "constrained": ["oscprob", "reactor", "detector", "bkg"],

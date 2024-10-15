@@ -82,8 +82,6 @@ def main(args: Namespace) -> None:
     parameters = model.storage("parameters.all")
     statistic = model.storage("outputs.statistic")
 
-    model.touch()
-
     from yaml import safe_dump
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
     chi2p_stat = statistic["stat.chi2p"]
