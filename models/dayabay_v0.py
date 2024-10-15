@@ -314,8 +314,6 @@ class model_dayabay_v0:
             #
             # Create nodes
             #
-            labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
-
             from numpy import arange, concatenate, linspace
 
             #
@@ -1543,21 +1541,7 @@ class model_dayabay_v0:
             )
             # fmt: on
 
-        processed_keys_set = set()
-        storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
-        storage("outputs").read_labels(labels, processed_keys_set=processed_keys_set)
-        storage("inputs").remove_connected_inputs()
-        storage.read_paths(index=index)
-        graph.build_index_dict(index)
-
-        labels_mk = NestedMKDict(labels, sep=".")
-        if self._strict:
-            for key in processed_keys_set:
-                labels_mk.delete_with_parents(key)
-            if labels_mk:
-                raise RuntimeError(
-                    f"The following label groups were not used: {tuple(labels_mk.walkkeys())}"
-                )
+        self._setup_labels()
 
         # Ensure stem nodes are calculated
         self._touch()
@@ -1616,3 +1600,29 @@ class model_dayabay_v0:
         if mc_parameters:
             self.storage.get_value("nodes.mc.parameters.toymc").reset()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
+
+    def _setup_labels(self):
+        labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
+
+        processed_keys_set = set()
+        self.storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
+        self.storage("outputs").read_labels(
+            labels, processed_keys_set=processed_keys_set
+        )
+        self.storage("inputs").remove_connected_inputs()
+        self.storage.read_paths(index=self.index)
+        self.graph.build_index_dict(self.index)
+
+        labels_mk = NestedMKDict(labels, sep=".")
+        if not self._strict:
+            return
+
+        for key in processed_keys_set:
+            labels_mk.delete_with_parents(key)
+
+        if not labels_mk:
+            return
+
+        raise RuntimeError(
+            f"The following label groups were not used: {', '.join(unused_keys)}"
+        )
