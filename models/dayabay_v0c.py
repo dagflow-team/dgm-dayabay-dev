@@ -428,13 +428,13 @@ class model_dayabay_v0c:
                 labels={
                     "reactor": {
                         "snf_factor": "Common Spent Nuclear Fuel (SNF) factor",
-                        "neq_factor": "Common Non-EQuilibrium (NEQ) factor",
+                        "neq_factor": "Common Non-Equilibrium (NEQ) factor",
                     }
                 },
             )
 
             #
-            # Non-EQuilibrium correction
+            # Non-Equilibrium correction
             #
             load_graph(
                 name = "reactor_nonequilibrium_anue.correction_input",
@@ -582,7 +582,7 @@ class model_dayabay_v0c:
                         "corr": (0.0, 1.0)
                         },
                     labels={
-                        "corr": "Correlated ν̅ spectrum shape uncertainty"
+                        "corr": "Correlated ν̅ spectrum shape correction"
                         },
                     joint_nuisance = False
                     )

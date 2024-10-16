@@ -66,13 +66,13 @@ def main(opts: Namespace) -> None:
             storage(source).plot(folder=f"{folder}/{source.replace('.', '/')}")
 
     if opts.pars_datax:
-        storage.to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
+        storage["parameters.all"].to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
 
     if opts.pars_latex:
-        storage.to_latex_file(f"output/dayabay_{opts.version}_pars.tex")
+        storage["parameters.all"].to_latex_file(f"output/dayabay_{opts.version}_pars.tex")
 
     if opts.pars_text:
-        storage.to_text_file(f"output/dayabay_{opts.version}_pars.txt")
+        storage["parameters.all"].to_text_file(f"output/dayabay_{opts.version}_pars.txt")
 
     if opts.graph_auto:
         plot_graph(graph, storage, opts)
