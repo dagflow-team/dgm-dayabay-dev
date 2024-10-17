@@ -15,6 +15,7 @@ from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.lib.InterpolatorGroup import InterpolatorGroup
+from dagflow.metanode import NodeMeta
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -23,44 +24,108 @@ SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
 
 class model_dayabay_v0c:
+    """The Daya Bay analysis implementation version v0c.
+
+    Attributes
+    ----------
+    storage : NodeStorage
+              nested dictionary with model elements: nodes, parameters, etc.
+    graph : Graph
+            graph instance
+    index : dict[str, tuple[str, ...]]
+            dictionary with all possible names for replicated items, e.g.
+            "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
+            index is setup within the model
+    inactive_detectors : tuple[set[str], ...]
+                         combinations of period/detector names, which are be excluded
+                         from the analysis
+    combinations : dict[str, tuple[tuple[str, ...], ...]]
+                   lists of all combinations of values of 2 and more indices,
+                   e.g. detector/period, reator/isotope
+    path_data : Path
+                path to the data
+    spectrum_correction_mode : str, default="exponential"
+                               mode of how the parameters of the free spectrum model
+                               are treated:
+                                   - "exponential": pᵢ=0 by default, S(Eᵢ) is
+                                     multiplied by exp(pᵢ) the correction is always
+                                     positive, but nonlinear
+                                   - "linear": pᵢ=0 by default, S(Eᵢ) is multiplied by
+                                     1+pᵢ the correction may be negative, but is always
+                                     linear
+    concatenation_mode : str, default="detector_period"
+                         choses the observation to be analyzed:
+                             - "detector_period" — concatenation of observations at
+                               each detector at each period
+                             - "detector" — concatenation of observations at each
+                               detector (combined for all period)
+    monte_carlo_mode : str, default="asimov"
+                       the Monte-Carlo mode for pseudo-data:
+                           - "asimov" — Asimov, no fluctuations
+                           - "normal-stats" — normal fluctuations with statistical
+                             errors
+                           - "poisson" — Poisson fluctuations
+
+    Technical attributes
+    --------------------
+    _override_indices : dict[str, Sequence[str]]
+                        dictionary with indices to override self.index.
+                        may be used to reduce the number of detectors or reactors in the
+                        model
+    _source_type : str, default="npz"
+                   type of the data to read ("tsv", "hdf5", "root" or "npz")
+    _strict : bool, default=True
+              strict mode. Stop execution if:
+                  - the model is not complete
+                  - any labels were not applied
+    _close : bool, default=True
+             if True the graph is closed and memory is allocated
+             may be used to debug corrupt model
+    _random_generator : Generator
+                        numpy random generator to be used for ToyMC
+    _covariance_matrix : NodeMeta
+                         covariance matrix, computed on this model
+    _frozen_nodes : dict[str, tuple]
+                    storage with nodes, which are being fixed at their values and
+                    require manual intervention in order to be recalculated
+    """
+
     __slots__ = (
         "storage",
         "graph",
         "inactive_detectors",
         "index",
         "combinations",
+        "path_data",
+        "spectrum_correction_mode",
+        "concatenation_mode",
+        "monte_carlo_mode",
         "_override_indices",
-        "_path_data",
         "_source_type",
         "_strict",
         "_close",
-        "_spectrum_correction_mode",
-        "_covmatrix_kwargs",
         "_covariance_matrix",
         "_frozen_nodes",
-        "_concatenation_mode",
-        "_monte_carlo_mode",
         "_random_generator",
     )
 
     storage: NodeStorage
-    graph: Graph | None
-    inactive_detectors: tuple[set[str], ...]
+    graph: Graph
     index: dict[str, tuple[str, ...]]
+    inactive_detectors: tuple[set[str], ...]
     combinations: dict[str, tuple[tuple[str, ...], ...]]
-    _path_data: Path
-    _override_indices: Mapping[str, Sequence[str]]
+    path_data: Path
+    spectrum_correction_mode: Literal["linear", "exponential"]
+    concatenation_mode: Literal["detector", "detector_period"]
+    monte_carlo_mode: Literal[
+        "asimov", "normal", "normal-stats", "poisson", "covariance"
+    ]
+    _override_indices: dict[str, Sequence[str]]
     _source_type: SourceTypes
     _strict: bool
     _close: bool
-    _spectrum_correction_mode: Literal["linear", "exponential"]
-    _concatenation_mode: Literal["detector", "detector_period"]
-    _monte_carlo_mode: Literal[
-        "asimov", "normal", "normal-stats", "poisson", "covariance"
-    ]
     _random_generator: Generator
-    _covmatrix_kwargs: dict
-    _covariance_matrix: Any
+    _covariance_matrix: NodeMeta
     _frozen_nodes: dict[str, tuple]
 
     def __init__(
@@ -71,7 +136,6 @@ class model_dayabay_v0c:
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
-        covmatrix_kwargs: Mapping = {},
         seed: int = 0,
         monte_carlo_mode: Literal[
             "asimov", "normal", "normal-stats", "poisson", "covariance"
@@ -82,15 +146,13 @@ class model_dayabay_v0c:
         self._strict = strict
         self._close = close
 
-        self.graph = None
         self.storage = NodeStorage()
-        self._path_data = Path("data/dayabay-v0c")
+        self.path_data = Path("data/dayabay-v0c")
         self._source_type = source_type
-        self._override_indices = override_indices
-        self._spectrum_correction_mode = spectrum_correction_mode
-        self._covmatrix_kwargs = dict(covmatrix_kwargs)
-        self._concatenation_mode = concatenation_mode
-        self._monte_carlo_mode = monte_carlo_mode
+        self._override_indices = dict(override_indices)
+        self.spectrum_correction_mode = spectrum_correction_mode
+        self.concatenation_mode = concatenation_mode
+        self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
 
         self._covariance_matrix = None
@@ -106,14 +168,52 @@ class model_dayabay_v0c:
             self.set_parameters(parameter_values)
 
     def build(self):
+        from numpy import arange, concatenate, linspace, ones
+
+        from dagflow.bundles.load_hist import load_hist
+        from dagflow.bundles.load_record import load_record_data
+        from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
+        from dagflow.lib import (
+            Array,
+            ArraySum,
+            Cholesky,
+            Concatenation,
+            CovarianceMatrixGroup,
+            Exp,
+            IntegratorGroup,
+            LogProdDiag,
+            ParArrayInput,
+            Proxy,
+            RenormalizeDiag,
+            SumMatOrDiag,
+            VectorMatrixProduct,
+            View,
+        )
+        from dagflow.tools.schema import LoadPy
+        from dgf_detector import (
+            AxisDistortionMatrix,
+            EnergyResolution,
+            Monotonize,
+            Rebin,
+        )
+        from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
+        from dgf_reactoranueosc import (
+            IBDXsecVBO1Group,
+            InverseSquareLaw,
+            NueSurvivalProbability,
+        )
+        from dgf_statistics import Chi2, CNPStat, MonteCarlo
+        from models.bundles.refine_detector_data import refine_detector_data
+        from models.bundles.refine_reactor_data import refine_reactor_data
+        from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
+        from multikeydict.tools import remap_items
+
         storage = self.storage
-        path_data = self._path_data
+        path_data = self.path_data
 
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self._source_type
         path_root = path_data / "root"
-
-        from dagflow.tools.schema import LoadPy
 
         antineutrino_model_edges = LoadPy(
             path_parameters / "reactor_antineutrino_spectrum_edges.py",
@@ -314,16 +414,12 @@ class model_dayabay_v0c:
             #
             labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
 
-            from numpy import arange, concatenate, linspace
-
             #
             # Define binning
             #
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
 
-            from dagflow.lib.Array import Array
-            from dagflow.lib.View import View
             edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
             edges_energy_common, _ = Array.make_stored(
                 "edges.energy_common", in_edges_fine
@@ -345,7 +441,6 @@ class model_dayabay_v0c:
             Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
             Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
 
-            from dagflow.lib.IntegratorGroup import IntegratorGroup
             integrator, _ = IntegratorGroup.replicate(
                 "2d",
                 names = {
@@ -359,7 +454,6 @@ class model_dayabay_v0c:
             outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
             outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
 
-            from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
             ibd, _ = IBDXsecVBO1Group.make_stored(path="kinematics.ibd", use_edep=True)
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
@@ -370,8 +464,6 @@ class model_dayabay_v0c:
             #
             # Oscillations
             #
-            from dgf_reactoranueosc.NueSurvivalProbability import \
-                NueSurvivalProbability
             NueSurvivalProbability.replicate(
                 name="oscprob",
                 distance_unit="m",
@@ -492,8 +584,6 @@ class model_dayabay_v0c:
             #   - correlated between isotopes
             #   - uncorrelated between energy intervals
             #
-            from dagflow.bundles.make_y_parameters_for_x import \
-                make_y_parameters_for_x
             make_y_parameters_for_x(
                     outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
                     namefmt = "spec_scale_{:02d}",
@@ -502,19 +592,16 @@ class model_dayabay_v0c:
                     key = "neutrino_per_fission_factor",
                     values = 0.0,
                     labels = "Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction" \
-                           + (" (exp)" if self._spectrum_correction_mode == "exponential" else " (linear)"),
+                           + (" (exp)" if self.spectrum_correction_mode == "exponential" else " (linear)"),
                     hide_nodes = True
                     )
-
-            from dagflow.lib.Concatenation import Concatenation
 
             Concatenation.replicate(
                     parameters("all.neutrino_per_fission_factor"),
                     name = "reactor_anue.spectrum_free_correction.input"
                     )
             outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
-            if self._spectrum_correction_mode == "exponential":
-                from dagflow.lib import Exp
+            if self.spectrum_correction_mode == "exponential":
                 Exp.replicate(
                         outputs.get_value("reactor_anue.spectrum_free_correction.input"),
                         name = "reactor_anue.spectrum_free_correction.correction"
@@ -554,12 +641,6 @@ class model_dayabay_v0c:
                 merge_x = True,
                 replicate_outputs = combinations["anue_unc.isotope"],
             )
-
-            # In the case of constant (left) interpolation bin edges should be used
-            # from dagflow.lib.MeshToEdges import MeshToEdges
-            # MeshToEdges.replicate(name="reactor_anue.spectrum_uncertainty.enu")
-            # outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers") >> inputs.get_value("reactor_anue.spectrum_uncertainty.enu")
-            # nodes.get_value("reactor_anue.spectrum_uncertainty.enu").close()
 
             for isotope in index["isotope"]:
                 make_y_parameters_for_x(
@@ -663,7 +744,6 @@ class model_dayabay_v0c:
             #
             # Livetime
             #
-            from dagflow.bundles.load_record import load_record_data
             load_record_data(
                 name = "daily_data.detector_all",
                 filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
@@ -672,8 +752,6 @@ class model_dayabay_v0c:
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
                 skip = self.inactive_detectors
             )
-            from models.bundles.refine_detector_data import \
-                refine_detector_data
             refine_detector_data(
                 data("daily_data.detector_all"),
                 data.child("daily_data.detector"),
@@ -687,7 +765,6 @@ class model_dayabay_v0c:
                 columns = ("week", "day", "ndet", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
             )
-            from models.bundles.refine_reactor_data import refine_reactor_data
             refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
@@ -695,8 +772,6 @@ class model_dayabay_v0c:
                 isotopes = index["isotope"],
             )
 
-            from models.bundles.sync_reactor_detector_data import \
-                sync_reactor_detector_data
             sync_reactor_detector_data(
                     data("daily_data.reactor"),
                     data("daily_data.detector"),
@@ -831,14 +906,12 @@ class model_dayabay_v0c:
                     )
 
             # Total effective number of fissions from a Reactor seen in the Detector during Period
-            from dagflow.lib import ArraySum
             ArraySum.replicate(
                     outputs("reactor_detector.nfissions_daily"),
                     name = "reactor_detector.nfissions",
                     )
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
-            from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate(
                 name="reactor_detector.baseline_factor_per_cm2",
                 scale="m_to_cm",
@@ -1018,12 +1091,10 @@ class model_dayabay_v0c:
                     }
             )
 
-            from dagflow.lib.RenormalizeDiag import RenormalizeDiag
             RenormalizeDiag.replicate(mode="offdiag", name="detector.iav.matrix_rescaled", replicate_outputs=index["detector"])
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
             outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
 
-            from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
             VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
@@ -1038,7 +1109,6 @@ class model_dayabay_v0c:
             )
 
             # Refine LSNL curves: interpolate with smaller step
-            from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
@@ -1075,7 +1145,6 @@ class model_dayabay_v0c:
             # - Required by matrix calculation algorithm
             # - Introduced to achieve stable minimization
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
-            from dgf_detector.Monotonize import Monotonize
             Monotonize.replicate(
                     name="detector.lsnl.curves.evis_coarse_monotonous",
                     index_fraction = 0.5,
@@ -1085,7 +1154,6 @@ class model_dayabay_v0c:
             outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.x")
             outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.y")
 
-            from multikeydict.tools import remap_items
             remap_items(
                 parameters("all.detector.detector_relative"),
                 outputs.child("detector.parameters_relative"),
@@ -1138,7 +1206,6 @@ class model_dayabay_v0c:
             edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
 
             # Build LSNL matrix
-            from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
             AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
@@ -1147,7 +1214,6 @@ class model_dayabay_v0c:
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
-            from dgf_detector.EnergyResolution import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
             nodes.get_value("detector.eres.sigma_rel") << parameters("constrained.detector.eres")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
@@ -1177,7 +1243,6 @@ class model_dayabay_v0c:
                 replicate_outputs=combinations["detector"],
             )
 
-            from dgf_detector.Rebin import Rebin
             Rebin.replicate(
                 names={"matrix": "detector.rebin.matrix_ibd", "product": "eventscount.final.ibd"},
                 replicate_outputs=combinations["detector.period"],
@@ -1189,7 +1254,6 @@ class model_dayabay_v0c:
             #
             # Backgrounds
             #
-            from dagflow.bundles.load_hist import load_hist
             bkg_names = {
                 'acc': "accidental",
                 'lihe': "lithium9",
@@ -1213,7 +1277,6 @@ class model_dayabay_v0c:
             )
 
             # TODO: Daya Bay v1 (if needed)
-            # from multikeydict.tools import remap_items
             # ads_at_sites = {
             #         "EH1": ("AD11", "AD12"),
             #         "EH2": ("AD21", "AD22"),
@@ -1238,7 +1301,6 @@ class model_dayabay_v0c:
             # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
             # So, every bin contain 0.00416667.
             # TODO: remove in dayabay-v1
-            from numpy import ones
             fastn_data = ones(240) / 240
             for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
                 spectrum.data[:] = fastn_data
@@ -1334,13 +1396,12 @@ class model_dayabay_v0c:
                 name="eventscount.final.concatenated.detector"
             )
 
-            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self._concatenation_mode}"]
+            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self.concatenation_mode}"]
 
             #
             # Covariance matrices
             #
-            from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance", **self._covmatrix_kwargs)
+            self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
             for name, parameters_source in systematic_uncertainties_groups:
                 self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
@@ -1354,7 +1415,6 @@ class model_dayabay_v0c:
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
-            from dagflow.lib.ParArrayInput import ParArrayInput
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,
@@ -1366,16 +1426,14 @@ class model_dayabay_v0c:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
-            from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="data.pseudo.self",
-                mode=self._monte_carlo_mode,
+                mode=self.monte_carlo_mode,
                 generator=self._random_generator,
             )
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("data.pseudo.self.data")
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
-            from dagflow.lib import Proxy
             Proxy.replicate(
                 name="data.pseudo.proxy",
             )
@@ -1398,7 +1456,6 @@ class model_dayabay_v0c:
             outputs.get_value("mc.parameters.toymc") >> parinp_mc
             nodes["mc.parameters.inputs"] = parinp_mc
 
-            from dagflow.lib.Cholesky import Cholesky
             Cholesky.replicate(name="cholesky.stat.variable")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("cholesky.stat.variable")
 
@@ -1408,7 +1465,6 @@ class model_dayabay_v0c:
             Cholesky.replicate(name="cholesky.stat.data.fixed")
             outputs.get_value("data.pseudo.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
 
-            from dagflow.lib.SumMatOrDiag import SumMatOrDiag
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
@@ -1430,7 +1486,6 @@ class model_dayabay_v0c:
             Cholesky.replicate(name="cholesky.covmat_full_n")
             outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
-            from dgf_statistics.Chi2 import Chi2
 
             # (1) chi-squared Pearson stat (fixed Pearson errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
@@ -1468,7 +1523,6 @@ class model_dayabay_v0c:
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
-            from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate(name="statistic.staterr.cnp")
             outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
@@ -1492,7 +1546,6 @@ class model_dayabay_v0c:
                 name="statistic.full.chi2cnp",
             )
 
-            from dagflow.lib.LogProdDiag import LogProdDiag
             LogProdDiag.replicate(name="statistic.log_prod_diag")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.log_prod_diag")
 
