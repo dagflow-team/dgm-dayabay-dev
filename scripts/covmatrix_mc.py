@@ -1,12 +1,12 @@
 #!/usr/bin/env python
+import numpy as np
 from argparse import Namespace
+from matplotlib import pyplot as plt
+from typing import TYPE_CHECKING
 
 from dagflow.logger import DEBUG as INFO4
 from dagflow.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
-import numpy as np
-from matplotlib import pyplot as plt
-from typing import TYPE_CHECKING
 
 from dagflow.output import Output
 from dagflow.storage import NodeStorage
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 set_level(INFO1)
 
 
-systematic_uncertainties_groups = {
+SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "oscprob": "oscprob",
     "eres": "detector.eres",
     "lsnl": "detector.lsnl_scale_a",
@@ -74,11 +74,11 @@ def create_list_variation_parameters(
     for group in groups:
         if group == "hm_corr":
             group_parameters = [
-                storage.get_any(f"parameters.normalized.{systematic_uncertainties_groups[group]}")
+                storage.get_any(f"parameters.normalized.{SYSTEMATIC_UNCERTAINTIES_GROUPS[group]}")
             ]
         else:
             group_parameters = list(
-                storage(f"parameters.normalized.{systematic_uncertainties_groups[group]}").walkvalues()
+                storage(f"parameters.normalized.{SYSTEMATIC_UNCERTAINTIES_GROUPS[group]}").walkvalues()
             )
         parameters.extend(group_parameters)
     return parameters
@@ -118,8 +118,8 @@ def covariance_matrix_calculation(
         tuple of NDArray, covariance absolute and covariance relative matrices
     """
     observation_size = observation.data.shape[0]
-    product_mean = np.zeros((observation_size, observation_size))  # <x_i x_j>
-    observation_mean = np.zeros(observation_size)  # <x_i>
+    product_mean = np.zeros((observation_size, observation_size))
+    observation_mean = np.zeros(observation_size)
     samples = np.zeros((N, observation_size))
     for i in range(N):
         variate_parameters(parameters, generator)
@@ -129,7 +129,7 @@ def covariance_matrix_calculation(
     observation_mean /= N
     product_mean /= N
     normalization_factor = N - 1
-    if observation_asimov:  # <x_i> <x_j>
+    if observation_asimov:
         observation_mean_asimov = np.outer(observation_mean, observation_asimov)
         observation_product_mean = observation_mean_asimov + observation_mean_asimov.T - np.outer(observation_asimov, observation_asimov)
         normalization_factor = N
@@ -139,8 +139,6 @@ def covariance_matrix_calculation(
     covariance_matrix_relative = covariance_matrix_absolute / observation_product_mean
     return covariance_matrix_absolute, covariance_matrix_relative
 
-covariance_matrix_calculation
-
 
 def covariance_matrix_calculation_alternative(
     parameters: list[Parameter],
@@ -149,6 +147,32 @@ def covariance_matrix_calculation_alternative(
     N: int,
     observation_asimov: NDArray = None,
 ) -> tuple[NDArray, NDArray]:
+    r"""Calculate absolute and relative covariance matrices
+
+    For the calculation used simplified formula
+    $cov_{ij} = \frac{1}{\text{norm}}\sum_{k = 1}^{N}(x_i^k - \bar{x_i})(x_j^k - \bar{x_j}),$
+    where $x_i^k$ is `i`-th bin value of `k`-th sample,
+    $\bar{x_i}$ is mean value of `i`-th bin,
+    $\text{norm}$ is normalization factor.
+
+    Parameters
+    ----------
+    parameters: list[Parameter]
+        List of normalized parameters
+    generator: np.random.Generator
+        numpy generator of pseudo-random numbers
+    observation: Output
+        Observation of model that depends on parameters
+    N: int
+        Number of samples for calculation covariance matrices
+    observation: NDArray, optional
+        Asimov observation (no fluctuation of parameters)
+
+    Returns
+    -------
+    tuple[NDArray, NDArray]
+        tuple of NDArray, covariance absolute and covariance relative matrices
+    """
     observation_size = observation.data.shape[0]
     samples = np.zeros((N, observation_size))
     for i in range(N):
@@ -165,7 +189,22 @@ def covariance_matrix_calculation_alternative(
     covariance_matrix_relative = covariance_matrix_absolute / np.outer(samples_mean, samples_mean)
     return covariance_matrix_absolute, covariance_matrix_relative
 
+
 def calculate_correlation_matrix(covariance_matrix: NDArray) -> NDArray:
+    r"""Calculate correlation matrix from covariance matrix
+
+    $\mathrm{corr}_{ij} = \frac{\mathrm{cov}_{ij}}{\sqrt{\mathrm{cov}_{ii}\mathrm{cov}_{jj}}}$
+
+    Parameters
+    ----------
+    covariance_matrix: NDArray
+        covariance matrix
+
+    Returns
+    -------
+    NDArray
+        Correlation matrix
+    """
     diagonal = np.diagonal(covariance_matrix)
     return covariance_matrix / np.outer(diagonal, diagonal)**.5
 
@@ -275,7 +314,7 @@ if __name__ == "__main__":
     cov = parser.add_argument_group("cov", "covariance parameters")
     pars.add_argument(
         "--systematic-parameters-groups", "--cov",
-        choices=systematic_uncertainties_groups.keys(), default=[],
+        choices=SYSTEMATIC_UNCERTAINTIES_GROUPS.keys(), default=[],
         nargs="+", help="Choose systematic parameters for building covariance matrix",
     )
     pars.add_argument(
