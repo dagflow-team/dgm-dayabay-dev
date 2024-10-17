@@ -93,11 +93,20 @@ def covariance_matrix_calculation(
 ) -> tuple[NDArray, NDArray]:
     r"""Calculate absolute and relative covariance matrices
 
-    For the calculation used simplified formula
-    $cov_{ij} = \frac{1}{\text{norm}}\sum_{k = 1}^{N}(x_i^k - \bar{x_i})(x_j^k - \bar{x_j}),$
-    where $x_i^k$ is `i`-th bin value of `k`-th sample,
-    $\bar{x_i}$ is mean value of `i`-th bin,
-    $\text{norm}$ is normalization factor.
+    For the calculation used the next formula
+    .. math:: cov_{ij} = \frac{1}{\text{norm}}\sum_{k = 1}^{N}(x_i^k - \bar{x_i})(x_j^k - \bar{x_j}),
+
+    where `x_i^k` is `i`-th bin value of `k`-th sample, `\bar{x_i}` is mean
+    value of `i`-th bin, $\text{norm}$ is normalization factor (different
+    for calculated mean and Asimov)
+
+    Here we are using simplified formula
+    .. math:: cov_{ij} = \frac{1}{\text{norm}} \bar{x_i x_j} - \bar{x_i}\bar{x_j},
+
+    where we averaging over all MC samples
+
+    If Asimov observation is passed, the next formula is used
+    .. math:: cov_{ij} = \frac{1}{\text{norm}} \bar{x_i x_j} - \bar{x_i}\bar{x_j^a} - \bar{x_j}\bar{x_i^a} + \bar{x_i}\bar{x_j},
 
     Parameters
     ----------
@@ -110,7 +119,8 @@ def covariance_matrix_calculation(
     N: int
         Number of samples for calculation covariance matrices
     observation: NDArray, optional
-        Asimov observation (no fluctuation of parameters)
+        Asimov observation (no fluctuation of parameters). If it is not `None`,
+        it will be used for the calculation of the covariance matrix
 
     Returns
     -------
@@ -147,13 +157,19 @@ def covariance_matrix_calculation_alternative(
     N: int,
     observation_asimov: NDArray = None,
 ) -> tuple[NDArray, NDArray]:
-    r"""Calculate absolute and relative covariance matrices
+    r"""Calculate absolute and relative covariance matrices (alternative method)
 
     For the calculation used simplified formula
-    $cov_{ij} = \frac{1}{\text{norm}}\sum_{k = 1}^{N}(x_i^k - \bar{x_i})(x_j^k - \bar{x_j}),$
-    where $x_i^k$ is `i`-th bin value of `k`-th sample,
-    $\bar{x_i}$ is mean value of `i`-th bin,
-    $\text{norm}$ is normalization factor.
+    .. math:: cov = \frac{1}{\text{norm}}(S - \bar{S})^T (S - \bar{S}),
+
+    where `S` is `Nx(observation size)` matrix that contains all Monte-Carlo samples,
+    `\bar{S}` is average observation
+
+    Here we use much memory to store every Monte-Carlo sample and we provide
+    calculations via matrix product
+
+    If Asimov observation is passed, the next formula is used
+    .. math:: cov_{ij} = \frac{1}{\text{norm}} \bar{x_i x_j} - \bar{x_i}\bar{x_j^a} - \bar{x_j}\bar{x_i^a} + \bar{x_i}\bar{x_j},
 
     Parameters
     ----------
