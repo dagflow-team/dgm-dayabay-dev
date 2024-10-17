@@ -3,7 +3,7 @@ from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from numpy import ndarray
 from numpy.random import Generator
@@ -15,7 +15,7 @@ from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.lib.InterpolatorGroup import InterpolatorGroup
-from dagflow.metanode import NodeMeta
+from dagflow.metanode import MetaNode
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -30,78 +30,81 @@ class model_dayabay_v0c:
     ----------
     storage : NodeStorage
               nested dictionary with model elements: nodes, parameters, etc.
+
     graph : Graph
-            graph instance
+        graph instance
+
     index : dict[str, tuple[str, ...]]
-            dictionary with all possible names for replicated items, e.g.
-            "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
-            index is setup within the model
-    inactive_detectors : tuple[set[str], ...]
-                         combinations of period/detector names, which are be excluded
-                         from the analysis
+        dictionary with all possible names for replicated items, e.g.
+        "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
+        index is setup within the model
+
     combinations : dict[str, tuple[tuple[str, ...], ...]]
-                   lists of all combinations of values of 2 and more indices,
-                   e.g. detector/period, reator/isotope
-    path_data : Path
-                path to the data
+        lists of all combinations of values of 2 and more indices,
+        e.g. detector/period, reator/isotope
+
     spectrum_correction_mode : str, default="exponential"
-                               mode of how the parameters of the free spectrum model
-                               are treated:
-                                   - "exponential": pᵢ=0 by default, S(Eᵢ) is
-                                     multiplied by exp(pᵢ) the correction is always
-                                     positive, but nonlinear
-                                   - "linear": pᵢ=0 by default, S(Eᵢ) is multiplied by
-                                     1+pᵢ the correction may be negative, but is always
-                                     linear
+        mode of how the parameters of the free spectrum model
+        are treated:
+            - "exponential": pᵢ=0 by default, S(Eᵢ) is
+              multiplied by exp(pᵢ) the correction is always
+              positive, but nonlinear
+            - "linear": pᵢ=0 by default, S(Eᵢ) is multiplied by
+              1+pᵢ the correction may be negative, but is always
+              linear
+
     concatenation_mode : str, default="detector_period"
-                         choses the observation to be analyzed:
-                             - "detector_period" — concatenation of observations at
-                               each detector at each period
-                             - "detector" — concatenation of observations at each
-                               detector (combined for all period)
+        choses the observation to be analyzed:
+            - "detector_period" — concatenation of observations at
+              each detector at each period
+            - "detector" — concatenation of observations at each
+              detector (combined for all period)
+
     monte_carlo_mode : str, default="asimov"
-                       the Monte-Carlo mode for pseudo-data:
-                           - "asimov" — Asimov, no fluctuations
-                           - "normal-stats" — normal fluctuations with statistical
-                             errors
-                           - "poisson" — Poisson fluctuations
+        the Monte-Carlo mode for pseudo-data:
+            - "asimov" — Asimov, no fluctuations
+            - "normal-stats" — normal fluctuations with statistical
+              errors
+            - "poisson" — Poisson fluctuations
+
+    path_data : Path
+        path to the data
+
+    source_type : str, default="npz"
+        type of the data to read ("tsv", "hdf5", "root" or "npz")
 
     Technical attributes
     --------------------
-    _override_indices : dict[str, Sequence[str]]
-                        dictionary with indices to override self.index.
-                        may be used to reduce the number of detectors or reactors in the
-                        model
-    _source_type : str, default="npz"
-                   type of the data to read ("tsv", "hdf5", "root" or "npz")
     _strict : bool, default=True
-              strict mode. Stop execution if:
-                  - the model is not complete
-                  - any labels were not applied
+        strict mode. Stop execution if:
+            - the model is not complete
+            - any labels were not applied
+
     _close : bool, default=True
-             if True the graph is closed and memory is allocated
-             may be used to debug corrupt model
+        if True the graph is closed and memory is allocated
+        may be used to debug corrupt model
+
     _random_generator : Generator
-                        numpy random generator to be used for ToyMC
-    _covariance_matrix : NodeMeta
-                         covariance matrix, computed on this model
+        numpy random generator to be used for ToyMC
+
+    _covariance_matrix : MetaNode
+        covariance matrix, computed on this model
+
     _frozen_nodes : dict[str, tuple]
-                    storage with nodes, which are being fixed at their values and
-                    require manual intervention in order to be recalculated
+        storage with nodes, which are being fixed at their values and
+        require manual intervention in order to be recalculated
     """
 
     __slots__ = (
         "storage",
         "graph",
-        "inactive_detectors",
         "index",
         "combinations",
         "path_data",
         "spectrum_correction_mode",
         "concatenation_mode",
         "monte_carlo_mode",
-        "_override_indices",
-        "_source_type",
+        "source_type",
         "_strict",
         "_close",
         "_covariance_matrix",
@@ -112,20 +115,16 @@ class model_dayabay_v0c:
     storage: NodeStorage
     graph: Graph
     index: dict[str, tuple[str, ...]]
-    inactive_detectors: tuple[set[str], ...]
     combinations: dict[str, tuple[tuple[str, ...], ...]]
     path_data: Path
     spectrum_correction_mode: Literal["linear", "exponential"]
     concatenation_mode: Literal["detector", "detector_period"]
-    monte_carlo_mode: Literal[
-        "asimov", "normal", "normal-stats", "poisson", "covariance"
-    ]
-    _override_indices: dict[str, Sequence[str]]
-    _source_type: SourceTypes
+    monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
+    source_type: SourceTypes
     _strict: bool
     _close: bool
     _random_generator: Generator
-    _covariance_matrix: NodeMeta
+    _covariance_matrix: MetaNode
     _frozen_nodes: dict[str, tuple]
 
     def __init__(
@@ -137,19 +136,29 @@ class model_dayabay_v0c:
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
         seed: int = 0,
-        monte_carlo_mode: Literal[
-            "asimov", "normal", "normal-stats", "poisson", "covariance"
-        ] = "asimov",
+        monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
     ):
+        """Model initialization.
+
+        Parameters
+        ----------
+        seed: int
+              random seed to be passed to random generator for ToyMC
+        override_indices : dict[str, Sequence[str]]
+                           dictionary with indices to override self.index.
+                           may be used to reduce the number of detectors or reactors in the
+                           model
+
+        for the dscription of other parameters, see description of the class.
+        """
         self._strict = strict
         self._close = close
 
         self.storage = NodeStorage()
         self.path_data = Path("data/dayabay-v0c")
-        self._source_type = source_type
-        self._override_indices = dict(override_indices)
+        self.source_type = source_type
         self.spectrum_correction_mode = spectrum_correction_mode
         self.concatenation_mode = concatenation_mode
         self.monte_carlo_mode = monte_carlo_mode
@@ -158,16 +167,33 @@ class model_dayabay_v0c:
         self._covariance_matrix = None
         self._frozen_nodes = {}
 
-        self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
-        self.index = {}
         self.combinations = {}
 
-        self.build()
+        override_indices = {k: tuple(v) for k, v in override_indices.items()}
+        self.build(override_indices)
 
         if parameter_values:
             self.set_parameters(parameter_values)
 
-    def build(self):
+    def build(self, override_indices: dict[str, tuple[str, ...]] = {}):
+        """Actually build the model.
+
+        Steps:
+            - initialize indices to describe repeated components
+            - read parameters
+            - block by block initialize the nodes of the model and connect them
+                - read the data whenever necessary
+
+        Parameters
+        ----------
+        override_indices : dict[str, tuple[str, ...]]
+                           dictionary with indices to override self.index.
+                           may be used to reduce the number of detectors or reactors in the
+                           model
+        """
+        #
+        # Import necessary nodes and loaders
+        #
         from numpy import arange, concatenate, linspace, ones
 
         from dagflow.bundles.load_hist import load_hist
@@ -208,19 +234,29 @@ class model_dayabay_v0c:
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from multikeydict.tools import remap_items
 
+        #
+        # Initialize the storage and paths
+        #
         storage = self.storage
         path_data = self.path_data
 
         path_parameters = path_data / "parameters"
-        path_arrays = path_data / self._source_type
+        path_arrays = path_data / self.source_type
+        # TODO: use source_type for everything
         path_root = path_data / "root"
 
+        #
+        # Read Eν edges for the parametrization of free antineutrino spectrum model
+        # Loads the python file and returns variable "edges", which should be defined
+        # in the file and has type `ndarray`.
+        #
         antineutrino_model_edges = LoadPy(
             path_parameters / "reactor_antineutrino_spectrum_edges.py",
             variable="edges",
             type=ndarray,
         )
 
+        # Provide some convenience substitutions for labels
         index_names = {
             "U235": "²³⁵U",
             "U238": "²³⁸U",
@@ -228,36 +264,68 @@ class model_dayabay_v0c:
             "Pu241": "²⁴¹Pu",
         }
 
-        # Provide a list of indices and their values. Values should be globally unique
-        index = self.index
-        index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
-        index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
-        index["isotope_neq"] = ("U235", "Pu239", "Pu241")
-        index["detector"] = (
-            "AD11",
-            "AD12",
-            "AD21",
-            "AD22",
-            "AD31",
-            "AD32",
-            "AD33",
-            "AD34",
-        )
-        index["site"] = ("EH1", "EH2", "EH3")
-        index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
-        index["anue_source"] = ("nu_main", "nu_neq", "nu_snf")
-        index["anue_unc"] = ("uncorr", "corr")
-        index["period"] = ("6AD", "8AD", "7AD")
-        index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
-        index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
-        # index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muon')
-        index["bkg"] = ("acc", "lihe", "fastn", "amc", "alphan")
-        index["spec"] = tuple(
-            f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
-        )
+        #
+        # Provide indices, names and lists of values in order to work with repeated
+        # items
+        #
+        index = self.index = {
+            # Data acquisition period
+            "period": ("6AD", "8AD", "7AD"),
+            # Detector names
+            "detector": (
+                "AD11",
+                "AD12",
+                "AD21",
+                "AD22",
+                "AD31",
+                "AD32",
+                "AD33",
+                "AD34",
+            ),
+            # Source of background events:
+            #     - acc: accidental coincidences
+            #     - lihe: ⁹Li and ⁸He related events
+            #     - fastn: fast neutrons and muon-x background
+            #     - amc: ²⁴¹Am¹³C calibration source related background
+            #     - alphan: ¹³C(α,n)¹⁶O background
+            "bkg": ("acc", "lihe", "fastn", "amc", "alphan"),
+            # Experimental sites
+            "site": ("EH1", "EH2", "EH3"),
+            # Fissile isotopes
+            "isotope": ("U235", "U238", "Pu239", "Pu241"),
+            # Fissile isotopes, which spectrum requires Non-Equilibrium correction to be
+            # applied
+            "isotope_neq": ("U235", "Pu239", "Pu241"),
+            # Nuclear reactors
+            "reactor": ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4"),
+            # Sources of antineutrinos:
+            #     - "nu_main": for antineutrinos from reactor cores with no
+            #                  Non-Equilibrium correction applied
+            #     - "nu_neq": antineutrinos from Non-Equilibrium correction
+            #     - "nu_snf": antineutrinos from Spent Nuclear Fuel
+            "anue_source": ("nu_main", "nu_neq", "nu_snf"),
+            # Model related antineutrino spectrum correction type:
+            #     - uncorrelated
+            #     - correlated
+            "anue_unc": ("uncorr", "corr"),
+            # Part of the Liquid scintillator non-linearity (LSNL) parametrization
+            "lsnl": ("nominal", "pull0", "pull1", "pull2", "pull3"),
+            # Nuisance related part of the Liquid scintillator non-linearity (LSNL)
+            # parametrization
+            "lsnl_nuisance": ("pull0", "pull1", "pull2", "pull3"),
+            # Free antineutrino spectrum parameter names: one parameter for each edge
+            # from `antineutrino_model_edges`
+            "spec": tuple(
+                f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
+            ),
+        }
+        # Define isotope names in lower case
+        index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
-        index.update(self._override_indices)
+        # Optionally override (reduce) indices
+        index.update(override_indices)
 
+        # Check there are now overlaps
         index_all = (
             index["isotope"] + index["detector"] + index["reactor"] + index["period"]
         )
@@ -265,6 +333,14 @@ class model_dayabay_v0c:
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
+        # Collection combinations between 2 and more indices. Ensure some combinations,
+        # e.g. detectors not present at certain periods, are excluded.
+        # For example, combinations["reactor.detector"] contains:
+        # (("DB1", "AD11"), ("DB1", "AD12"), ..., ("DB2", "AD11"), ...)
+        #
+        # The dictionary combinations is one of the main elements to loop over and match
+        # parts of the computational graph
+        inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
@@ -281,17 +357,19 @@ class model_dayabay_v0c:
             "bkg.detector",
             "bkg.detector.period",
         )
-        # Provide the combinations of indices
         combinations = self.combinations
         for combname in required_combinations:
             combitems = combname.split(".")
             items = []
             for it in product(*(index[item] for item in combitems)):
-                if any(inact.issubset(it) for inact in self.inactive_detectors):
+                if any(inact.issubset(it) for inact in inactive_detectors):
                     continue
                 items.append(it)
             combinations[combname] = tuple(items)
 
+        # Special treatment is needed for combinations of anue_source and isotope as
+        # nu_neq is related to only a fraction of isotops, while nu_snf does not index
+        # isotopes at all
         combinations["anue_source.reactor.isotope.detector"] = (
             tuple(
                 ("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"]
@@ -303,31 +381,45 @@ class model_dayabay_v0c:
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
 
-        systematic_uncertainties_groups = [
-            ("oscprob", "oscprob"),
-            ("eres", "detector.eres"),
-            ("lsnl", "detector.lsnl_scale_a"),
-            ("iav", "detector.iav_offdiag_scale_factor"),
-            ("detector_relative", "detector.detector_relative"),
-            ("energy_per_fission", "reactor.energy_per_fission"),
-            ("nominal_thermal_power", "reactor.nominal_thermal_power"),
-            ("snf", "reactor.snf_scale"),
-            ("neq", "reactor.nonequilibrium_scale"),
-            ("fission_fraction", "reactor.fission_fraction_scale"),
-            ("bkg_rate", "bkg.rate"),
-            ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
-            ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr"),
-        ]
+        # Define a dictionary of groups of nuisance parameters in a format `name: path`,
+        # where path denotes the location of the parameters in storage.
+        systematic_uncertainties_groups = {
+            "oscprob": "oscprob",
+            "eres": "detector.eres",
+            "lsnl": "detector.lsnl_scale_a",
+            "iav": "detector.iav_offdiag_scale_factor",
+            "detector_relative": "detector.detector_relative",
+            "energy_per_fission": "reactor.energy_per_fission",
+            "nominal_thermal_power": "reactor.nominal_thermal_power",
+            "snf": "reactor.snf_scale",
+            "neq": "reactor.nonequilibrium_scale",
+            "fission_fraction": "reactor.fission_fraction_scale",
+            "bkg_rate": "bkg.rate",
+            "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
+            "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
+        }
 
-        with (
-            Graph(close_on_exit=self._close, strict=self._strict) as graph,
-            storage,
-            FileReader,
-        ):
-            # fmt: off
-            self.graph = graph
-            #
-            # Load parameters
+        # Start building the computational graph within a dedicated context, which
+        # includes:
+        # - graph - the graph instance.
+        #     + All the nodes are added to the graph while graph is open.
+        #     + On the exit from the context the graph closes itself, which triggers
+        #       allocation of memory for the calculations.
+        # - storage - nested dictionary, which is used to store all the created
+        #   elements: nodes, outputs, parameters, data items, etc.
+        # - filereader - manages reading the files
+        #     + ensures, that the input files are opened only once
+        #     + closes the files upon the exit of the context
+        self.graph = Graph(close_on_exit=self._close, strict=self._strict)
+
+        # fmt: off
+        with self.graph, storage, FileReader:
+            # Load all the parameters, necessary for the model. The parameters are
+            # divided into three categories:
+            # - fixed - parameters are not expected to be modified during the analysis
+            #          and thus are not passed to the minimizer.
+            # - variable - parameters are not expected to be modified during the analysis
+            #              and thus are not passed to the minimizer.
             #
             load_parameters(path="oscprob",    load=path_parameters/"oscprob.yaml")
             load_parameters(path="oscprob",    load=path_parameters/"oscprob_solar.yaml", joint_nuisance=True)
@@ -483,7 +575,7 @@ class model_dayabay_v0c:
             #
             load_graph(
                 name = "reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
                 x = "enu",
                 y = "spec",
                 merge_x = True,
@@ -533,7 +625,7 @@ class model_dayabay_v0c:
                 x = "enu",
                 y = "nonequilibrium_correction",
                 merge_x = True,
-                filenames = path_arrays / f"nonequilibrium_correction.{self._source_type}",
+                filenames = path_arrays / f"nonequilibrium_correction.{self.source_type}",
                 replicate_outputs = index["isotope_neq"],
                 dtype = "d"
             )
@@ -560,7 +652,7 @@ class model_dayabay_v0c:
                 x = "enu",
                 y = "snf_correction",
                 merge_x = True,
-                filenames = path_arrays / f"snf_correction.{self._source_type}",
+                filenames = path_arrays / f"snf_correction.{self.source_type}",
                 replicate_outputs = index["reactor"],
                 dtype = "d"
             )
@@ -635,7 +727,7 @@ class model_dayabay_v0c:
             #
             load_graph(
                 name = "reactor_anue.spectrum_uncertainty",
-                filenames = path_arrays / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
                 x = "enu_centers",
                 y = "uncertainty",
                 merge_x = True,
@@ -746,11 +838,11 @@ class model_dayabay_v0c:
             #
             load_record_data(
                 name = "daily_data.detector_all",
-                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
+                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self.source_type}",
                 replicate_outputs = index["detector"],
                 objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
-                skip = self.inactive_detectors
+                skip = inactive_detectors
             )
             refine_detector_data(
                 data("daily_data.detector_all"),
@@ -760,7 +852,7 @@ class model_dayabay_v0c:
 
             load_record_data(
                 name = "daily_data.reactor_all",
-                filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
+                filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self.source_type}",
                 replicate_outputs = ("core_data",),
                 columns = ("week", "day", "ndet", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
@@ -902,7 +994,7 @@ class model_dayabay_v0c:
                     name = "reactor_detector.nfissions_daily",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     allow_skip_inputs = True,
-                    skippable_inputs_should_contain = self.inactive_detectors
+                    skippable_inputs_should_contain = inactive_detectors
                     )
 
             # Total effective number of fissions from a Reactor seen in the Detector during Period
@@ -962,7 +1054,7 @@ class model_dayabay_v0c:
                     name="detector.efflivetime_days",
                     replicate_outputs=combinations["detector.period"],
                     allow_skip_inputs=True,
-                    skippable_inputs_should_contain=self.inactive_detectors,
+                    skippable_inputs_should_contain=inactive_detectors,
                     )
 
             # Effective live time × N protons × ε / (4πL²)  (SNF)
@@ -976,7 +1068,7 @@ class model_dayabay_v0c:
                     name = "reactor_detector.livetime_nprotons_per_cm2_snf",
                     replicate_outputs=combinations["reactor.detector.period"],
                     allow_skip_inputs = True,
-                    skippable_inputs_should_contain = self.inactive_detectors
+                    skippable_inputs_should_contain = inactive_detectors
                     )
 
             #
@@ -1083,7 +1175,7 @@ class model_dayabay_v0c:
             #
             load_array(
                 name = "detector.iav",
-                filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
+                filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self.source_type}",
                 replicate_outputs = ("matrix_raw",),
                 objects = {"matrix_raw": "iav_matrix"},
                 array_kwargs = {
@@ -1104,7 +1196,7 @@ class model_dayabay_v0c:
                 x = "edep",
                 y = "evis_parts",
                 merge_x = True,
-                filenames = path_arrays/f"detector_LSNL_curves_Jan2022_newE_v1.{self._source_type}",
+                filenames = path_arrays/f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
                 replicate_outputs = index["lsnl"],
             )
 
@@ -1271,33 +1363,12 @@ class model_dayabay_v0c:
                 filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
                 replicate_files = index["period"],
                 replicate_outputs = combinations["bkg.detector"],
-                skip = self.inactive_detectors,
+                skip = inactive_detectors,
                 key_order = (1, 2, 0),
                 objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
 
-            # TODO: Daya Bay v1 (if needed)
-            # ads_at_sites = {
-            #         "EH1": ("AD11", "AD12"),
-            #         "EH2": ("AD21", "AD22"),
-            #         "EH3": ("AD31", "AD32", "AD33", "AD34"),
-            #         }
-            # remap_items(
-            #     parameters("all.bkg.rate.fastn"),
-            #     outputs.child("bkg.rate.fastn"),
-            #     rename_indices = ads_at_sites,
-            #     skip_indices_target = self.inactive_detectors,
-            #     fcn = lambda par: par.output
-            # )
-            # remap_items(
-            #     parameters("all.bkg.rate.lihe"),
-            #     outputs.child("bkg.rate.lihe"),
-            #     rename_indices = ads_at_sites,
-            #     skip_indices_target = self.inactive_detectors,
-            #     fcn = lambda par: par.output
-            # )
-
-            # NOTE:
+            # TODO:
             # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
             # So, every bin contain 0.00416667.
             # TODO: remove in dayabay-v1
@@ -1403,7 +1474,7 @@ class model_dayabay_v0c:
             #
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
-            for name, parameters_source in systematic_uncertainties_groups:
+            for name, parameters_source in systematic_uncertainties_groups.items():
                 self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
             self._covariance_matrix.add_covariance_sum()
 
