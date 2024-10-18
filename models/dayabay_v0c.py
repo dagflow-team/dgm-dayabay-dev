@@ -415,35 +415,151 @@ class model_dayabay_v0c:
         # fmt: off
         with self.graph, storage, FileReader:
             # Load all the parameters, necessary for the model. The parameters are
-            # divided into three categories:
-            # - fixed - parameters are not expected to be modified during the analysis
-            #          and thus are not passed to the minimizer.
-            # - variable - parameters are not expected to be modified during the analysis
-            #              and thus are not passed to the minimizer.
+            # divided into three lists:
+            # - constant — parameters are not expected to be modified during the
+            #              analysis and thus are not passed to the minimizer.
+            # - free — parameters that should be minimized and have no constraints
+            # - constrained — parameters that should be minimized and have constraints.
+            #                 The constraints are defined by:
+            #                 + central values and uncertainties
+            #                 + central vectors and covariance matrices
             #
+            # additionally the following lists are provided
+            # - all — all the parameters, including fixed, free and constrained
+            # - variable — free and constrained parameters
+            # - normalized — a shadow definition of the constrained parameters. Each
+            #                normalized parameter has value=0 when the constrained
+            #                parameter is at its central value, +1, when it is offset by
+            #                1σ. The correlations, defined by the covariance matrices
+            #                are properly treated.
+            #                The conversion works the both ways: when normalized
+            #                parameter is modified, the related constrained parameters
+            #                are changed as well and vice versa.
+            #                The parameters from this list are used to build the
+            #                nuisance part of the χ² function.
+            #
+            # All the parameters are collected in the storage — a nested dictionary,
+            # which can handle path-like keys, with 'folders' split by periods:
+            # - storage["parameters.all"] — storage with all the parameters
+            # - storage["parameters", "all"] — the same storage with all the parameters
+            # - storage["parameters.all.oscprob.SinSq2Theta12"] — neutrino oscillation
+            #       parameter sin²2θ₁₂
+            # - storage["parameters.constrained.oscprob.SinSq2Theta12"] — same neutrino
+            #       oscillation parameter sin²2θ₁₂ in the list of constrained parameters
+            # - storage["parameters.normalized.oscprob.SinSq2Theta12"] — shadow
+            #      (nuisance) parameter for sin²2θ₁₂
+            #
+            # The constrained parameter has fields `value`, `normvalue`, `central`, and
+            # `sigma`, which could be read to get the current value of the parameter,
+            # normalized value, central value, and uncertainty. The assignment to the
+            # fields changes the values. Additionally fields `sigma_relative` and
+            # `sigma_percent` may be used to get and set the relative uncertainty.
+            # ```python
+            # p = storage["parameters.all.oscprob.SinSq2Theta12"]
+            # print(p)        # print the description
+            # print(p.value)  # print the current value
+            # p.value = 0.8   # set the value to 0.8 - affects the model
+            # p.central = 0.7 # set the central value to 0.7 - affects the nuisance term
+            # p.normvalue = 1 # set the value to centra+1sigma
+            # ```
+            #
+            # The non-constrained parameter lacks `central`, `sigma`, `normvalue`, etc
+            # fields and is controlled only by `value`. The normalized parameter does
+            # have `central` and `sigma` fields, but they are read only. The effect of
+            # changing `value` field of the normalized parameter is the same as changing
+            # `normvalue` field of its corresponding parameter.
+            #
+            # ```python
+            # np = storage["parameters.normalized.oscprob.SinSq2Theta12"]
+            # print(np)        # print the description
+            # print(np.value)  # print the current value -> 0
+            # np.value = 1     # set the value to centra+1sigma
+            # np.normvalue = 1 # set the value to centra+1sigma
+            # # p is also affected
+            # ```
+            #
+            # Load oscillation parameters from 3 configuration files:
+            # - Free sin²2θ₁₃ and Δm²₃₂
+            # - Constrained sin²2θ₁₃ and Δm²₃₂
+            # - Fixed: Neutrino Mass Ordering
             load_parameters(path="oscprob",    load=path_parameters/"oscprob.yaml")
             load_parameters(path="oscprob",    load=path_parameters/"oscprob_solar.yaml", joint_nuisance=True)
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml"
-            )
+            load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml")
+            # The parameters are located in 'parameters.oscprob' folder as defined by
+            # the `path` argument.
+            # The annotated table with values may be then printed for any storage as
+            # ```python
+            # print(storage["parameters.all.oscprob"].to_table())
+            # print(storage.get_dict("parameters.all.oscprob").to_table())
+            # ```
+            # the second line does the same, but ensures that the object, obtained from
+            # a storage is another nested dictionary, not a parameter.
+            #
+            # The `joint_nuisance` options instructs the loader to provide a combined
+            # nuisance term for the both the parameters, rather then two of them. The
+            # nuisance terms for created constrained parameters are located in
+            # "outputs.statistic.nuisance.parts" and may be printed with:
+            # ```python
+            # print(storage["outputs.statistic.nuisance"].to_table())
+            # ```
+            # The outputs are typically read-only. They are affected when the parameters
+            # are modified and the relevant values are calculated upon request. In this
+            # case, when the table is printed.
 
+            # Load fixed parameters for Inverse Beta Decay (IBD) cross section:
+            # - particle masses and lifetimes
+            # - constants for Vogel-Beacom IBD cross section
             load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
             load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml")
 
+            # Load the conversion constants from metric to natural units:
+            # - reactor thermal power
+            # - the argument of oscillation proabability
+            # `scipy.constants` are used to provide the numbers.
+            # There are no constants, except maybe 1, 1/3 and π, defined within the
+            # code. All the numbers are read based on the configuration files.
             load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.py")
             load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.py")
 
+            # Load reactor-detector baselines
             load_parameters(                   load=path_parameters/"baselines.yaml")
 
-            load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
+            # IBD and detector normalization parameters:
+            # - free global IBD normalization factor
+            # - fixed detector efficiency (variation is managed by uncorrelated
+            #                              'detector_relative.efficiency_factor')
+            # - fixed correction to the number of protons in each detector
             load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
+            load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
+
+            # Detector energy scale parameters:
+            # - constrained correlated between detectors energy resolution parameters
+            # - constrained correlated between detectors Liquid Scnitillator
+            #   Non-Linearity (LSNL) parameters
+            # - constrained uncorrelated between detectors energy distortion related to
+            #   Inner Acrylic Vessel
             load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
             load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
                             replicate=index["lsnl_nuisance"])
             load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
                             replicate=index["detector"])
+            # Here we use `replicate` argument and pass a list of values. The parameters
+            # are replicated for each index value. So 4 parameters for LSNL are created
+            # and 8 parameters of IAV are created. The index values are used to
+            # construct the path to parameter. See:
+            # ```python
+            # print(storage["outputs.statistic.nuisance.parts"].to_table())
+            # ```
+            # which contains parameters 'AD11', 'AD12', etc.
+
+            # Relative uncorrelated between detectors parameters:
+            # - relative efficiency factor
+            # - relative energy scale factor
+            # the parameters of each detector are correlated between each other.
             load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
                             replicate=index["detector"], replica_key_offset=1)
+            # TODO
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
