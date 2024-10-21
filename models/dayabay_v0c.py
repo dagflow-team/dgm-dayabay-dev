@@ -412,7 +412,6 @@ class model_dayabay_v0c:
         #     + closes the files upon the exit of the context
         self.graph = Graph(close_on_exit=self._close, strict=self._strict)
 
-        # fmt: off
         with self.graph, storage, FileReader:
             # Load all the parameters, necessary for the model. The parameters are
             # divided into three lists:
@@ -482,9 +481,15 @@ class model_dayabay_v0c:
             # - Free sin²2θ₁₃ and Δm²₃₂
             # - Constrained sin²2θ₁₃ and Δm²₃₂
             # - Fixed: Neutrino Mass Ordering
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob.yaml")
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob_solar.yaml", joint_nuisance=True)
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml")
+            load_parameters(path="oscprob", load=path_parameters / "oscprob.yaml")
+            load_parameters(
+                path="oscprob",
+                load=path_parameters / "oscprob_solar.yaml",
+                joint_nuisance=True,
+            )
+            load_parameters(
+                path="oscprob", load=path_parameters / "oscprob_constants.yaml"
+            )
             # The parameters are located in 'parameters.oscprob' folder as defined by
             # the `path` argument.
             # The annotated table with values may be then printed for any storage as
@@ -509,8 +514,8 @@ class model_dayabay_v0c:
             # Load fixed parameters for Inverse Beta Decay (IBD) cross section:
             # - particle masses and lifetimes
             # - constants for Vogel-Beacom IBD cross section
-            load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
-            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml")
+            load_parameters(path="ibd", load=path_parameters / "pdg2024.yaml")
+            load_parameters(path="ibd.csc", load=path_parameters / "ibd_constants.yaml")
 
             # Load the conversion constants from metric to natural units:
             # - reactor thermal power
@@ -518,20 +523,32 @@ class model_dayabay_v0c:
             # `scipy.constants` are used to provide the numbers.
             # There are no constants, except maybe 1, 1/3 and π, defined within the
             # code. All the numbers are read based on the configuration files.
-            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.py")
-            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.py")
+            load_parameters(
+                path="conversion", load=path_parameters / "conversion_thermal_power.py"
+            )
+            load_parameters(
+                path="conversion",
+                load=path_parameters / "conversion_oscprob_argument.py",
+            )
 
             # Load reactor-detector baselines
-            load_parameters(                   load=path_parameters/"baselines.yaml")
+            load_parameters(load=path_parameters / "baselines.yaml")
 
             # IBD and detector normalization parameters:
             # - free global IBD normalization factor
             # - fixed detector efficiency (variation is managed by uncorrelated
             #                              'detector_relative.efficiency_factor')
             # - fixed correction to the number of protons in each detector
-            load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
+            load_parameters(
+                path="detector", load=path_parameters / "detector_normalization.yaml"
+            )
+            load_parameters(
+                path="detector", load=path_parameters / "detector_efficiency.yaml"
+            )
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_nprotons_correction.yaml",
+            )
 
             # Detector energy scale parameters:
             # - constrained correlated between detectors energy resolution parameters
@@ -539,11 +556,19 @@ class model_dayabay_v0c:
             #   Non-Linearity (LSNL) parameters
             # - constrained uncorrelated between detectors energy distortion related to
             #   Inner Acrylic Vessel
-            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
-                            replicate=index["lsnl_nuisance"])
-            load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
-                            replicate=index["detector"])
+            load_parameters(
+                path="detector", load=path_parameters / "detector_eres.yaml"
+            )
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_lsnl.yaml",
+                replicate=index["lsnl_nuisance"],
+            )
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_iav_offdiag_scale.yaml",
+                replicate=index["detector"],
+            )
             # Here we use `replicate` argument and pass a list of values. The parameters
             # are replicated for each index value. So 4 parameters for LSNL are created
             # and 8 parameters of IAV are created. The index values are used to
@@ -554,32 +579,80 @@ class model_dayabay_v0c:
             # which contains parameters 'AD11', 'AD12', etc.
 
             # Relative uncorrelated between detectors parameters:
-            # - relative efficiency factor
-            # - relative energy scale factor
+            # - relative efficiency factor (constrained)
+            # - relative energy scale factor (constrained)
             # the parameters of each detector are correlated between each other.
-            load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
-                            replicate=index["detector"],
-                            keys_order = (("pargroup", "par", "detector"), ("pargroup", "detector", "par"))
-                            )
-            # TODO
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_relative.yaml",
+                replicate=index["detector"],
+                keys_order=(
+                    ("pargroup", "par", "detector"),
+                    ("pargroup", "detector", "par"),
+                ),
+            )
+            # By default extra index is appended at the end of the key (path). A
+            # `keys_order` argument is used to change the order of the keys from
+            # group.par.detector to group.detector.par so it is easier to access both
+            # the parameters of a single detector.
 
-            load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
-            load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
-                            replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
-                            replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_nonequilibrium_correction.yaml",
-                            replicate=combinations["reactor.isotope_neq"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
-            load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
-                            replicate=index["reactor"],
-                            keys_order = (("par", "isotope", "reactor"), ("par", "reactor", "isotope"))
-                            )
+            # Load reactor related parameters:
+            # - constrained nominal thermal power
+            # - constrained mean energy release per fission
+            # - constrained Non-EQuilibrium (NEQ) correction scale
+            # - cosntrained Spent Nuclear Fuel (SNF) scale
+            # - fixed values of the fission fractions for the SNF calculation
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_thermal_power_nominal.yaml",
+                replicate=index["reactor"],
+            )
+            load_parameters(
+                path="reactor", load=path_parameters / "reactor_energy_per_fission.yaml"
+            )
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_snf.yaml",
+                replicate=index["reactor"],
+            )
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_nonequilibrium_correction.yaml",
+                replicate=combinations["reactor.isotope_neq"],
+            )
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_snf_fission_fractions.yaml",
+            )
+            # The nominal thermal power is replicated for each reactor, making its
+            # uncertainty uncorrelated. Energy per fission (and fission fraction) has
+            # distinct value (and uncertainties) for each isotope, therefore the
+            # configuration files have an entry for each index and `replicate` argument is
+            # not required. SNF and NEQ corrections are made uncorrelated between the
+            # reactors. As only fraction of isotopes are affected by NEQ a dedicated
+            # index `isotope_neq` is used for it.
 
-            load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
-            # fmt: on
+            # Read the constrained and correlated fission fractions. The fission
+            # fractions are partially correlated within each reactor. Therefore the
+            # configuration file provides the uncertainties and correlations for
+            # isotopes. The parameters are then replicated for each reactor and the
+            # index is modified to have `isotope` as the innermost part.
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_fission_fraction_scale.yaml",
+                replicate=index["reactor"],
+                keys_order=(
+                    ("par", "isotope", "reactor"),
+                    ("par", "reactor", "isotope"),
+                ),
+            )
 
-            # Normalization constants
+            # Finally the constrained background rates are loaded. They include the
+            # rates and uncertainties for 5 sources of background events for 6-8
+            # detectors during 3 periods of data taking.
+            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
+
+            # Additionally a few constants are provided. TODO
             load_parameters(
                 format="value",
                 state="fixed",
