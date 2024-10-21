@@ -303,7 +303,9 @@ class model_dayabay_v0b:
             load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
                             replicate=index["detector"])
             load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
-                            replicate=index["detector"], replica_key_offset=1)
+                            replicate=index["detector"],
+                            keys_order = (("pargroup", "par", "detector"), ("pargroup", "detector", "par"))
+                            )
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
@@ -314,7 +316,9 @@ class model_dayabay_v0b:
                             replicate=combinations["reactor.isotope_neq"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
-                            replicate=index["reactor"], replica_key_offset=1)
+                            replicate=index["reactor"],
+                            keys_order = (("par", "isotope", "reactor"), ("par", "reactor", "isotope"))
+                            )
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on

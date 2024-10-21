@@ -40,8 +40,8 @@ class model_dayabay_v0c:
         index is setup within the model
 
     combinations : dict[str, tuple[tuple[str, ...], ...]]
-        lists of all combinations of values of 2 and more indices,
-        e.g. detector/period, reator/isotope
+        lists of all combinations of values of 1 and more indices,
+        e.g. detector, detector/period, reator/isotope, reactor/isotope/period, etc.
 
     spectrum_correction_mode : str, default="exponential"
         mode of how the parameters of the free spectrum model
@@ -558,7 +558,9 @@ class model_dayabay_v0c:
             # - relative energy scale factor
             # the parameters of each detector are correlated between each other.
             load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
-                            replicate=index["detector"], replica_key_offset=1)
+                            replicate=index["detector"],
+                            keys_order = (("pargroup", "par", "detector"), ("pargroup", "detector", "par"))
+                            )
             # TODO
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
@@ -570,7 +572,9 @@ class model_dayabay_v0c:
                             replicate=combinations["reactor.isotope_neq"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
-                            replicate=index["reactor"], replica_key_offset=1)
+                            replicate=index["reactor"],
+                            keys_order = (("par", "isotope", "reactor"), ("par", "reactor", "isotope"))
+                            )
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
