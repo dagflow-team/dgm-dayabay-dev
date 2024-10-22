@@ -45,7 +45,7 @@ def main(opts: Namespace) -> None:
         print(storage("inputs").to_table(truncate="auto"))
 
         if opts.graph_auto:
-            plot_graph(graph, storage)
+            plot_graph(graph, storage, opts)
         return
 
     if opts.print_all:
@@ -65,21 +65,27 @@ def main(opts: Namespace) -> None:
         for source in sources:
             storage(source).plot(folder=f"{folder}/{source.replace('.', '/')}")
 
-    if opts.latex:
-        storage.to_datax("output/dayabay_v0_data.tex")
+    if opts.pars_datax:
+        storage["parameters.all"].to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
+
+    if opts.pars_latex:
+        storage["parameters.all"].to_latex_file(f"output/dayabay_{opts.version}_pars.tex")
+
+    if opts.pars_text:
+        storage["parameters.all"].to_text_file(f"output/dayabay_{opts.version}_pars.txt")
 
     if opts.graph_auto:
-        plot_graph(graph, storage)
+        plot_graph(graph, storage, opts)
 
     if opts.graphs:
         mindepth = opts.mindepth or -2
         maxdepth = opts.maxdepth or +1
         accept_index = {
-                "reactor": [0],
-                "detector": [0, 1],
-                "isotope": [0],
-                "period": [2],
-            }
+            "reactor": [0],
+            "detector": [0, 1],
+            "isotope": [0],
+            "period": [2],
+        }
         storage["nodes"].savegraphs(
             opts.graphs,
             mindepth=mindepth,
@@ -92,7 +98,7 @@ def main(opts: Namespace) -> None:
                 "detector": [0, 1],
                 "isotope": [0],
                 "period": [2],
-            }
+            },
         )
 
     if opts.graph_from_node:
@@ -109,10 +115,10 @@ def main(opts: Namespace) -> None:
         ).savegraph(filepath)
 
 
-def plot_graph(graph: Graph, storage: NodeStorage) -> None:
+def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
     from dagflow.graphviz import GraphDot
 
-    GraphDot.from_graph(graph, show="all").savegraph("output/dayabay_v0.dot")
+    GraphDot.from_graph(graph, show="all").savegraph(f"output/dayabay_{opts.version}.dot")
     GraphDot.from_graph(
         graph,
         show=["type", "mark", "label", "path"],
@@ -123,7 +129,7 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
             "period": [0],
             "background": [0],
         },
-    ).savegraph("output/dayabay_v0_reduced.dot")
+    ).savegraph(f"output/dayabay_{opts.version}_reduced.dot")
     GraphDot.from_graph(
         graph,
         show="all",
@@ -134,13 +140,13 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
             "period": [0],
             "background": [0],
         },
-    ).savegraph("output/dayabay_v0_reduced_full.dot")
+    ).savegraph(f"output/dayabay_{opts.version}_reduced_full.dot")
     GraphDot.from_node(
         storage["nodes.statistic.nuisance.all"],
         show="all",
         mindepth=-1,
         maxdepth=0,
-    ).savegraph("output/dayabay_v0_nuisance.dot")
+    ).savegraph(f"output/dayabay_{opts.version}_nuisance.dot")
     GraphDot.from_output(
         storage["outputs.statistic.stat.chi2p"],
         show="all",
@@ -153,7 +159,7 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
             "background": [0],
         },
         maxdepth=0,
-    ).savegraph("output/dayabay_v0_stat.dot")
+    ).savegraph(f"output/dayabay_{opts.version}_stat.dot")
 
 
 if __name__ == "__main__":
@@ -194,7 +200,13 @@ if __name__ == "__main__":
         "-p", "--print", action="append", nargs="+", default=[], help="print all"
     )
     storage.add_argument(
-        "-l", "--latex", action="store_true", help="print latex tables with parameters"
+        "--pars-datax", action="store_true", help="print parameters to latex (datax)"
+    )
+    storage.add_argument(
+        "--pars-latex", action="store_true", help="print latex tables with parameters"
+    )
+    storage.add_argument(
+        "--pars-text", action="store_true", help="print text tables with parameters"
     )
 
     graph = parser.add_argument_group("graph", "graph related options")
