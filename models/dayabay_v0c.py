@@ -55,17 +55,17 @@ class model_dayabay_v0c:
 
     concatenation_mode : str, default="detector_period"
         choses the observation to be analyzed:
-            - "detector_period" — concatenation of observations at
+            - "detector_period" - concatenation of observations at
               each detector at each period
-            - "detector" — concatenation of observations at each
+            - "detector" - concatenation of observations at each
               detector (combined for all period)
 
     monte_carlo_mode : str, default="asimov"
         the Monte-Carlo mode for pseudo-data:
-            - "asimov" — Asimov, no fluctuations
-            - "normal-stats" — normal fluctuations with statistical
+            - "asimov" - Asimov, no fluctuations
+            - "normal-stats" - normal fluctuations with statistical
               errors
-            - "poisson" — Poisson fluctuations
+            - "poisson" - Poisson fluctuations
 
     path_data : Path
         path to the data
@@ -415,38 +415,36 @@ class model_dayabay_v0c:
         with self.graph, storage, FileReader:
             # Load all the parameters, necessary for the model. The parameters are
             # divided into three lists:
-            # - constant — parameters are not expected to be modified during the
-            #              analysis and thus are not passed to the minimizer.
-            # - free — parameters that should be minimized and have no constraints
-            # - constrained — parameters that should be minimized and have constraints.
-            #                 The constraints are defined by:
-            #                 + central values and uncertainties
-            #                 + central vectors and covariance matrices
+            # - constant - parameters are not expected to be modified during the
+            #   analysis and thus are not passed to the minimizer.
+            # - free - parameters that should be minimized and have no constraints
+            # - constrained - parameters that should be minimized and have constraints.
+            #   The constraints are defined by:
+            #   + central values and uncertainties
+            #   + central vectors and covariance matrices
             #
             # additionally the following lists are provided
-            # - all — all the parameters, including fixed, free and constrained
-            # - variable — free and constrained parameters
-            # - normalized — a shadow definition of the constrained parameters. Each
-            #                normalized parameter has value=0 when the constrained
-            #                parameter is at its central value, +1, when it is offset by
-            #                1σ. The correlations, defined by the covariance matrices
-            #                are properly treated.
-            #                The conversion works the both ways: when normalized
-            #                parameter is modified, the related constrained parameters
-            #                are changed as well and vice versa.
-            #                The parameters from this list are used to build the
-            #                nuisance part of the χ² function.
+            # - all - all the parameters, including fixed, free and constrained
+            # - variable - free and constrained parameters
+            # - normalized - a shadow definition of the constrained parameters. Each
+            #   normalized parameter has value=0 when the constrained parameter is at
+            #   its central value, +1, when it is offset by 1σ. The correlations,
+            #   defined by the covariance matrices are properly treated. The conversion
+            #   works the both ways: when normalized parameter is modified, the related
+            #   constrained parameters are changed as well and vice versa. The
+            #   parameters from this list are used to build the nuisance part of the χ²
+            #   function.
             #
-            # All the parameters are collected in the storage — a nested dictionary,
+            # All the parameters are collected in the storage - a nested dictionary,
             # which can handle path-like keys, with 'folders' split by periods:
-            # - storage["parameters.all"] — storage with all the parameters
-            # - storage["parameters", "all"] — the same storage with all the parameters
-            # - storage["parameters.all.oscprob.SinSq2Theta12"] — neutrino oscillation
-            #       parameter sin²2θ₁₂
-            # - storage["parameters.constrained.oscprob.SinSq2Theta12"] — same neutrino
-            #       oscillation parameter sin²2θ₁₂ in the list of constrained parameters
-            # - storage["parameters.normalized.oscprob.SinSq2Theta12"] — shadow
-            #      (nuisance) parameter for sin²2θ₁₂
+            # - storage["parameters.all"] - storage with all the parameters
+            # - storage["parameters", "all"] - the same storage with all the parameters
+            # - storage["parameters.all.oscprob.SinSq2Theta12"] - neutrino oscillation
+            #   parameter sin²2θ₁₂
+            # - storage["parameters.constrained.oscprob.SinSq2Theta12"] - same neutrino
+            #   oscillation parameter sin²2θ₁₂ in the list of constrained parameters.
+            # - storage["parameters.normalized.oscprob.SinSq2Theta12"] - shadow
+            #   (nuisance) parameter for sin²2θ₁₂.
             #
             # The constrained parameter has fields `value`, `normvalue`, `central`, and
             # `sigma`, which could be read to get the current value of the parameter,
@@ -537,7 +535,7 @@ class model_dayabay_v0c:
             # IBD and detector normalization parameters:
             # - free global IBD normalization factor
             # - fixed detector efficiency (variation is managed by uncorrelated
-            #                              'detector_relative.efficiency_factor')
+            #   'detector_relative.efficiency_factor')
             # - fixed correction to the number of protons in each detector
             load_parameters(
                 path="detector", load=path_parameters / "detector_normalization.yaml"
@@ -627,8 +625,8 @@ class model_dayabay_v0c:
             # The nominal thermal power is replicated for each reactor, making its
             # uncertainty uncorrelated. Energy per fission (and fission fraction) has
             # distinct value (and uncertainties) for each isotope, therefore the
-            # configuration files have an entry for each index and `replicate` argument is
-            # not required. SNF and NEQ corrections are made uncorrelated between the
+            # configuration files have an entry for each index and `replicate` argument
+            # is not required. SNF and NEQ corrections are made uncorrelated between the
             # reactors. As only fraction of isotopes are affected by NEQ a dedicated
             # index `isotope_neq` is used for it.
 
@@ -652,7 +650,8 @@ class model_dayabay_v0c:
             # detectors during 3 periods of data taking.
             load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
 
-            # Additionally a few constants are provided. TODO
+            # Additionally a few constants are provided.
+            # A constant to convert seconds to days for the backgrounds estimation
             load_parameters(
                 format="value",
                 state="fixed",
@@ -668,7 +667,7 @@ class model_dayabay_v0c:
                 },
             )
 
-            # Statistic constants for write-handed CNP
+            # 1/3 and 2/3 needed to construct Combined Neyman-Pearson χ²
             load_parameters(
                 format="value",
                 state="fixed",
@@ -680,12 +679,29 @@ class model_dayabay_v0c:
                 },
                 labels={
                     "stats": {
-                        "pearson": "Pearson CNP coefficient",
-                        "neyman": "Neyman CNP coefficient",
+                        "pearson": "Coefficient for Pearson's part of CNP χ²",
+                        "neyman": "Coefficient for Neyman's part of CNP χ²",
                     }
                 },
             )
 
+            # Provide a few variable for handy read/write access of the model objects,
+            # including:
+            # - `nodes` - nested dictionary with nodes. Node is an instantiated function
+            #   and is a main building block of the model. Nodes have inputs (function
+            #   arguments) and outputs (return values). The model is built by connecting
+            #   the outputs of the nodes to inputs of the following nodes.
+            # - `inputs` - storage for not yet connected inputs. The inputs are removed
+            #   from the storage after connection and the storage is expected to be
+            #   empty by the end of the model construction
+            # - `outputs` - the return values of the functions used in the model. A
+            #   single output contains a single numpy array. **All** the final and
+            #   intermediate data may be accessed via outputs. Note: the function
+            #   evaluation is triggered by reading the output.
+            # - `data` - storage with raw (input) data arrays. It is used as an
+            #   intermediate storage, populated with `load_graph_data` and
+            #   `load_record_data` methods.
+            # - `parameters` - already populated storage with parameters.
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
@@ -693,15 +709,15 @@ class model_dayabay_v0c:
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
-            # fmt: off
-            #
-            # Create nodes
-            #
-            labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
-
-            #
-            # Define binning
-            #
+            # In this section the actual parts of the calculation are created as nodes.
+            # First of all the binning is defined for the histograms.
+            # - internal binning for the integration: 240 bins of 50 keV from 0 to 241.
+            #   The whole range is created for simplicity, although given the threshold
+            #   not all the bins are actually participate calculation.
+            # - final binning for the statistical analysis: 20 keV from 1.2 MeV to 2 MeV
+            #   with two wide bins below from 0.7 MeV and above up to 12 MeV.
+            # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
+            #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
 
@@ -713,12 +729,24 @@ class model_dayabay_v0c:
                 "edges.energy_final", in_edges_final
             )
             View.make_stored("edges.energy_enu", edges_energy_common)
-            edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
-            edges_energy_escint, _ = View.make_stored("edges.energy_escint", edges_energy_common)
-            edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
-            edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
+            edges_energy_edep, _ = View.make_stored(
+                "edges.energy_edep", edges_energy_common
+            )
+            edges_energy_escint, _ = View.make_stored(
+                "edges.energy_escint", edges_energy_common
+            )
+            edges_energy_evis, _ = View.make_stored(
+                "edges.energy_evis", edges_energy_common
+            )
+            edges_energy_erec, _ = View.make_stored(
+                "edges.energy_erec", edges_energy_common
+            )
 
-            Array.make_stored("reactor_anue.spectrum_free_correction.spec_model_edges", antineutrino_model_edges)
+            Array.make_stored(
+                "reactor_anue.spectrum_free_correction.spec_model_edges",
+                antineutrino_model_edges,
+            )
+            # fmt: off
 
             #
             # Integration, kinematics
