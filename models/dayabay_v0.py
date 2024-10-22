@@ -325,23 +325,37 @@ class model_dayabay_v0:
             #
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+            in_edges_costheta = [-1, 1]
 
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
-            edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
-            edges_energy_common, _ = Array.make_stored(
-                "edges.energy_common", in_edges_fine
+            edges_costheta, _ = Array.replicate(
+                name="edges.costheta", array=in_edges_costheta
             )
-            edges_energy_final, _ = Array.make_stored(
-                "edges.energy_final", in_edges_final
+            edges_energy_common, _ = Array.replicate(
+                name="edges.energy_common", array=in_edges_fine
             )
-            View.make_stored("edges.energy_enu", edges_energy_common)
-            edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
-            edges_energy_escint, _ = View.make_stored("edges.energy_escint", edges_energy_common)
-            edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
-            edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
+            edges_energy_final, _ = Array.replicate(
+                name="edges.energy_final", array=in_edges_final
+            )
+            View.replicate(name="edges.energy_enu", output=edges_energy_common)
+            edges_energy_edep, _ = View.replicate(
+                name="edges.energy_edep", output=edges_energy_common
+            )
+            edges_energy_escint, _ = View.replicate(
+                name="edges.energy_escint", output=edges_energy_common
+            )
+            edges_energy_evis, _ = View.replicate(
+                name="edges.energy_evis", output=edges_energy_common
+            )
+            edges_energy_erec, _ = View.replicate(
+                name="edges.energy_erec", output=edges_energy_common
+            )
 
-            Array.make_stored("reactor_anue.spectrum_free_correction.spec_model_edges", antineutrino_model_edges)
+            Array.replicate(
+                name="reactor_anue.spectrum_free_correction.spec_model_edges",
+                array=antineutrino_model_edges,
+            )
 
             #
             # Integration, kinematics
@@ -365,7 +379,7 @@ class model_dayabay_v0:
             outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
-            ibd, _ = IBDXsecVBO1Group.make_stored(path="kinematics.ibd", use_edep=True)
+            ibd, _ = IBDXsecVBO1Group.replicate(path="kinematics.ibd", use_edep=True)
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
