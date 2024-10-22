@@ -722,6 +722,11 @@ class model_dayabay_v0c:
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
             in_edges_costheta = [-1, 1]
 
+            # Instantiate the storage nodes for bin edges. In what follows all the
+            # nodes, outputs and inputs are automatically added to the relevant storage
+            # locations. This is done via usage of the `Node.replicate()` class method.
+            # The method is also responsible for creating indexed copies of the classes,
+            # hence the name.
             edges_costheta, _ = Array.replicate(
                 name="edges.costheta", array=in_edges_costheta
             )
@@ -731,6 +736,30 @@ class model_dayabay_v0c:
             edges_energy_final, _ = Array.replicate(
                 name="edges.energy_final", array=in_edges_final
             )
+            # For example the final energy node is stored as "nodes.edges.energy_final".
+            # The output may be accessed via the node itself, of via the storage of
+            # outputs as "outputs.edges.energy_final".
+            # ```python
+            # node = storage["nodes.edges.energy_final"] # Obtain the node from the
+            #                                            # storage
+            # output = storage["outputs.edges.energy_final"] # Obtain the outputs from
+            #                                                # the storage
+            # output = node.outputs["array"] # Obtain the outputs from the node by name
+            # output = node.outputs[0] # Obtain the outputs from the node by position
+            # print(output.data) # Get the data
+            # ```
+            # The access to the `output.data` triggers calculation recursively and
+            # returns numpy array afterwards. The returned array is read only so the
+            # user has no way to overwrite internal data accidentally.
+
+            # For the fine binning we provide a few views, each of which is associated
+            # to a distinct energy in the energy conversion process:
+            # - Enu - neutrino energy
+            # - Edep - deposited energy of a positron
+            # - Escint - energy, converted to the scintillation
+            # - Evis - visible energy: scintillation energy after non-linearity
+            #   correction
+            # - Erec - reconstructed energy: after smearing
             View.replicate(name="edges.energy_enu", output=edges_energy_common)
             edges_energy_edep, _ = View.replicate(
                 name="edges.energy_edep", output=edges_energy_common
@@ -1598,7 +1627,7 @@ class model_dayabay_v0c:
             # TODO: remove in dayabay-v1
             fastn_data = ones(240) / 240
             for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
-                spectrum.data[:] = fastn_data
+                spectrum._data[:] = fastn_data
 
             Product.replicate(
                     parameters("all.bkg.rate.acc"),

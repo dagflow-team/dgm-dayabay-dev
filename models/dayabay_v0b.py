@@ -1401,7 +1401,7 @@ class model_dayabay_v0b:
             from numpy import ones
             fastn_data = ones(240) / 240
             for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
-                spectrum.data[:] = fastn_data
+                spectrum._data[:] = fastn_data
 
             Product.replicate(
                     parameters("all.bkg.rate.acc"),
