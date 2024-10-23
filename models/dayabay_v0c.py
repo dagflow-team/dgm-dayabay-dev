@@ -828,7 +828,7 @@ class model_dayabay_v0c:
                     "orders_x": "sampler.orders_edep",
                     "orders_y": "sampler.orders_costheta",
                 },
-                replicate_outputs=combinations["anue_source.reactor.isotope.detector"]
+                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
             )
             # Pass the integration orders to the sampler inputs. The operator `>>` is
             # used to make a connection `input >> output` or batch connection
@@ -876,7 +876,14 @@ class model_dayabay_v0c:
             # The local storage is always merged to the common (context) storage. It is
             # ensured that there is no overlap in the keys.
 
-            ibd, _ = IBDXsecVBO1Group.replicate(path="kinematics.ibd", use_edep=True)
+            # As of now we know all the Edep and cosθ points to compute the target
+            # functions on. The next step is to initialize the functions themselves.
+            # Here we create an instance of Inverse Beta Decay cross section, which also
+            # includes conversion from deposited energy Edep to neutrino energy Enu and
+            # corresponding dEnu/dEdep jacobian.
+            ibd, _ = IBDXsecVBO1Group.replicate(
+                path="kinematics.ibd", input_energy="edep"
+            )
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]

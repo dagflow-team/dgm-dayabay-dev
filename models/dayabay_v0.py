@@ -361,7 +361,10 @@ class model_dayabay_v0:
             # Integration, kinematics
             #
             Array.from_value(
-                "kinematics.integration.orders_x", 5, edges=edges_energy_edep, store=True
+                "kinematics.integration.orders_x",
+                5,
+                edges=edges_energy_edep,
+                store=True,
             )
             Array.from_value(
                 "kinematics.integration.orders_y", 3, edges=edges_costheta, store=True
@@ -380,12 +383,18 @@ class model_dayabay_v0:
                 },
                 replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
             )
-            outputs.get_value("kinematics.integration.orders_x") >> integrator("orders_x")
-            outputs.get_value("kinematics.integration.orders_y") >> integrator("orders_y")
+            outputs.get_value("kinematics.integration.orders_x") >> integrator(
+                "orders_x"
+            )
+            outputs.get_value("kinematics.integration.orders_y") >> integrator(
+                "orders_y"
+            )
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
 
-            ibd, _ = IBDXsecVBO1Group.replicate(path="kinematics.ibd", use_edep=True)
+            ibd, _ = IBDXsecVBO1Group.replicate(
+                path="kinematics.ibd", input_energy="edep"
+            )
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
