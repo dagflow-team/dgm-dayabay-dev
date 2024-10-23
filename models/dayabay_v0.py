@@ -314,7 +314,6 @@ class model_dayabay_v0:
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
-            # fmt: off
             #
             # Create nodes
             #
@@ -329,6 +328,7 @@ class model_dayabay_v0:
 
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
+
             edges_costheta, _ = Array.replicate(
                 name="edges.costheta", array=in_edges_costheta
             )
@@ -360,32 +360,42 @@ class model_dayabay_v0:
             #
             # Integration, kinematics
             #
-            Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
-            Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
+            Array.from_value(
+                "kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True
+            )
+            Array.from_value(
+                "kinematics.integration.ordersy", 3, edges=edges_costheta, store=True
+            )
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
+
             integrator, _ = IntegratorGroup.replicate(
                 "2d",
-                names = {
-                    "sampler": "kinematics.sampler",
-                    "integrator": "kinematics.integral",
-                    "x": "mesh_edep",
-                    "y": "mesh_costheta"
+                path="kinematics",
+                names={
+                    "sampler": "sampler",
+                    "integrator": "integral",
+                    "mesh_x": "sampler.mesh_edep",
+                    "mesh_y": "sampler.mesh_costheta",
                 },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
-                single_node = self._merge_integration
+                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
             )
             outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
             outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
+
             ibd, _ = IBDXsecVBO1Group.replicate(path="kinematics.ibd", use_edep=True)
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
-            outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"]
+            (
+                outputs.get_value("kinematics.sampler.mesh_costheta")
+                >> ibd.inputs["costheta"]
+            )
             kinematic_integrator_enu = ibd.outputs["enu"]
 
+            # fmt: off
             #
             # Oscillations
             #

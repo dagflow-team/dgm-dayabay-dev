@@ -234,9 +234,7 @@ class model_dayabay_v0c:
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from multikeydict.tools import remap_items
 
-        #
         # Initialize the storage and paths
-        #
         storage = self.storage
         path_data = self.path_data
 
@@ -245,7 +243,6 @@ class model_dayabay_v0c:
         # TODO: use source_type for everything
         path_root = path_data / "root"
 
-        #
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
@@ -712,8 +709,6 @@ class model_dayabay_v0c:
             # In this section the actual parts of the calculation are created as nodes.
             # First of all the binning is defined for the histograms.
             # - internal binning for the integration: 240 bins of 50 keV from 0 to 241.
-            #   The whole range is created for simplicity, although given the threshold
-            #   not all the bins are actually participate calculation.
             # - final binning for the statistical analysis: 20 keV from 1.2 MeV to 2 MeV
             #   with two wide bins below from 0.7 MeV and above up to 12 MeV.
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
@@ -754,12 +749,12 @@ class model_dayabay_v0c:
 
             # For the fine binning we provide a few views, each of which is associated
             # to a distinct energy in the energy conversion process:
-            # - Enu - neutrino energy
-            # - Edep - deposited energy of a positron
-            # - Escint - energy, converted to the scintillation
+            # - Enu - neutrino energy.
+            # - Edep - deposited energy of a positron..
+            # - Escint - energy, converted to the scintillation.
             # - Evis - visible energy: scintillation energy after non-linearity
-            #   correction
-            # - Erec - reconstructed energy: after smearing
+            #   correction.
+            # - Erec - reconstructed energy: after smearing.
             View.replicate(name="edges.energy_enu", output=edges_energy_common)
             edges_energy_edep, _ = View.replicate(
                 name="edges.energy_edep", output=edges_energy_common
@@ -773,28 +768,50 @@ class model_dayabay_v0c:
             edges_energy_erec, _ = View.replicate(
                 name="edges.energy_erec", output=edges_energy_common
             )
+            # While all these nodes refer to the same array, they will have different
+            # labels, which is needed for making proper plots.
 
+            # Finally, create a node with segment edges for modelling the reactor
+            # electron antineutrino spectra.
             Array.replicate(
                 name="reactor_anue.spectrum_free_correction.spec_model_edges",
                 array=antineutrino_model_edges,
             )
 
-            # fmt: off
+            # Initialize the integration nodes. The product of reactor electron
+            # antineutrino spectrum, IBD cross section and electron antineutrino
+            # survival probability is integrated in each bin by a two-fold integral over
+            # deposited energy and positron angle. The precision of integration is
+            # defined beforehand for each Edep bin and independently for each cosθ bin.
+            # As soon as integration precision and bin edges are defined all the values
+            # of Edep and cosθ we need to compute the target functions on are defined as
+            # well.
             #
-            # Integration, kinematics
-            #
-            Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
-            Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
+            # Initialize the orders of integration (Gauss-Legendre quadratures) for Edep
+            # and cosθ. The `Array.from_value` method is used to initialize an array
+            # from a single number. The definition of bin edges is used in order to
+            # specify the shape. `store=True` is set so the created nodes are added to
+            # the storage.
+            # In partucular using order 5 for Edep and 3 for cosθ means 15=5×3 points
+            # will be used to integrate each 2d bin.
+            Array.from_value(
+                "kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True
+            )
+            Array.from_value(
+                "kinematics.integration.ordersy", 3, edges=edges_costheta, store=True
+            )
 
+            # Instantiate integration nodes.
             integrator, _ = IntegratorGroup.replicate(
                 "2d",
-                names = {
-                    "sampler": "kinematics.sampler",
-                    "integrator": "kinematics.integral",
-                    "x": "mesh_edep",
-                    "y": "mesh_costheta"
+                path="kinematics",
+                names={
+                    "sampler": "sampler",
+                    "integrator": "integral",
+                    "mesh_x": "sampler.mesh_edep",
+                    "mesh_y": "sampler.mesh_costheta",
                 },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
+                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
             )
             outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
             outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
@@ -803,9 +820,13 @@ class model_dayabay_v0c:
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
-            outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"]
+            (
+                outputs.get_value("kinematics.sampler.mesh_costheta")
+                >> ibd.inputs["costheta"]
+            )
             kinematic_integrator_enu = ibd.outputs["enu"]
 
+            # fmt: off
             #
             # Oscillations
             #
@@ -2003,3 +2024,7 @@ class model_dayabay_v0c:
         raise RuntimeError(
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
+
+
+# TODO: remove
+# vim: tw=88
