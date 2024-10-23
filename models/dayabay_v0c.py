@@ -795,26 +795,86 @@ class model_dayabay_v0c:
             # In partucular using order 5 for Edep and 3 for cosθ means 15=5×3 points
             # will be used to integrate each 2d bin.
             Array.from_value(
-                "kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True
+                "kinematics.integration.orders_edep",
+                5,
+                edges=edges_energy_edep,
+                store=True,
             )
             Array.from_value(
-                "kinematics.integration.ordersy", 3, edges=edges_costheta, store=True
+                "kinematics.integration.orders_costheta",
+                3,
+                edges=edges_costheta,
+                store=True,
             )
 
-            # Instantiate integration nodes.
-            integrator, _ = IntegratorGroup.replicate(
-                "2d",
+            # Instantiate integration nodes. The integration consist of a single
+            # sampling node, which based on bin edges and integration orders provides
+            # samples (meshes) of points to compute the integrable function on. In the
+            # case of 2d integrtion each mesh is 2d array, similar to one, produced by
+            # numpy.meshgred function. A dedicated integrator node, which does the
+            # actual integration, is created for each integrable function. In the
+            # Daya Bay case the integrator part is replicated: an instance created for
+            # each combination of "anue_source.reactor.isotope.detector" indices. Note,
+            # that NEQ part (anue_source) has no contribution from ²³⁸U and SNF part has
+            # not isotope index at all. In particular 384 integration nodes are created.
+            IntegratorGroup.replicate(
+                "gl2d",
                 path="kinematics",
                 names={
                     "sampler": "sampler",
                     "integrator": "integral",
                     "mesh_x": "sampler.mesh_edep",
                     "mesh_y": "sampler.mesh_costheta",
+                    "orders_x": "sampler.orders_edep",
+                    "orders_y": "sampler.orders_costheta",
                 },
-                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
+                replicate_outputs=combinations["anue_source.reactor.isotope.detector"]
             )
-            outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
-            outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
+            # Pass the integration orders to the sampler inputs. The operator `>>` is
+            # used to make a connection `input >> output` or batch connection
+            # `input(s) >> outputs`.
+            outputs.get_value("kinematics.integration.orders_edep") >> inputs.get_value(
+                "kinematics.sampler.orders_edep"
+            )
+            outputs.get_value(
+                "kinematics.integration.orders_costheta"
+            ) >> inputs.get_value("kinematics.sampler.orders_costheta")
+            # Regular way of accessing dictionaries via `[]` operator may be used. Here
+            # we use `storage.get_value(key)` function to ensure the value is an object,
+            # but not a nested dictionary. Similarly `storage.get_dict(key)` may be used
+            # to ensure the value is a nested dictionary.
+            #
+            # There are a few ways to find and access the created inputs and outputs.
+            # 1. get a node as `Node.replicate()` return value.
+            #   - access node's inputs and outputs.
+            # 2. get a node from node storage.
+            #   - access node's inputs and outputs.
+            # 3. access inputs and outputs via the storage.
+            #
+            # If replicate creates a single (main) node, as IntegratorGroup does, it is
+            # returned as a first return value. Then print may be used to print
+            # available inputs and outputs.
+            # ```python
+            # integrator, integrator_storage = IntegratorGroup.replicate(...)
+            # orders_x >> integrator.inputs["orders_x"] # connect orders X to sampler's
+            #                                           # input
+            # integrator.outputs["x"] >> function_input # connect mesh X to function's
+            #                                           # input
+            # ```
+            # Alternatively, the inputs may be accessed from the storage, as it is done
+            # above. The list of created inputs and outputs may be found by passing
+            # `verbose=True` flat to the replicate function as
+            # `Node.replicate(verbose=True)`. The second return value of the function is
+            # always a created storage with all the inputs and outputs, which can be
+            # printed to the terminal:
+            # ```python
+            # integrator, integrator_storage = IntegratorGroup.replicate(...)
+            # integrator_storage.print() # print local storage
+            # storage.print() # print global storage
+            # integrator_storage["inputs"].print() # print inputs from a local storage
+            # ```
+            # The local storage is always merged to the common (context) storage. It is
+            # ensured that there is no overlap in the keys.
 
             ibd, _ = IBDXsecVBO1Group.replicate(path="kinematics.ibd", use_edep=True)
             ibd << storage("parameters.constant.ibd")
@@ -2027,4 +2087,4 @@ class model_dayabay_v0c:
 
 
 # TODO: remove
-# vim: tw=88
+# vim: tw=88 fo-=t

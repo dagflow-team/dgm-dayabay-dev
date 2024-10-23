@@ -361,16 +361,16 @@ class model_dayabay_v0:
             # Integration, kinematics
             #
             Array.from_value(
-                "kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True
+                "kinematics.integration.orders_x", 5, edges=edges_energy_edep, store=True
             )
             Array.from_value(
-                "kinematics.integration.ordersy", 3, edges=edges_costheta, store=True
+                "kinematics.integration.orders_y", 3, edges=edges_costheta, store=True
             )
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
 
             integrator, _ = IntegratorGroup.replicate(
-                "2d",
+                "gl2d",
                 path="kinematics",
                 names={
                     "sampler": "sampler",
@@ -380,8 +380,8 @@ class model_dayabay_v0:
                 },
                 replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
             )
-            outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
-            outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
+            outputs.get_value("kinematics.integration.orders_x") >> integrator("orders_x")
+            outputs.get_value("kinematics.integration.orders_y") >> integrator("orders_y")
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
 
