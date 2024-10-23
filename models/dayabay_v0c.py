@@ -832,7 +832,9 @@ class model_dayabay_v0c:
             )
             # Pass the integration orders to the sampler inputs. The operator `>>` is
             # used to make a connection `input >> output` or batch connection
-            # `input(s) >> outputs`.
+            # `input(s) >> outputs`. The operator connects all the objects on the left
+            # side to all the corresponding objects on the right side. Missing pairs
+            # will cause an exception.
             outputs.get_value("kinematics.integration.orders_edep") >> inputs.get_value(
                 "kinematics.sampler.orders_edep"
             )
@@ -880,17 +882,32 @@ class model_dayabay_v0c:
             # functions on. The next step is to initialize the functions themselves.
             # Here we create an instance of Inverse Beta Decay cross section, which also
             # includes conversion from deposited energy Edep to neutrino energy Enu and
-            # corresponding dEnu/dEdep jacobian.
+            # corresponding dEnu/dEdep jacobian. The IBD nodes may operate with either
+            # positron energy Ee as input, or deposited energy Edep=Ee+m(e) as input,
+            # which is specified via an argument.
             ibd, _ = IBDXsecVBO1Group.replicate(
                 path="kinematics.ibd", input_energy="edep"
             )
+            # IBD cross section depends on a set of parameters, including neutron
+            # liftime, proton and neutron masses, vector coupling constant, etc. The
+            # values of these parameters were previously loaded and are located in the
+            # 'parameters.constant.ibd' namespace. The IBD node(s) have an input for
+            # each parameter. In order to connect the parameters the `<<` operator is
+            # used as `node << parameters_storage`. It will loop over all the inputs of
+            # the node and find parameters of the same name in the right hand side
+            # namespace. Missing parameters are skipped, extra parameters are ignored.
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
+            # Connect the integration meshes for Edep and cosθ to the inputs of the
+            # IBD node.
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
             (
                 outputs.get_value("kinematics.sampler.mesh_costheta")
                 >> ibd.inputs["costheta"]
             )
+            # There is an output, which yields neutrino energy Enu (mesh), corresponding
+            # to the Edep, cosθ meshes. As it will be used quite often, let us save it
+            # to a variable.
             kinematic_integrator_enu = ibd.outputs["enu"]
 
             # fmt: off
