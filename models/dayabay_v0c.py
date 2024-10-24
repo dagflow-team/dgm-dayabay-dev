@@ -433,7 +433,7 @@ class model_dayabay_v0c:
             #   function.
             #
             # All the parameters are collected in the storage - a nested dictionary,
-            # which can handle path-like keys, with 'folders' split by periods:
+            # which can handle path-like keys, with "folders" split by periods:
             # - storage["parameters.all"] - storage with all the parameters
             # - storage["parameters", "all"] - the same storage with all the parameters
             # - storage["parameters.all.oscprob.SinSq2Theta12"] - neutrino oscillation
@@ -485,7 +485,7 @@ class model_dayabay_v0c:
             load_parameters(
                 path="oscprob", load=path_parameters / "oscprob_constants.yaml"
             )
-            # The parameters are located in 'parameters.oscprob' folder as defined by
+            # The parameters are located in "parameters.oscprob" folder as defined by
             # the `path` argument.
             # The annotated table with values may be then printed for any storage as
             # ```python
@@ -532,7 +532,7 @@ class model_dayabay_v0c:
             # IBD and detector normalization parameters:
             # - free global IBD normalization factor
             # - fixed detector efficiency (variation is managed by uncorrelated
-            #   'detector_relative.efficiency_factor')
+            #   "detector_relative.efficiency_factor")
             # - fixed correction to the number of protons in each detector
             load_parameters(
                 path="detector", load=path_parameters / "detector_normalization.yaml"
@@ -571,7 +571,7 @@ class model_dayabay_v0c:
             # ```python
             # print(storage["outputs.statistic.nuisance.parts"].to_table())
             # ```
-            # which contains parameters 'AD11', 'AD12', etc.
+            # which contains parameters "AD11", "AD12", etc.
 
             # Relative uncorrelated between detectors parameters:
             # - relative efficiency factor (constrained)
@@ -910,22 +910,61 @@ class model_dayabay_v0c:
             # to a variable.
             kinematic_integrator_enu = ibd.outputs["enu"]
 
-            # fmt: off
-            #
-            # Oscillations
-            #
+            # Initialize survival probability for reactor electron antineutrinos. As it
+            # is affected by the distance, we replicate it for each combination of
+            # "reactor.detector" indices of count of 48. It is defined for energies in
+            # MeV, while the unit for distance may be choosen between "m" and "km".
             NueSurvivalProbability.replicate(
                 name="oscprob",
                 distance_unit="m",
                 replicate_outputs=combinations["reactor.detector"],
-                surprobArgConversion = True
+                surprobArgConversion=True,
             )
-            kinematic_integrator_enu >> inputs("oscprob.enu")
-            parameters("constant.baseline") >> inputs("oscprob.L")
-            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs("oscprob.surprobArgConversion")
-            nodes("oscprob") << parameters("free.oscprob")
-            nodes("oscprob") << parameters("constrained.oscprob")
-            nodes("oscprob") << parameters("constant.oscprob")
+            # If created in the verbose mode one can see, that the following items are
+            # created:
+            # - nodes.oscprob.DB1.AD11
+            # - nodes.oscprob.DB1.AD12
+            # - ...
+            # - inputs.oscprob.enu.DB1.AD11
+            # - inputs.oscprob.enu.DB1.AD12
+            # - ...
+            # - inputs.oscprob.L.DB1.AD11
+            # - inputs.oscprob.L.DB1.AD12
+            # - ...
+            # - inputs.oscprob.surprobArgConversion.DB1.AD11
+            # - inputs.oscprob.surprobArgConversion.DB1.AD12
+            # - ...
+            # - outputs.oscprob.DB1.AD11
+            # - outputs.oscprob.DB1.AD12
+            # - ...
+            # On one hand each node with its inputs and outputs may be accessed via
+            # "nodes.oscprob.<reactor>.<detector>" address. On the other hand all the
+            # inputs, corresponding to the baselines and input energyies may be accessed
+            # via "inputs.oscprob.L" and "inputs.oscprob.enu" respectively. It is then
+            # under user control whether he wants to provide similar or different data
+            # for them.
+            # Connect the same mesh of neutrino energy to all the 48 inputs:
+            kinematic_integrator_enu >> inputs.get_dict("oscprob.enu")
+            # Connect the corresponding baselines:
+            parameters.get_dict("constant.baseline") >> inputs.get_dict("oscprob.L")
+            # The matching is done based on the index with order being ignored. Thus
+            # baselines stored as "DB1.AD11" or "AD11.DB1" both may be connected to the
+            # input "DB1.AD11". Moreover, if the left part has fewer indices, the
+            # connection will be broadcasted, e.g. "DB1" on the left will be connected
+            # to all the indices on the right, containing "DB1".
+            #
+            # Provide a conversion constant to convert the argument of sin²(...Δm²L/E)
+            # from chosen units to natural ones.
+            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs(
+                "oscprob.surprobArgConversion"
+            )
+            # Also connect free, constrained and constant oscillation parameters to each
+            # instance of the oscillation probability.
+            nodes.get_dict("oscprob") << parameters("free.oscprob")
+            nodes.get_dict("oscprob") << parameters("constrained.oscprob")
+            nodes.get_dict("oscprob") << parameters("constant.oscprob")
+
+            # fmt: off
 
 
             #
