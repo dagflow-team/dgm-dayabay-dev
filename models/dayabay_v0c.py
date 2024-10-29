@@ -3,7 +3,7 @@ from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from numpy import ndarray
 from numpy.random import Generator
@@ -15,6 +15,7 @@ from dagflow.bundles.load_parameters import load_parameters
 from dagflow.graph import Graph
 from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.lib.InterpolatorGroup import InterpolatorGroup
+from dagflow.metanode import MetaNode
 from dagflow.storage import NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
@@ -23,44 +24,107 @@ SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
 
 class model_dayabay_v0c:
+    """The Daya Bay analysis implementation version v0c.
+
+    Attributes
+    ----------
+    storage : NodeStorage
+              nested dictionary with model elements: nodes, parameters, etc.
+
+    graph : Graph
+        graph instance
+
+    index : dict[str, tuple[str, ...]]
+        dictionary with all possible names for replicated items, e.g.
+        "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
+        index is setup within the model
+
+    combinations : dict[str, tuple[tuple[str, ...], ...]]
+        lists of all combinations of values of 1 and more indices,
+        e.g. detector, detector/period, reator/isotope, reactor/isotope/period, etc.
+
+    spectrum_correction_mode : str, default="exponential"
+        mode of how the parameters of the free spectrum model
+        are treated:
+            - "exponential": pᵢ=0 by default, S(Eᵢ) is
+              multiplied by exp(pᵢ) the correction is always
+              positive, but nonlinear
+            - "linear": pᵢ=0 by default, S(Eᵢ) is multiplied by
+              1+pᵢ the correction may be negative, but is always
+              linear
+
+    concatenation_mode : str, default="detector_period"
+        choses the observation to be analyzed:
+            - "detector_period" - concatenation of observations at
+              each detector at each period
+            - "detector" - concatenation of observations at each
+              detector (combined for all period)
+
+    monte_carlo_mode : str, default="asimov"
+        the Monte-Carlo mode for pseudo-data:
+            - "asimov" - Asimov, no fluctuations
+            - "normal-stats" - normal fluctuations with statistical
+              errors
+            - "poisson" - Poisson fluctuations
+
+    path_data : Path
+        path to the data
+
+    source_type : str, default="npz"
+        type of the data to read ("tsv", "hdf5", "root" or "npz")
+
+    Technical attributes
+    --------------------
+    _strict : bool, default=True
+        strict mode. Stop execution if:
+            - the model is not complete
+            - any labels were not applied
+
+    _close : bool, default=True
+        if True the graph is closed and memory is allocated
+        may be used to debug corrupt model
+
+    _random_generator : Generator
+        numpy random generator to be used for ToyMC
+
+    _covariance_matrix : MetaNode
+        covariance matrix, computed on this model
+
+    _frozen_nodes : dict[str, tuple]
+        storage with nodes, which are being fixed at their values and
+        require manual intervention in order to be recalculated
+    """
+
     __slots__ = (
         "storage",
         "graph",
-        "inactive_detectors",
         "index",
         "combinations",
-        "_override_indices",
-        "_path_data",
-        "_source_type",
+        "path_data",
+        "spectrum_correction_mode",
+        "concatenation_mode",
+        "monte_carlo_mode",
+        "source_type",
         "_strict",
         "_close",
-        "_spectrum_correction_mode",
-        "_covmatrix_kwargs",
         "_covariance_matrix",
         "_frozen_nodes",
-        "_concatenation_mode",
-        "_monte_carlo_mode",
         "_random_generator",
     )
 
     storage: NodeStorage
-    graph: Graph | None
-    inactive_detectors: tuple[set[str], ...]
+    graph: Graph
     index: dict[str, tuple[str, ...]]
     combinations: dict[str, tuple[tuple[str, ...], ...]]
-    _path_data: Path
-    _override_indices: Mapping[str, Sequence[str]]
-    _source_type: SourceTypes
+    path_data: Path
+    spectrum_correction_mode: Literal["linear", "exponential"]
+    concatenation_mode: Literal["detector", "detector_period"]
+    monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
+    source_type: SourceTypes
     _strict: bool
     _close: bool
-    _spectrum_correction_mode: Literal["linear", "exponential"]
-    _concatenation_mode: Literal["detector", "detector_period"]
-    _monte_carlo_mode: Literal[
-        "asimov", "normal", "normal-stats", "poisson", "covariance"
-    ]
     _random_generator: Generator
-    _covmatrix_kwargs: dict
-    _covariance_matrix: Any
+    _covariance_matrix: MetaNode
     _frozen_nodes: dict[str, tuple]
 
     def __init__(
@@ -71,56 +135,125 @@ class model_dayabay_v0c:
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
         spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
-        covmatrix_kwargs: Mapping = {},
         seed: int = 0,
-        monte_carlo_mode: Literal[
-            "asimov", "normal", "normal-stats", "poisson", "covariance"
-        ] = "asimov",
+        monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
     ):
+        """Model initialization.
+
+        Parameters
+        ----------
+        seed: int
+              random seed to be passed to random generator for ToyMC
+        override_indices : dict[str, Sequence[str]]
+                           dictionary with indices to override self.index.
+                           may be used to reduce the number of detectors or reactors in the
+                           model
+
+        for the dscription of other parameters, see description of the class.
+        """
         self._strict = strict
         self._close = close
 
-        self.graph = None
         self.storage = NodeStorage()
-        self._path_data = Path("data/dayabay-v0c")
-        self._source_type = source_type
-        self._override_indices = override_indices
-        self._spectrum_correction_mode = spectrum_correction_mode
-        self._covmatrix_kwargs = dict(covmatrix_kwargs)
-        self._concatenation_mode = concatenation_mode
-        self._monte_carlo_mode = monte_carlo_mode
+        self.path_data = Path("data/dayabay-v0c")
+        self.source_type = source_type
+        self.spectrum_correction_mode = spectrum_correction_mode
+        self.concatenation_mode = concatenation_mode
+        self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
 
         self._covariance_matrix = None
         self._frozen_nodes = {}
 
-        self.inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
-        self.index = {}
         self.combinations = {}
 
-        self.build()
+        override_indices = {k: tuple(v) for k, v in override_indices.items()}
+        self.build(override_indices)
 
         if parameter_values:
             self.set_parameters(parameter_values)
 
-    def build(self):
+    def build(self, override_indices: dict[str, tuple[str, ...]] = {}):
+        """Actually build the model.
+
+        Steps:
+            - initialize indices to describe repeated components
+            - read parameters
+            - block by block initialize the nodes of the model and connect them
+                - read the data whenever necessary
+
+        Parameters
+        ----------
+        override_indices : dict[str, tuple[str, ...]]
+                           dictionary with indices to override self.index.
+                           may be used to reduce the number of detectors or reactors in the
+                           model
+        """
+        #
+        # Import necessary nodes and loaders
+        #
+        from numpy import arange, concatenate, linspace, ones
+
+        from dagflow.bundles.load_hist import load_hist
+        from dagflow.bundles.load_record import load_record_data
+        from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
+        from dagflow.lib import (
+            Array,
+            ArraySum,
+            Cholesky,
+            Concatenation,
+            CovarianceMatrixGroup,
+            Exp,
+            IntegratorGroup,
+            LogProdDiag,
+            ParArrayInput,
+            Proxy,
+            RenormalizeDiag,
+            SumMatOrDiag,
+            VectorMatrixProduct,
+            View,
+        )
+        from dagflow.tools.schema import LoadPy
+        from dgf_detector import (
+            AxisDistortionMatrix,
+            EnergyResolution,
+            Monotonize,
+            Rebin,
+        )
+        from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
+        from dgf_reactoranueosc import (
+            IBDXsecVBO1Group,
+            InverseSquareLaw,
+            NueSurvivalProbability,
+        )
+        from dgf_statistics import Chi2, CNPStat, MonteCarlo
+        from models.bundles.refine_detector_data import refine_detector_data
+        from models.bundles.refine_reactor_data import refine_reactor_data
+        from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
+        from multikeydict.tools import remap_items
+
+        # Initialize the storage and paths
         storage = self.storage
-        path_data = self._path_data
+        path_data = self.path_data
 
         path_parameters = path_data / "parameters"
-        path_arrays = path_data / self._source_type
+        path_arrays = path_data / self.source_type
+        # TODO: use source_type for everything
         path_root = path_data / "root"
 
-        from dagflow.tools.schema import LoadPy
-
+        # Read Eν edges for the parametrization of free antineutrino spectrum model
+        # Loads the python file and returns variable "edges", which should be defined
+        # in the file and has type `ndarray`.
+        #
         antineutrino_model_edges = LoadPy(
             path_parameters / "reactor_antineutrino_spectrum_edges.py",
             variable="edges",
             type=ndarray,
         )
 
+        # Provide some convenience substitutions for labels
         index_names = {
             "U235": "²³⁵U",
             "U238": "²³⁸U",
@@ -128,36 +261,68 @@ class model_dayabay_v0c:
             "Pu241": "²⁴¹Pu",
         }
 
-        # Provide a list of indices and their values. Values should be globally unique
-        index = self.index
-        index["isotope"] = ("U235", "U238", "Pu239", "Pu241")
-        index["isotope_lower"] = tuple(i.lower() for i in index["isotope"])
-        index["isotope_neq"] = ("U235", "Pu239", "Pu241")
-        index["detector"] = (
-            "AD11",
-            "AD12",
-            "AD21",
-            "AD22",
-            "AD31",
-            "AD32",
-            "AD33",
-            "AD34",
-        )
-        index["site"] = ("EH1", "EH2", "EH3")
-        index["reactor"] = ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4")
-        index["anue_source"] = ("nu_main", "nu_neq", "nu_snf")
-        index["anue_unc"] = ("uncorr", "corr")
-        index["period"] = ("6AD", "8AD", "7AD")
-        index["lsnl"] = ("nominal", "pull0", "pull1", "pull2", "pull3")
-        index["lsnl_nuisance"] = ("pull0", "pull1", "pull2", "pull3")
-        # index["bkg"] = ('acc', 'lihe', 'fastn', 'amc', 'alphan', 'muon')
-        index["bkg"] = ("acc", "lihe", "fastn", "amc", "alphan")
-        index["spec"] = tuple(
-            f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
-        )
+        #
+        # Provide indices, names and lists of values in order to work with repeated
+        # items
+        #
+        index = self.index = {
+            # Data acquisition period
+            "period": ("6AD", "8AD", "7AD"),
+            # Detector names
+            "detector": (
+                "AD11",
+                "AD12",
+                "AD21",
+                "AD22",
+                "AD31",
+                "AD32",
+                "AD33",
+                "AD34",
+            ),
+            # Source of background events:
+            #     - acc: accidental coincidences
+            #     - lihe: ⁹Li and ⁸He related events
+            #     - fastn: fast neutrons and muon-x background
+            #     - amc: ²⁴¹Am¹³C calibration source related background
+            #     - alphan: ¹³C(α,n)¹⁶O background
+            "bkg": ("acc", "lihe", "fastn", "amc", "alphan"),
+            # Experimental sites
+            "site": ("EH1", "EH2", "EH3"),
+            # Fissile isotopes
+            "isotope": ("U235", "U238", "Pu239", "Pu241"),
+            # Fissile isotopes, which spectrum requires Non-Equilibrium correction to be
+            # applied
+            "isotope_neq": ("U235", "Pu239", "Pu241"),
+            # Nuclear reactors
+            "reactor": ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4"),
+            # Sources of antineutrinos:
+            #     - "nu_main": for antineutrinos from reactor cores with no
+            #                  Non-Equilibrium correction applied
+            #     - "nu_neq": antineutrinos from Non-Equilibrium correction
+            #     - "nu_snf": antineutrinos from Spent Nuclear Fuel
+            "anue_source": ("nu_main", "nu_neq", "nu_snf"),
+            # Model related antineutrino spectrum correction type:
+            #     - uncorrelated
+            #     - correlated
+            "anue_unc": ("uncorr", "corr"),
+            # Part of the Liquid scintillator non-linearity (LSNL) parametrization
+            "lsnl": ("nominal", "pull0", "pull1", "pull2", "pull3"),
+            # Nuisance related part of the Liquid scintillator non-linearity (LSNL)
+            # parametrization
+            "lsnl_nuisance": ("pull0", "pull1", "pull2", "pull3"),
+            # Free antineutrino spectrum parameter names: one parameter for each edge
+            # from `antineutrino_model_edges`
+            "spec": tuple(
+                f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
+            ),
+        }
+        # Define isotope names in lower case
+        index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
-        index.update(self._override_indices)
+        # Optionally override (reduce) indices
+        index.update(override_indices)
 
+        # Check there are now overlaps
         index_all = (
             index["isotope"] + index["detector"] + index["reactor"] + index["period"]
         )
@@ -165,6 +330,14 @@ class model_dayabay_v0c:
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
 
+        # Collection combinations between 2 and more indices. Ensure some combinations,
+        # e.g. detectors not present at certain periods, are excluded.
+        # For example, combinations["reactor.detector"] contains:
+        # (("DB1", "AD11"), ("DB1", "AD12"), ..., ("DB2", "AD11"), ...)
+        #
+        # The dictionary combinations is one of the main elements to loop over and match
+        # parts of the computational graph
+        inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
         required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
@@ -181,17 +354,19 @@ class model_dayabay_v0c:
             "bkg.detector",
             "bkg.detector.period",
         )
-        # Provide the combinations of indices
         combinations = self.combinations
         for combname in required_combinations:
             combitems = combname.split(".")
             items = []
             for it in product(*(index[item] for item in combitems)):
-                if any(inact.issubset(it) for inact in self.inactive_detectors):
+                if any(inact.issubset(it) for inact in inactive_detectors):
                     continue
                 items.append(it)
             combinations[combname] = tuple(items)
 
+        # Special treatment is needed for combinations of anue_source and isotope as
+        # nu_neq is related to only a fraction of isotops, while nu_snf does not index
+        # isotopes at all
         combinations["anue_source.reactor.isotope.detector"] = (
             tuple(
                 ("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"]
@@ -203,71 +378,277 @@ class model_dayabay_v0c:
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
 
-        systematic_uncertainties_groups = [
-            ("oscprob", "oscprob"),
-            ("eres", "detector.eres"),
-            ("lsnl", "detector.lsnl_scale_a"),
-            ("iav", "detector.iav_offdiag_scale_factor"),
-            ("detector_relative", "detector.detector_relative"),
-            ("energy_per_fission", "reactor.energy_per_fission"),
-            ("nominal_thermal_power", "reactor.nominal_thermal_power"),
-            ("snf", "reactor.snf_scale"),
-            ("neq", "reactor.nonequilibrium_scale"),
-            ("fission_fraction", "reactor.fission_fraction_scale"),
-            ("bkg_rate", "bkg.rate"),
-            ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
-            ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr"),
-        ]
+        # Define a dictionary of groups of nuisance parameters in a format `name: path`,
+        # where path denotes the location of the parameters in storage.
+        systematic_uncertainties_groups = {
+            "oscprob": "oscprob",
+            "eres": "detector.eres",
+            "lsnl": "detector.lsnl_scale_a",
+            "iav": "detector.iav_offdiag_scale_factor",
+            "detector_relative": "detector.detector_relative",
+            "energy_per_fission": "reactor.energy_per_fission",
+            "nominal_thermal_power": "reactor.nominal_thermal_power",
+            "snf": "reactor.snf_scale",
+            "neq": "reactor.nonequilibrium_scale",
+            "fission_fraction": "reactor.fission_fraction_scale",
+            "bkg_rate": "bkg.rate",
+            "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
+            "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
+        }
 
-        with (
-            Graph(close_on_exit=self._close, strict=self._strict) as graph,
-            storage,
-            FileReader,
-        ):
-            # fmt: off
-            self.graph = graph
+        # Start building the computational graph within a dedicated context, which
+        # includes:
+        # - graph - the graph instance.
+        #     + All the nodes are added to the graph while graph is open.
+        #     + On the exit from the context the graph closes itself, which triggers
+        #       allocation of memory for the calculations.
+        # - storage - nested dictionary, which is used to store all the created
+        #   elements: nodes, outputs, parameters, data items, etc.
+        # - filereader - manages reading the files
+        #     + ensures, that the input files are opened only once
+        #     + closes the files upon the exit of the context
+        self.graph = Graph(close_on_exit=self._close, strict=self._strict)
+
+        with self.graph, storage, FileReader:
+            # Load all the parameters, necessary for the model. The parameters are
+            # divided into three lists:
+            # - constant - parameters are not expected to be modified during the
+            #   analysis and thus are not passed to the minimizer.
+            # - free - parameters that should be minimized and have no constraints
+            # - constrained - parameters that should be minimized and have constraints.
+            #   The constraints are defined by:
+            #   + central values and uncertainties
+            #   + central vectors and covariance matrices
             #
-            # Load parameters
+            # additionally the following lists are provided
+            # - all - all the parameters, including fixed, free and constrained
+            # - variable - free and constrained parameters
+            # - normalized - a shadow definition of the constrained parameters. Each
+            #   normalized parameter has value=0 when the constrained parameter is at
+            #   its central value, +1, when it is offset by 1σ. The correlations,
+            #   defined by the covariance matrices are properly treated. The conversion
+            #   works the both ways: when normalized parameter is modified, the related
+            #   constrained parameters are changed as well and vice versa. The
+            #   parameters from this list are used to build the nuisance part of the χ²
+            #   function.
             #
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob.yaml")
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob_solar.yaml", joint_nuisance=True)
-            load_parameters(path="oscprob",    load=path_parameters/"oscprob_constants.yaml"
+            # All the parameters are collected in the storage - a nested dictionary,
+            # which can handle path-like keys, with "folders" split by periods:
+            # - storage["parameters.all"] - storage with all the parameters
+            # - storage["parameters", "all"] - the same storage with all the parameters
+            # - storage["parameters.all.oscprob.SinSq2Theta12"] - neutrino oscillation
+            #   parameter sin²2θ₁₂
+            # - storage["parameters.constrained.oscprob.SinSq2Theta12"] - same neutrino
+            #   oscillation parameter sin²2θ₁₂ in the list of constrained parameters.
+            # - storage["parameters.normalized.oscprob.SinSq2Theta12"] - shadow
+            #   (nuisance) parameter for sin²2θ₁₂.
+            #
+            # The constrained parameter has fields `value`, `normvalue`, `central`, and
+            # `sigma`, which could be read to get the current value of the parameter,
+            # normalized value, central value, and uncertainty. The assignment to the
+            # fields changes the values. Additionally fields `sigma_relative` and
+            # `sigma_percent` may be used to get and set the relative uncertainty.
+            # ```python
+            # p = storage["parameters.all.oscprob.SinSq2Theta12"]
+            # print(p)        # print the description
+            # print(p.value)  # print the current value
+            # p.value = 0.8   # set the value to 0.8 - affects the model
+            # p.central = 0.7 # set the central value to 0.7 - affects the nuisance term
+            # p.normvalue = 1 # set the value to centra+1sigma
+            # ```
+            #
+            # The non-constrained parameter lacks `central`, `sigma`, `normvalue`, etc
+            # fields and is controlled only by `value`. The normalized parameter does
+            # have `central` and `sigma` fields, but they are read only. The effect of
+            # changing `value` field of the normalized parameter is the same as changing
+            # `normvalue` field of its corresponding parameter.
+            #
+            # ```python
+            # np = storage["parameters.normalized.oscprob.SinSq2Theta12"]
+            # print(np)        # print the description
+            # print(np.value)  # print the current value -> 0
+            # np.value = 1     # set the value to centra+1sigma
+            # np.normvalue = 1 # set the value to centra+1sigma
+            # # p is also affected
+            # ```
+            #
+            # Load oscillation parameters from 3 configuration files:
+            # - Free sin²2θ₁₃ and Δm²₃₂
+            # - Constrained sin²2θ₁₃ and Δm²₃₂
+            # - Fixed: Neutrino Mass Ordering
+            load_parameters(path="oscprob", load=path_parameters / "oscprob.yaml")
+            load_parameters(
+                path="oscprob",
+                load=path_parameters / "oscprob_solar.yaml",
+                joint_nuisance=True,
+            )
+            load_parameters(
+                path="oscprob", load=path_parameters / "oscprob_constants.yaml"
+            )
+            # The parameters are located in "parameters.oscprob" folder as defined by
+            # the `path` argument.
+            # The annotated table with values may be then printed for any storage as
+            # ```python
+            # print(storage["parameters.all.oscprob"].to_table())
+            # print(storage.get_dict("parameters.all.oscprob").to_table())
+            # ```
+            # the second line does the same, but ensures that the object, obtained from
+            # a storage is another nested dictionary, not a parameter.
+            #
+            # The `joint_nuisance` options instructs the loader to provide a combined
+            # nuisance term for the both the parameters, rather then two of them. The
+            # nuisance terms for created constrained parameters are located in
+            # "outputs.statistic.nuisance.parts" and may be printed with:
+            # ```python
+            # print(storage["outputs.statistic.nuisance"].to_table())
+            # ```
+            # The outputs are typically read-only. They are affected when the parameters
+            # are modified and the relevant values are calculated upon request. In this
+            # case, when the table is printed.
+
+            # Load fixed parameters for Inverse Beta Decay (IBD) cross section:
+            # - particle masses and lifetimes
+            # - constants for Vogel-Beacom IBD cross section
+            load_parameters(path="ibd", load=path_parameters / "pdg2024.yaml")
+            load_parameters(path="ibd.csc", load=path_parameters / "ibd_constants.yaml")
+
+            # Load the conversion constants from metric to natural units:
+            # - reactor thermal power
+            # - the argument of oscillation proabability
+            # `scipy.constants` are used to provide the numbers.
+            # There are no constants, except maybe 1, 1/3 and π, defined within the
+            # code. All the numbers are read based on the configuration files.
+            load_parameters(
+                path="conversion", load=path_parameters / "conversion_thermal_power.py"
+            )
+            load_parameters(
+                path="conversion",
+                load=path_parameters / "conversion_oscprob_argument.py",
             )
 
-            load_parameters(path="ibd",        load=path_parameters/"pdg2024.yaml")
-            load_parameters(path="ibd.csc",    load=path_parameters/"ibd_constants.yaml")
+            # Load reactor-detector baselines
+            load_parameters(load=path_parameters / "baselines.yaml")
 
-            load_parameters(path="conversion", load=path_parameters/"conversion_thermal_power.py")
-            load_parameters(path="conversion", load=path_parameters/"conversion_oscprob_argument.py")
+            # IBD and detector normalization parameters:
+            # - free global IBD normalization factor
+            # - fixed detector efficiency (variation is managed by uncorrelated
+            #   "detector_relative.efficiency_factor")
+            # - fixed correction to the number of protons in each detector
+            load_parameters(
+                path="detector", load=path_parameters / "detector_normalization.yaml"
+            )
+            load_parameters(
+                path="detector", load=path_parameters / "detector_efficiency.yaml"
+            )
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_nprotons_correction.yaml",
+            )
 
-            load_parameters(                   load=path_parameters/"baselines.yaml")
+            # Detector energy scale parameters:
+            # - constrained correlated between detectors energy resolution parameters
+            # - constrained correlated between detectors Liquid Scnitillator
+            #   Non-Linearity (LSNL) parameters
+            # - constrained uncorrelated between detectors energy distortion related to
+            #   Inner Acrylic Vessel
+            load_parameters(
+                path="detector", load=path_parameters / "detector_eres.yaml"
+            )
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_lsnl.yaml",
+                replicate=index["lsnl_nuisance"],
+            )
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_iav_offdiag_scale.yaml",
+                replicate=index["detector"],
+            )
+            # Here we use `replicate` argument and pass a list of values. The parameters
+            # are replicated for each index value. So 4 parameters for LSNL are created
+            # and 8 parameters of IAV are created. The index values are used to
+            # construct the path to parameter. See:
+            # ```python
+            # print(storage["outputs.statistic.nuisance.parts"].to_table())
+            # ```
+            # which contains parameters "AD11", "AD12", etc.
 
-            load_parameters(path="detector",   load=path_parameters/"detector_efficiency.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_normalization.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_nprotons_correction.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_eres.yaml")
-            load_parameters(path="detector",   load=path_parameters/"detector_lsnl.yaml",
-                            replicate=index["lsnl_nuisance"])
-            load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
-                            replicate=index["detector"])
-            load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
-                            replicate=index["detector"], replica_key_offset=1)
+            # Relative uncorrelated between detectors parameters:
+            # - relative efficiency factor (constrained)
+            # - relative energy scale factor (constrained)
+            # the parameters of each detector are correlated between each other.
+            load_parameters(
+                path="detector",
+                load=path_parameters / "detector_relative.yaml",
+                replicate=index["detector"],
+                keys_order=(
+                    ("pargroup", "par", "detector"),
+                    ("pargroup", "detector", "par"),
+                ),
+            )
+            # By default extra index is appended at the end of the key (path). A
+            # `keys_order` argument is used to change the order of the keys from
+            # group.par.detector to group.detector.par so it is easier to access both
+            # the parameters of a single detector.
 
-            load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
-            load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
-                            replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_snf.yaml",
-                            replicate=index["reactor"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_nonequilibrium_correction.yaml",
-                            replicate=combinations["reactor.isotope_neq"])
-            load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
-            load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
-                            replicate=index["reactor"], replica_key_offset=1)
+            # Load reactor related parameters:
+            # - constrained nominal thermal power
+            # - constrained mean energy release per fission
+            # - constrained Non-EQuilibrium (NEQ) correction scale
+            # - cosntrained Spent Nuclear Fuel (SNF) scale
+            # - fixed values of the fission fractions for the SNF calculation
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_thermal_power_nominal.yaml",
+                replicate=index["reactor"],
+            )
+            load_parameters(
+                path="reactor", load=path_parameters / "reactor_energy_per_fission.yaml"
+            )
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_snf.yaml",
+                replicate=index["reactor"],
+            )
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_nonequilibrium_correction.yaml",
+                replicate=combinations["reactor.isotope_neq"],
+            )
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_snf_fission_fractions.yaml",
+            )
+            # The nominal thermal power is replicated for each reactor, making its
+            # uncertainty uncorrelated. Energy per fission (and fission fraction) has
+            # distinct value (and uncertainties) for each isotope, therefore the
+            # configuration files have an entry for each index and `replicate` argument
+            # is not required. SNF and NEQ corrections are made uncorrelated between the
+            # reactors. As only fraction of isotopes are affected by NEQ a dedicated
+            # index `isotope_neq` is used for it.
 
-            load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
-            # fmt: on
+            # Read the constrained and correlated fission fractions. The fission
+            # fractions are partially correlated within each reactor. Therefore the
+            # configuration file provides the uncertainties and correlations for
+            # isotopes. The parameters are then replicated for each reactor and the
+            # index is modified to have `isotope` as the innermost part.
+            load_parameters(
+                path="reactor",
+                load=path_parameters / "reactor_fission_fraction_scale.yaml",
+                replicate=index["reactor"],
+                keys_order=(
+                    ("par", "isotope", "reactor"),
+                    ("par", "reactor", "isotope"),
+                ),
+            )
 
-            # Normalization constants
+            # Finally the constrained background rates are loaded. They include the
+            # rates and uncertainties for 5 sources of background events for 6-8
+            # detectors during 3 periods of data taking.
+            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
+
+            # Additionally a few constants are provided.
+            # A constant to convert seconds to days for the backgrounds estimation
             load_parameters(
                 format="value",
                 state="fixed",
@@ -283,7 +664,7 @@ class model_dayabay_v0c:
                 },
             )
 
-            # Statistic constants for write-handed CNP
+            # 1/3 and 2/3 needed to construct Combined Neyman-Pearson χ²
             load_parameters(
                 format="value",
                 state="fixed",
@@ -295,12 +676,29 @@ class model_dayabay_v0c:
                 },
                 labels={
                     "stats": {
-                        "pearson": "Pearson CNP coefficient",
-                        "neyman": "Neyman CNP coefficient",
+                        "pearson": "Coefficient for Pearson's part of CNP χ²",
+                        "neyman": "Coefficient for Neyman's part of CNP χ²",
                     }
                 },
             )
 
+            # Provide a few variable for handy read/write access of the model objects,
+            # including:
+            # - `nodes` - nested dictionary with nodes. Node is an instantiated function
+            #   and is a main building block of the model. Nodes have inputs (function
+            #   arguments) and outputs (return values). The model is built by connecting
+            #   the outputs of the nodes to inputs of the following nodes.
+            # - `inputs` - storage for not yet connected inputs. The inputs are removed
+            #   from the storage after connection and the storage is expected to be
+            #   empty by the end of the model construction
+            # - `outputs` - the return values of the functions used in the model. A
+            #   single output contains a single numpy array. **All** the final and
+            #   intermediate data may be accessed via outputs. Note: the function
+            #   evaluation is triggered by reading the output.
+            # - `data` - storage with raw (input) data arrays. It is used as an
+            #   intermediate storage, populated with `load_graph_data` and
+            #   `load_record_data` methods.
+            # - `parameters` - already populated storage with parameters.
             nodes = storage.child("nodes")
             inputs = storage.child("inputs")
             outputs = storage.child("outputs")
@@ -308,82 +706,265 @@ class model_dayabay_v0c:
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
-            # fmt: off
-            #
-            # Create nodes
-            #
-            labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
-
-            from numpy import arange, concatenate, linspace
-
-            #
-            # Define binning
-            #
+            # In this section the actual parts of the calculation are created as nodes.
+            # First of all the binning is defined for the histograms.
+            # - internal binning for the integration: 240 bins of 50 keV from 0 to 241.
+            # - final binning for the statistical analysis: 20 keV from 1.2 MeV to 2 MeV
+            #   with two wide bins below from 0.7 MeV and above up to 12 MeV.
+            # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
+            #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+            in_edges_costheta = [-1, 1]
 
-            from dagflow.lib.Array import Array
-            from dagflow.lib.View import View
-            edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
-            edges_energy_common, _ = Array.make_stored(
-                "edges.energy_common", in_edges_fine
+            # Instantiate the storage nodes for bin edges. In what follows all the
+            # nodes, outputs and inputs are automatically added to the relevant storage
+            # locations. This is done via usage of the `Node.replicate()` class method.
+            # The method is also responsible for creating indexed copies of the classes,
+            # hence the name.
+            edges_costheta, _ = Array.replicate(
+                name="edges.costheta", array=in_edges_costheta
             )
-            edges_energy_final, _ = Array.make_stored(
-                "edges.energy_final", in_edges_final
+            edges_energy_common, _ = Array.replicate(
+                name="edges.energy_common", array=in_edges_fine
             )
-            View.make_stored("edges.energy_enu", edges_energy_common)
-            edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
-            edges_energy_escint, _ = View.make_stored("edges.energy_escint", edges_energy_common)
-            edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
-            edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
+            edges_energy_final, _ = Array.replicate(
+                name="edges.energy_final", array=in_edges_final
+            )
+            # For example the final energy node is stored as "nodes.edges.energy_final".
+            # The output may be accessed via the node itself, of via the storage of
+            # outputs as "outputs.edges.energy_final".
+            # ```python
+            # node = storage["nodes.edges.energy_final"] # Obtain the node from the
+            #                                            # storage
+            # output = storage["outputs.edges.energy_final"] # Obtain the outputs from
+            #                                                # the storage
+            # output = node.outputs["array"] # Obtain the outputs from the node by name
+            # output = node.outputs[0] # Obtain the outputs from the node by position
+            # print(output.data) # Get the data
+            # ```
+            # The access to the `output.data` triggers calculation recursively and
+            # returns numpy array afterwards. The returned array is read only so the
+            # user has no way to overwrite internal data accidentally.
 
-            Array.make_stored("reactor_anue.spectrum_free_correction.spec_model_edges", antineutrino_model_edges)
+            # For the fine binning we provide a few views, each of which is associated
+            # to a distinct energy in the energy conversion process:
+            # - Enu - neutrino energy.
+            # - Edep - deposited energy of a positron..
+            # - Escint - energy, converted to the scintillation.
+            # - Evis - visible energy: scintillation energy after non-linearity
+            #   correction.
+            # - Erec - reconstructed energy: after smearing.
+            View.replicate(name="edges.energy_enu", output=edges_energy_common)
+            edges_energy_edep, _ = View.replicate(
+                name="edges.energy_edep", output=edges_energy_common
+            )
+            edges_energy_escint, _ = View.replicate(
+                name="edges.energy_escint", output=edges_energy_common
+            )
+            edges_energy_evis, _ = View.replicate(
+                name="edges.energy_evis", output=edges_energy_common
+            )
+            edges_energy_erec, _ = View.replicate(
+                name="edges.energy_erec", output=edges_energy_common
+            )
+            # While all these nodes refer to the same array, they will have different
+            # labels, which is needed for making proper plots.
 
+            # Finally, create a node with segment edges for modelling the reactor
+            # electron antineutrino spectra.
+            Array.replicate(
+                name="reactor_anue.spectrum_free_correction.spec_model_edges",
+                array=antineutrino_model_edges,
+            )
+
+            # Initialize the integration nodes. The product of reactor electron
+            # antineutrino spectrum, IBD cross section and electron antineutrino
+            # survival probability is integrated in each bin by a two-fold integral over
+            # deposited energy and positron angle. The precision of integration is
+            # defined beforehand for each Edep bin and independently for each cosθ bin.
+            # As soon as integration precision and bin edges are defined all the values
+            # of Edep and cosθ we need to compute the target functions on are defined as
+            # well.
             #
-            # Integration, kinematics
-            #
-            Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
-            Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
+            # Initialize the orders of integration (Gauss-Legendre quadratures) for Edep
+            # and cosθ. The `Array.from_value` method is used to initialize an array
+            # from a single number. The definition of bin edges is used in order to
+            # specify the shape. `store=True` is set so the created nodes are added to
+            # the storage.
+            # In partucular using order 5 for Edep and 3 for cosθ means 15=5×3 points
+            # will be used to integrate each 2d bin.
+            Array.from_value(
+                "kinematics.integration.orders_edep",
+                5,
+                edges=edges_energy_edep,
+                store=True,
+            )
+            Array.from_value(
+                "kinematics.integration.orders_costheta",
+                3,
+                edges=edges_costheta,
+                store=True,
+            )
 
-            from dagflow.lib.IntegratorGroup import IntegratorGroup
-            integrator, _ = IntegratorGroup.replicate(
-                "2d",
-                names = {
-                    "sampler": "kinematics.sampler",
-                    "integrator": "kinematics.integral",
-                    "x": "mesh_edep",
-                    "y": "mesh_costheta"
+            # Instantiate integration nodes. The integration consist of a single
+            # sampling node, which based on bin edges and integration orders provides
+            # samples (meshes) of points to compute the integrable function on. In the
+            # case of 2d integrtion each mesh is 2d array, similar to one, produced by
+            # numpy.meshgred function. A dedicated integrator node, which does the
+            # actual integration, is created for each integrable function. In the
+            # Daya Bay case the integrator part is replicated: an instance created for
+            # each combination of "anue_source.reactor.isotope.detector" indices. Note,
+            # that NEQ part (anue_source) has no contribution from ²³⁸U and SNF part has
+            # not isotope index at all. In particular 384 integration nodes are created.
+            IntegratorGroup.replicate(
+                "gl2d",
+                path="kinematics",
+                names={
+                    "sampler": "sampler",
+                    "integrator": "integral",
+                    "mesh_x": "sampler.mesh_edep",
+                    "mesh_y": "sampler.mesh_costheta",
+                    "orders_x": "sampler.orders_edep",
+                    "orders_y": "sampler.orders_costheta",
                 },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
+                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
             )
-            outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
-            outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
+            # Pass the integration orders to the sampler inputs. The operator `>>` is
+            # used to make a connection `input >> output` or batch connection
+            # `input(s) >> outputs`. The operator connects all the objects on the left
+            # side to all the corresponding objects on the right side. Missing pairs
+            # will cause an exception.
+            outputs.get_value("kinematics.integration.orders_edep") >> inputs.get_value(
+                "kinematics.sampler.orders_edep"
+            )
+            outputs.get_value(
+                "kinematics.integration.orders_costheta"
+            ) >> inputs.get_value("kinematics.sampler.orders_costheta")
+            # Regular way of accessing dictionaries via `[]` operator may be used. Here
+            # we use `storage.get_value(key)` function to ensure the value is an object,
+            # but not a nested dictionary. Similarly `storage.get_dict(key)` may be used
+            # to ensure the value is a nested dictionary.
+            #
+            # There are a few ways to find and access the created inputs and outputs.
+            # 1. get a node as `Node.replicate()` return value.
+            #   - access node's inputs and outputs.
+            # 2. get a node from node storage.
+            #   - access node's inputs and outputs.
+            # 3. access inputs and outputs via the storage.
+            #
+            # If replicate creates a single (main) node, as IntegratorGroup does, it is
+            # returned as a first return value. Then print may be used to print
+            # available inputs and outputs.
+            # ```python
+            # integrator, integrator_storage = IntegratorGroup.replicate(...)
+            # orders_x >> integrator.inputs["orders_x"] # connect orders X to sampler's
+            #                                           # input
+            # integrator.outputs["x"] >> function_input # connect mesh X to function's
+            #                                           # input
+            # ```
+            # Alternatively, the inputs may be accessed from the storage, as it is done
+            # above. The list of created inputs and outputs may be found by passing
+            # `verbose=True` flat to the replicate function as
+            # `Node.replicate(verbose=True)`. The second return value of the function is
+            # always a created storage with all the inputs and outputs, which can be
+            # printed to the terminal:
+            # ```python
+            # integrator, integrator_storage = IntegratorGroup.replicate(...)
+            # integrator_storage.print() # print local storage
+            # storage.print() # print global storage
+            # integrator_storage["inputs"].print() # print inputs from a local storage
+            # ```
+            # The local storage is always merged to the common (context) storage. It is
+            # ensured that there is no overlap in the keys.
 
-            from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
-            ibd, _ = IBDXsecVBO1Group.make_stored(path="kinematics.ibd", use_edep=True)
+            # As of now we know all the Edep and cosθ points to compute the target
+            # functions on. The next step is to initialize the functions themselves.
+            # Here we create an instance of Inverse Beta Decay cross section, which also
+            # includes conversion from deposited energy Edep to neutrino energy Enu and
+            # corresponding dEnu/dEdep jacobian. The IBD nodes may operate with either
+            # positron energy Ee as input, or deposited energy Edep=Ee+m(e) as input,
+            # which is specified via an argument.
+            ibd, _ = IBDXsecVBO1Group.replicate(
+                path="kinematics.ibd", input_energy="edep"
+            )
+            # IBD cross section depends on a set of parameters, including neutron
+            # liftime, proton and neutron masses, vector coupling constant, etc. The
+            # values of these parameters were previously loaded and are located in the
+            # 'parameters.constant.ibd' namespace. The IBD node(s) have an input for
+            # each parameter. In order to connect the parameters the `<<` operator is
+            # used as `node << parameters_storage`. It will loop over all the inputs of
+            # the node and find parameters of the same name in the right hand side
+            # namespace. Missing parameters are skipped, extra parameters are ignored.
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
+            # Connect the integration meshes for Edep and cosθ to the inputs of the
+            # IBD node.
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
-            outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"]
+            (
+                outputs.get_value("kinematics.sampler.mesh_costheta")
+                >> ibd.inputs["costheta"]
+            )
+            # There is an output, which yields neutrino energy Enu (mesh), corresponding
+            # to the Edep, cosθ meshes. As it will be used quite often, let us save it
+            # to a variable.
             kinematic_integrator_enu = ibd.outputs["enu"]
 
-            #
-            # Oscillations
-            #
-            from dgf_reactoranueosc.NueSurvivalProbability import \
-                NueSurvivalProbability
+            # Initialize survival probability for reactor electron antineutrinos. As it
+            # is affected by the distance, we replicate it for each combination of
+            # "reactor.detector" indices of count of 48. It is defined for energies in
+            # MeV, while the unit for distance may be choosen between "m" and "km".
             NueSurvivalProbability.replicate(
                 name="oscprob",
                 distance_unit="m",
                 replicate_outputs=combinations["reactor.detector"],
-                surprobArgConversion = True
+                surprobArgConversion=True,
             )
-            kinematic_integrator_enu >> inputs("oscprob.enu")
-            parameters("constant.baseline") >> inputs("oscprob.L")
-            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs("oscprob.surprobArgConversion")
-            nodes("oscprob") << parameters("free.oscprob")
-            nodes("oscprob") << parameters("constrained.oscprob")
-            nodes("oscprob") << parameters("constant.oscprob")
+            # If created in the verbose mode one can see, that the following items are
+            # created:
+            # - nodes.oscprob.DB1.AD11
+            # - nodes.oscprob.DB1.AD12
+            # - ...
+            # - inputs.oscprob.enu.DB1.AD11
+            # - inputs.oscprob.enu.DB1.AD12
+            # - ...
+            # - inputs.oscprob.L.DB1.AD11
+            # - inputs.oscprob.L.DB1.AD12
+            # - ...
+            # - inputs.oscprob.surprobArgConversion.DB1.AD11
+            # - inputs.oscprob.surprobArgConversion.DB1.AD12
+            # - ...
+            # - outputs.oscprob.DB1.AD11
+            # - outputs.oscprob.DB1.AD12
+            # - ...
+            # On one hand each node with its inputs and outputs may be accessed via
+            # "nodes.oscprob.<reactor>.<detector>" address. On the other hand all the
+            # inputs, corresponding to the baselines and input energyies may be accessed
+            # via "inputs.oscprob.L" and "inputs.oscprob.enu" respectively. It is then
+            # under user control whether he wants to provide similar or different data
+            # for them.
+            # Connect the same mesh of neutrino energy to all the 48 inputs:
+            kinematic_integrator_enu >> inputs.get_dict("oscprob.enu")
+            # Connect the corresponding baselines:
+            parameters.get_dict("constant.baseline") >> inputs.get_dict("oscprob.L")
+            # The matching is done based on the index with order being ignored. Thus
+            # baselines stored as "DB1.AD11" or "AD11.DB1" both may be connected to the
+            # input "DB1.AD11". Moreover, if the left part has fewer indices, the
+            # connection will be broadcasted, e.g. "DB1" on the left will be connected
+            # to all the indices on the right, containing "DB1".
+            #
+            # Provide a conversion constant to convert the argument of sin²(...Δm²L/E)
+            # from chosen units to natural ones.
+            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs(
+                "oscprob.surprobArgConversion"
+            )
+            # Also connect free, constrained and constant oscillation parameters to each
+            # instance of the oscillation probability.
+            nodes.get_dict("oscprob") << parameters("free.oscprob")
+            nodes.get_dict("oscprob") << parameters("constrained.oscprob")
+            nodes.get_dict("oscprob") << parameters("constant.oscprob")
+
+            # fmt: off
 
 
             #
@@ -391,7 +972,7 @@ class model_dayabay_v0c:
             #
             load_graph(
                 name = "reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
                 x = "enu",
                 y = "spec",
                 merge_x = True,
@@ -441,7 +1022,7 @@ class model_dayabay_v0c:
                 x = "enu",
                 y = "nonequilibrium_correction",
                 merge_x = True,
-                filenames = path_arrays / f"nonequilibrium_correction.{self._source_type}",
+                filenames = path_arrays / f"nonequilibrium_correction.{self.source_type}",
                 replicate_outputs = index["isotope_neq"],
                 dtype = "d"
             )
@@ -468,7 +1049,7 @@ class model_dayabay_v0c:
                 x = "enu",
                 y = "snf_correction",
                 merge_x = True,
-                filenames = path_arrays / f"snf_correction.{self._source_type}",
+                filenames = path_arrays / f"snf_correction.{self.source_type}",
                 replicate_outputs = index["reactor"],
                 dtype = "d"
             )
@@ -492,8 +1073,6 @@ class model_dayabay_v0c:
             #   - correlated between isotopes
             #   - uncorrelated between energy intervals
             #
-            from dagflow.bundles.make_y_parameters_for_x import \
-                make_y_parameters_for_x
             make_y_parameters_for_x(
                     outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
                     namefmt = "spec_scale_{:02d}",
@@ -502,19 +1081,16 @@ class model_dayabay_v0c:
                     key = "neutrino_per_fission_factor",
                     values = 0.0,
                     labels = "Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction" \
-                           + (" (exp)" if self._spectrum_correction_mode == "exponential" else " (linear)"),
+                           + (" (exp)" if self.spectrum_correction_mode == "exponential" else " (linear)"),
                     hide_nodes = True
                     )
-
-            from dagflow.lib.Concatenation import Concatenation
 
             Concatenation.replicate(
                     parameters("all.neutrino_per_fission_factor"),
                     name = "reactor_anue.spectrum_free_correction.input"
                     )
             outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
-            if self._spectrum_correction_mode == "exponential":
-                from dagflow.lib import Exp
+            if self.spectrum_correction_mode == "exponential":
                 Exp.replicate(
                         outputs.get_value("reactor_anue.spectrum_free_correction.input"),
                         name = "reactor_anue.spectrum_free_correction.correction"
@@ -548,18 +1124,12 @@ class model_dayabay_v0c:
             #
             load_graph(
                 name = "reactor_anue.spectrum_uncertainty",
-                filenames = path_arrays / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self._source_type}",
+                filenames = path_arrays / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
                 x = "enu_centers",
                 y = "uncertainty",
                 merge_x = True,
                 replicate_outputs = combinations["anue_unc.isotope"],
             )
-
-            # In the case of constant (left) interpolation bin edges should be used
-            # from dagflow.lib.MeshToEdges import MeshToEdges
-            # MeshToEdges.replicate(name="reactor_anue.spectrum_uncertainty.enu")
-            # outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers") >> inputs.get_value("reactor_anue.spectrum_uncertainty.enu")
-            # nodes.get_value("reactor_anue.spectrum_uncertainty.enu").close()
 
             for isotope in index["isotope"]:
                 make_y_parameters_for_x(
@@ -663,17 +1233,14 @@ class model_dayabay_v0c:
             #
             # Livetime
             #
-            from dagflow.bundles.load_record import load_record_data
             load_record_data(
                 name = "daily_data.detector_all",
-                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
+                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self.source_type}",
                 replicate_outputs = index["detector"],
                 objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
-                skip = self.inactive_detectors
+                skip = inactive_detectors
             )
-            from models.bundles.refine_detector_data import \
-                refine_detector_data
             refine_detector_data(
                 data("daily_data.detector_all"),
                 data.child("daily_data.detector"),
@@ -682,12 +1249,11 @@ class model_dayabay_v0c:
 
             load_record_data(
                 name = "daily_data.reactor_all",
-                filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
+                filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self.source_type}",
                 replicate_outputs = ("core_data",),
                 columns = ("week", "day", "ndet", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
             )
-            from models.bundles.refine_reactor_data import refine_reactor_data
             refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
@@ -695,8 +1261,6 @@ class model_dayabay_v0c:
                 isotopes = index["isotope"],
             )
 
-            from models.bundles.sync_reactor_detector_data import \
-                sync_reactor_detector_data
             sync_reactor_detector_data(
                     data("daily_data.reactor"),
                     data("daily_data.detector"),
@@ -827,18 +1391,16 @@ class model_dayabay_v0c:
                     name = "reactor_detector.nfissions_daily",
                     replicate_outputs=combinations["reactor.isotope.detector.period"],
                     allow_skip_inputs = True,
-                    skippable_inputs_should_contain = self.inactive_detectors
+                    skippable_inputs_should_contain = inactive_detectors
                     )
 
             # Total effective number of fissions from a Reactor seen in the Detector during Period
-            from dagflow.lib import ArraySum
             ArraySum.replicate(
                     outputs("reactor_detector.nfissions_daily"),
                     name = "reactor_detector.nfissions",
                     )
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
-            from dgf_reactoranueosc.InverseSquareLaw import InverseSquareLaw
             InverseSquareLaw.replicate(
                 name="reactor_detector.baseline_factor_per_cm2",
                 scale="m_to_cm",
@@ -889,7 +1451,7 @@ class model_dayabay_v0c:
                     name="detector.efflivetime_days",
                     replicate_outputs=combinations["detector.period"],
                     allow_skip_inputs=True,
-                    skippable_inputs_should_contain=self.inactive_detectors,
+                    skippable_inputs_should_contain=inactive_detectors,
                     )
 
             # Effective live time × N protons × ε / (4πL²)  (SNF)
@@ -903,7 +1465,7 @@ class model_dayabay_v0c:
                     name = "reactor_detector.livetime_nprotons_per_cm2_snf",
                     replicate_outputs=combinations["reactor.detector.period"],
                     allow_skip_inputs = True,
-                    skippable_inputs_should_contain = self.inactive_detectors
+                    skippable_inputs_should_contain = inactive_detectors
                     )
 
             #
@@ -1010,7 +1572,7 @@ class model_dayabay_v0c:
             #
             load_array(
                 name = "detector.iav",
-                filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
+                filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self.source_type}",
                 replicate_outputs = ("matrix_raw",),
                 objects = {"matrix_raw": "iav_matrix"},
                 array_kwargs = {
@@ -1018,12 +1580,10 @@ class model_dayabay_v0c:
                     }
             )
 
-            from dagflow.lib.RenormalizeDiag import RenormalizeDiag
             RenormalizeDiag.replicate(mode="offdiag", name="detector.iav.matrix_rescaled", replicate_outputs=index["detector"])
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
             outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
 
-            from dagflow.lib.VectorMatrixProduct import VectorMatrixProduct
             VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
@@ -1033,12 +1593,11 @@ class model_dayabay_v0c:
                 x = "edep",
                 y = "evis_parts",
                 merge_x = True,
-                filenames = path_arrays/f"detector_LSNL_curves_Jan2022_newE_v1.{self._source_type}",
+                filenames = path_arrays/f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
                 replicate_outputs = index["lsnl"],
             )
 
             # Refine LSNL curves: interpolate with smaller step
-            from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 edepname = 'edep',
@@ -1075,7 +1634,6 @@ class model_dayabay_v0c:
             # - Required by matrix calculation algorithm
             # - Introduced to achieve stable minimization
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
-            from dgf_detector.Monotonize import Monotonize
             Monotonize.replicate(
                     name="detector.lsnl.curves.evis_coarse_monotonous",
                     index_fraction = 0.5,
@@ -1085,7 +1643,6 @@ class model_dayabay_v0c:
             outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.x")
             outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.y")
 
-            from multikeydict.tools import remap_items
             remap_items(
                 parameters("all.detector.detector_relative"),
                 outputs.child("detector.parameters_relative"),
@@ -1138,7 +1695,6 @@ class model_dayabay_v0c:
             edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
 
             # Build LSNL matrix
-            from dgf_detector.AxisDistortionMatrix import AxisDistortionMatrix
             AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
@@ -1147,7 +1703,6 @@ class model_dayabay_v0c:
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
-            from dgf_detector.EnergyResolution import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
             nodes.get_value("detector.eres.sigma_rel") << parameters("constrained.detector.eres")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
@@ -1177,7 +1732,6 @@ class model_dayabay_v0c:
                 replicate_outputs=combinations["detector"],
             )
 
-            from dgf_detector.Rebin import Rebin
             Rebin.replicate(
                 names={"matrix": "detector.rebin.matrix_ibd", "product": "eventscount.final.ibd"},
                 replicate_outputs=combinations["detector.period"],
@@ -1189,7 +1743,6 @@ class model_dayabay_v0c:
             #
             # Backgrounds
             #
-            from dagflow.bundles.load_hist import load_hist
             bkg_names = {
                 'acc': "accidental",
                 'lihe': "lithium9",
@@ -1207,41 +1760,18 @@ class model_dayabay_v0c:
                 filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
                 replicate_files = index["period"],
                 replicate_outputs = combinations["bkg.detector"],
-                skip = self.inactive_detectors,
+                skip = inactive_detectors,
                 key_order = (1, 2, 0),
                 objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
 
-            # TODO: Daya Bay v1 (if needed)
-            # from multikeydict.tools import remap_items
-            # ads_at_sites = {
-            #         "EH1": ("AD11", "AD12"),
-            #         "EH2": ("AD21", "AD22"),
-            #         "EH3": ("AD31", "AD32", "AD33", "AD34"),
-            #         }
-            # remap_items(
-            #     parameters("all.bkg.rate.fastn"),
-            #     outputs.child("bkg.rate.fastn"),
-            #     rename_indices = ads_at_sites,
-            #     skip_indices_target = self.inactive_detectors,
-            #     fcn = lambda par: par.output
-            # )
-            # remap_items(
-            #     parameters("all.bkg.rate.lihe"),
-            #     outputs.child("bkg.rate.lihe"),
-            #     rename_indices = ads_at_sites,
-            #     skip_indices_target = self.inactive_detectors,
-            #     fcn = lambda par: par.output
-            # )
-
-            # NOTE:
+            # TODO:
             # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
             # So, every bin contain 0.00416667.
             # TODO: remove in dayabay-v1
-            from numpy import ones
             fastn_data = ones(240) / 240
             for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
-                spectrum.data[:] = fastn_data
+                spectrum._data[:] = fastn_data
 
             Product.replicate(
                     parameters("all.bkg.rate.acc"),
@@ -1334,15 +1864,14 @@ class model_dayabay_v0c:
                 name="eventscount.final.concatenated.detector"
             )
 
-            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self._concatenation_mode}"]
+            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self.concatenation_mode}"]
 
             #
             # Covariance matrices
             #
-            from dagflow.lib.CovarianceMatrixGroup import CovarianceMatrixGroup
-            self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance", **self._covmatrix_kwargs)
+            self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
-            for name, parameters_source in systematic_uncertainties_groups:
+            for name, parameters_source in systematic_uncertainties_groups.items():
                 self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
             self._covariance_matrix.add_covariance_sum()
 
@@ -1354,7 +1883,6 @@ class model_dayabay_v0c:
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
-            from dagflow.lib.ParArrayInput import ParArrayInput
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,
@@ -1366,16 +1894,14 @@ class model_dayabay_v0c:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
-            from dgf_statistics.MonteCarlo import MonteCarlo
             MonteCarlo.replicate(
                 name="data.pseudo.self",
-                mode=self._monte_carlo_mode,
+                mode=self.monte_carlo_mode,
                 generator=self._random_generator,
             )
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("data.pseudo.self.data")
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
-            from dagflow.lib import Proxy
             Proxy.replicate(
                 name="data.pseudo.proxy",
             )
@@ -1398,7 +1924,6 @@ class model_dayabay_v0c:
             outputs.get_value("mc.parameters.toymc") >> parinp_mc
             nodes["mc.parameters.inputs"] = parinp_mc
 
-            from dagflow.lib.Cholesky import Cholesky
             Cholesky.replicate(name="cholesky.stat.variable")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("cholesky.stat.variable")
 
@@ -1408,7 +1933,6 @@ class model_dayabay_v0c:
             Cholesky.replicate(name="cholesky.stat.data.fixed")
             outputs.get_value("data.pseudo.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
 
-            from dagflow.lib.SumMatOrDiag import SumMatOrDiag
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
@@ -1430,7 +1954,6 @@ class model_dayabay_v0c:
             Cholesky.replicate(name="cholesky.covmat_full_n")
             outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
-            from dgf_statistics.Chi2 import Chi2
 
             # (1) chi-squared Pearson stat (fixed Pearson errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
@@ -1468,7 +1991,6 @@ class model_dayabay_v0c:
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
-            from dgf_statistics.CNPStat import CNPStat
             CNPStat.replicate(name="statistic.staterr.cnp")
             outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
@@ -1492,7 +2014,6 @@ class model_dayabay_v0c:
                 name="statistic.full.chi2cnp",
             )
 
-            from dagflow.lib.LogProdDiag import LogProdDiag
             LogProdDiag.replicate(name="statistic.log_prod_diag")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.log_prod_diag")
 
@@ -1626,3 +2147,7 @@ class model_dayabay_v0c:
         raise RuntimeError(
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
+
+
+# TODO: remove
+# vim: tw=88 fo-=t

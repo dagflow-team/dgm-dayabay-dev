@@ -303,7 +303,9 @@ class model_dayabay_v0b:
             load_parameters(path="detector",   load=path_parameters/"detector_iav_offdiag_scale.yaml",
                             replicate=index["detector"])
             load_parameters(path="detector",   load=path_parameters/"detector_relative.yaml",
-                            replicate=index["detector"], replica_key_offset=1)
+                            replicate=index["detector"],
+                            keys_order = (("pargroup", "par", "detector"), ("pargroup", "detector", "par"))
+                            )
 
             load_parameters(path="reactor",    load=path_parameters/"reactor_energy_per_fission.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_thermal_power_nominal.yaml",
@@ -314,7 +316,9 @@ class model_dayabay_v0b:
                             replicate=combinations["reactor.isotope_neq"])
             load_parameters(path="reactor",    load=path_parameters/"reactor_snf_fission_fractions.yaml")
             load_parameters(path="reactor",    load=path_parameters/"reactor_fission_fraction_scale.yaml",
-                            replicate=index["reactor"], replica_key_offset=1)
+                            replicate=index["reactor"],
+                            keys_order = (("par", "isotope", "reactor"), ("par", "reactor", "isotope"))
+                            )
 
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
@@ -360,7 +364,6 @@ class model_dayabay_v0b:
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
-            # fmt: off
             #
             # Create nodes
             #
@@ -371,52 +374,87 @@ class model_dayabay_v0b:
             #
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+            in_edges_costheta = [-1, 1]
 
             from dagflow.lib.Array import Array
             from dagflow.lib.View import View
-            edges_costheta, _ = Array.make_stored("edges.costheta", [-1, 1])
-            edges_energy_common, _ = Array.make_stored(
-                "edges.energy_common", in_edges_fine
-            )
-            edges_energy_final, _ = Array.make_stored(
-                "edges.energy_final", in_edges_final
-            )
-            View.make_stored("edges.energy_enu", edges_energy_common)
-            edges_energy_edep, _ = View.make_stored("edges.energy_edep", edges_energy_common)
-            edges_energy_escint, _ = View.make_stored("edges.energy_escint", edges_energy_common)
-            edges_energy_evis, _ = View.make_stored("edges.energy_evis", edges_energy_common)
-            edges_energy_erec, _ = View.make_stored("edges.energy_erec", edges_energy_common)
 
-            Array.make_stored("reactor_anue.spectrum_free_correction.spec_model_edges", antineutrino_model_edges)
+            edges_costheta, _ = Array.replicate(
+                name="edges.costheta", array=in_edges_costheta
+            )
+            edges_energy_common, _ = Array.replicate(
+                name="edges.energy_common", array=in_edges_fine
+            )
+            edges_energy_final, _ = Array.replicate(
+                name="edges.energy_final", array=in_edges_final
+            )
+            View.replicate(name="edges.energy_enu", output=edges_energy_common)
+            edges_energy_edep, _ = View.replicate(
+                name="edges.energy_edep", output=edges_energy_common
+            )
+            edges_energy_escint, _ = View.replicate(
+                name="edges.energy_escint", output=edges_energy_common
+            )
+            edges_energy_evis, _ = View.replicate(
+                name="edges.energy_evis", output=edges_energy_common
+            )
+            edges_energy_erec, _ = View.replicate(
+                name="edges.energy_erec", output=edges_energy_common
+            )
+
+            Array.replicate(
+                name="reactor_anue.spectrum_free_correction.spec_model_edges",
+                array=antineutrino_model_edges,
+            )
 
             #
             # Integration, kinematics
             #
-            Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
-            Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
+            Array.from_value(
+                "kinematics.integration.orders_x",
+                5,
+                edges=edges_energy_edep,
+                store=True,
+            )
+            Array.from_value(
+                "kinematics.integration.orders_y", 3, edges=edges_costheta, store=True
+            )
 
             from dagflow.lib.IntegratorGroup import IntegratorGroup
+
             integrator, _ = IntegratorGroup.replicate(
-                "2d",
-                names = {
-                    "sampler": "kinematics.sampler",
-                    "integrator": "kinematics.integral",
-                    "x": "mesh_edep",
-                    "y": "mesh_costheta"
+                "gl2d",
+                path="kinematics",
+                names={
+                    "sampler": "sampler",
+                    "integrator": "integral",
+                    "mesh_x": "sampler.mesh_edep",
+                    "mesh_y": "sampler.mesh_costheta",
                 },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
+                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
             )
-            outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
-            outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
+            outputs.get_value("kinematics.integration.orders_x") >> integrator(
+                "orders_x"
+            )
+            outputs.get_value("kinematics.integration.orders_y") >> integrator(
+                "orders_y"
+            )
 
             from dgf_reactoranueosc.IBDXsecVBO1Group import IBDXsecVBO1Group
-            ibd, _ = IBDXsecVBO1Group.make_stored(path="kinematics.ibd", use_edep=True)
+
+            ibd, _ = IBDXsecVBO1Group.replicate(
+                path="kinematics.ibd", input_energy="edep"
+            )
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
-            outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"]
+            (
+                outputs.get_value("kinematics.sampler.mesh_costheta")
+                >> ibd.inputs["costheta"]
+            )
             kinematic_integrator_enu = ibd.outputs["enu"]
 
+            # fmt: off
             #
             # Oscillations
             #
@@ -1383,7 +1421,7 @@ class model_dayabay_v0b:
             from numpy import ones
             fastn_data = ones(240) / 240
             for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
-                spectrum.data[:] = fastn_data
+                spectrum._data[:] = fastn_data
 
             Product.replicate(
                     parameters("all.bkg.rate.acc"),

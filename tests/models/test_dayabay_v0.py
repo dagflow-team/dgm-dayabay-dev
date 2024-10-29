@@ -1,11 +1,15 @@
 from dagflow.graph import Graph
 from dagflow.plot import plot_auto
 from dagflow.storage import NodeStorage
+from models import available_models, load_model
 from models.dayabay_v0 import model_dayabay_v0
 
+from pytest import mark
 
-def test_dayabay_v0():
-    model = model_dayabay_v0(close=True, strict=False)
+
+@mark.parametrize("model", available_models())
+def test_dayabay_v0(model: str):
+    model = load_model(model, close=True, strict=False)
 
     graph = model.graph
     storage = model.storage
@@ -22,12 +26,13 @@ def test_dayabay_v0():
         return
 
     print(storage.to_table(truncate=True))
-    if len(storage("inputs"))>0:
+    if len(storage("inputs")) > 0:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate=True))
 
     storage.to_datax("output/dayabay_v0_data.tex")
     plot_graph(graph, storage)
+
 
 def test_dayabay_v0_proxy_switch():
     model = model_dayabay_v0(close=True, strict=False, monte_carlo_mode="poisson")
@@ -37,13 +42,13 @@ def test_dayabay_v0_proxy_switch():
     proxy_node = storage["nodes.data.pseudo.proxy"]
     obs = storage.get_value("outputs.eventscount.final.concatenated.selected")
     chi2 = storage["outputs.statistic.stat.chi2p"]
-    assert chi2.data != 0.
+    assert chi2.data != 0.0
 
     proxy_node.open()
     obs >> proxy_node
     proxy_node.close(close_children=True)
     proxy_node.switch_input(1)
-    assert chi2.data == 0.
+    assert chi2.data == 0.0
 
 
 def plot_graph(graph: Graph, storage: NodeStorage) -> None:
@@ -62,8 +67,14 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
         },
     ).savegraph("output/dayabay_v0_reduced.dot")
     GraphDot.from_node(
-        storage["nodes.statistic.nuisance.all"], show="all", mindepth=-1, keep_direction=True
+        storage["nodes.statistic.nuisance.all"],
+        show="all",
+        mindepth=-1,
+        keep_direction=True,
     ).savegraph("output/dayabay_v0_nuisance.dot")
     GraphDot.from_output(
-        storage["outputs.edges.energy_evis"], show="all", mindepth=-3, keep_direction=True
+        storage["outputs.edges.energy_evis"],
+        show="all",
+        mindepth=-3,
+        keep_direction=True,
     ).savegraph("output/dayabay_v0_top.dot")
