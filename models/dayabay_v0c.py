@@ -111,6 +111,7 @@ class model_dayabay_v0c:
         "_covariance_matrix",
         "_frozen_nodes",
         "_random_generator",
+        "_systematic_uncertainties_groups",
     )
 
     storage: NodeStorage
@@ -127,6 +128,7 @@ class model_dayabay_v0c:
     _random_generator: Generator
     _covariance_matrix: MetaNode
     _frozen_nodes: dict[str, tuple]
+    _systematic_uncertainties_groups: dict[str, str]
 
     def __init__(
         self,
@@ -169,6 +171,24 @@ class model_dayabay_v0c:
         self._frozen_nodes = {}
 
         self.combinations = {}
+
+        # Define a dictionary of groups of nuisance parameters in a format `name: path`,
+        # where path denotes the location of the parameters in storage.
+        self._systematic_uncertainties_groups = {
+            "oscprob": "oscprob",
+            "eres": "detector.eres",
+            "lsnl": "detector.lsnl_scale_a",
+            "iav": "detector.iav_offdiag_scale_factor",
+            "detector_relative": "detector.detector_relative",
+            "energy_per_fission": "reactor.energy_per_fission",
+            "nominal_thermal_power": "reactor.nominal_thermal_power",
+            "snf": "reactor.snf_scale",
+            "neq": "reactor.nonequilibrium_scale",
+            "fission_fraction": "reactor.fission_fraction_scale",
+            "bkg_rate": "bkg.rate",
+            "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
+            "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
+        }
 
         override_indices = {k: tuple(v) for k, v in override_indices.items()}
         self.build(override_indices)
@@ -371,24 +391,6 @@ class model_dayabay_v0c:
             )
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
-
-        # Define a dictionary of groups of nuisance parameters in a format `name: path`,
-        # where path denotes the location of the parameters in storage.
-        systematic_uncertainties_groups = {
-            "oscprob": "oscprob",
-            "eres": "detector.eres",
-            "lsnl": "detector.lsnl_scale_a",
-            "iav": "detector.iav_offdiag_scale_factor",
-            "detector_relative": "detector.detector_relative",
-            "energy_per_fission": "reactor.energy_per_fission",
-            "nominal_thermal_power": "reactor.nominal_thermal_power",
-            "snf": "reactor.snf_scale",
-            "neq": "reactor.nonequilibrium_scale",
-            "fission_fraction": "reactor.fission_fraction_scale",
-            "bkg_rate": "bkg.rate",
-            "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
-            "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
-        }
 
         # Start building the computational graph within a dedicated context, which
         # includes:
@@ -1866,7 +1868,7 @@ class model_dayabay_v0c:
             #
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
-            for name, parameters_source in systematic_uncertainties_groups.items():
+            for name, parameters_source in self.systematic_uncertainties_groups.items():
                 self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
             self._covariance_matrix.add_covariance_sum()
 
@@ -2103,6 +2105,10 @@ class model_dayabay_v0c:
         if mc_parameters:
             self.storage.get_value("nodes.mc.parameters.toymc").reset()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
+
+    @property
+    def systematic_uncertainties_groups(self) -> dict[str, str]:
+        return self._systematic_uncertainties_groups
 
     def _setup_labels(self):
         labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))

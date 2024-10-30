@@ -2,38 +2,19 @@
 import numpy as np
 from argparse import Namespace
 from matplotlib import pyplot as plt
-from typing import TYPE_CHECKING
 
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import INFO1, INFO2, INFO3, set_level
+from dagflow.tools.logger import DEBUG as INFO4
+from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
 
-from dagflow.output import Output
-from dagflow.storage import NodeStorage
+from dagflow.core import NodeStorage
+from dagflow.core.output import Output
 from dagflow.parameters import Parameter
 from multikeydict.nestedmkdict import walkitems
 from numpy.typing import NDArray
-if TYPE_CHECKING:
-    from dagflow.storage import NodeStorage
+
 
 set_level(INFO1)
-
-
-SYSTEMATIC_UNCERTAINTIES_GROUPS = {
-    "oscprob": "oscprob",
-    "eres": "detector.eres",
-    "lsnl": "detector.lsnl_scale_a",
-    "iav": "detector.iav_offdiag_scale_factor",
-    "detector_relative": "detector.detector_relative",
-    "energy_per_fission": "reactor.energy_per_fission",
-    "nominal_thermal_power": "reactor.nominal_thermal_power",
-    "snf": "reactor.snf_scale",
-    "neq": "reactor.nonequilibrium_scale",
-    "fission_fraction": "reactor.fission_fraction_scale",
-    "bkg_rate": "bkg.rate",
-    "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
-    "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
-}
 
 
 def variate_parameters(parameters: list[Parameter], generator: np.random.Generator) -> None:
@@ -55,12 +36,14 @@ def variate_parameters(parameters: list[Parameter], generator: np.random.Generat
 
 
 def create_list_of_variation_parameters(
-    storage: NodeStorage, groups: list[str],
+    model, storage: NodeStorage, groups: list[str],
 ) -> list[Parameter]:
     """Create a list of parameters
 
         Parameters
         ----------
+        model:
+            Model of experiment
         storage: NodeStorage
             Storage of model where all necessary items are stored
         groups: list[str]
@@ -74,7 +57,7 @@ def create_list_of_variation_parameters(
     parameters = []
     for group in groups:
         parameters.extend([
-            parameter for group, parameter in walkitems(storage[f"parameters.normalized.{SYSTEMATIC_UNCERTAINTIES_GROUPS[group]}"])
+            parameter for group, parameter in walkitems(storage[f"parameters.normalized.{model.systematic_uncertainties_groups[group]}"])
         ])
     return parameters
 
@@ -218,6 +201,7 @@ def main(opts: Namespace) -> None:
     generator = np.random.Generator(np.random.MT19937(opts.seed))
 
     parameters = create_list_of_variation_parameters(
+        model,
         storage,
         opts.systematic_parameters_groups,
     )
@@ -302,8 +286,7 @@ if __name__ == "__main__":
 
     cov = parser.add_argument_group("cov", "covariance parameters")
     pars.add_argument(
-        "--systematic-parameters-groups", "--cov",
-        choices=SYSTEMATIC_UNCERTAINTIES_GROUPS.keys(), default=[],
+        "--systematic-parameters-groups", "--cov", default=[],
         nargs="+", help="Choose systematic parameters for building covariance matrix",
     )
     pars.add_argument(
