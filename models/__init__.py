@@ -1,6 +1,6 @@
 from typing import Mapping
 
-from dagflow.logger import logger
+from dagflow.tools.logger import logger
 
 from .dayabay_v0 import model_dayabay_v0
 from .dayabay_v0b import model_dayabay_v0b
