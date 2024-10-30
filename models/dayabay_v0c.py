@@ -639,6 +639,7 @@ class model_dayabay_v0c:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
+            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml")
             load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
 
             # Additionally a few constants are provided.
