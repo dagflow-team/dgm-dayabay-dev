@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
-from dagflow.graph import Graph
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import INFO1, INFO2, INFO3, set_level
-from dagflow.storage import NodeStorage
+from dagflow.core import Graph, NodeStorage
+from dagflow.tools.logger import DEBUG as INFO4
+from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
 
 # from dagflow.plot import plot_auto
@@ -66,13 +65,19 @@ def main(opts: Namespace) -> None:
             storage(source).plot(folder=f"{folder}/{source.replace('.', '/')}")
 
     if opts.pars_datax:
-        storage["parameters.all"].to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
+        storage["parameters.all"].to_datax_file(
+            f"output/dayabay_{opts.version}_pars_datax.tex"
+        )
 
     if opts.pars_latex:
-        storage["parameters.all"].to_latex_file(f"output/dayabay_{opts.version}_pars.tex")
+        storage["parameters.all"].to_latex_file(
+            f"output/dayabay_{opts.version}_pars.tex"
+        )
 
     if opts.pars_text:
-        storage["parameters.all"].to_text_file(f"output/dayabay_{opts.version}_pars.txt")
+        storage["parameters.all"].to_text_file(
+            f"output/dayabay_{opts.version}_pars.txt"
+        )
 
     if opts.graph_auto:
         plot_graph(graph, storage, opts)
@@ -118,7 +123,9 @@ def main(opts: Namespace) -> None:
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
     from dagflow.graphviz import GraphDot
 
-    GraphDot.from_graph(graph, show="all").savegraph(f"output/dayabay_{opts.version}.dot")
+    GraphDot.from_graph(graph, show="all").savegraph(
+        f"output/dayabay_{opts.version}.dot"
+    )
     GraphDot.from_graph(
         graph,
         show=["type", "mark", "label", "path"],
