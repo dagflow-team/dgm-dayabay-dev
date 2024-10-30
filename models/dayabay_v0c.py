@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from numpy import ndarray
 from numpy.random import Generator
@@ -12,13 +14,12 @@ from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
-from dagflow.graph import Graph
-from dagflow.lib.arithmetic import Division, Product, Sum
-from dagflow.lib.InterpolatorGroup import InterpolatorGroup
-from dagflow.metanode import MetaNode
-from dagflow.storage import NodeStorage
+from dagflow.core import Graph, NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
+
+if TYPE_CHECKING:
+    from dagflow.core.meta_node import MetaNode
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
@@ -199,22 +200,15 @@ class model_dayabay_v0c:
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
-        from dagflow.lib import (
-            Array,
-            ArraySum,
-            Cholesky,
-            Concatenation,
-            CovarianceMatrixGroup,
-            Exp,
-            IntegratorGroup,
-            LogProdDiag,
-            ParArrayInput,
-            Proxy,
-            RenormalizeDiag,
-            SumMatOrDiag,
-            VectorMatrixProduct,
-            View,
-        )
+        from dagflow.lib.arithmetic import Division, Product, Sum
+        from dagflow.lib.common import Array, Concatenation, ParArrayInput, Proxy, View
+        from dagflow.lib.exponential import Exp
+        from dagflow.lib.integration import Integrator
+        from dagflow.lib.interpolation import Interpolator
+        from dagflow.lib.linalg import Cholesky, VectorMatrixProduct
+        from dagflow.lib.normalization import RenormalizeDiag
+        from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
+        from dagflow.lib.summation import ArraySum, SumMatOrDiag
         from dagflow.tools.schema import LoadPy
         from dgf_detector import (
             AxisDistortionMatrix,
@@ -645,6 +639,7 @@ class model_dayabay_v0c:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
+            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml")
             load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
 
             # Additionally a few constants are provided.
@@ -817,7 +812,7 @@ class model_dayabay_v0c:
             # each combination of "anue_source.reactor.isotope.detector" indices. Note,
             # that NEQ part (anue_source) has no contribution from ²³⁸U and SNF part has
             # not isotope index at all. In particular 384 integration nodes are created.
-            IntegratorGroup.replicate(
+            Integrator.replicate(
                 "gl2d",
                 path="kinematics",
                 names={
@@ -853,11 +848,11 @@ class model_dayabay_v0c:
             #   - access node's inputs and outputs.
             # 3. access inputs and outputs via the storage.
             #
-            # If replicate creates a single (main) node, as IntegratorGroup does, it is
+            # If replicate creates a single (main) node, as Integrator does, it is
             # returned as a first return value. Then print may be used to print
             # available inputs and outputs.
             # ```python
-            # integrator, integrator_storage = IntegratorGroup.replicate(...)
+            # integrator, integrator_storage = Integrator.replicate(...)
             # orders_x >> integrator.inputs["orders_x"] # connect orders X to sampler's
             #                                           # input
             # integrator.outputs["x"] >> function_input # connect mesh X to function's
@@ -870,7 +865,7 @@ class model_dayabay_v0c:
             # always a created storage with all the inputs and outputs, which can be
             # printed to the terminal:
             # ```python
-            # integrator, integrator_storage = IntegratorGroup.replicate(...)
+            # integrator, integrator_storage = Integrator.replicate(...)
             # integrator_storage.print() # print local storage
             # storage.print() # print global storage
             # integrator_storage["inputs"].print() # print inputs from a local storage
@@ -982,7 +977,7 @@ class model_dayabay_v0c:
             #
             # Interpolate for the integration mesh
             #
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "exp",
                 names = {
                     "indexer": "reactor_anue.spec_indexer",
@@ -1027,7 +1022,7 @@ class model_dayabay_v0c:
                 dtype = "d"
             )
 
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "reactor_nonequilibrium_anue.correction_indexer",
@@ -1053,7 +1048,7 @@ class model_dayabay_v0c:
                 replicate_outputs = index["reactor"],
                 dtype = "d"
             )
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "snf_anue.correction_indexer",
@@ -1104,7 +1099,7 @@ class model_dayabay_v0c:
                         )
                 outputs.get_value("reactor_anue.spectrum_free_correction.correction").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
 
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "exp",
                 names = {
                     "indexer": "reactor_anue.spectrum_free_correction.indexer",
@@ -1198,7 +1193,7 @@ class model_dayabay_v0c:
                     replicate_outputs = index["isotope"]
                     )
 
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "reactor_anue.spectrum_uncertainty.correction_index",
@@ -1653,7 +1648,7 @@ class model_dayabay_v0c:
             )
 
             # Interpolate Evis(Edep)
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "detector.lsnl.indexer_fwd",
@@ -1681,7 +1676,7 @@ class model_dayabay_v0c:
             )
 
             # Interpolate Edep(Evis[detector])
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "detector.lsnl.indexer_bwd",
