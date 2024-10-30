@@ -1,10 +1,9 @@
-from dagflow.graph import Graph
-from dagflow.plot import plot_auto
-from dagflow.storage import NodeStorage
+from pytest import mark
+
+from dagflow.core import Graph, NodeStorage
+from dagflow.plot.graphviz import GraphDot
 from models import available_models, load_model
 from models.dayabay_v0 import model_dayabay_v0
-
-from pytest import mark
 
 
 @mark.parametrize("model", available_models())
@@ -52,8 +51,6 @@ def test_dayabay_v0_proxy_switch():
 
 
 def plot_graph(graph: Graph, storage: NodeStorage) -> None:
-    from dagflow.graphviz import GraphDot
-
     GraphDot.from_graph(graph, show="all").savegraph("output/dayabay_v0.dot")
     GraphDot.from_graph(
         graph,
