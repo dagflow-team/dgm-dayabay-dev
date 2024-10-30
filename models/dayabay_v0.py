@@ -269,6 +269,7 @@ class model_dayabay_v0:
                             keys_order = (("par", "isotope", "reactor"), ("par", "reactor", "isotope"))
                             )
 
+            load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rate_acc.yaml")
             load_parameters(path="bkg.rate",   load=path_parameters/"bkg_rates.yaml")
             # fmt: on
 
