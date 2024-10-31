@@ -18,7 +18,7 @@ set_level(INFO1)
 
 
 def variate_parameters(parameters: list[Parameter], generator: np.random.Generator) -> None:
-    """Randomize value of parameters via normal distribution N(0, 1)
+    """Randomize value of parameters via normal unit distribution N(0, 1)
 
         Parameters
         ----------
