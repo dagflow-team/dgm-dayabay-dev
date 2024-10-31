@@ -67,7 +67,7 @@ def covariance_matrix_calculation(
     generator: np.random.Generator,
     observation: Output,
     N: int,
-    asimov: NDArray,
+    asimov: NDArray = None,
 ) -> NDArray:
     r"""Calculate absolute covariance matrix
 
@@ -79,6 +79,11 @@ def covariance_matrix_calculation(
 
     Here we are using simplified formula
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_i^A},
+
+    where we averaging over all MC samples
+
+    If Asimov observation is passed, the next formula is used
+    .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
 
     Parameters
     ----------
@@ -109,9 +114,13 @@ def covariance_matrix_calculation(
         samples[i] = observation.data
     observation_mean /= N
     product_mean /= N
-    observation_mean_asimov = np.outer(observation_mean, asimov)
-    observation_product_mean = observation_mean_asimov + observation_mean_asimov.T - np.outer(asimov, asimov)
-    covariance_normalization_factor = N
+    if asimov is not None:
+        observation_mean_asimov = np.outer(observation_mean, asimov)
+        observation_product_mean = observation_mean_asimov + observation_mean_asimov.T - np.outer(asimov, asimov)
+        covariance_normalization_factor = N
+    else:
+        observation_product_mean = np.outer(observation_mean, observation_mean)
+        covariance_normalization_factor = N - 1
     covariance_matrix_absolute = (product_mean - observation_product_mean) * N / covariance_normalization_factor
     return covariance_matrix_absolute
 
@@ -121,7 +130,7 @@ def covariance_matrix_calculation_alternative(
     generator: np.random.Generator,
     observation: Output,
     N: int,
-    asimov: NDArray,
+    asimov: NDArray = None,
 ) -> NDArray:
     r"""Calculate absolute matrix (alternative method)
 
@@ -132,6 +141,9 @@ def covariance_matrix_calculation_alternative(
 
     Here we use a lot of memory to store every Monte-Carlo sample and we provide
     calculations via matrix product
+
+    If Asimov observation is passed, the next formula is used
+    .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
 
     Parameters
     ----------
@@ -156,9 +168,14 @@ def covariance_matrix_calculation_alternative(
     for i in range(N):
         variate_parameters(parameters, generator)
         samples[i] = observation.data
+    if asimov is not None:
+        samples_mean = asimov
+        covariance_normalization_factor = N
+    else:
+        samples_mean = samples.mean(axis=0)
+        covariance_normalization_factor = N - 1
     covariance_normalization_factor = N
-    samples_diff = samples - asimov
-    print(samples_diff)
+    samples_diff = samples - samples_mean
     covariance_matrix_absolute = samples_diff.T @ samples_diff / covariance_normalization_factor
     return covariance_matrix_absolute
 
@@ -212,7 +229,7 @@ def main(opts: Namespace) -> None:
             generator,
             observation,
             opts.num,
-            asimov,
+            asimov if opts.asimov_as_mean else None,
         )
     else:
         covariance_absolute = covariance_matrix_calculation(
@@ -220,7 +237,7 @@ def main(opts: Namespace) -> None:
             generator,
             observation,
             opts.num,
-            asimov,
+            asimov if opts.asimov_as_mean else None,
         )
 
     covariance_relative = covariance_absolute / np.outer(asimov, asimov)
@@ -288,6 +305,9 @@ if __name__ == "__main__":
     pars.add_argument(
         "--systematic-parameters-groups", "--cov", default=[],
         nargs="+", help="Choose systematic parameters for building covariance matrix",
+    )
+    pars.add_argument(
+        "--asimov-as-mean", action="store_true", help="Use Asimov data as mean",
     )
     pars.add_argument(
         "--alternative", action="store_true", help="Use alternative method for calculation (much memory-intensive)",
