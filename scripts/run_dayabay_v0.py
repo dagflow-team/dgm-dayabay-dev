@@ -107,7 +107,7 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.graph_from_node:
-        from dagflow.graphviz import GraphDot
+        from dagflow.plot.graphviz import GraphDot
 
         nodepath, filepath = opts.graph_from_node
         node = storage("nodes")[nodepath]
@@ -121,7 +121,7 @@ def main(opts: Namespace) -> None:
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
-    from dagflow.graphviz import GraphDot
+    from dagflow.plot.graphviz import GraphDot
 
     GraphDot.from_graph(graph, show="all").savegraph(
         f"output/dayabay_{opts.version}.dot"

@@ -506,6 +506,7 @@ class model_dayabay_v0b:
             )
 
             if "hm-preinterpolate" in self._future:
+                logger.warning("Future: do not pre-interpolate HM model to coarser grid")
                 outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
                 outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
             else:

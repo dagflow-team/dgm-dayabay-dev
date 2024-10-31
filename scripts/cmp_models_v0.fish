@@ -11,22 +11,31 @@ set modes_simple $keys_simple
 set modes_other lsnl-matrix0 $keys_other
 set modes_all $modes_other $modes_simple
 if test ! $argv
-    echo Modes: $modes_all all
+    echo Modes: $modes_all all each
 end
 
-for opt in pdg $modes_simple
-    contains $opt -- $modes; or continue
+for opt in $modes_simple
+    echo try $opt
+    contains $opt -- $modes
+    or contains each -- $modes
+    or continue
 
     ./scripts/cmp_models_v0.py v0b v0 --mo-a "{future: $opt}" -s
 end
 
-contains lsnl-matrix0 -- $modes; and \
+contains lsnl-matrix0 -- $modes
+or contains each -- $modes
+and \
 ./scripts/cmp_models_v0.py v0b v0 --par detector.lsnl_scale_a.pull0 1 -s
 
-contains lsnl-matrix -- $modes; and \
+contains lsnl-matrix -- $modes
+or contains each -- $modes
+and \
     ipython --pdb -- \
 ./scripts/cmp_models_v0.py v0b v0 --mo-a "{future: lsnl-matrix}" --par detector.lsnl_scale_a.pull0 1 --ylim -0.1 0.1 -s
 
-contains all -- $modes; and \
+contains all -- $modes
+or contains each -- $modes
+and \
 ./scripts/cmp_models_v0.py v0b v0 --mo-a "{future: [$keys_all_str]}" --par detector.lsnl_scale_a.pull0 1 -s
 
