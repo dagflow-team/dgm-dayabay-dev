@@ -15,7 +15,7 @@ from dagflow.bundles.load_parameters import load_parameters
 from dagflow.core import Graph, NodeStorage
 from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.lib.interpolation import Interpolator
-from dagflow.tools import logger
+from dagflow.tools.logger import logger
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
@@ -506,6 +506,7 @@ class model_dayabay_v0b:
             )
 
             if "hm-preinterpolate" in self._future:
+                logger.warning("Future: do not pre-interpolate HM model to coarser grid")
                 outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
                 outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
             else:
