@@ -10,7 +10,8 @@ from models import available_models, load_model
 from dagflow.core import NodeStorage
 from dagflow.core.output import Output
 from dagflow.parameters import Parameter
-from multikeydict.nestedmkdict import walkitems
+from multikeydict.nestedmkdict import walkvalues
+from multikeydict.typing import properkey
 from numpy.typing import NDArray
 
 
@@ -57,7 +58,7 @@ def create_list_of_variation_parameters(
     parameters = []
     for group in groups:
         parameters.extend([
-            parameter for group, parameter in walkitems(storage[f"parameters.normalized.{model.systematic_uncertainties_groups[group]}"])
+            parameter for parameter in walkvalues(storage[("parameters", "normalized") + properkey(model.systematic_uncertainties_groups[group])])
         ])
     return parameters
 
