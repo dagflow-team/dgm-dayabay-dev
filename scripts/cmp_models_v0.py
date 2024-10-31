@@ -5,8 +5,8 @@ from argparse import Namespace
 from matplotlib import pyplot as plt
 from numpy import log, nanmax, nanmin, where
 
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
+from dagflow.tools.logger import DEBUG as INFO4
+from dagflow.tools.logger import INFO1, INFO2, INFO3, logger, set_level
 from models import available_models, available_sources, load_model
 from multikeydict.nestedmkdict import NestedMKDict
 from multikeydict.tools import mkmap
@@ -122,7 +122,9 @@ def plot(
         diff = dataA - dataB
         lratio = log(dataA / dataB)
         lratio[dataB == 0] = 0.0
-        istart_ratio = where(dataB > 0)[0][0]
+        istart_ratioA = where(dataA > 0)[0][0]
+        istart_ratioB = where(dataB > 0)[0][0]
+        istart_ratio = max(istart_ratioA, istart_ratioB)
         lratiom = lratio[istart_ratio:]
 
         sdiff = diff.sum()
