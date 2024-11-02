@@ -15,7 +15,7 @@ from dagflow.bundles.load_parameters import load_parameters
 from dagflow.core import Graph, NodeStorage
 from dagflow.lib.arithmetic import Division, Product, Sum
 from dagflow.lib.interpolation import Interpolator
-from dagflow.tools.logger import logger
+from dagflow.tools import logger
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
