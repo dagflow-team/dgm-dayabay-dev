@@ -1,71 +1,87 @@
 #!/usr/bin/env python
-import numpy as np
-from argparse import Namespace
-from matplotlib import pyplot as plt
 
-from dagflow.tools.logger import DEBUG as INFO4
-from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-from models import available_models, load_model
+from argparse import Namespace
+
+import numpy as np
+from matplotlib import pyplot as plt
+from numpy.typing import NDArray
 
 from dagflow.core import NodeStorage
 from dagflow.core.output import Output
 from dagflow.parameters import Parameter
+from dagflow.tools.logger import INFO1, set_level
+from models import available_models, load_model
 from multikeydict.nestedmkdict import walkvalues
 from multikeydict.typing import properkey
-from numpy.typing import NDArray
-
 
 set_level(INFO1)
 
 
-def variate_parameters(parameters: list[Parameter], generator: np.random.Generator) -> None:
+def variate_parameters(
+    parameters: list[Parameter], generator: np.random.Generator
+) -> None:
     """Randomize value of parameters via normal unit distribution N(0, 1)
 
-        Parameters
-        ----------
-        parameters: list[Parameter]
-            list of normalized parameters
-        generator: np.random.Generator
-            numpy generator of pseudo-random numbers
+    Parameters
+    ----------
+    parameters: list[Parameter]
+        list of normalized parameters
+    generator: np.random.Generator
+        numpy generator of pseudo-random numbers
 
-        Returns
-        -------
-        None
+    Returns
+    -------
+    None
     """
     for parameter in parameters:
         parameter.value = generator.normal(0, 1)
 
 
 def create_list_of_variation_parameters(
-    model, storage: NodeStorage, groups: list[str],
+    model,
+    storage: NodeStorage,
+    groups: list[str],
 ) -> list[Parameter]:
-    """Create a list of parameters
+    """Create a list of parameters.
 
-        Parameters
-        ----------
-        model:
-            Model of experiment
-        storage: NodeStorage
-            Storage of model where all necessary items are stored
-        groups: list[str]
-            List of parameters groups that will be used for Monte-Carlo method
+    Parameters
+    ----------
+    model:
+        Model of experiment
+    storage: NodeStorage
+        Storage of model where all necessary items are stored
+    groups: list[str]
+        List of parameters groups that will be used for Monte-Carlo method
 
-        Returns
-        -------
-        list[Parameter]
-            List of normalized parameters
+    Returns
+    -------
+    list[Parameter]
+        List of normalized parameters
     """
     parameters = []
     if "all" in groups:
         for group_path in model.systematic_uncertainties_groups().values():
-            parameters.extend([
-                parameter for parameter in walkvalues(storage[("parameters", "normalized") + properkey(group_path)])
-            ])
+            parameters.extend(
+                [
+                    parameter
+                    for parameter in walkvalues(
+                        storage[("parameters", "normalized") + properkey(group_path)]
+                    )
+                ]
+            )
     else:
         for group in groups:
-            parameters.extend([
-                parameter for parameter in walkvalues(storage[("parameters", "normalized") + properkey(model.systematic_uncertainties_groups()[group])])
-            ])
+            parameters.extend(
+                [
+                    parameter
+                    for parameter in walkvalues(
+                        storage[
+                            ("parameters", "normalized")
+                            + properkey(model.systematic_uncertainties_groups()[group])
+                        ]
+                    )
+                ]
+            )
     return parameters
 
 
@@ -74,9 +90,9 @@ def covariance_matrix_calculation(
     generator: np.random.Generator,
     observation: Output,
     N: int,
-    asimov: NDArray = None,
+    asimov: NDArray | None = None,
 ) -> NDArray:
-    r"""Calculate absolute covariance matrix
+    r"""Calculate absolute covariance matrix.
 
     For the calculation used the next formula
     .. math:: cov_{ij} = \frac{1}{N}\sum_{k = 1}^{N}(x_i^k - \overline{x_i})(x_j^k - \overline{x_j}),
@@ -123,12 +139,18 @@ def covariance_matrix_calculation(
     product_mean /= N
     if asimov is not None:
         observation_mean_asimov = np.outer(observation_mean, asimov)
-        observation_product_mean = observation_mean_asimov + observation_mean_asimov.T - np.outer(asimov, asimov)
+        observation_product_mean = (
+            observation_mean_asimov
+            + observation_mean_asimov.T
+            - np.outer(asimov, asimov)
+        )
         covariance_normalization_factor = N
     else:
         observation_product_mean = np.outer(observation_mean, observation_mean)
         covariance_normalization_factor = N - 1
-    covariance_matrix_absolute = (product_mean - observation_product_mean) * N / covariance_normalization_factor
+    covariance_matrix_absolute = (
+        (product_mean - observation_product_mean) * N / covariance_normalization_factor
+    )
     return covariance_matrix_absolute
 
 
@@ -137,7 +159,7 @@ def covariance_matrix_calculation_alternative(
     generator: np.random.Generator,
     observation: Output,
     N: int,
-    asimov: NDArray = None,
+    asimov: NDArray | None = None,
 ) -> NDArray:
     r"""Calculate absolute matrix (alternative method)
 
@@ -183,12 +205,14 @@ def covariance_matrix_calculation_alternative(
         covariance_normalization_factor = N - 1
     covariance_normalization_factor = N
     samples_diff = samples - samples_mean
-    covariance_matrix_absolute = samples_diff.T @ samples_diff / covariance_normalization_factor
+    covariance_matrix_absolute = (
+        samples_diff.T @ samples_diff / covariance_normalization_factor
+    )
     return covariance_matrix_absolute
 
 
 def calculate_correlation_matrix(covariance_matrix: NDArray) -> NDArray:
-    r"""Calculate correlation matrix from covariance matrix
+    r"""Calculate correlation matrix from covariance matrix.
 
     $\mathrm{corr}_{ij} = \frac{\mathrm{cov}_{ij}}{\sqrt{\mathrm{cov}_{ii}\mathrm{cov}_{jj}}}$
 
@@ -203,7 +227,7 @@ def calculate_correlation_matrix(covariance_matrix: NDArray) -> NDArray:
         Correlation matrix
     """
     diagonal = np.diagonal(covariance_matrix)
-    return covariance_matrix / np.outer(diagonal, diagonal)**0.5
+    return covariance_matrix / np.outer(diagonal, diagonal) ** 0.5
 
 
 def main(opts: Namespace) -> None:
@@ -273,6 +297,7 @@ def main(opts: Namespace) -> None:
 
     if opts.interactive:
         import IPython
+
         IPython.embed(colors="neutral")
 
 
@@ -319,20 +344,32 @@ if __name__ == "__main__":
 
     cov = parser.add_argument_group("cov", "covariance parameters")
     pars.add_argument(
-        "--systematic-parameters-groups", "--cov", default=[],
-        nargs="+", help="Choose systematic parameters for building covariance matrix",
+        "--systematic-parameters-groups",
+        "--cov",
+        default=[],
+        nargs="+",
+        help="Choose systematic parameters for building covariance matrix",
     )
     pars.add_argument(
-        "--asimov-as-mean", action="store_true", help="Use Asimov data as mean",
+        "--asimov-as-mean",
+        action="store_true",
+        help="Use Asimov data as mean",
     )
     pars.add_argument(
-        "--alternative", action="store_true", help="Use alternative method for calculation (much memory-intensive)",
+        "--alternative",
+        action="store_true",
+        help="Use alternative method for calculation (much memory-intensive)",
     )
     pars.add_argument(
-        "--seed", default=0, help="Choose seed of randomization algorithm",
+        "--seed",
+        default=0,
+        help="Choose seed of randomization algorithm",
     )
     pars.add_argument(
-        "-N", "--num", default=1000, help="Choose number of samples",
+        "-N",
+        "--num",
+        default=1000,
+        help="Choose number of samples",
     )
 
     main(parser.parse_args())
