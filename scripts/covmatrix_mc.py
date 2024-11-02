@@ -56,10 +56,16 @@ def create_list_of_variation_parameters(
             List of normalized parameters
     """
     parameters = []
-    for group in groups:
-        parameters.extend([
-            parameter for parameter in walkvalues(storage[("parameters", "normalized") + properkey(model.systematic_uncertainties_groups()[group])])
-        ])
+    if "all" in groups:
+        for group_path in model.systematic_uncertainties_groups().values():
+            parameters.extend([
+                parameter for parameter in walkvalues(storage[("parameters", "normalized") + properkey(group_path)])
+            ])
+    else:
+        for group in groups:
+            parameters.extend([
+                parameter for parameter in walkvalues(storage[("parameters", "normalized") + properkey(model.systematic_uncertainties_groups()[group])])
+            ])
     return parameters
 
 

@@ -133,7 +133,6 @@ class model_dayabay_v0b:
         self.index = {}
         self.combinations = {}
 
-
         self.build()
 
         if parameter_values:
