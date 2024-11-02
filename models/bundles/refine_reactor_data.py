@@ -40,8 +40,12 @@ def refine_reactor_data(
 ) -> None:
     week = source["week"]
     day = source["day"]
+    ndays = source["ndays"]
     core = source["core"]
     ndet = source["ndet"]
+
+    if not (ndays==7).all():
+        raise ValueError("refine_reactor_data expects weekly information")
 
     power = source["power"]
     fission_fractions = {key: source[key.lower()] for key in isotopes}
@@ -50,7 +54,7 @@ def refine_reactor_data(
     for i in range(ncores):
         rweek = week[i::ncores]
         step = rweek[1:] - rweek[:-1]
-        assert (step == 1).all(), "Expect reactor data for each week"
+        assert (step == 1).all(), "Expect reactor data for each week, no gaps"
 
     target["days"] = (days_storage := {})
     for period in periods:

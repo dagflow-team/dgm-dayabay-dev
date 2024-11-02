@@ -1246,7 +1246,7 @@ class model_dayabay_v0c:
                 name = "daily_data.reactor_all",
                 filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self.source_type}",
                 replicate_outputs = ("core_data",),
-                columns = ("week", "day", "ndet", "core", "power") + index["isotope_lower"],
+                columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
             )
             refine_reactor_data(
