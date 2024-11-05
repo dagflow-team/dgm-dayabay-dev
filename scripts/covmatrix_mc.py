@@ -71,13 +71,17 @@ def create_list_of_variation_parameters(
             )
     else:
         for group in groups:
-            parameters.extend([
-                parameter
-                for parameter in walkvalues(storage[
-                    ("parameters", "normalized")
-                    + properkey(model.systematic_uncertainties_groups()[group])
-                ])
-            ])
+            parameters.extend(
+                [
+                    parameter
+                    for parameter in walkvalues(
+                        storage[
+                            ("parameters", "normalized")
+                            + properkey(model.systematic_uncertainties_groups()[group])
+                        ]
+                    )
+                ]
+            )
     return parameters
 
 
@@ -124,27 +128,25 @@ def covariance_matrix_calculation(
     """
     observation_size = observation.data.shape[0]
     product_mean = np.zeros((observation_size, observation_size))
-    observation_mean = np.zeros(observation_size)
+    observation_sum = np.zeros(observation_size)
     for i in range(N):
         variate_parameters(parameters, generator)
-        observation_mean += observation.data
+        observation_sum += observation.data
         product_mean += np.outer(observation.data, observation.data)
-    observation_mean /= N
-    product_mean /= N
     if asimov is not None:
-        observation_mean_asimov = np.outer(observation_mean, asimov)
+        product_mean /= N
+        observation_mean_asimov = np.outer(observation_sum, asimov) / N
         observation_product_mean = (
             observation_mean_asimov
             + observation_mean_asimov.T
             - np.outer(asimov, asimov)
         )
-        covariance_normalization_factor = N
     else:
-        observation_product_mean = np.outer(observation_mean, observation_mean)
-        covariance_normalization_factor = N - 1
-    covariance_matrix_absolute = (
-        (product_mean - observation_product_mean) * N / covariance_normalization_factor
-    )
+        product_mean /= N - 1
+        observation_product_mean = (
+            np.outer(observation_sum, observation_sum) / (N - 1) / N
+        )
+    covariance_matrix_absolute = product_mean - observation_product_mean
     return covariance_matrix_absolute
 
 
