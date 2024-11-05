@@ -21,7 +21,6 @@ from multikeydict.nestedmkdict import NestedMKDict
 if TYPE_CHECKING:
     from dagflow.core.meta_node import MetaNode
 
-SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
 # where path denotes the location of the parameters in the storage.
@@ -140,7 +139,7 @@ class model_dayabay_v0c:
     spectrum_correction_mode: Literal["linear", "exponential"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
-    source_type: SourceTypes
+    source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -150,7 +149,7 @@ class model_dayabay_v0c:
     def __init__(
         self,
         *,
-        source_type: SourceTypes = "npz",
+        source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},

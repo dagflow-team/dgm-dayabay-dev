@@ -3,7 +3,7 @@ from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any, Literal
 
 from numpy import ndarray
 from numpy.random import Generator
@@ -19,8 +19,8 @@ from dagflow.tools import logger
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
-SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
-FutureType = Literal[
+
+Features = {
     "all",
     "pdg",
     "xsec",
@@ -31,8 +31,7 @@ FutureType = Literal[
     "lsnl-curves",
     "lsnl-matrix",
     "short-baselines",
-]
-Features = set(get_args(FutureType))
+}
 
 _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "oscprob": "oscprob",
@@ -81,12 +80,18 @@ class model_dayabay_v0b:
     combinations: dict[str, tuple[tuple[str, ...], ...]]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
-    _source_type: SourceTypes
+    _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
     _anue_spectrum_model: str | None
-    _future: set[FutureType]
+    _future: set[
+        Literal[
+            "all", "pdg", "xsec", "conversion", "hm-spectra",
+            "hm-preinterpolate", "fix-neq-shape", "lsnl-curves",
+            "lsnl-matrix", "short-baselines"
+        ]
+    ]
     _concatenation_mode: Literal["detector", "detector_period"]
     _monte_carlo_mode: Literal[
         "asimov", "normal", "normal-stats", "poisson", "covariance"
@@ -99,7 +104,7 @@ class model_dayabay_v0b:
     def __init__(
         self,
         *,
-        source_type: SourceTypes = "npz",
+        source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -113,7 +118,17 @@ class model_dayabay_v0b:
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         merge_integration: bool = False,
         parameter_values: dict[str, float | str] = {},
-        future: Collection[FutureType] | FutureType = (),
+        future: Collection[
+            Literal[
+                "all", "pdg", "xsec", "conversion", "hm-spectra",
+                "hm-preinterpolate", "fix-neq-shape", "lsnl-curves",
+                "lsnl-matrix", "short-baselines"
+            ]
+        ] | Literal[
+            "all", "pdg", "xsec", "conversion", "hm-spectra",
+            "hm-preinterpolate", "fix-neq-shape", "lsnl-curves",
+            "lsnl-matrix", "short-baselines"
+        ] = (),
     ):
         self._strict = strict
         self._close = close

@@ -17,7 +17,6 @@ from dagflow.lib.interpolation import Interpolator
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
-SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
 _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "oscprob": "oscprob",
@@ -65,7 +64,7 @@ class model_dayabay_v0:
     combinations: dict[str, tuple[tuple[str, ...], ...]]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
-    _source_type: SourceTypes
+    _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
@@ -82,7 +81,7 @@ class model_dayabay_v0:
     def __init__(
         self,
         *,
-        source_type: SourceTypes = "npz",
+        source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
