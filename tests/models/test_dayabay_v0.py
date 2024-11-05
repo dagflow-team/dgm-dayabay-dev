@@ -3,12 +3,11 @@ from pytest import mark
 from dagflow.core import Graph, NodeStorage
 from dagflow.plot.graphviz import GraphDot
 from models import available_models, load_model
-from models.dayabay_v0 import model_dayabay_v0
 
 
-@mark.parametrize("model", available_models())
-def test_dayabay_v0(model: str):
-    model = load_model(model, close=True, strict=False)
+@mark.parametrize("modelname", available_models())
+def test_dayabay_v0(modelname: str):
+    model = load_model(modelname, close=True, strict=False)
 
     graph = model.graph
     storage = model.storage
@@ -33,8 +32,9 @@ def test_dayabay_v0(model: str):
     plot_graph(graph, storage)
 
 
-def test_dayabay_v0_proxy_switch():
-    model = model_dayabay_v0(close=True, strict=False, monte_carlo_mode="poisson")
+@mark.parametrize("modelname", available_models())
+def test_dayabay_v0_proxy_switch(modelname: str):
+    model = load_model(modelname, close=True, strict=False, monte_carlo_mode="poisson")
 
     storage = model.storage
 
