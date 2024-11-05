@@ -23,6 +23,25 @@ if TYPE_CHECKING:
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
+# Define a dictionary of groups of nuisance parameters in a format `name: path`,
+# where path denotes the location of the parameters in the storage.
+_SYSTEMATIC_UNCERTAINTIES_GROUPS = {
+    "oscprob": "oscprob",
+    "eres": "detector.eres",
+    "lsnl": "detector.lsnl_scale_a",
+    "iav": "detector.iav_offdiag_scale_factor",
+    "detector_relative": "detector.detector_relative",
+    "energy_per_fission": "reactor.energy_per_fission",
+    "nominal_thermal_power": "reactor.nominal_thermal_power",
+    "snf": "reactor.snf_scale",
+    "neq": "reactor.nonequilibrium_scale",
+    "fission_fraction": "reactor.fission_fraction_scale",
+    "bkg_rate": "bkg.rate",
+    "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
+    "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
+}
+
+
 
 class model_dayabay_v0c:
     """The Daya Bay analysis implementation version v0c.
@@ -2088,23 +2107,7 @@ class model_dayabay_v0c:
 
     @staticmethod
     def systematic_uncertainties_groups() -> dict[str, str]:
-        # Define a dictionary of groups of nuisance parameters in a format `name: path`,
-        # where path denotes the location of the parameters in storage.
-        return {
-            "oscprob": "oscprob",
-            "eres": "detector.eres",
-            "lsnl": "detector.lsnl_scale_a",
-            "iav": "detector.iav_offdiag_scale_factor",
-            "detector_relative": "detector.detector_relative",
-            "energy_per_fission": "reactor.energy_per_fission",
-            "nominal_thermal_power": "reactor.nominal_thermal_power",
-            "snf": "reactor.snf_scale",
-            "neq": "reactor.nonequilibrium_scale",
-            "fission_fraction": "reactor.fission_fraction_scale",
-            "bkg_rate": "bkg.rate",
-            "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
-            "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
-        }
+        return dict(_SYSTEMATIC_UNCERTAINTIES_GROUPS)
 
     def _setup_labels(self):
         labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
