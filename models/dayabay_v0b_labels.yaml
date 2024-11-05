@@ -39,12 +39,12 @@ edges:
     plotmethod: 'none'
 kinematics:
   integration:
-    ordersx:
+    orders_x:
       text: "Evis integration orders (precision)"
       latex: "$E_{\\rm vis}$ integration orders (precision)"
       axis: "order"
       plotmethod: 'none'
-    ordersy:
+    orders_y:
       text: "cosθ integration orders (precision)"
       latex: "$\\cos\\theta$ integration orders (precision)"
       axis: "order"

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from numpy import ndarray
 from numpy.random import Generator
@@ -12,13 +14,12 @@ from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
-from dagflow.graph import Graph
-from dagflow.lib.arithmetic import Division, Product, Sum
-from dagflow.lib.InterpolatorGroup import InterpolatorGroup
-from dagflow.metanode import MetaNode
-from dagflow.storage import NodeStorage
+from dagflow.core import Graph, NodeStorage
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
+
+if TYPE_CHECKING:
+    from dagflow.core.meta_node import MetaNode
 
 SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
 
@@ -199,22 +200,15 @@ class model_dayabay_v0c:
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
-        from dagflow.lib import (
-            Array,
-            ArraySum,
-            Cholesky,
-            Concatenation,
-            CovarianceMatrixGroup,
-            Exp,
-            IntegratorGroup,
-            LogProdDiag,
-            ParArrayInput,
-            Proxy,
-            RenormalizeDiag,
-            SumMatOrDiag,
-            VectorMatrixProduct,
-            View,
-        )
+        from dagflow.lib.arithmetic import Division, Product, Sum
+        from dagflow.lib.common import Array, Concatenation, ParArrayInput, Proxy, View
+        from dagflow.lib.exponential import Exp
+        from dagflow.lib.integration import Integrator
+        from dagflow.lib.interpolation import Interpolator
+        from dagflow.lib.linalg import Cholesky, VectorMatrixProduct
+        from dagflow.lib.normalization import RenormalizeDiag
+        from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
+        from dagflow.lib.summation import ArraySum, SumMatOrDiag
         from dagflow.tools.schema import LoadPy
         from dgf_detector import (
             AxisDistortionMatrix,
@@ -234,9 +228,7 @@ class model_dayabay_v0c:
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from multikeydict.tools import remap_items
 
-        #
         # Initialize the storage and paths
-        #
         storage = self.storage
         path_data = self.path_data
 
@@ -245,7 +237,6 @@ class model_dayabay_v0c:
         # TODO: use source_type for everything
         path_root = path_data / "root"
 
-        #
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
@@ -436,7 +427,7 @@ class model_dayabay_v0c:
             #   function.
             #
             # All the parameters are collected in the storage - a nested dictionary,
-            # which can handle path-like keys, with 'folders' split by periods:
+            # which can handle path-like keys, with "folders" split by periods:
             # - storage["parameters.all"] - storage with all the parameters
             # - storage["parameters", "all"] - the same storage with all the parameters
             # - storage["parameters.all.oscprob.SinSq2Theta12"] - neutrino oscillation
@@ -488,7 +479,7 @@ class model_dayabay_v0c:
             load_parameters(
                 path="oscprob", load=path_parameters / "oscprob_constants.yaml"
             )
-            # The parameters are located in 'parameters.oscprob' folder as defined by
+            # The parameters are located in "parameters.oscprob" folder as defined by
             # the `path` argument.
             # The annotated table with values may be then printed for any storage as
             # ```python
@@ -535,7 +526,7 @@ class model_dayabay_v0c:
             # IBD and detector normalization parameters:
             # - free global IBD normalization factor
             # - fixed detector efficiency (variation is managed by uncorrelated
-            #   'detector_relative.efficiency_factor')
+            #   "detector_relative.efficiency_factor")
             # - fixed correction to the number of protons in each detector
             load_parameters(
                 path="detector", load=path_parameters / "detector_normalization.yaml"
@@ -574,7 +565,7 @@ class model_dayabay_v0c:
             # ```python
             # print(storage["outputs.statistic.nuisance.parts"].to_table())
             # ```
-            # which contains parameters 'AD11', 'AD12', etc.
+            # which contains parameters "AD11", "AD12", etc.
 
             # Relative uncorrelated between detectors parameters:
             # - relative efficiency factor (constrained)
@@ -648,6 +639,7 @@ class model_dayabay_v0c:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
+            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml")
             load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
 
             # Additionally a few constants are provided.
@@ -712,8 +704,6 @@ class model_dayabay_v0c:
             # In this section the actual parts of the calculation are created as nodes.
             # First of all the binning is defined for the histograms.
             # - internal binning for the integration: 240 bins of 50 keV from 0 to 241.
-            #   The whole range is created for simplicity, although given the threshold
-            #   not all the bins are actually participate calculation.
             # - final binning for the statistical analysis: 20 keV from 1.2 MeV to 2 MeV
             #   with two wide bins below from 0.7 MeV and above up to 12 MeV.
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
@@ -754,12 +744,12 @@ class model_dayabay_v0c:
 
             # For the fine binning we provide a few views, each of which is associated
             # to a distinct energy in the energy conversion process:
-            # - Enu - neutrino energy
-            # - Edep - deposited energy of a positron
-            # - Escint - energy, converted to the scintillation
+            # - Enu - neutrino energy.
+            # - Edep - deposited energy of a positron..
+            # - Escint - energy, converted to the scintillation.
             # - Evis - visible energy: scintillation energy after non-linearity
-            #   correction
-            # - Erec - reconstructed energy: after smearing
+            #   correction.
+            # - Erec - reconstructed energy: after smearing.
             View.replicate(name="edges.energy_enu", output=edges_energy_common)
             edges_energy_edep, _ = View.replicate(
                 name="edges.energy_edep", output=edges_energy_common
@@ -773,54 +763,203 @@ class model_dayabay_v0c:
             edges_energy_erec, _ = View.replicate(
                 name="edges.energy_erec", output=edges_energy_common
             )
+            # While all these nodes refer to the same array, they will have different
+            # labels, which is needed for making proper plots.
 
+            # Finally, create a node with segment edges for modelling the reactor
+            # electron antineutrino spectra.
             Array.replicate(
                 name="reactor_anue.spectrum_free_correction.spec_model_edges",
                 array=antineutrino_model_edges,
             )
 
-            # fmt: off
+            # Initialize the integration nodes. The product of reactor electron
+            # antineutrino spectrum, IBD cross section and electron antineutrino
+            # survival probability is integrated in each bin by a two-fold integral over
+            # deposited energy and positron angle. The precision of integration is
+            # defined beforehand for each Edep bin and independently for each cosθ bin.
+            # As soon as integration precision and bin edges are defined all the values
+            # of Edep and cosθ we need to compute the target functions on are defined as
+            # well.
             #
-            # Integration, kinematics
-            #
-            Array.from_value("kinematics.integration.ordersx", 5, edges=edges_energy_edep, store=True)
-            Array.from_value("kinematics.integration.ordersy", 3, edges=edges_costheta, store=True)
-
-            integrator, _ = IntegratorGroup.replicate(
-                "2d",
-                names = {
-                    "sampler": "kinematics.sampler",
-                    "integrator": "kinematics.integral",
-                    "x": "mesh_edep",
-                    "y": "mesh_costheta"
-                },
-                replicate_outputs = combinations["anue_source.reactor.isotope.detector"],
+            # Initialize the orders of integration (Gauss-Legendre quadratures) for Edep
+            # and cosθ. The `Array.from_value` method is used to initialize an array
+            # from a single number. The definition of bin edges is used in order to
+            # specify the shape. `store=True` is set so the created nodes are added to
+            # the storage.
+            # In partucular using order 5 for Edep and 3 for cosθ means 15=5×3 points
+            # will be used to integrate each 2d bin.
+            Array.from_value(
+                "kinematics.integration.orders_edep",
+                5,
+                edges=edges_energy_edep,
+                store=True,
             )
-            outputs.get_value("kinematics.integration.ordersx") >> integrator("ordersX")
-            outputs.get_value("kinematics.integration.ordersy") >> integrator("ordersY")
+            Array.from_value(
+                "kinematics.integration.orders_costheta",
+                3,
+                edges=edges_costheta,
+                store=True,
+            )
 
-            ibd, _ = IBDXsecVBO1Group.replicate(path="kinematics.ibd", use_edep=True)
+            # Instantiate integration nodes. The integration consist of a single
+            # sampling node, which based on bin edges and integration orders provides
+            # samples (meshes) of points to compute the integrable function on. In the
+            # case of 2d integrtion each mesh is 2d array, similar to one, produced by
+            # numpy.meshgred function. A dedicated integrator node, which does the
+            # actual integration, is created for each integrable function. In the
+            # Daya Bay case the integrator part is replicated: an instance created for
+            # each combination of "anue_source.reactor.isotope.detector" indices. Note,
+            # that NEQ part (anue_source) has no contribution from ²³⁸U and SNF part has
+            # not isotope index at all. In particular 384 integration nodes are created.
+            Integrator.replicate(
+                "gl2d",
+                path="kinematics",
+                names={
+                    "sampler": "sampler",
+                    "integrator": "integral",
+                    "mesh_x": "sampler.mesh_edep",
+                    "mesh_y": "sampler.mesh_costheta",
+                    "orders_x": "sampler.orders_edep",
+                    "orders_y": "sampler.orders_costheta",
+                },
+                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
+            )
+            # Pass the integration orders to the sampler inputs. The operator `>>` is
+            # used to make a connection `input >> output` or batch connection
+            # `input(s) >> outputs`. The operator connects all the objects on the left
+            # side to all the corresponding objects on the right side. Missing pairs
+            # will cause an exception.
+            outputs.get_value("kinematics.integration.orders_edep") >> inputs.get_value(
+                "kinematics.sampler.orders_edep"
+            )
+            outputs.get_value(
+                "kinematics.integration.orders_costheta"
+            ) >> inputs.get_value("kinematics.sampler.orders_costheta")
+            # Regular way of accessing dictionaries via `[]` operator may be used. Here
+            # we use `storage.get_value(key)` function to ensure the value is an object,
+            # but not a nested dictionary. Similarly `storage.get_dict(key)` may be used
+            # to ensure the value is a nested dictionary.
+            #
+            # There are a few ways to find and access the created inputs and outputs.
+            # 1. get a node as `Node.replicate()` return value.
+            #   - access node's inputs and outputs.
+            # 2. get a node from node storage.
+            #   - access node's inputs and outputs.
+            # 3. access inputs and outputs via the storage.
+            #
+            # If replicate creates a single (main) node, as Integrator does, it is
+            # returned as a first return value. Then print may be used to print
+            # available inputs and outputs.
+            # ```python
+            # integrator, integrator_storage = Integrator.replicate(...)
+            # orders_x >> integrator.inputs["orders_x"] # connect orders X to sampler's
+            #                                           # input
+            # integrator.outputs["x"] >> function_input # connect mesh X to function's
+            #                                           # input
+            # ```
+            # Alternatively, the inputs may be accessed from the storage, as it is done
+            # above. The list of created inputs and outputs may be found by passing
+            # `verbose=True` flat to the replicate function as
+            # `Node.replicate(verbose=True)`. The second return value of the function is
+            # always a created storage with all the inputs and outputs, which can be
+            # printed to the terminal:
+            # ```python
+            # integrator, integrator_storage = Integrator.replicate(...)
+            # integrator_storage.print() # print local storage
+            # storage.print() # print global storage
+            # integrator_storage["inputs"].print() # print inputs from a local storage
+            # ```
+            # The local storage is always merged to the common (context) storage. It is
+            # ensured that there is no overlap in the keys.
+
+            # As of now we know all the Edep and cosθ points to compute the target
+            # functions on. The next step is to initialize the functions themselves.
+            # Here we create an instance of Inverse Beta Decay cross section, which also
+            # includes conversion from deposited energy Edep to neutrino energy Enu and
+            # corresponding dEnu/dEdep jacobian. The IBD nodes may operate with either
+            # positron energy Ee as input, or deposited energy Edep=Ee+m(e) as input,
+            # which is specified via an argument.
+            ibd, _ = IBDXsecVBO1Group.replicate(
+                path="kinematics.ibd", input_energy="edep"
+            )
+            # IBD cross section depends on a set of parameters, including neutron
+            # liftime, proton and neutron masses, vector coupling constant, etc. The
+            # values of these parameters were previously loaded and are located in the
+            # 'parameters.constant.ibd' namespace. The IBD node(s) have an input for
+            # each parameter. In order to connect the parameters the `<<` operator is
+            # used as `node << parameters_storage`. It will loop over all the inputs of
+            # the node and find parameters of the same name in the right hand side
+            # namespace. Missing parameters are skipped, extra parameters are ignored.
             ibd << storage("parameters.constant.ibd")
             ibd << storage("parameters.constant.ibd.csc")
+            # Connect the integration meshes for Edep and cosθ to the inputs of the
+            # IBD node.
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
-            outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"]
+            (
+                outputs.get_value("kinematics.sampler.mesh_costheta")
+                >> ibd.inputs["costheta"]
+            )
+            # There is an output, which yields neutrino energy Enu (mesh), corresponding
+            # to the Edep, cosθ meshes. As it will be used quite often, let us save it
+            # to a variable.
             kinematic_integrator_enu = ibd.outputs["enu"]
 
-            #
-            # Oscillations
-            #
+            # Initialize survival probability for reactor electron antineutrinos. As it
+            # is affected by the distance, we replicate it for each combination of
+            # "reactor.detector" indices of count of 48. It is defined for energies in
+            # MeV, while the unit for distance may be choosen between "m" and "km".
             NueSurvivalProbability.replicate(
                 name="oscprob",
                 distance_unit="m",
                 replicate_outputs=combinations["reactor.detector"],
-                surprobArgConversion = True
+                surprobArgConversion=True,
             )
-            kinematic_integrator_enu >> inputs("oscprob.enu")
-            parameters("constant.baseline") >> inputs("oscprob.L")
-            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs("oscprob.surprobArgConversion")
-            nodes("oscprob") << parameters("free.oscprob")
-            nodes("oscprob") << parameters("constrained.oscprob")
-            nodes("oscprob") << parameters("constant.oscprob")
+            # If created in the verbose mode one can see, that the following items are
+            # created:
+            # - nodes.oscprob.DB1.AD11
+            # - nodes.oscprob.DB1.AD12
+            # - ...
+            # - inputs.oscprob.enu.DB1.AD11
+            # - inputs.oscprob.enu.DB1.AD12
+            # - ...
+            # - inputs.oscprob.L.DB1.AD11
+            # - inputs.oscprob.L.DB1.AD12
+            # - ...
+            # - inputs.oscprob.surprobArgConversion.DB1.AD11
+            # - inputs.oscprob.surprobArgConversion.DB1.AD12
+            # - ...
+            # - outputs.oscprob.DB1.AD11
+            # - outputs.oscprob.DB1.AD12
+            # - ...
+            # On one hand each node with its inputs and outputs may be accessed via
+            # "nodes.oscprob.<reactor>.<detector>" address. On the other hand all the
+            # inputs, corresponding to the baselines and input energyies may be accessed
+            # via "inputs.oscprob.L" and "inputs.oscprob.enu" respectively. It is then
+            # under user control whether he wants to provide similar or different data
+            # for them.
+            # Connect the same mesh of neutrino energy to all the 48 inputs:
+            kinematic_integrator_enu >> inputs.get_dict("oscprob.enu")
+            # Connect the corresponding baselines:
+            parameters.get_dict("constant.baseline") >> inputs.get_dict("oscprob.L")
+            # The matching is done based on the index with order being ignored. Thus
+            # baselines stored as "DB1.AD11" or "AD11.DB1" both may be connected to the
+            # input "DB1.AD11". Moreover, if the left part has fewer indices, the
+            # connection will be broadcasted, e.g. "DB1" on the left will be connected
+            # to all the indices on the right, containing "DB1".
+            #
+            # Provide a conversion constant to convert the argument of sin²(...Δm²L/E)
+            # from chosen units to natural ones.
+            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs(
+                "oscprob.surprobArgConversion"
+            )
+            # Also connect free, constrained and constant oscillation parameters to each
+            # instance of the oscillation probability.
+            nodes.get_dict("oscprob") << parameters("free.oscprob")
+            nodes.get_dict("oscprob") << parameters("constrained.oscprob")
+            nodes.get_dict("oscprob") << parameters("constant.oscprob")
+
+            # fmt: off
 
 
             #
@@ -838,7 +977,7 @@ class model_dayabay_v0c:
             #
             # Interpolate for the integration mesh
             #
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "exp",
                 names = {
                     "indexer": "reactor_anue.spec_indexer",
@@ -883,7 +1022,7 @@ class model_dayabay_v0c:
                 dtype = "d"
             )
 
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "reactor_nonequilibrium_anue.correction_indexer",
@@ -909,7 +1048,7 @@ class model_dayabay_v0c:
                 replicate_outputs = index["reactor"],
                 dtype = "d"
             )
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "snf_anue.correction_indexer",
@@ -960,7 +1099,7 @@ class model_dayabay_v0c:
                         )
                 outputs.get_value("reactor_anue.spectrum_free_correction.correction").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
 
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "exp",
                 names = {
                     "indexer": "reactor_anue.spectrum_free_correction.indexer",
@@ -1054,7 +1193,7 @@ class model_dayabay_v0c:
                     replicate_outputs = index["isotope"]
                     )
 
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "reactor_anue.spectrum_uncertainty.correction_index",
@@ -1107,7 +1246,7 @@ class model_dayabay_v0c:
                 name = "daily_data.reactor_all",
                 filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self.source_type}",
                 replicate_outputs = ("core_data",),
-                columns = ("week", "day", "ndet", "core", "power") + index["isotope_lower"],
+                columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
             )
             refine_reactor_data(
@@ -1509,7 +1648,7 @@ class model_dayabay_v0c:
             )
 
             # Interpolate Evis(Edep)
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "detector.lsnl.indexer_fwd",
@@ -1537,7 +1676,7 @@ class model_dayabay_v0c:
             )
 
             # Interpolate Edep(Evis[detector])
-            InterpolatorGroup.replicate(
+            Interpolator.replicate(
                 method = "linear",
                 names = {
                     "indexer": "detector.lsnl.indexer_bwd",
@@ -2003,3 +2142,7 @@ class model_dayabay_v0c:
         raise RuntimeError(
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
+
+
+# TODO: remove
+# vim: tw=88 fo-=t
