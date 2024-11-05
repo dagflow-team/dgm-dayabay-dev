@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from argparse import Namespace
 
 import numpy as np
@@ -8,8 +9,7 @@ from numpy.typing import NDArray
 from dagflow.core import NodeStorage
 from dagflow.core.output import Output
 from dagflow.parameters import Parameter
-from dagflow.tools.logger import DEBUG as INFO4
-from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dagflow.tools.logger import INFO1, set_level
 from models import available_models, load_model
 from multikeydict.nestedmkdict import walkvalues
 from multikeydict.typing import properkey
@@ -42,7 +42,7 @@ def create_list_of_variation_parameters(
     storage: NodeStorage,
     groups: list[str],
 ) -> list[Parameter]:
-    """Create a list of parameters
+    """Create a list of parameters.
 
     Parameters
     ----------
@@ -90,9 +90,9 @@ def covariance_matrix_calculation(
     generator: np.random.Generator,
     observation: Output,
     N: int,
-    asimov: NDArray = None,
+    asimov: NDArray | None = None,
 ) -> NDArray:
-    r"""Calculate absolute covariance matrix
+    r"""Calculate absolute covariance matrix.
 
     For the calculation used the next formula
     .. math:: cov_{ij} = \frac{1}{N}\sum_{k = 1}^{N}(x_i^k - \overline{x_i})(x_j^k - \overline{x_j}),
@@ -155,7 +155,7 @@ def covariance_matrix_calculation_alternative(
     generator: np.random.Generator,
     observation: Output,
     N: int,
-    asimov: NDArray = None,
+    asimov: NDArray | None = None,
 ) -> NDArray:
     r"""Calculate absolute matrix (alternative method)
 
@@ -207,7 +207,7 @@ def covariance_matrix_calculation_alternative(
 
 
 def calculate_correlation_matrix(covariance_matrix: NDArray) -> NDArray:
-    r"""Calculate correlation matrix from covariance matrix
+    r"""Calculate correlation matrix from covariance matrix.
 
     $\mathrm{corr}_{ij} = \frac{\mathrm{cov}_{ij}}{\sqrt{\mathrm{cov}_{ii}\mathrm{cov}_{jj}}}$
 
