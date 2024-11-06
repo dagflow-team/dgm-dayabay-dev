@@ -743,8 +743,8 @@ class model_dayabay_v0:
                 columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
             )
-            from models.bundles.refine_reactor_data import refine_reactor_data
-            refine_reactor_data(
+            from models.bundles.refine_reactor_data import split_refine_reactor_data
+            split_refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
                 reactors = index["reactor"],

@@ -242,7 +242,7 @@ class model_dayabay_v0c:
         )
         from dgf_statistics import Chi2, CNPStat, MonteCarlo
         from models.bundles.refine_detector_data import refine_detector_data
-        from models.bundles.refine_reactor_data import refine_reactor_data
+        from models.bundles.refine_reactor_data import split_refine_reactor_data
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from multikeydict.tools import remap_items
 
@@ -1249,7 +1249,7 @@ class model_dayabay_v0c:
                 columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
                 key_order = (0,)
             )
-            refine_reactor_data(
+            split_refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
                 reactors = index["reactor"],

@@ -18,6 +18,27 @@ def weekly_to_daily(array: NDArray) -> NDArray:
 
 
 @njit
+def inperiod_to_daily(array: NDArray, ndays: int) -> NDArray:
+    ret = empty(array.shape[0] * ndays)
+
+    for i in range(ndays):
+        ret[i::ndays] = array
+
+    return ret
+
+
+@njit
+def periods_to_days(array: NDArray, ndays: int) -> NDArray:
+    ret = empty(array.shape[0] * ndays)
+
+    for i in range(ndays):
+        ret[i::ndays] = array
+        ret[i::ndays] += i
+
+    return ret
+
+
+@njit
 def weeks_to_days(array: NDArray) -> NDArray:
     ret = empty(array.shape[0] * 7)
 
@@ -35,16 +56,204 @@ def refine_reactor_data(
     reactors: Sequence[str],
     isotopes: Sequence[str],
     periods: Sequence[int] = (6, 8, 7),
+    clean_source: bool = True,
+) -> None:
+    """Refine reactor reactor data.
+
+    Does the following items:
+        - checks input consistency
+        - split arrays based on isotope number and period name
+        - provides similar data on a daily basis
+        - splits into multiple arrays based on the reactor index
+
+    Source should contain the following fields:
+        - period : int
+              period number
+        - day : int
+              number of the first day of the period, relative to some common day.
+        - ndays : int
+              length of the period in days. This function can deal only with periods of
+              equal length and with no gaps.
+        - core : int
+              number of the current reactor (1 to 6).
+        - ndet : int
+              number of active detectors during the period (6, 8 or 7).
+        - power : dict[str, NDArray]
+              thermal power as a fraction to nominal value (0 to 1) for each reactor
+              core.
+        - u235 : dict[str, NDArray]
+              fission fraction for the ²³⁵U ("U235" should be contained in isotopes) for
+              each reactor core.
+        - <isotope> : dict[str, NDArray]
+              fission fraction for the <isotope> according to isotopes for each reactor
+              core.
+
+    The target dictionary will be populated as follows:
+    ```python
+    target = {
+        "days": array(),
+        "power": {
+            "period_name": {
+                "reactor_name": array(),
+                ...
+            },
+            ...
+        },
+        "fission_fraction": {
+            "isotope_name": {
+                "period_name": {
+                    "reactor_name": array(),
+                    ...
+                },
+                ...
+            },
+        }
+    }
+    ```
+    with all the arrays of same lengths.
+
+    Parameters
+    ----------
+    source : NestedMKDict
+        storage/record/mapping with source data.
+    target : NestedMKDict
+        storage to write target arrays to.
+    reactors : Sequence[str]
+        reactor names to use when writing data.
+    isotopes : Sequence[str]
+        names of the isotopes to read and write fission fractions.
+    periods : Sequence[int], default=(6, 8, 7)
+        periods (number of active detectors) to select.
+    clean_source : bool, default=True
+        if True, remove used data from source.
+    """
+    for corename in reactors:
+        period = source["period", corename]
+        day = source["day", corename]
+        ndays = source["ndays", corename]
+        ndet = source["ndet", corename]
+
+        ndays0 = ndays[0]
+        if not (ndays == ndays0).all():
+            raise ValueError("refine_reactor_data expects information with constant periodicity")
+
+        power = source["power"][corename]
+        fission_fractions = {key: source[key.lower(), corename] for key in isotopes}
+
+        step = period[1:] - period[:-1]
+        assert (step == 1).all(), "Expect reactor data for with distinct period, no gaps"
+
+        target["days"] = (days_storage := {})
+        for period in periods:
+            mask_period = ndet == period
+            periodname = f"{period}AD"
+
+            mask = mask_period
+            key = (
+                periodname,
+                corename,
+            )
+            target[("power",) + key] = inperiod_to_daily(power[mask], ndays0)
+            for isotope in isotopes:
+                target[("fission_fraction",) + key + (isotope,)] = inperiod_to_daily(
+                    fission_fractions[isotope][mask], ndays0
+                )
+
+            days = periods_to_days(day[mask], ndays0)
+            days_stored = days_storage.setdefault(periodname, days)
+            if days is not days_stored:
+                assert all(days == days_stored)
+
+    if clean_source:
+        for key in tuple(source.walkkeys()):
+            source.delete_with_parents(key)
+
+
+def split_refine_reactor_data(
+    source: NestedMKDict,
+    target: NestedMKDict,
+    *,
+    reactors: Sequence[str],
+    isotopes: Sequence[str],
+    periods: Sequence[int] = (6, 8, 7),
     reactor_number_start: int = 1,
     clean_source: bool = True,
 ) -> None:
+    """Filter/split and refine reactor reactor data.
+
+    Does the following items:
+        - checks input consistency
+        - split arrays based on reactor number, isotope number and period name
+        - provides similar data on a daily basis
+        - splits into multiple arrays based on the reactor index
+
+    Source should contain the following fields:
+        - week : int
+              week/period number
+        - day : int
+              number of the first day of the period, relative to some common day.
+        - ndays : int
+              length of the period in days. This function can deal only with periods of
+              equal length and with no gaps.
+        - core : int
+              number of the current reactor (1 to 6).
+        - ndet : int
+              number of active detectors during the period (6, 8 or 7).
+        - power : float
+              thermal power as a fraction to nominal value (0 to 1).
+        - u235 : float
+              fission fraction for the ²³⁵U ("U235" should be contained in isotopes).
+        - <isotope> : float
+              fission fraction for the <isotope> according to isotopes.
+
+    The target dictionary will be populated as follows:
+    ```python
+    target = {
+        "days": array(),
+        "power": {
+            "period_name": {
+                "reactor_name": array(),
+                ...
+            },
+            ...
+        },
+        "fission_fraction": {
+            "isotope_name": {
+                "period_name": {
+                    "reactor_name": array(),
+                    ...
+                },
+                ...
+            },
+        }
+    }
+    ```
+    with all the arrays of same lengths.
+
+    Parameters
+    ----------
+    source : NestedMKDict
+        storage/record/mapping with source data.
+    target : NestedMKDict
+        storage to write target arrays to.
+    reactors : Sequence[str]
+        reactor names to use when writing data.
+    isotopes : Sequence[str]
+        names of the isotopes to read and write fission fractions.
+    periods : Sequence[int], default=(6, 8, 7)
+        periods (number of active detectors) to select.
+    reactor_number_start : int, default=1
+        number of the first reactor in the input data.
+    clean_source : bool, default=True
+        if True, remove used data from source.
+    """
     week = source["week"]
     day = source["day"]
     ndays = source["ndays"]
     core = source["core"]
     ndet = source["ndet"]
 
-    if not (ndays==7).all():
+    if not (ndays == 7).all():
         raise ValueError("refine_reactor_data expects weekly information")
 
     power = source["power"]
