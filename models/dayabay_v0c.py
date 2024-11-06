@@ -21,7 +21,25 @@ from multikeydict.nestedmkdict import NestedMKDict
 if TYPE_CHECKING:
     from dagflow.core.meta_node import MetaNode
 
-SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
+
+# Define a dictionary of groups of nuisance parameters in a format `name: path`,
+# where path denotes the location of the parameters in the storage.
+_SYSTEMATIC_UNCERTAINTIES_GROUPS = {
+    "oscprob": "oscprob",
+    "eres": "detector.eres",
+    "lsnl": "detector.lsnl_scale_a",
+    "iav": "detector.iav_offdiag_scale_factor",
+    "detector_relative": "detector.detector_relative",
+    "energy_per_fission": "reactor.energy_per_fission",
+    "nominal_thermal_power": "reactor.nominal_thermal_power",
+    "snf": "reactor.snf_scale",
+    "neq": "reactor.nonequilibrium_scale",
+    "fission_fraction": "reactor.fission_fraction_scale",
+    "bkg_rate": "bkg.rate",
+    "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
+    "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
+}
+
 
 
 class model_dayabay_v0c:
@@ -121,7 +139,7 @@ class model_dayabay_v0c:
     spectrum_correction_mode: Literal["linear", "exponential"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
-    source_type: SourceTypes
+    source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -131,7 +149,7 @@ class model_dayabay_v0c:
     def __init__(
         self,
         *,
-        source_type: SourceTypes = "npz",
+        source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -371,24 +389,6 @@ class model_dayabay_v0c:
             )
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
-
-        # Define a dictionary of groups of nuisance parameters in a format `name: path`,
-        # where path denotes the location of the parameters in storage.
-        systematic_uncertainties_groups = {
-            "oscprob": "oscprob",
-            "eres": "detector.eres",
-            "lsnl": "detector.lsnl_scale_a",
-            "iav": "detector.iav_offdiag_scale_factor",
-            "detector_relative": "detector.detector_relative",
-            "energy_per_fission": "reactor.energy_per_fission",
-            "nominal_thermal_power": "reactor.nominal_thermal_power",
-            "snf": "reactor.snf_scale",
-            "neq": "reactor.nonequilibrium_scale",
-            "fission_fraction": "reactor.fission_fraction_scale",
-            "bkg_rate": "bkg.rate",
-            "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
-            "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
-        }
 
         # Start building the computational graph within a dedicated context, which
         # includes:
@@ -1866,7 +1866,7 @@ class model_dayabay_v0c:
             #
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
-            for name, parameters_source in systematic_uncertainties_groups.items():
+            for name, parameters_source in self.systematic_uncertainties_groups().items():
                 self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
             self._covariance_matrix.add_covariance_sum()
 
@@ -2103,6 +2103,10 @@ class model_dayabay_v0c:
         if mc_parameters:
             self.storage.get_value("nodes.mc.parameters.toymc").reset()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
+
+    @staticmethod
+    def systematic_uncertainties_groups() -> dict[str, str]:
+        return dict(_SYSTEMATIC_UNCERTAINTIES_GROUPS)
 
     def _setup_labels(self):
         labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))

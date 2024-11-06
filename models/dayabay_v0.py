@@ -17,7 +17,22 @@ from dagflow.lib.interpolation import Interpolator
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
-SourceTypes = Literal["tsv", "hdf5", "root", "npz"]
+
+_SYSTEMATIC_UNCERTAINTIES_GROUPS = {
+    "oscprob": "oscprob",
+    "eres": "detector.eres",
+    "lsnl": "detector.lsnl_scale_a",
+    "iav": "detector.iav_offdiag_scale_factor",
+    "detector_relative": "detector.detector_relative",
+    "energy_per_fission": "reactor.energy_per_fission",
+    "nominal_thermal_power": "reactor.nominal_thermal_power",
+    "snf": "reactor.snf_scale",
+    "neq": "reactor.nonequilibrium_scale",
+    "fission_fraction": "reactor.fission_fraction_scale",
+    "bkg_rate": "bkg.rate",
+    "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
+    "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
+}
 
 
 class model_dayabay_v0:
@@ -49,7 +64,7 @@ class model_dayabay_v0:
     combinations: dict[str, tuple[tuple[str, ...], ...]]
     _path_data: Path
     _override_indices: Mapping[str, Sequence[str]]
-    _source_type: SourceTypes
+    _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
     _spectrum_correction_mode: Literal["linear", "exponential"]
@@ -66,7 +81,7 @@ class model_dayabay_v0:
     def __init__(
         self,
         *,
-        source_type: SourceTypes = "npz",
+        source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -204,22 +219,6 @@ class model_dayabay_v0:
             )
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
-
-        systematic_uncertainties_groups = [
-            ("oscprob", "oscprob"),
-            ("eres", "detector.eres"),
-            ("lsnl", "detector.lsnl_scale_a"),
-            ("iav", "detector.iav_offdiag_scale_factor"),
-            ("detector_relative", "detector.detector_relative"),
-            ("energy_per_fission", "reactor.energy_per_fission"),
-            ("nominal_thermal_power", "reactor.nominal_thermal_power"),
-            ("snf", "reactor.snf_scale"),
-            ("neq", "reactor.nonequilibrium_scale"),
-            ("fission_fraction", "reactor.fission_fraction_scale"),
-            ("bkg_rate", "bkg.rate"),
-            ("hm_corr", "reactor_anue.spectrum_uncertainty.corr"),
-            ("hm_uncorr", "reactor_anue.spectrum_uncertainty.uncorr"),
-        ]
 
         with (
             Graph(close_on_exit=self._close, strict=self._strict) as graph,
@@ -1396,7 +1395,7 @@ class model_dayabay_v0:
             from dagflow.lib.statistics import CovarianceMatrixGroup
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance", **self._covmatrix_kwargs)
 
-            for name, parameters_source in systematic_uncertainties_groups:
+            for name, parameters_source in self.systematic_uncertainties_groups().items():
                 self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
             self._covariance_matrix.add_covariance_sum()
 
@@ -1641,6 +1640,10 @@ class model_dayabay_v0:
         if mc_parameters:
             self.storage.get_value("nodes.mc.parameters.toymc").reset()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
+
+    @staticmethod
+    def systematic_uncertainties_groups() -> dict[str, str]:
+        return dict(_SYSTEMATIC_UNCERTAINTIES_GROUPS)
 
     def _setup_labels(self):
         labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
