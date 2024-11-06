@@ -5,11 +5,13 @@ from dagflow.tools.logger import logger
 from .dayabay_v0 import model_dayabay_v0
 from .dayabay_v0b import model_dayabay_v0b
 from .dayabay_v0c import model_dayabay_v0c
+from .dayabay_v0d import model_dayabay_v0d
 
 _dayabay_models = {
     "v0": model_dayabay_v0,
     "v0b": model_dayabay_v0b,
     "v0c": model_dayabay_v0c,
+    "v0d": model_dayabay_v0d,
 }
 
 _available_sources = ("tsv", "hdf5", "root", "npz")
