@@ -61,27 +61,14 @@ def create_list_of_variation_parameters(
     parameters = []
     if "all" in groups:
         for group_path in model.systematic_uncertainties_groups().values():
-            parameters.extend(
-                [
-                    parameter
-                    for parameter in walkvalues(
-                        storage[("parameters", "normalized") + properkey(group_path)]
-                    )
-                ]
-            )
+            path = ("parameters", "normalized") + properkey(group_path)
+            parameters.extend(walkvalues(storage[path]))
     else:
         for group in groups:
-            parameters.extend(
-                [
-                    parameter
-                    for parameter in walkvalues(
-                        storage[
-                            ("parameters", "normalized")
-                            + properkey(model.systematic_uncertainties_groups()[group])
-                        ]
-                    )
-                ]
+            path = ("parameters", "normalized") + properkey(
+                model.systematic_uncertainties_groups()[group]
             )
+            parameters.extend(walkvalues(storage[path]))
     return parameters
 
 
@@ -144,7 +131,7 @@ def covariance_matrix_calculation(
     else:
         product_mean /= N - 1
         observation_product_mean = (
-            np.outer(observation_sum, observation_sum) / (N - 1) / N
+            np.outer(observation_sum, observation_sum) / ((N - 1) * N)
         )
     covariance_matrix_absolute = product_mean - observation_product_mean
     return covariance_matrix_absolute
