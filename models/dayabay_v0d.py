@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 FutureType = Literal[
     "all",  # enable all the options
     "reactor-28days",  # merge reactor data, each 4 weeks
+    "reactor-35days",  # merge reactor data, each 4 weeks
 ]
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -200,6 +201,7 @@ class model_dayabay_v0d:
         if "all" in self._future:
             self._future = future_variants
             self._future.remove("all")
+            self._future.remove("reactor-35days")
         if self._future:
             logger.info(f"Future options: {', '.join(self._future)}")
         self._covariance_matrix = None
@@ -1261,12 +1263,30 @@ class model_dayabay_v0d:
                 detectors = index["detector"]
             )
 
-            load_record_data(
-                name = "daily_data.reactor_all",
-                filenames = path_arrays/f"reactor_thermal_power_weekly.{self.source_type}",
-                replicate_outputs = index["reactor"],
-                columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
-            )
+            if "reactor-28days" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name = "daily_data.reactor_all",
+                    filenames = path_arrays/f"reactor_power_28days.{self.source_type}",
+                    replicate_outputs = index["reactor"],
+                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                )
+                assert "reactor-35days" not in self._future, "Mutually exclusive options"
+            elif "reactor-35days" in self._future:
+                logger.warning("Future: use merged reactor data, period: 35 days")
+                load_record_data(
+                    name = "daily_data.reactor_all",
+                    filenames = path_arrays/f"reactor_power_35days.{self.source_type}",
+                    replicate_outputs = index["reactor"],
+                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                )
+            else:
+                load_record_data(
+                    name = "daily_data.reactor_all",
+                    filenames = path_arrays/f"reactor_thermal_power_weekly.{self.source_type}",
+                    replicate_outputs = index["reactor"],
+                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                )
             refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
