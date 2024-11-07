@@ -26,7 +26,9 @@ FutureType = Literal[
     "all",  # enable all the options
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 4 weeks
+    "data-ihep"
 ]
+_future_redundant = ["all", "reactor-35days"]
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
 # where path denotes the location of the parameters in the storage.
@@ -153,7 +155,7 @@ class model_dayabay_v0d:
     _strict: bool
     _close: bool
     _random_generator: Generator
-    _future: Collection[FutureType]
+    _future: set[FutureType]
     _covariance_matrix: MetaNode
     _frozen_nodes: dict[str, tuple]
 
@@ -200,11 +202,10 @@ class model_dayabay_v0d:
         assert all(f in future_variants for f in self._future)
         if "all" in self._future:
             self._future = future_variants
-            self._future.remove("all")
-            self._future.remove("reactor-35days")
+            for ft in _future_redundant:
+                self._future.remove(ft) # pyright: ignore [reportArgumentType]
         if self._future:
             logger.info(f"Future options: {', '.join(self._future)}")
-        self._covariance_matrix = None
         self._frozen_nodes = {}
 
         self.combinations = {}
@@ -1249,14 +1250,23 @@ class model_dayabay_v0d:
             #
             # Livetime
             #
-            load_record_data(
-                name = "daily_data.detector_all",
-                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self.source_type}",
-                replicate_outputs = index["detector"],
-                objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
-                columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
-                skip = inactive_detectors
-            )
+            if "data-ihep" in self._future:
+                load_record_data(
+                    name = "daily_data.detector_all",
+                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_daily_detector_data.{self.source_type}",
+                    replicate_outputs = index["detector"],
+                    columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
+                    skip = inactive_detectors
+                )
+            else:
+                load_record_data(
+                    name = "daily_data.detector_all",
+                    filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self.source_type}",
+                    replicate_outputs = index["detector"],
+                    name_function = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
+                    columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
+                    skip = inactive_detectors
+                )
             refine_detector_data(
                 data("daily_data.detector_all"),
                 data.child("daily_data.detector"),
@@ -1795,7 +1805,7 @@ class model_dayabay_v0d:
                 replicate_outputs = combinations["bkg.detector"],
                 skip = inactive_detectors,
                 key_order = (1, 2, 0),
-                objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
+                name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
 
             # TODO:
