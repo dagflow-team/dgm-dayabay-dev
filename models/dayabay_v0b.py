@@ -816,7 +816,7 @@ class model_dayabay_v0b:
                 name = "daily_data.detector_all",
                 filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
                 replicate_outputs = index["detector"],
-                objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
+                name_function = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
                 skip = self.inactive_detectors
             )
@@ -1160,7 +1160,7 @@ class model_dayabay_v0b:
                 name = "detector.iav",
                 filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
                 replicate_outputs = ("matrix_raw",),
-                objects = {"matrix_raw": "iav_matrix"},
+                name_function = {"matrix_raw": "iav_matrix"},
                 array_kwargs = {
                     'edges': (edges_energy_escint, edges_energy_edep)
                     }
@@ -1402,7 +1402,7 @@ class model_dayabay_v0b:
                 replicate_outputs = combinations["bkg.detector"],
                 skip = self.inactive_detectors,
                 key_order = (1, 2, 0),
-                objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
+                name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
 
             # TODO: Daya Bay v1 (if needed)

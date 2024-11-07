@@ -1607,7 +1607,7 @@ class model_dayabay_v0d:
                 name = "detector.iav",
                 filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self.source_type}",
                 replicate_outputs = ("matrix_raw",),
-                objects = {"matrix_raw": "iav_matrix"},
+                name_function = {"matrix_raw": "iav_matrix"},
                 array_kwargs = {
                     'edges': (edges_energy_escint, edges_energy_edep)
                     }
