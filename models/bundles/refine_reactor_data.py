@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from numba import njit
-from numpy import empty
+from numpy import empty, isnan
 from numpy.typing import NDArray
 
 from multikeydict.nestedmkdict import NestedMKDict
@@ -134,14 +134,18 @@ def refine_reactor_data(
         ndet = source["ndet", corename]
 
         ndays0 = ndays[0]
-        if not (ndays == ndays0).all():
-            raise ValueError("refine_reactor_data expects information with constant periodicity")
+        if not (ndays[:-1] == ndays0).all():
+            raise ValueError(
+                "refine_reactor_data expects information with constant periodicity"
+            )
 
         power = source["power"][corename]
         fission_fractions = {key: source[key.lower(), corename] for key in isotopes}
 
         step = period[1:] - period[:-1]
-        assert (step == 1).all(), "Expect reactor data for with distinct period, no gaps"
+        assert (
+            step == 1
+        ).all(), "Expect reactor data for with distinct period, no gaps"
 
         target["days"] = (days_storage := {})
         for period in periods:
@@ -163,6 +167,10 @@ def refine_reactor_data(
             days_stored = days_storage.setdefault(periodname, days)
             if days is not days_stored:
                 assert all(days == days_stored)
+
+    for key, array in target.walkjoineditems():
+        if isnan(array).any():
+            raise ValueError(f"Invalid refined reactor data for {key}")
 
     if clean_source:
         for key in tuple(source.walkkeys()):
@@ -286,6 +294,10 @@ def split_refine_reactor_data(
             days_stored = days_storage.setdefault(periodname, days)
             if days is not days_stored:
                 assert all(days == days_stored)
+
+    for key, array in target.walkjoineditems():
+        if isnan(array).any():
+            raise ValueError(f"Invalid refined reactor data for {key}")
 
     if clean_source:
         for key in tuple(source.walkkeys()):
