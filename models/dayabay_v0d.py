@@ -15,7 +15,7 @@ from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.core import Graph, NodeStorage
-from dagflow.tools import logger
+from dagflow.tools.logger import logger
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
