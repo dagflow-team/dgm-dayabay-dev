@@ -25,8 +25,9 @@ if TYPE_CHECKING:
 FutureType = Literal[
     "all",  # enable all the options
     "reactor-28days",  # merge reactor data, each 4 weeks
-    "reactor-35days",  # merge reactor data, each 4 weeks
-    "data-ihep"
+    "reactor-35days",  # merge reactor data, each 5 weeks
+    "data-a",  # use dataset A
+    "bkg-order",  # use optimized bkg order
 ]
 _future_redundant = ["all", "reactor-35days"]
 
@@ -43,7 +44,7 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "snf": "reactor.snf_scale",
     "neq": "reactor.nonequilibrium_scale",
     "fission_fraction": "reactor.fission_fraction_scale",
-    "bkg_rate": "bkg.rate",
+    "bkg_rate": "bkg",
     "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
     "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
 }
@@ -203,7 +204,9 @@ class model_dayabay_v0d:
         if "all" in self._future:
             self._future = future_variants
             for ft in _future_redundant:
-                self._future.remove(ft) # pyright: ignore [reportArgumentType]
+                self._future.remove(ft)  # pyright: ignore [reportArgumentType]
+        if "data-a" in self._future:
+            self._future.add("bkg-order")
         if self._future:
             logger.info(f"Future options: {', '.join(self._future)}")
         self._frozen_nodes = {}
@@ -280,7 +283,6 @@ class model_dayabay_v0d:
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        #
         antineutrino_model_edges = LoadPy(
             path_parameters / "reactor_antineutrino_spectrum_edges.py",
             variable="edges",
@@ -350,6 +352,9 @@ class model_dayabay_v0d:
                 f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
             ),
         }
+        if "data-a" in self._future:
+            logger.warning("Future: initialize muonx background")
+            index["bkg"] = index["bkg"] + ("muonx",)
         # Define isotope names in lower case
         index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
@@ -372,6 +377,8 @@ class model_dayabay_v0d:
         # The dictionary combinations is one of the main elements to loop over and match
         # parts of the computational graph
         inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
+        inactive_backgrounds = ({"6AD", "muonx"}, {"8AD", "muonx"})  # TODO: doc
+        inactive_combinations = inactive_detectors + inactive_backgrounds
         required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
@@ -384,6 +391,7 @@ class model_dayabay_v0d:
             "reactor.isotope_neq.detector.period",
             "reactor.detector.period",
             "detector.period",
+            "period.detector",
             "anue_unc.isotope",
             "bkg.detector",
             "bkg.detector.period",
@@ -393,7 +401,7 @@ class model_dayabay_v0d:
             combitems = combname.split(".")
             items = []
             for it in product(*(index[item] for item in combitems)):
-                if any(inact.issubset(it) for inact in inactive_detectors):
+                if any(inact.issubset(it) for inact in inactive_combinations):
                     continue
                 items.append(it)
             combinations[combname] = tuple(items)
@@ -661,8 +669,23 @@ class model_dayabay_v0d:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
-            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml")
-            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
+            if "data-a" in self._future:
+                logger.warning("Future: load IHEP's background rates")
+                load_parameters(
+                    path="bkg.rate_scale",
+                    load=path_parameters / "bkg_rate_scale_acc.yaml",
+                    replicate=combinations["period.detector"],
+                )
+                load_parameters(
+                    path="bkg.rate", load=path_parameters / "bkg_rates_dataset_a.yaml"
+                )
+            else:
+                load_parameters(
+                    path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml"
+                )
+                load_parameters(
+                    path="bkg.rate", load=path_parameters / "bkg_rates.yaml"
+                )
 
             # Additionally a few constants are provided.
             # A constant to convert seconds to days for the backgrounds estimation
@@ -1250,7 +1273,8 @@ class model_dayabay_v0d:
             #
             # Livetime
             #
-            if "data-ihep" in self._future:
+            if "data-a" in self._future:
+                logger.warning("Future: load IHEP's daily data")
                 load_record_data(
                     name = "daily_data.detector_all",
                     filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_daily_detector_data.{self.source_type}",
@@ -1786,81 +1810,131 @@ class model_dayabay_v0d:
             #
             # Backgrounds
             #
-            bkg_names = {
-                'acc': "accidental",
-                'lihe': "lithium9",
-                'fastn': "fastNeutron",
-                'amc': "amCSource",
-                'alphan': "carbonAlpha",
-                'muon': "muonRelated"
-            }
-            load_hist(
-                name = "bkg",
-                x = "erec",
-                y = "spectrum_shape",
-                merge_x = True,
-                normalize = True,
-                filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
-                replicate_files = index["period"],
-                replicate_outputs = combinations["bkg.detector"],
-                skip = inactive_detectors,
-                key_order = (1, 2, 0),
-                name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
-            )
+            if "data-a" in self._future:
+                logger.warning("Future: use bakckgrounds from dataset A")
+                bkg_names = {
+                    "acc": "accidental",
+                    "lihe": "lithium9",
+                    "fastn": "fastNeutron",
+                    "amc": "amCSource",
+                    "alphan": "carbonAlpha",
+                    "muon": "muonRelated"
+                }
+                load_hist(
+                    name = "bkg",
+                    x = "erec",
+                    y = "spectrum_shape",
+                    merge_x = True,
+                    normalize = True,
+                    filenames = path_root/"dayabay_dataset_a/dayabay_a_bkg_spectra_{}.root",
+                    replicate_files = index["period"],
+                    replicate_outputs = combinations["bkg.detector"],
+                    skip = inactive_combinations,
+                    key_order = (
+                        ("period", "bkg", "detector"),
+                        ("bkg", "detector", "period"),
+                    ),
+                    name_function = lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}"
+                )
+            else:
+                bkg_names = {
+                    "acc": "accidental",
+                    "lihe": "lithium9",
+                    "fastn": "fastNeutron",
+                    "amc": "amCSource",
+                    "alphan": "carbonAlpha",
+                    "muon": "muonRelated"
+                }
+                load_hist(
+                    name = "bkg",
+                    x = "erec",
+                    y = "spectrum_shape",
+                    merge_x = True,
+                    normalize = True,
+                    filenames = path_root/"bkg_tmp_B_input_by_period_{}.root",
+                    replicate_files = index["period"],
+                    replicate_outputs = combinations["bkg.detector"],
+                    skip = inactive_detectors,
+                    key_order = (
+                        ("period", "bkg", "detector"),
+                        ("bkg", "detector", "period"),
+                    ),
+                    name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
+                )
 
             # TODO:
             # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
             # So, every bin contain 0.00416667.
             # TODO: remove in dayabay-v1
             fastn_data = ones(240) / 240
-            for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
+            for spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkvalues():
                 spectrum._data[:] = fastn_data
 
-            Product.replicate(
-                    parameters("all.bkg.rate.acc"),
-                    outputs("bkg.spectrum_shape.acc"),
-                    name="bkg.spectrum_per_day.acc",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+            if "bkg-order" in self._future:
+                logger.warning("Future: use updated bakckground normalization order")
 
-            Product.replicate(
-                    # outputs("bkg.rate.lihe"),
-                    parameters("all.bkg.rate.lihe"),
-                    outputs("bkg.spectrum_shape.lihe"),
-                    name="bkg.spectrum_per_day.lihe",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                # TODO: labels
+                Product.replicate(
+                        parameters("all.bkg.rate"),
+                        outputs("detector.efflivetime_days"),
+                        name = "bkg.count",
+                        replicate_outputs=combinations["bkg.detector.period"]
+                        )
 
-            Product.replicate(
-                    # outputs("bkg.rate.fastn"),
-                    parameters("all.bkg.rate.fastn"),
-                    outputs("bkg.spectrum_shape.fastn"),
-                    name="bkg.spectrum_per_day.fastn",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                # TODO: labels
+                Product.replicate(
+                        outputs("bkg.count"),
+                        outputs("bkg.spectrum_shape"),
+                        name="bkg.spectrum",
+                        replicate_outputs=combinations["bkg.detector.period"],
+                        )
+            else:
+                assert "data-a" not in self._future
+                Product.replicate(
+                        parameters("all.bkg.rate.acc"),
+                        outputs("bkg.spectrum_shape.acc"),
+                        name="bkg.spectrum_per_day.acc",
+                        replicate_outputs=combinations["detector.period"],
+                        )
 
-            Product.replicate(
-                    parameters("all.bkg.rate.alphan"),
-                    outputs("bkg.spectrum_shape.alphan"),
-                    name="bkg.spectrum_per_day.alphan",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                Product.replicate(
+                        # outputs("bkg.rate.lihe"),
+                        parameters("all.bkg.rate.lihe"),
+                        outputs("bkg.spectrum_shape.lihe"),
+                        name="bkg.spectrum_per_day.lihe",
+                        replicate_outputs=combinations["detector.period"],
+                        )
 
-            Product.replicate(
-                    parameters("all.bkg.rate.amc"),
-                    outputs("bkg.spectrum_shape.amc"),
-                    name="bkg.spectrum_per_day.amc",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                Product.replicate(
+                        # outputs("bkg.rate.fastn"),
+                        parameters("all.bkg.rate.fastn"),
+                        outputs("bkg.spectrum_shape.fastn"),
+                        name="bkg.spectrum_per_day.fastn",
+                        replicate_outputs=combinations["detector.period"],
+                        )
 
-            # Total spectrum of Background in Detector during Period
-            # spectrum_per_day [N / day] * efflivetime [sec] * seconds_in_day_inverse [day / sec] -> [N]
-            Product.replicate(
-                    outputs("detector.efflivetime_days"),
-                    outputs("bkg.spectrum_per_day"),
-                    name="bkg.spectrum",
-                    replicate_outputs=combinations["bkg.detector.period"],
-                    )
+                Product.replicate(
+                        parameters("all.bkg.rate.alphan"),
+                        outputs("bkg.spectrum_shape.alphan"),
+                        name="bkg.spectrum_per_day.alphan",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                Product.replicate(
+                        parameters("all.bkg.rate.amc"),
+                        outputs("bkg.spectrum_shape.amc"),
+                        name="bkg.spectrum_per_day.amc",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                # Total spectrum of Background in Detector during Period
+                # spectrum_per_day [N / day] * efflivetime [sec] * seconds_in_day_inverse [day / sec] -> [N]
+                Product.replicate(
+                        outputs("detector.efflivetime_days"),
+                        outputs("bkg.spectrum_per_day"),
+                        name="bkg.spectrum",
+                        replicate_outputs=combinations["bkg.detector.period"],
+                        )
 
             Sum.replicate(
                     outputs("bkg.spectrum"),
@@ -2180,13 +2254,13 @@ class model_dayabay_v0d:
 
         unused_keys = list(labels_mk.walkjoinedkeys())
         may_ignore = {
-            "detector.lsnl.curves.evis_coarse_monotonous_scaled.group.text",
-            "detector.lsnl.indexer_bwd.group.text",
-            "detector.lsnl.interpolated_bwd.group.text",
+            "statistic.nuisance.parts.bkg.rate.acc",
+            "bkg.spectrum_per_day"
         }
-        for key in may_ignore:
-            with suppress(ValueError):
-                unused_keys.remove(key)
+        for key_may_ignore in may_ignore:
+            for i, key_unused in reversed(tuple(enumerate(unused_keys))):
+                if key_unused.startswith(key_may_ignore):
+                    del unused_keys[i]
 
         if not unused_keys:
             return
@@ -2194,7 +2268,3 @@ class model_dayabay_v0d:
         raise RuntimeError(
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
-
-
-# TODO: remove
-# vim: tw=88 fo-=t
