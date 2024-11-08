@@ -38,7 +38,6 @@ def main(opts: Namespace) -> None:
     modelA = load_model(
         opts.version_a,
         model_options=opts.model_options_a,
-        source_type=opts.source_type_a or opts.source_type,
         parameter_values=opts.par0,
     )
 
@@ -46,7 +45,6 @@ def main(opts: Namespace) -> None:
     modelB = load_model(
         opts.version_b,
         model_options=opts.model_options_b,
-        source_type=opts.source_type_b or opts.source_type,
         parameter_values=opts.par0,
     )
 
@@ -162,27 +160,6 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
         "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
-    parser.add_argument(
-        "--source-type",
-        "--source",
-        choices=available_sources(),
-        default="npz",
-        help="Data source type",
-    )
-    parser.add_argument(
-        "--source-type-a",
-        "--source-a",
-        "--s-a",
-        choices=available_sources(),
-        help="Data source type for model A",
-    )
-    parser.add_argument(
-        "--source-type-b",
-        "--source-b",
-        "--s-b",
-        choices=available_sources(),
-        help="Data source type for model B",
     )
 
     model = parser.add_argument_group("model", "model related options")
