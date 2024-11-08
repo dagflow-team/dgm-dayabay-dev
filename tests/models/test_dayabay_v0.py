@@ -10,7 +10,7 @@ def test_dayabay_v0(modelname: str):
     # TODO: remove when the model is done
     if modelname=="v0d":
         return
-    model = load_model(modelname, close=True, strict=False)
+    model = load_model(modelname, close=True, strict=True)
 
     graph = model.graph
     storage = model.storage
@@ -40,7 +40,7 @@ def test_dayabay_v0_proxy_switch(modelname: str):
     # TODO: remove when the model is done
     if modelname=="v0d":
         return
-    model = load_model(modelname, close=True, strict=False, monte_carlo_mode="poisson")
+    model = load_model(modelname, close=True, strict=True, monte_carlo_mode="poisson")
 
     storage = model.storage
 
