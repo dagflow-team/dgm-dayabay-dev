@@ -277,8 +277,6 @@ class model_dayabay_v0d:
 
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self.source_type
-        # TODO: use source_type for everything
-        path_root = path_data / "root"
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
@@ -1826,7 +1824,7 @@ class model_dayabay_v0d:
                     y = "spectrum_shape",
                     merge_x = True,
                     normalize = True,
-                    filenames = path_root/"dayabay_dataset_a/dayabay_a_bkg_spectra_{}.root",
+                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_bkg_spectra_{{}}.{self.source_type}",
                     replicate_files = index["period"],
                     replicate_outputs = combinations["bkg.detector"],
                     skip = inactive_combinations,
@@ -1837,6 +1835,7 @@ class model_dayabay_v0d:
                     name_function = lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}"
                 )
             else:
+                path_root = path_data / "root"
                 bkg_names = {
                     "acc": "accidental",
                     "lihe": "lithium9",
@@ -1862,13 +1861,16 @@ class model_dayabay_v0d:
                     name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
                 )
 
-            # TODO:
-            # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
-            # So, every bin contain 0.00416667.
-            # TODO: remove in dayabay-v1
-            fastn_data = ones(240) / 240
-            for spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkvalues():
-                spectrum._data[:] = fastn_data
+            if "data-a" in self._future:
+                pass
+            else:
+                # TODO:
+                # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
+                # So, every bin contain 0.00416667.
+                # TODO: remove in dayabay-v1
+                fastn_data = ones(240) / 240
+                for spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkvalues():
+                    spectrum._data[:] = fastn_data
 
             if "bkg-order" in self._future:
                 logger.warning("Future: use updated bakckground normalization order")
