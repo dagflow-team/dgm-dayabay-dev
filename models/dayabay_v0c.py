@@ -2131,11 +2131,7 @@ class model_dayabay_v0c:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
-        may_ignore = {
-            "detector.lsnl.curves.evis_coarse_monotonous_scaled.group.text",
-            "detector.lsnl.indexer_bwd.group.text",
-            "detector.lsnl.interpolated_bwd.group.text",
-        }
+        may_ignore = {}
         for key in may_ignore:
             with suppress(ValueError):
                 unused_keys.remove(key)
@@ -2148,5 +2144,3 @@ class model_dayabay_v0c:
         )
 
 
-# TODO: remove
-# vim: tw=88 fo-=t
