@@ -1547,7 +1547,7 @@ class model_dayabay_v0b:
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
-            from dagflow.lib.common import ParArrayInput
+            from dagflow.lib.parameters import ParArrayInput
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,

@@ -244,7 +244,8 @@ class model_dayabay_v0d:
         from dagflow.bundles.load_record import load_record_data
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
         from dagflow.lib.arithmetic import Division, Product, Sum
-        from dagflow.lib.common import Array, Concatenation, ParArrayInput, Proxy, View
+        from dagflow.lib.common import Array, Concatenation, Proxy, View
+        from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
         from dagflow.lib.interpolation import Interpolator
