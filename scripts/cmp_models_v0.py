@@ -50,18 +50,38 @@ def main(opts: Namespace) -> None:
 
     get_hist = lambda output: (output.dd.axes_edges[0].data, output.data.copy())
 
-    # source = "outputs.eventscount.final.detector"
-    source = "outputs.eventscount.fine.ibd_normalized_detector"
+    source = opts.hist
     sourceA = modelA.storage.get_dict(source)
     sourceB = modelB.storage.get_dict(source)
     hists0_A = mkmap(get_hist, sourceA)
     hists0_B = mkmap(get_hist, sourceB)
     plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=source, opts=opts)
 
+    pars_set = False
+    title = ""
     if opts.par:
-        title = "\n".join(f"{par}={value}" for (par, value) in opts.par)
+        title += "\n".join(f"{par}={value}" for (par, value) in opts.par) + "\n"
         modelA.set_parameters(opts.par)
         modelB.set_parameters(opts.par)
+        pars_set = True
+    if opts.par_a:
+        title += "\nA: ".join(f"{par}={value}" for (par, value) in opts.par_a) + "\n"
+        modelA.set_parameters(opts.par_a)
+        pars_set = True
+    if opts.par_b:
+        title += "\nB: ".join(f"{par}={value}" for (par, value) in opts.par_b) + "\n"
+        modelB.set_parameters(opts.par_b)
+        pars_set = True
+    if opts.norm_par_a:
+        title += "\nAn: ".join(f"{par}={value}" for (par, value) in opts.norm_par_a) + "\n"
+        modelA.set_parameters(opts.norm_par_a, mode="normvalue")
+        pars_set = True
+    if opts.norm_par_b:
+        title += "\nBn: ".join(f"{par}={value}" for (par, value) in opts.norm_par_b) + "\n"
+        modelB.set_parameters(opts.norm_par_b, mode="normvalue")
+        pars_set = True
+
+    if pars_set:
         hists1_A = mkmap(get_hist, sourceA)
         hists1_B = mkmap(get_hist, sourceB)
 
@@ -120,8 +140,14 @@ def plot(
         diff = dataA - dataB
         lratio = log(dataA / dataB)
         lratio[dataB == 0] = 0.0
-        istart_ratioA = where(dataA > 0)[0][0]
-        istart_ratioB = where(dataB > 0)[0][0]
+        try:
+            istart_ratioA = where(dataA > 0)[0][0]
+        except IndexError:
+            istart_ratioA = 0
+        try:
+            istart_ratioB = where(dataB > 0)[0][0]
+        except IndexError:
+            istart_ratioB = 0
         istart_ratio = max(istart_ratioA, istart_ratioB)
         lratiom = lratio[istart_ratio:]
 
@@ -140,10 +166,10 @@ def plot(
         plt.sca(axr)
         axr.stairs(lratiom, edgesA[istart_ratio:], label=f"ratio={tratio*100:.2f} %")
         axr.set_ylabel(f"log({labelA}/{labelB})", size="small")
-        axr.set_ylim(
-            min(nanmin(lratiom) * 0.9, nanmin(lratiom) * 1.1),
-            max(nanmax(lratiom) * 0.9, nanmax(lratiom) * 1.1),
-        )
+        rmin = min(nanmin(lratiom) * 0.9, nanmin(lratiom) * 1.1)
+        rmax = max(nanmax(lratiom) * 0.9, nanmax(lratiom) * 1.1)
+        if rmin!=rmax:
+            axr.set_ylim(rmin, rmax)
         if opts.ylim:
             axr.set_ylim(*opts.ylim)
         if opts.llim:
@@ -179,6 +205,11 @@ if __name__ == "__main__":
     model.add_argument(
         "--model-options-b", "--mo-b", default={}, help="Model options as yaml dict"
     )
+    model.add_argument(
+        "--hist",
+        default="outputs.eventscount.fine.ibd_normalized_detector",
+        help="histogram to use for plotting and comparison",
+    )
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
@@ -194,6 +225,34 @@ if __name__ == "__main__":
         action="append",
         default=[],
         help="set comparison parameter value",
+    )
+    pars.add_argument(
+        "--par-a",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set comparison parameter value for model A",
+    )
+    pars.add_argument(
+        "--par-b",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set comparison parameter value for model B",
+    )
+    pars.add_argument(
+        "--norm-par-a",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set comparison parameter normalized value for model A",
+    )
+    pars.add_argument(
+        "--norm-par-b",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set comparison parameter normalized value for model B",
     )
 
     plotargs = parser.add_argument_group("plot", "plot related options")
