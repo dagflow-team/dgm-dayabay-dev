@@ -321,6 +321,7 @@ class model_dayabay_v0d:
             #     - amc: ²⁴¹Am¹³C calibration source related background
             #     - alphan: ¹³C(α,n)¹⁶O background
             "bkg": ("acc", "lihe", "fastn", "amc", "alphan"),
+            "bkg_stable": ("lihe", "fastn", "amc", "alphan"),  # TODO: doc
             # Experimental sites
             "site": ("EH1", "EH2", "EH3"),
             # Fissile isotopes
@@ -354,6 +355,7 @@ class model_dayabay_v0d:
         if "data-a" in self._future:
             logger.warning("Future: initialize muonx background")
             index["bkg"] = index["bkg"] + ("muonx",)
+            index["bkg_stable"] = index["bkg_stable"] + ("muonx",)
         # Define isotope names in lower case
         index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
@@ -393,7 +395,9 @@ class model_dayabay_v0d:
             "period.detector",
             "anue_unc.isotope",
             "bkg.detector",
+            "bkg_stable.detector",
             "bkg.detector.period",
+            "bkg_stable.detector.period",
         )
         combinations = self.combinations
         for combname in required_combinations:
@@ -669,7 +673,7 @@ class model_dayabay_v0d:
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
             if "data-a" in self._future:
-                logger.warning("Future: load IHEP's background rates")
+                logger.warning("Future: load data A background rates")
                 load_parameters(
                     path="bkg.rate_scale",
                     load=path_parameters / "bkg_rate_scale_acc.yaml",
@@ -1273,13 +1277,20 @@ class model_dayabay_v0d:
             # Livetime
             #
             if "data-a" in self._future:
-                logger.warning("Future: load IHEP's daily data")
+                logger.warning("Future: load daily data A")
                 load_record_data(
                     name = "daily_data.detector_all",
                     filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_daily_detector_data.{self.source_type}",
                     replicate_outputs = index["detector"],
                     columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
                     skip = inactive_detectors
+                )
+                refine_detector_data(
+                    data("daily_data.detector_all"),
+                    data.child("daily_data.detector"),
+                    detectors = index["detector"],
+                    skip = inactive_detectors,
+                    columns = ("livetime", "eff", "efflivetime", "rate_acc"),
                 )
             else:
                 load_record_data(
@@ -1290,11 +1301,12 @@ class model_dayabay_v0d:
                     columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
                     skip = inactive_detectors
                 )
-            refine_detector_data(
-                data("daily_data.detector_all"),
-                data.child("daily_data.detector"),
-                detectors = index["detector"]
-            )
+                refine_detector_data(
+                    data("daily_data.detector_all"),
+                    data.child("daily_data.detector"),
+                    detectors = index["detector"],
+                    columns = ("livetime", "eff", "efflivetime"),
+                )
 
             if "reactor-28days" in self._future:
                 logger.warning("Future: use merged reactor data, period: 28 days")
@@ -1348,6 +1360,13 @@ class model_dayabay_v0d:
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
+
+            Array.from_storage(
+                "daily_data.detector.rate_acc",
                 storage("data"),
                 remove_used_arrays = True,
                 dtype = "d"
@@ -1513,12 +1532,34 @@ class model_dayabay_v0d:
 
             Product.replicate(
                     outputs("detector.efflivetime"),
-                    parameters.get_value("all.conversion.seconds_in_day_inverse"),
+                    parameters.get_value("constant.conversion.seconds_in_day_inverse"),
                     name="detector.efflivetime_days",
                     replicate_outputs=combinations["detector.period"],
                     allow_skip_inputs=True,
                     skippable_inputs_should_contain=inactive_detectors,
                     )
+
+            # Number of accidentals
+            if "data-a" in self._future:
+                logger.warning("Future: calculate number of accidentals A")
+                Product.replicate( # TODO: doc, label
+                        outputs("daily_data.detector.efflivetime"),
+                        outputs("daily_data.detector.rate_acc"),
+                        name="daily_data.detector.num_acc_s_day",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                ArraySum.replicate(
+                        outputs("daily_data.detector.num_acc_s_day"),
+                        name="bkg.count_acc_fixed_s_day",
+                        )
+
+                Product.replicate(
+                        outputs("bkg.count_acc_fixed_s_day"),
+                        parameters["constant.conversion.seconds_in_day_inverse"],
+                        name="bkg.count_acc_fixed",
+                        replicate_outputs=combinations["detector.period"],
+                        )
 
             # Effective live time × N protons × ε / (4πL²)  (SNF)
             Product.replicate(
@@ -1881,7 +1922,15 @@ class model_dayabay_v0d:
                         parameters("all.bkg.rate"),
                         outputs("detector.efflivetime_days"),
                         name = "bkg.count",
-                        replicate_outputs=combinations["bkg.detector.period"]
+                        replicate_outputs=combinations["bkg_stable.detector.period"]
+                        )
+
+                # TODO: labels
+                Product.replicate(
+                        parameters("all.bkg.rate_scale.acc"),
+                        outputs("bkg.count_acc_fixed"),
+                        name = "bkg.count.acc",
+                        replicate_outputs=combinations["detector.period"]
                         )
 
                 # TODO: labels
@@ -1891,6 +1940,7 @@ class model_dayabay_v0d:
                         name="bkg.spectrum",
                         replicate_outputs=combinations["bkg.detector.period"],
                         )
+
             else:
                 assert "data-a" not in self._future
                 Product.replicate(
@@ -2256,10 +2306,7 @@ class model_dayabay_v0d:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
-        may_ignore = {
-            "statistic.nuisance.parts.bkg.rate.acc",
-            "bkg.spectrum_per_day"
-        }
+        may_ignore = {"statistic.nuisance.parts.bkg.rate.acc", "bkg.spectrum_per_day"}
         for key_may_ignore in may_ignore:
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
