@@ -378,7 +378,11 @@ class model_dayabay_v0d:
         # The dictionary combinations is one of the main elements to loop over and match
         # parts of the computational graph
         inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
-        inactive_backgrounds = ({"6AD", "muonx"}, {"8AD", "muonx"})  # TODO: doc
+        inactive_backgrounds = (
+            {"6AD", "muonx"},
+            {"8AD", "muonx"},
+            {"AD11", "muonx"},
+        )  # TODO: doc
         inactive_combinations = inactive_detectors + inactive_backgrounds
         required_combinations = tuple(index.keys()) + (
             "reactor.detector",
@@ -697,11 +701,13 @@ class model_dayabay_v0d:
                 state="fixed",
                 parameters={
                     "conversion": {
+                        "seconds_in_day": (60 * 60 * 24),
                         "seconds_in_day_inverse": 1 / (60 * 60 * 24),
                     }
                 },
                 labels={
                     "conversion": {
+                        "seconds_in_day": "Number of seconds in a day",
                         "seconds_in_day_inverse": "Fraction of a day in a second",
                     }
                 },
@@ -1539,6 +1545,24 @@ class model_dayabay_v0d:
                     skippable_inputs_should_contain=inactive_detectors,
                     )
 
+            # Collect some summary data for output tables
+            Sum.replicate(
+                    outputs("detector.efflivetime"),
+                    name = "summary.efflivetime",
+                    replicate_outputs=index["detector"]
+                    )
+            Sum.replicate(
+                    outputs("detector.livetime"),
+                    name = "summary.livetime",
+                    replicate_outputs=index["detector"]
+                    )
+            Division.replicate(
+                    outputs("summary.efflivetime"),
+                    outputs("summary.livetime"),
+                    name = "summary.eff",
+                    replicate_outputs=index["detector"]
+                    )
+
             # Number of accidentals
             if "data-a" in self._future:
                 logger.warning("Future: calculate number of accidentals A")
@@ -1941,6 +1965,31 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["bkg.detector.period"],
                         )
 
+                Sum.replicate(
+                        outputs("bkg.count"),
+                        name = "summary.bkg_count",
+                        replicate_outputs=combinations["bkg.detector"],
+                        )
+
+                Division.replicate(
+                        outputs("summary.bkg_count"),
+                        outputs("summary.efflivetime"),
+                        name = "summary.bkg_rate_s",
+                        replicate_outputs=combinations["bkg.detector"]
+                        )
+
+                Product.replicate(
+                        outputs("summary.bkg_rate_s"),
+                        parameters["constant.conversion.seconds_in_day"],
+                        name = "summary.bkg_rate",
+                        replicate_outputs=combinations["bkg.detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.bkg_rate"),
+                        name = "summary.bkg_rate_total",
+                        replicate_outputs=index["detector"]
+                        )
             else:
                 assert "data-a" not in self._future
                 Product.replicate(
@@ -2253,7 +2302,7 @@ class model_dayabay_v0d:
             Mapping[str, float | str] | Sequence[tuple[str, float | int]]
         ) = (),
         *,
-        mode: Literal["value", "normvalue"] = "value"
+        mode: Literal["value", "normvalue"] = "value",
     ):
         parameters_storage = self.storage("parameters.all")
         if isinstance(parameter_values, Mapping):
@@ -2263,13 +2312,17 @@ class model_dayabay_v0d:
 
         match mode:
             case "value":
+
                 def setter(par, value):
                     par.push(value)
                     print(f"Push {parname}={svalue}")
+
             case "normvalue":
+
                 def setter(par, value):
                     par.normvalue = value
                     print(f"Set norm {parname}={svalue}")
+
             case _:
                 raise ValueError(mode)
 
