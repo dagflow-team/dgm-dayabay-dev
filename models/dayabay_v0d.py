@@ -245,12 +245,12 @@ class model_dayabay_v0d:
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
         from dagflow.lib.arithmetic import Division, Product, Sum
         from dagflow.lib.common import Array, Concatenation, Proxy, View
-        from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
         from dagflow.lib.interpolation import Interpolator
         from dagflow.lib.linalg import Cholesky, VectorMatrixProduct
         from dagflow.lib.normalization import RenormalizeDiag
+        from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
         from dagflow.lib.summation import ArraySum, SumMatOrDiag
         from dagflow.tools.schema import LoadPy
