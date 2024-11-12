@@ -10,8 +10,9 @@ def refine_detector_data(
     detectors: Sequence[str],
     periods: Sequence[str] = ("6AD", "8AD", "7AD"),
     clean_source: bool = True,
+    columns=("livetime", "eff", "efflivetime"),
+    skip: Sequence[set[str]] | None = None,
 ) -> None:
-    fields = ("livetime", "eff", "efflivetime")
     target["days"] = (days_storage := {})
     for det in detectors:
         day = source["day", det]
@@ -23,10 +24,13 @@ def refine_detector_data(
             period_ndet = int(periodname[0])
             mask_period = ndet == period_ndet
 
-            for field in fields:
+            for field in columns:
                 data = source[field, det]
 
                 key = (field, periodname, det)
+                if skip is not None and any(skipkey.issubset(key) for skipkey in skip):
+                    continue
+
                 target[key] = data[mask_period]
 
             days = source["day", det][mask_period]
