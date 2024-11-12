@@ -2252,6 +2252,8 @@ class model_dayabay_v0d:
         parameter_values: (
             Mapping[str, float | str] | Sequence[tuple[str, float | int]]
         ) = (),
+        *,
+        mode: Literal["value", "normvalue"] = "value"
     ):
         parameters_storage = self.storage("parameters.all")
         if isinstance(parameter_values, Mapping):
@@ -2259,11 +2261,22 @@ class model_dayabay_v0d:
         else:
             iterable = parameter_values
 
+        match mode:
+            case "value":
+                def setter(par, value):
+                    par.push(value)
+                    print(f"Push {parname}={svalue}")
+            case "normvalue":
+                def setter(par, value):
+                    par.normvalue = value
+                    print(f"Set norm {parname}={svalue}")
+            case _:
+                raise ValueError(mode)
+
         for parname, svalue in iterable:
             value = float(svalue)
             par = parameters_storage[parname]
-            par.push(value)
-            print(f"Set {parname}={svalue}")
+            setter(par, value)
 
     def next_sample(
         self, *, mc_parameters: bool = True, mc_statistics: bool = True
