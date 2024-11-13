@@ -1,10 +1,22 @@
 #!/usr/bin/env python
+
+from __future__ import annotations
+
 from argparse import Namespace
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from h5py import File
 
 from dagflow.core import Graph, NodeStorage
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from pandas import DataFrame
 
 # from dagflow.plot import plot_auto
 
@@ -85,6 +97,14 @@ def main(opts: Namespace) -> None:
             f"output/dayabay_{opts.version}_pars.txt"
         )
 
+    if opts.summary:
+        try:
+            summary = model.make_summary_table()
+        except AttributeError:
+            pass
+        else:
+            save_summary(summary, opts.summary)
+
     if opts.graph_auto:
         plot_graph(graph, storage, opts)
 
@@ -124,6 +144,38 @@ def main(opts: Namespace) -> None:
             maxdepth=opts.maxdepth,
             keep_direction=True,
         ).savegraph(filepath)
+
+
+def save_summary(summary: DataFrame, filenames: Sequence[str]):
+    for ofile in filenames:
+        if ofile != "-":
+            opath = Path(ofile)
+            Path(opath.parent).mkdir(parents=True, exist_ok=True)
+        match ofile.split("."):
+            case (*_, "-"):
+                print(summary)
+            case (*_, "txt"):
+                summary.to_csv(ofile, sep="\t", index=False)
+            case (*_, "pd", "hdf5"):
+                summary.to_hdf(ofile, key="summary", index=False, mode="w")
+            case (*_, "hdf5"):
+                rec = summary.to_records(index=False)
+                l1 = summary["name"].str.len().max()
+                newdtype = [
+                    (rec.dtype.names[0], f"S{l1:d}"),
+                    *(
+                        (rec.dtype.names[i], rec.dtype[i])
+                        for i in range(1, len(rec.dtype))
+                    ),
+                ]
+                rec = rec.astype(newdtype)
+                with File(ofile, mode="w") as f:
+                    f.create_dataset("summary", data=rec)
+            case _:
+                raise ValueError(ofile)
+
+        if ofile != "-":
+            print(f"Write: {ofile}")
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
@@ -187,7 +239,7 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="tsv",
+        default="hdf5",
         help="Data source type",
     )
     parser.add_argument(
@@ -220,6 +272,11 @@ if __name__ == "__main__":
     )
     storage.add_argument(
         "--pars-text", action="store_true", help="print text tables with parameters"
+    )
+    storage.add_argument(
+        "--summary",
+        nargs="+",
+        help="print/save summary data",
     )
 
     graph = parser.add_argument_group("graph", "graph related options")
