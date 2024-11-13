@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal, get_args
 
 from numpy import ndarray
 from numpy.random import Generator
+from pandas import DataFrame
 
 from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
@@ -1986,6 +1987,13 @@ class model_dayabay_v0d:
                         )
 
                 Sum.replicate(
+                        outputs("summary.bkg_rate.fastn"),
+                        outputs("summary.bkg_rate.muonx"),
+                        name = "summary.bkg_rate_fastn_muonx",
+                        replicate_outputs=index["detector"]
+                        )
+
+                Sum.replicate(
                         outputs("summary.bkg_rate"),
                         name = "summary.bkg_rate_total",
                         replicate_outputs=index["detector"]
@@ -2384,3 +2392,37 @@ class model_dayabay_v0d:
         raise RuntimeError(
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
+
+    def make_summary_table(self) -> DataFrame:
+        columns_sources = {
+            # "count_ibd_candidates": "",
+            "daq_time_day": "summary.livetime",
+            "eff": "summary.eff",
+            "rate_acc": "summary.bkg_rate.acc",
+            "rate_fastn": "summary.bkg_rate.fastn",
+            "rate_muonx": "summary.bkg_rate.muonx",
+            "rate_fastn_muonx": "summary.bkg_rate_fastn_muonx",
+            "rate_lihe": "summary.bkg_rate.lihe",
+            "rate_amc": "summary.bkg_rate.amc",
+            "rate_alphan": "summary.bkg_rate.alphan",
+            "rate_bkg_total": "summary.bkg_rate_total",
+            # "rate_nu": ""
+        }
+
+        columns = ["name"] + list(self.index["detector"])
+        df = DataFrame(columns=columns, index=range(len(columns_sources)), dtype="f8")
+        df = df.astype({"name": str})
+
+        for i, (key, path) in enumerate(columns_sources.items()):
+            source = self.storage["outputs"].get_dict(path)
+            for k, output in source.walkitems():
+                value = output.data[0]
+                df.loc[i, k] = value
+                df.loc[i, "name"] = key
+        df[df.isna()] = 0.0
+
+        return df
+
+    def print_summary_table(self):
+        df = self.make_summary_table()
+        print(df.to_string())
