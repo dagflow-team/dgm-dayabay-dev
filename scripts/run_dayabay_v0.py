@@ -56,6 +56,12 @@ def main(opts: Namespace) -> None:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate="auto"))
 
+    if opts.method:
+        method = getattr(model, opts.method)
+        assert method
+
+        method()
+
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
 
@@ -258,6 +264,7 @@ if __name__ == "__main__":
     model.add_argument(
         "--model-options", "--mo", default={}, help="Model options as yaml dict"
     )
+    model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
