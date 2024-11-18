@@ -402,6 +402,7 @@ class model_dayabay_v0d:
             "bkg.detector",
             "bkg_stable.detector",
             "bkg.detector.period",
+            "bkg.period.detector",
             "bkg_stable.detector.period",
         )
         combinations = self.combinations
@@ -1549,19 +1550,40 @@ class model_dayabay_v0d:
             # Collect some summary data for output tables
             Sum.replicate(
                     outputs("detector.efflivetime"),
-                    name = "summary.efflivetime",
+                    name = "summary.total.efflivetime",
                     replicate_outputs=index["detector"]
                     )
+
+            Sum.replicate(
+                    outputs("detector.efflivetime"),
+                    name = "summary.periods.efflivetime",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
             Sum.replicate(
                     outputs("detector.livetime"),
-                    name = "summary.livetime",
+                    name = "summary.total.livetime",
                     replicate_outputs=index["detector"]
                     )
+
+            Sum.replicate(
+                    outputs("detector.livetime"),
+                    name = "summary.periods.livetime",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
             Division.replicate(
-                    outputs("summary.efflivetime"),
-                    outputs("summary.livetime"),
-                    name = "summary.eff",
+                    outputs("summary.total.efflivetime"),
+                    outputs("summary.total.livetime"),
+                    name = "summary.total.eff",
                     replicate_outputs=index["detector"]
+                    )
+
+            Division.replicate(
+                    outputs("summary.periods.efflivetime"),
+                    outputs("summary.periods.livetime"),
+                    name = "summary.periods.eff",
+                    replicate_outputs=combinations["period.detector"]
                     )
 
             # Number of accidentals
@@ -1966,37 +1988,74 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["bkg.detector.period"],
                         )
 
+                # Summary data
                 Sum.replicate(
                         outputs("bkg.count"),
-                        name = "summary.bkg_count",
+                        name = "summary.total.bkg_count",
                         replicate_outputs=combinations["bkg.detector"],
                         )
 
+                remap_items(
+                        outputs("bkg.count"),
+                        outputs.child("summary.periods.bkg_count"),
+                        reorder_indices=[
+                            ["bkg", "detector", "period"],
+                            ["bkg", "period", "detector"],
+                        ],
+                        )
+
                 Division.replicate(
-                        outputs("summary.bkg_count"),
-                        outputs("summary.efflivetime"),
-                        name = "summary.bkg_rate_s",
+                        outputs("summary.total.bkg_count"),
+                        outputs("summary.total.efflivetime"),
+                        name = "summary.total.bkg_rate_s",
+                        replicate_outputs=combinations["bkg.detector"]
+                        )
+
+                Division.replicate(
+                        outputs("summary.periods.bkg_count"),
+                        outputs("summary.periods.efflivetime"),
+                        name = "summary.periods.bkg_rate_s",
+                        replicate_outputs=combinations["bkg.period.detector"]
+                        )
+
+                Product.replicate(
+                        outputs("summary.total.bkg_rate_s"),
+                        parameters["constant.conversion.seconds_in_day"],
+                        name = "summary.total.bkg_rate",
                         replicate_outputs=combinations["bkg.detector"]
                         )
 
                 Product.replicate(
-                        outputs("summary.bkg_rate_s"),
+                        outputs("summary.periods.bkg_rate_s"),
                         parameters["constant.conversion.seconds_in_day"],
-                        name = "summary.bkg_rate",
-                        replicate_outputs=combinations["bkg.detector"]
+                        name = "summary.periods.bkg_rate",
+                        replicate_outputs=combinations["bkg.period.detector"]
                         )
 
                 Sum.replicate(
-                        outputs("summary.bkg_rate.fastn"),
-                        outputs("summary.bkg_rate.muonx"),
-                        name = "summary.bkg_rate_fastn_muonx",
+                        outputs("summary.total.bkg_rate.fastn"),
+                        outputs("summary.total.bkg_rate.muonx"),
+                        name = "summary.total.bkg_rate_fastn_muonx",
                         replicate_outputs=index["detector"]
                         )
 
                 Sum.replicate(
-                        outputs("summary.bkg_rate"),
-                        name = "summary.bkg_rate_total",
+                        outputs("summary.periods.bkg_rate.fastn"),
+                        outputs("summary.periods.bkg_rate.muonx"),
+                        name = "summary.periods.bkg_rate_fastn_muonx",
+                        replicate_outputs=combinations["period.detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.total.bkg_rate"),
+                        name = "summary.total.bkg_rate_total",
                         replicate_outputs=index["detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.periods.bkg_rate"),
+                        name = "summary.periods.bkg_rate_total",
+                        replicate_outputs=combinations["period.detector"]
                         )
             else:
                 assert "data-a" not in self._future
@@ -2393,19 +2452,29 @@ class model_dayabay_v0d:
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
 
-    def make_summary_table(self) -> DataFrame:
+    def make_summary_table(
+        self, period: Literal["total", "6AD", "8AD", "7AD"] = "total"
+    ) -> DataFrame:
+        match period:
+            case "total":
+                source = f"summary.{period}"
+            case "6AD" | "8AD" | "7AD":
+                source = f"summary.periods.{period}"
+            case _:
+                raise ValueError(period)
+
         columns_sources = {
             # "count_ibd_candidates": "",
-            "daq_time_day": "summary.livetime",
-            "eff": "summary.eff",
-            "rate_acc": "summary.bkg_rate.acc",
-            "rate_fastn": "summary.bkg_rate.fastn",
-            "rate_muonx": "summary.bkg_rate.muonx",
-            "rate_fastn_muonx": "summary.bkg_rate_fastn_muonx",
-            "rate_lihe": "summary.bkg_rate.lihe",
-            "rate_amc": "summary.bkg_rate.amc",
-            "rate_alphan": "summary.bkg_rate.alphan",
-            "rate_bkg_total": "summary.bkg_rate_total",
+            "daq_time_day": f"{source}.livetime",
+            "eff": f"{source}.eff",
+            "rate_acc": f"{source}.bkg_rate.acc",
+            "rate_fastn": f"{source}.bkg_rate.fastn",
+            "rate_muonx": f"{source}.bkg_rate.muonx",
+            "rate_fastn_muonx": f"{source}.bkg_rate_fastn_muonx",
+            "rate_lihe": f"{source}.bkg_rate.lihe",
+            "rate_amc": f"{source}.bkg_rate.amc",
+            "rate_alphan": f"{source}.bkg_rate.alphan",
+            "rate_bkg_total": f"{source}.bkg_rate_total",
             # "rate_nu": ""
         }
 
@@ -2420,6 +2489,7 @@ class model_dayabay_v0d:
                 df.loc[i, k] = value
                 df.loc[i, "name"] = key
         df[df.isna()] = 0.0
+        df = df.astype({"name": "S"})
 
         return df
 
