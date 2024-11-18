@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from argparse import Namespace
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from h5py import File
 
 from dagflow.core import Graph, NodeStorage
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dagflow.tools.save_records import save_records
 from models import available_models, load_model
 
 if TYPE_CHECKING:
@@ -147,35 +146,7 @@ def main(opts: Namespace) -> None:
 
 
 def save_summary(summary: DataFrame, filenames: Sequence[str]):
-    for ofile in filenames:
-        if ofile != "-":
-            opath = Path(ofile)
-            Path(opath.parent).mkdir(parents=True, exist_ok=True)
-        match ofile.split("."):
-            case (*_, "-"):
-                print(summary)
-            case (*_, "txt"):
-                summary.to_csv(ofile, sep="\t", index=False)
-            case (*_, "pd", "hdf5"):
-                summary.to_hdf(ofile, key="summary", index=False, mode="w")
-            case (*_, "hdf5"):
-                rec = summary.to_records(index=False)
-                l1 = summary["name"].str.len().max()
-                newdtype = [
-                    (rec.dtype.names[0], f"S{l1:d}"),
-                    *(
-                        (rec.dtype.names[i], rec.dtype[i])
-                        for i in range(1, len(rec.dtype))
-                    ),
-                ]
-                rec = rec.astype(newdtype)
-                with File(ofile, mode="w") as f:
-                    f.create_dataset("summary", data=rec)
-            case _:
-                raise ValueError(ofile)
-
-        if ofile != "-":
-            print(f"Write: {ofile}")
+    save_records({"summary": summary}, filenames, tsv_allow_no_key=True)
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
