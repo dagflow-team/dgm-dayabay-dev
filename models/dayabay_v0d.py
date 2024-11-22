@@ -1314,6 +1314,7 @@ class model_dayabay_v0d:
                     data.child("daily_data.detector"),
                     detectors = index["detector"],
                     columns = ("livetime", "eff", "efflivetime"),
+                    skip = inactive_detectors
                 )
 
             if "reactor-28days" in self._future:
@@ -1373,12 +1374,14 @@ class model_dayabay_v0d:
                 dtype = "d"
             )
 
-            Array.from_storage(
-                "daily_data.detector.rate_acc",
-                storage("data"),
-                remove_used_arrays = True,
-                dtype = "d"
-            )
+            if "data-a" in self._future:
+                logger.warning("Future: create daily accidentals A")
+                Array.from_storage(
+                    "daily_data.detector.rate_acc",
+                    storage("data"),
+                    remove_used_arrays = True,
+                    dtype = "d"
+                )
 
             Array.from_storage(
                 "daily_data.reactor.power",
