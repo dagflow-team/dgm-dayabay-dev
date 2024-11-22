@@ -5,7 +5,6 @@ from __future__ import annotations
 from argparse import Namespace
 from typing import TYPE_CHECKING
 
-
 from dagflow.core import Graph, NodeStorage
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
@@ -14,8 +13,7 @@ from models import available_models, load_model
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from pandas import DataFrame
+    from typing import Any
 
 # from dagflow.plot import plot_auto
 
@@ -97,12 +95,7 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.summary:
-        try:
-            summary = model.make_summary_table()
-        except AttributeError:
-            pass
-        else:
-            save_summary(summary, opts.summary)
+        save_summary(model, opts.summary)
 
     if opts.graph_auto:
         plot_graph(graph, storage, opts)
@@ -145,8 +138,15 @@ def main(opts: Namespace) -> None:
         ).savegraph(filepath)
 
 
-def save_summary(summary: DataFrame, filenames: Sequence[str]):
-    save_records({"summary": summary}, filenames, tsv_allow_no_key=True)
+def save_summary(model: Any, filenames: Sequence[str]):
+    data = {}
+    try:
+        for period in ["total", "6AD", "8AD", "7AD"]:
+            data[period] = model.make_summary_table(period=period)
+    except AttributeError:
+        return
+
+    save_records(data, filenames, tsv_allow_no_key=True)
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:

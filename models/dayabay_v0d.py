@@ -2460,24 +2460,24 @@ class model_dayabay_v0d:
     ) -> DataFrame:
         match period:
             case "total":
-                source = f"summary.{period}"
+                source_fmt = f"summary.{period}.{{name}}"
             case "6AD" | "8AD" | "7AD":
-                source = f"summary.periods.{period}"
+                source_fmt = f"summary.periods.{{name}}.{period}"
             case _:
                 raise ValueError(period)
 
         columns_sources = {
             # "count_ibd_candidates": "",
-            "daq_time_day": f"{source}.livetime",
-            "eff": f"{source}.eff",
-            "rate_acc": f"{source}.bkg_rate.acc",
-            "rate_fastn": f"{source}.bkg_rate.fastn",
-            "rate_muonx": f"{source}.bkg_rate.muonx",
-            "rate_fastn_muonx": f"{source}.bkg_rate_fastn_muonx",
-            "rate_lihe": f"{source}.bkg_rate.lihe",
-            "rate_amc": f"{source}.bkg_rate.amc",
-            "rate_alphan": f"{source}.bkg_rate.alphan",
-            "rate_bkg_total": f"{source}.bkg_rate_total",
+            "daq_time_day": source_fmt.format(name="livetime"),
+            "eff": source_fmt.format(name="eff"),
+            "rate_acc": source_fmt.format(name="bkg_rate.acc"),
+            "rate_fastn": source_fmt.format(name="bkg_rate.fastn"),
+            "rate_muonx": source_fmt.format(name="bkg_rate.muonx"),
+            "rate_fastn_muonx": source_fmt.format(name="bkg_rate_fastn_muonx"),
+            "rate_lihe": source_fmt.format(name="bkg_rate.lihe"),
+            "rate_amc": source_fmt.format(name="bkg_rate.amc"),
+            "rate_alphan": source_fmt.format(name="bkg_rate.alphan"),
+            "rate_bkg_total": source_fmt.format(name="bkg_rate_total"),
             # "rate_nu": ""
         }
 
@@ -2486,9 +2486,13 @@ class model_dayabay_v0d:
         df = df.astype({"name": str})
 
         for i, (key, path) in enumerate(columns_sources.items()):
-            source = self.storage["outputs"].get_dict(path)
+            try:
+                source = self.storage["outputs"].get_dict(path)
+            except KeyError:
+                continue
             for k, output in source.walkitems():
                 value = output.data[0]
+
                 df.loc[i, k] = value
                 df.loc[i, "name"] = key
         df[df.isna()] = 0.0
