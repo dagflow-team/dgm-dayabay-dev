@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from dagflow.core import Graph, NodeStorage
@@ -109,6 +110,20 @@ def main(opts: Namespace) -> None:
             "isotope": [0],
             "period": [2],
         }
+        storage["parameter_group.all"].savegraphs(
+            opts.graphs / "parameters",
+            mindepth=mindepth,
+            maxdepth=maxdepth,
+            keep_direction=True,
+            show="all",
+            accept_index=accept_index,
+            filter={
+                "reactor": [0],
+                "detector": [0, 1],
+                "isotope": [0],
+                "period": [2],
+            },
+        )
         storage["nodes"].savegraphs(
             opts.graphs,
             mindepth=mindepth,
@@ -280,7 +295,7 @@ if __name__ == "__main__":
     dot.add_argument(
         "--graph-auto", "--ga", action="store_true", help="plot graphs auto"
     )
-    dot.add_argument("--graphs", help="save partial graphs from every node")
+    dot.add_argument("--graphs", type=Path, help="save partial graphs from every node")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
