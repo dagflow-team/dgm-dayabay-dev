@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import INFO1, INFO2, INFO3
-from dagflow.logger import set_level
+from dagflow.tools.logger import DEBUG as INFO4
+from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 
 from models import load_model, available_models
 
@@ -40,17 +39,17 @@ def main(args: Namespace) -> None:
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 
     chi2 = statistic[f"{args.chi2}"]
-    minimization_parameters = [
-        par
+    minimization_parameters = {
+        par_name: par
         for key in parameters_groups["free"]
-        for par in parameters_free(key).walkvalues()
-    ]
+        for par_name, par in parameters_free(key).walkjoineditems()
+    }
     if "covmat" not in args.chi2:
-        minimization_parameters += [
-            par
+        minimization_parameters.update({
+            par_name: par
             for key in parameters_groups["constrained"]
-            for par in parameters_constrained(key).walkvalues()
-        ]
+            for par_name, par in parameters_constrained(key).walkjoineditems()
+        })
 
     model.next_sample()
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters)

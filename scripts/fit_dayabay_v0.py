@@ -3,11 +3,8 @@ from yaml import safe_load
 from argparse import Namespace
 from numpy import ndarray
 
-from dagflow.logger import INFO1
-from dagflow.logger import INFO2
-from dagflow.logger import INFO3
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import set_level
+from dagflow.tools.logger import DEBUG as INFO4
+from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 
 from models.dayabay_v0 import model_dayabay_v0
 
@@ -73,7 +70,6 @@ def main(args: Namespace) -> None:
     model = model_dayabay_v0(
         source_type=args.source_type,
         spectrum_correction_mode=args.spec,
-        fission_fraction_normalized=args.fission_fraction_normalized,
         monte_carlo_mode=args.data_mc_mode,
         seed=args.seed,
     )
@@ -84,22 +80,22 @@ def main(args: Namespace) -> None:
 
     from yaml import safe_dump
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
-    chi2p_stat = statistic["stat.chi2p"]
-    chi2p_syst = statistic["full.chi2p"]
+    chi2p_stat = statistic["stat.chi2p_iterative"]
+    chi2p_syst = statistic["full.chi2p_iterative"]
 
     if args.full_fit:
-        minimization_pars = [par for par in parameters("oscprob").walkvalues()][:-1]
-        minimization_pars.extend([par for par in parameters("detector.eres").walkvalues()])
-        minimization_pars.extend([par for par in parameters("detector.lsnl_scale_a").walkvalues()])
-        minimization_pars.extend([par for par in parameters("detector.iav_offdiag_scale_factor").walkvalues()])
-        minimization_pars.extend([par for par in parameters("detector.detector_relative").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.energy_per_fission").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.nominal_thermal_power").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.snf_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.offequilibrium_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.fission_fraction_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("bkg").walkvalues()])
-        minimization_pars.extend([parameters.get_value("detector.global_normalization")])
+        minimization_pars = {par_name: par for par_name, par in parameters("oscprob").walkjoineditems() if par_name != "nmo"}
+        minimization_pars.update({par_name: par for par_name, par in parameters["detector.eres"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["detector.lsnl_scale_a"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["detector.iav_offdiag_scale_factor"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["detector.detector_relative"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["reactor.energy_per_fission"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["reactor.nominal_thermal_power"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["reactor.snf_scale"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["reactor.nonequilibrium_scale"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["reactor.fission_fraction_scale"].walkjoineditems()})
+        minimization_pars.update({par_name: par for par_name, par in parameters["bkg"].walkjoineditems()})
+        minimization_pars.update({"detector.global_normalization": parameters["detector.global_normalization"]})
         model.set_parameters({"detector.global_normalization": 1.})
         model.next_sample()
         model.set_parameters({"detector.global_normalization": 1.})
