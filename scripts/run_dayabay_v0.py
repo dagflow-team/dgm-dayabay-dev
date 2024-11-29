@@ -135,7 +135,7 @@ def main(opts: Namespace) -> None:
                 "reactor": [0],
                 "detector": [0, 1],
                 "isotope": [0],
-                "period": [2],
+                "period": [1],
             },
         )
 
