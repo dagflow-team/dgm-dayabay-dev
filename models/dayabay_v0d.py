@@ -28,9 +28,14 @@ FutureType = Literal[
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
     "data-a",  # use dataset A
-    "bkg-order",  # use optimized bkg order (included in data-a)
+    "bkg-order",  # use optimized background order (included in data-a)
+    "bkg-correlations",  # user proper background correlations (included in data-a)
 ]
 _future_redundant = ["all", "reactor-35days"]
+_future_included = {
+    "data-a": ("bkg-order", "bkg-correlations"),
+    "bkg-correlations": ("bkg-order",),
+}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
 # where path denotes the location of the parameters in the storage.
@@ -206,8 +211,10 @@ class model_dayabay_v0d:
             self._future = future_variants
             for ft in _future_redundant:
                 self._future.remove(ft)  # pyright: ignore [reportArgumentType]
-        if "data-a" in self._future:
-            self._future.add("bkg-order")
+            for ft in self._future:
+                if not (extra := _future_included.get(ft)):
+                    continue
+                self._future.update(extra)  # pyright: ignore [reportArgumentType]
         if self._future:
             logger.info(f"Future options: {', '.join(self._future)}")
         self._frozen_nodes = {}
@@ -244,7 +251,7 @@ class model_dayabay_v0d:
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
-        from dagflow.lib.arithmetic import Division, Product, Sum
+        from dagflow.lib.arithmetic import Division, Product, ProductShiftedScaled, Sum
         from dagflow.lib.common import Array, Concatenation, Proxy, View
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
@@ -295,6 +302,11 @@ class model_dayabay_v0d:
             "U238": "²³⁸U",
             "Pu239": "²³⁹Pu",
             "Pu241": "²⁴¹Pu",
+        }
+        site_arrangement = {
+            "EH1": ("AD11", "AD12"),
+            "EH2": ("AD21", "AD22"),
+            "EH3": ("AD31", "AD32", "AD33", "AD34"),
         }
 
         #
@@ -397,6 +409,7 @@ class model_dayabay_v0d:
             "reactor.isotope_neq.detector.period",
             "reactor.detector.period",
             "detector.period",
+            "site.period",
             "period.detector",
             "anue_unc.isotope",
             "bkg.detector",
@@ -686,7 +699,23 @@ class model_dayabay_v0d:
                     replicate=combinations["period.detector"],
                 )
                 load_parameters(
-                    path="bkg.rate", load=path_parameters / "bkg_rates_dataset_a.yaml"
+                    path="bkg.rate",
+                    load=path_parameters / "bkg_rates_uncorrelated_dataset_a.yaml",
+                )
+                load_parameters(
+                    path="bkg.rate",
+                    load=path_parameters / "bkg_rates_correlated_dataset_a.yaml",
+                    sigma_visible=True,
+                )
+                load_parameters(
+                    path="bkg.uncertainty_scale",
+                    load=path_parameters / "bkg_rate_uncertainty_scale_amc.yaml",
+                )
+                load_parameters(
+                    path="bkg.uncertainty_scale",
+                    load=path_parameters / "bkg_rate_uncertainty_scale_site.yaml",
+                    replicate=combinations["site.period"],
+                    ignore_keys=inactive_backgrounds,
                 )
             else:
                 load_parameters(
@@ -2140,6 +2169,16 @@ class model_dayabay_v0d:
                         )
 
                 # TODO: labels
+                ProductShiftedScaled.replicate(
+                        outputs("bkg.count.amc"),
+                        parameters("sigma.bkg.rate.amc"),
+                        parameters["all.bkg.uncertainty_scale.amc"],
+                        name = "bkg.count_scaled.amc",
+                        shift=1.0,
+                        replicate_outputs=combinations["detector.period"]
+                        )
+
+                # TODO: labels
                 Product.replicate(
                         parameters("all.bkg.rate_scale.acc"),
                         outputs("bkg.count_acc_fixed"),
@@ -2606,7 +2645,14 @@ class model_dayabay_v0d:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
-        may_ignore = {"statistic.nuisance.parts.bkg.rate.acc", "bkg.spectrum_per_day"}
+        may_ignore = {
+            "bkg.spectrum_per_day",
+            "statistic.nuisance.parts.bkg.rate.acc",
+            "statistic.nuisance.parts.bkg.rate.amc",
+            "statistic.nuisance.parts.bkg.rate.lihe",
+            "statistic.nuisance.parts.bkg.rate.fastn",
+            "statistic.nuisance.parts.bkg.rate.muonx",
+        }
         for key_may_ignore in may_ignore:
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
