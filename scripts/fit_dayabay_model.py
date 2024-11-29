@@ -97,6 +97,9 @@ if __name__ == "__main__":
         choices=["asimov", "normal-stats", "poisson"],
         help="type of data to be analyzed",
     )
+    model.add_argument(
+        "--model-options", "--mo", default={}, help="Model options as yaml dict"
+    )
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
