@@ -28,7 +28,7 @@ FutureType = Literal[
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
     "data-a",  # use dataset A
-    "bkg-order",  # use optimized bkg order
+    "bkg-order",  # use optimized bkg order (included in data-a)
 ]
 _future_redundant = ["all", "reactor-35days"]
 
@@ -930,7 +930,10 @@ class model_dayabay_v0d:
             # ensured that there is no overlap in the keys.
 
             # As of now we know all the Edep and cosθ points to compute the target
-            # functions on. The next step is to initialize the functions themselves.
+            # functions on. The next step is to initialize the functions themselves,
+            # which include: Inverse Beta Decay cross section (IBD), electron
+            # antineutrino survival probability and antineutrino spectrum.
+
             # Here we create an instance of Inverse Beta Decay cross section, which also
             # includes conversion from deposited energy Edep to neutrino energy Enu and
             # corresponding dEnu/dEdep jacobian. The IBD nodes may operate with either
@@ -1015,39 +1018,107 @@ class model_dayabay_v0d:
             nodes.get_dict("oscprob") << parameters("constrained.oscprob")
             nodes.get_dict("oscprob") << parameters("constant.oscprob")
 
-            # fmt: off
-
-
+            # The third component is the antineutrino spectrum as dN/dE per fission. We
+            # start from loading the reference antineutrino spectrum (Huber-Mueller)
+            # from input files. There are four spectra for four active isotopes. The
+            # loading is done with the command `load_graph`, which supports hdf5, npz,
+            # root, tsv (files or folder) or compressed tsv.bz2. The command will read
+            # items with names "U235", "U238", "Pu239" and "Pu241" (from
+            # index["isotope"]) as follows:
+            # - hdf5: open with filename, request (X,Y) dataset by name.
+            # - npz: open with filename, get (X,Y)  array from a dictionary by name.
+            # - root: open with filename, get TH1D object by name. Build graph by taking
+            #         left edges of the bins and their heights. `uproot` is used to load
+            #         ROOT files by default. If `$ROOTSYS` is defined, then ROOT is used
+            #         directly.
+            # - tsv: different arrays are kept in distinct files. Therefore for the tsv
+            #        some logic is implemeted to find the files. Given 'filename.tsv'
+            #        and 'key', the following files are checked:
+            #        + filename.tsv/key.tsv
+            #        + filename.tsv/filename_key.tsv
+            #        + filename_key.tsv
+            #        + filename.tsv/key.tsv.bz2
+            #        + filename.tsv/filename_key.tsv.bz2
+            #        + filename_key.tsv.bz2
+            #        The graph is expected to be writtein in 2 columns: X, Y.
             #
-            # Nominal antineutrino spectrum
-            #
+            # The appropriate loader is choosen based on extension. The objects are
+            # loaded and stored in the "reactor_anue.neutrino_per_fission_per_MeV_input"
+            # location. As `merge_x` flag is specified, only on X array is stored with
+            # no index. A dedicated check is performed to ensure the graphs have
+            # consistent X axes.
+            # Note, that each Y node (called spec) will have an reference to the X node,
+            # so it could be used when plotting.
             load_graph(
-                name = "reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
-                x = "enu",
-                y = "spec",
-                merge_x = True,
-                replicate_outputs = index["isotope"],
+                name="reactor_anue.neutrino_per_fission_per_MeV_input",
+                filenames=path_arrays
+                / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
+                x="enu",
+                y="spec",
+                merge_x=True,
+                replicate_outputs=index["isotope"],
             )
 
-            #
-            # Interpolate for the integration mesh
-            #
+            # The input antineutrino spectra have step of 50 keV. They now should be
+            # interpolated to the integration mesh. Similarly to integration nodes,
+            # interpolation is implemented in two steps by two nodes: `indexer` node
+            # identifies the indexes of segments, which should be used to interpolate
+            # each mesh point. The `interpolator` does the actual interpolation, using
+            # the input coarse data and indices from indexer. We instruct interpolator
+            # to create a distinct node for each isotope by setting `replicate_outputs`
+            # argument. We use exponential interpolation (`method="exp"`) and provide
+            # names for the nodes and outputs. By default interpolator does
+            # extrapolation in both directions outside of the domain.
             Interpolator.replicate(
-                method = "exp",
-                names = {
+                method="exp",
+                names={
                     "indexer": "reactor_anue.spec_indexer",
                     "interpolator": "reactor_anue.neutrino_per_fission_per_MeV_nominal",
-                    },
-                replicate_outputs = index["isotope"],
+                },
+                replicate_outputs=index["isotope"],
             )
-            outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
-            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine")
+            # Connect the common neutrino energy mesh as coarse input of the
+            # interpolator.
+            outputs.get_value(
+                "reactor_anue.neutrino_per_fission_per_MeV_input.enu"
+            ) >> inputs.get_value(
+                "reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse"
+            )
+            # Connect the input antineutrino spectra as coarse Y inputs of the
+            # interpolator. This is performed for each of the 4 isotopes.
+            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs(
+                "reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse"
+            )
+            # The interpolators are using the same target mesh for all the same target
+            # mesh. Use the neutrino energy mesh provided by interpolator as an input to
+            # fine X of the interpolation.
+            kinematic_integrator_enu >> inputs.get_value(
+                "reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine"
+            )
 
+            # The antineutrino spectrum in this analysis is a subject of five
+            # independent corrections:
+            # 1. Non-EQuilibrium correction (NEQ). A dedicated correction to ILL (Huber)
+            #    antineutrino spectra from ²³⁵U, ²³⁹Pu, ²⁴¹Pu. Note: that ²³⁸U as no NEQ
+            #    applied. In order to handle this an alternative index `isotope_neq` is
+            #    used.
+            # 2. Spent Nuclear Fuel (SNF) correction to account for the existence of
+            #    antineutrino flux from spent nuclear fuel.
+            # 3. Average antineutrino spectrum correction — not constrained correction
+            #    to the shape of average reactor antineutrino spectrum. Having its
+            #    parameters free during the fit effectively implements the relative
+            #    Far-to-Near measurement. The correction curve is single and is applied
+            #    to all the isotopes (correlated between the isotopes).
+            # 4. Huber-Mueller related:
+            #    a. constrained spectrum shape correction due to
+            #       model uncertainties. Uncorrelated between energy intervals and
+            #       uncorrelated between isotopes.
+            #    b. constrained spectrum shape correction due to model uncertainties.
+            #       Correlated between energy intervals and correlated between isotopes.
             #
-            # SNF and NEQ normalization factors
-            #
+            # For convenience reasons let us introduce two constants to enable/disable
+            # SNF and NEQ contributions. The `load_parameters()` method is used. The
+            # syntax is similar to the one in yaml files.
             load_parameters(
                 format="value",
                 state="fixed",
@@ -1065,106 +1136,199 @@ class model_dayabay_v0d:
                 },
             )
 
-            #
-            # Non-Equilibrium correction
-            #
+            # Similarly to the case of electron antineutrino spectrum load the
+            # corresponding corrections to 3 out of 4 isotopes. The correction C should
+            # be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
             load_graph(
-                name = "reactor_nonequilibrium_anue.correction_input",
-                x = "enu",
-                y = "nonequilibrium_correction",
-                merge_x = True,
-                filenames = path_arrays / f"nonequilibrium_correction.{self.source_type}",
-                replicate_outputs = index["isotope_neq"],
-                dtype = "d"
+                name="reactor_nonequilibrium_anue.correction_input",
+                x="enu",
+                y="nonequilibrium_correction",
+                merge_x=True,
+                filenames=path_arrays / f"nonequilibrium_correction.{self.source_type}",
+                replicate_outputs=index["isotope_neq"],
             )
 
+            # Create interpolators for NEQ correction. Use linear interpolation
+            # (`method="linear"`). The regions outside the domains will be filled with a
+            # constant (0 by default).
             Interpolator.replicate(
-                method = "linear",
-                names = {
+                method="linear",
+                names={
                     "indexer": "reactor_nonequilibrium_anue.correction_indexer",
                     "interpolator": "reactor_nonequilibrium_anue.correction_interpolated",
-                    },
-                replicate_outputs = index["isotope_neq"],
-                underflow = "constant",
-                overflow = "constant",
+                },
+                replicate_outputs=index["isotope_neq"],
+                underflow="constant",
+                overflow="constant",
             )
-            outputs.get_value("reactor_nonequilibrium_anue.correction_input.enu") >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xcoarse")
-            outputs("reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction") >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xfine")
+            # Similarly to the case of antineutrino spectrum connect coarse X, a few
+            # coarse Y and target mesh to the interpolator nodes.
+            outputs.get_value(
+                "reactor_nonequilibrium_anue.correction_input.enu"
+            ) >> inputs.get_value(
+                "reactor_nonequilibrium_anue.correction_interpolated.xcoarse"
+            )
+            outputs(
+                "reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction"
+            ) >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs.get_value(
+                "reactor_nonequilibrium_anue.correction_interpolated.xfine"
+            )
 
-            #
-            # SNF correction
-            #
+            # Now load the SNF correction. The SNF correction is different from NEQ in a
+            # sense that it is computed for each reactor, not isotope. Thus we will use
+            # reactor index for it. Aside from index the loading and interpolation
+            # procedure is similar to that of NEQ correction.
             load_graph(
-                name = "snf_anue.correction_input",
-                x = "enu",
-                y = "snf_correction",
-                merge_x = True,
-                filenames = path_arrays / f"snf_correction.{self.source_type}",
-                replicate_outputs = index["reactor"],
-                dtype = "d"
+                name="snf_anue.correction_input",
+                x="enu",
+                y="snf_correction",
+                merge_x=True,
+                filenames=path_arrays / f"snf_correction.{self.source_type}",
+                replicate_outputs=index["reactor"],
             )
             Interpolator.replicate(
-                method = "linear",
-                names = {
+                method="linear",
+                names={
                     "indexer": "snf_anue.correction_indexer",
                     "interpolator": "snf_anue.correction_interpolated",
-                    },
-                replicate_outputs = index["reactor"],
-                underflow = "constant",
-                overflow = "constant",
+                },
+                replicate_outputs=index["reactor"],
+                underflow="constant",
+                overflow="constant",
             )
-            outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value("snf_anue.correction_interpolated.xcoarse")
-            outputs("snf_anue.correction_input.snf_correction") >> inputs("snf_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("snf_anue.correction_interpolated.xfine")
+            outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value(
+                "snf_anue.correction_interpolated.xcoarse"
+            )
+            outputs("snf_anue.correction_input.snf_correction") >> inputs(
+                "snf_anue.correction_interpolated.ycoarse"
+            )
+            kinematic_integrator_enu >> inputs.get_value(
+                "snf_anue.correction_interpolated.xfine"
+            )
 
+            # Finally create the parametrization of the correction to the shape of
+            # average reactor electron antineutrino spectrum. The `spec_scale`
+            # correction is defined on a user defined segments `spec_model_edges`. The
+            # values of the correction scale Fᵢ are 0 by default at each edge. There exit
+            # two options of operation:
+            # - exponential: Sᵢ=exp(F₁) are used for each edge. The result is always
+            #                positive, although non-linear.
+            # - linear: Sᵢ=1+Fᵢ is used. The behavior is always linear, but this approach
+            #           may yield negative results.
+            # The parameters Fᵢ are free parameters of the fit. The behavior of the
+            # correction Sᵢ is interpolated exponentially within the segments ensuring
+            # the overall correction is continuous for the whole spectrum.
             #
-            # Reactor antineutrino spectral correction:
-            #   - not constrained
-            #   - correlated between isotopes
-            #   - uncorrelated between energy intervals
-            #
+            # To initialize the correction we use a convenience function
+            # `make_y_parameters_for_x`, which is using `load_parameters()` to create
+            # 'parameters.free.neutrino_per_fission_factor.spec_scale_00` and other
+            # parameters with proper labels.
+            # An option `hide_nodes` is used to ensure the nodes are not shown on the
+            # graph to keep it less busy. It does not affect the computation mechanism.
+            # Note: in order to create the parameters, it will access the edges.
+            # Therefore the node with edges should be closed. This is typically the case
+            # for the Array nodes, which already have data, but may be not the case for
+            # other nodes.
             make_y_parameters_for_x(
-                    outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
-                    namefmt = "spec_scale_{:02d}",
-                    format = "value",
-                    state = "variable",
-                    key = "neutrino_per_fission_factor",
-                    values = 0.0,
-                    labels = "Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction" \
-                           + (" (exp)" if self.spectrum_correction_mode == "exponential" else " (linear)"),
-                    hide_nodes = True
-                    )
-
-            Concatenation.replicate(
-                    parameters("all.neutrino_per_fission_factor"),
-                    name = "reactor_anue.spectrum_free_correction.input"
-                    )
-            outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
-            if self.spectrum_correction_mode == "exponential":
-                Exp.replicate(
-                        outputs.get_value("reactor_anue.spectrum_free_correction.input"),
-                        name = "reactor_anue.spectrum_free_correction.correction"
-                        )
-            else:
-                Array.from_value("reactor_anue.spectrum_free_correction.unity", 1.0, dtype="d", mark="1", label="Array of 1 element =1", shape=1, store=True)
-                Sum.replicate(
-                        outputs.get_value("reactor_anue.spectrum_free_correction.unity"),
-                        outputs.get_value("reactor_anue.spectrum_free_correction.input"),
-                        name = "reactor_anue.spectrum_free_correction.correction"
-                        )
-                outputs.get_value("reactor_anue.spectrum_free_correction.correction").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
-
-            Interpolator.replicate(
-                method = "exp",
-                names = {
-                    "indexer": "reactor_anue.spectrum_free_correction.indexer",
-                    "interpolator": "reactor_anue.spectrum_free_correction.interpolated"
-                    },
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
+                namefmt="spec_scale_{:02d}",
+                format="value",
+                state="variable",
+                key="neutrino_per_fission_factor",
+                values=0.0,
+                labels="Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction"
+                + (
+                    " (exp)"
+                    if self.spectrum_correction_mode == "exponential"
+                    else " (linear)"
+                ),
+                hide_nodes=True,
             )
-            outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges") >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xcoarse")
-            outputs.get_value("reactor_anue.spectrum_free_correction.correction") >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xfine")
+
+            # The created parameters are now available to be used for the minimizer, but
+            # in order to use them conveniently they should be kept as an array.
+            # Concatenation node is used to organize an array. The result of
+            # concatenation will be updated lazily as the minimizer modifies the
+            # parameters.
+            Concatenation.replicate(
+                parameters("all.neutrino_per_fission_factor"),
+                name="reactor_anue.spectrum_free_correction.input",
+            )
+            # For convenience purposes let us assign `spec_model_edges` as X axis for
+            # the array of parameters.
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction.input"
+            ).dd.axes_meshes = (
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
+            )
+
+            # Depending on chosen method, convert the parameters to the correction
+            # on a scale.
+            if self.spectrum_correction_mode == "exponential":
+                # Exponentiate the array of values. No `>>` is used as the array is
+                # passed as an argument and the connection is done internally.
+                Exp.replicate(
+                    outputs.get_value("reactor_anue.spectrum_free_correction.input"),
+                    name="reactor_anue.spectrum_free_correction.correction",
+                )
+            else:
+                # Create an array with [1].
+                Array.from_value(
+                    "reactor_anue.spectrum_free_correction.unity",
+                    1.0,
+                    dtype="d",
+                    mark="1",
+                    label="Array of 1 element =1",
+                    shape=1,
+                    store=True,
+                )
+                # Calculate the sum of [1] and array of spectral parameters. The
+                # broadcasting is done similarly to numpy, i.e. the result of the
+                # operation has the shape of the spectral parameters and 1 is added to
+                # each element.
+                Sum.replicate(
+                    outputs.get_value("reactor_anue.spectrum_free_correction.unity"),
+                    outputs.get_value("reactor_anue.spectrum_free_correction.input"),
+                    name="reactor_anue.spectrum_free_correction.correction",
+                )
+                # For convenience purposes assign `spec_model_edges` as X axis for the
+                # array of scale factors.
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.correction"
+                ).dd.axes_meshes = (
+                    outputs.get_value(
+                        "reactor_anue.spectrum_free_correction.spec_model_edges"
+                    ),
+                )
+
+            # Interpolate the spectral correction exponentially. The extrapolation will
+            # be applied to the points outside the domain.
+            Interpolator.replicate(
+                method="exp",
+                names={
+                    "indexer": "reactor_anue.spectrum_free_correction.indexer",
+                    "interpolator": "reactor_anue.spectrum_free_correction.interpolated",
+                },
+            )
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction.spec_model_edges"
+            ) >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction.interpolated.xcoarse"
+            )
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction.correction"
+            ) >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction.interpolated.ycoarse"
+            )
+            kinematic_integrator_enu >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction.interpolated.xfine"
+            )
+            # fmt: off
 
             #
             # Huber+Mueller spectrum shape uncertainties
