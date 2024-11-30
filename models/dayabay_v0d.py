@@ -2347,6 +2347,44 @@ class model_dayabay_v0d:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
+            load_hist(
+                name = "data.real",
+                x = "erec",
+                y = "fine",
+                merge_x = True,
+                filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_ibd_spectra_{{}}.{self.source_type}",
+                replicate_files = index["period"],
+                replicate_outputs = combinations["detector"],
+                skip = inactive_combinations,
+                name_function = lambda _, idx: f"anue_{idx[1]}"
+            )
+
+            Rebin.replicate(
+                names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real.final"},
+                replicate_outputs=combinations["detector.period"],
+            )
+            edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
+            outputs["data.real.fine"] >> inputs["data.real.final"]
+
+            Concatenation.replicate(
+                outputs("data.real.fine"),
+                name="data.real.concatenated.detector_period",
+            )
+
+            Sum.replicate(
+                outputs("data.real.fine"),
+                name="data.real.detector.final",
+                replicate_outputs=index["detector"],
+            )
+
+            Concatenation.replicate(
+                outputs["data.real.detector.final"],
+                name="data.real.concatenated.detector"
+            )
+
+            outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
+
             MonteCarlo.replicate(
                 name="data.pseudo.self",
                 mode=self.monte_carlo_mode,
@@ -2359,6 +2397,7 @@ class model_dayabay_v0d:
                 name="data.proxy",
             )
             outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
+            # outputs.get_value("data.real.concatenated.selected") >> outputs.get_value("data.proxy")
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
