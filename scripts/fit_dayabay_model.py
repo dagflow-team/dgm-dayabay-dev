@@ -7,6 +7,8 @@ from models import available_models, load_model
 
 set_level(INFO1)
 
+DATA_INDICES = {"asimov": 0, "data-a": 1}
+
 
 def main(args: Namespace) -> None:
 
@@ -17,6 +19,8 @@ def main(args: Namespace) -> None:
         monte_carlo_mode=args.data_mc_mode,
         seed=args.seed,
     )
+
+    model.storage["nodes.data.proxy"].switch_input(DATA_INDICES[args.data])
 
     parameters_free = model.storage("parameters.free")
     parameters_constrained = model.storage("parameters.constrained")
@@ -101,6 +105,12 @@ if __name__ == "__main__":
     )
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
+    pars.add_argument(
+        "--data",
+        default="asimov",
+        choices=["asimov", "data-a"],
+        help="Choose data for fit",
+    )
     pars.add_argument(
         "--par",
         nargs=2,
