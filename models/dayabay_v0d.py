@@ -2348,38 +2348,38 @@ class model_dayabay_v0d:
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
             load_hist(
-                name = "data.real",
-                x = "erec",
-                y = "fine",
-                merge_x = True,
-                filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_ibd_spectra_{{}}.{self.source_type}",
-                replicate_files = index["period"],
-                replicate_outputs = combinations["detector"],
-                skip = inactive_combinations,
-                name_function = lambda _, idx: f"anue_{idx[1]}"
+                name="data.real",
+                x="erec",
+                y="fine",
+                merge_x=True,
+                filenames=path_arrays/f"dayabay_dataset_a/dayabay_a_ibd_spectra_{{}}.{self.source_type}",
+                replicate_files=index["period"],
+                replicate_outputs=combinations["detector"],
+                skip=inactive_combinations,
+                name_function=lambda _, idx: f"anue_{idx[1]}"
             )
 
             Rebin.replicate(
-                names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real.final"},
+                names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real.final.detector_period"},
                 replicate_outputs=combinations["detector.period"],
             )
             edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
             edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
-            outputs["data.real.fine"] >> inputs["data.real.final"]
+            outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
 
             Concatenation.replicate(
-                outputs("data.real.fine"),
+                outputs("data.real.final.detector_period"),
                 name="data.real.concatenated.detector_period",
             )
 
             Sum.replicate(
-                outputs("data.real.fine"),
-                name="data.real.detector.final",
+                outputs("data.real.final.detector_period"),
+                name="data.real.final.detector",
                 replicate_outputs=index["detector"],
             )
 
             Concatenation.replicate(
-                outputs["data.real.detector.final"],
+                outputs["data.real.final.detector"],
                 name="data.real.concatenated.detector"
             )
 
@@ -2397,7 +2397,7 @@ class model_dayabay_v0d:
                 name="data.proxy",
             )
             outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
-            # outputs.get_value("data.real.concatenated.selected") >> outputs.get_value("data.proxy")
+            outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
@@ -2464,6 +2464,13 @@ class model_dayabay_v0d:
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
             outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
             outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
+
+            # (2-2) chi-squared Neyman stat
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2n"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.chi2n",
+            )
 
             # (5) chi-squared Pearson syst (fixed Pearson errors)
             Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
