@@ -3,9 +3,7 @@ from argparse import Namespace
 
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-
-from models import load_model, available_models
-
+from models import available_models, load_model
 
 set_level(INFO1)
 
@@ -36,6 +34,7 @@ def main(args: Namespace) -> None:
         parameters_groups["constrained"].append("reactor_anue")
 
     from yaml import safe_dump
+
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 
     chi2 = statistic[f"{args.chi2}"]
@@ -112,7 +111,11 @@ if __name__ == "__main__":
     pars.add_argument(
         "--chi2",
         default="stat.chi2p",
-        choices=["stat.chi2p", "full.chi2p", "stat.chi2n", "full.chi2n"],
+        choices=[
+            "chi2p_iterative", "chi2n", "chi2p", "chi2cnp", "chi2p_unbiased",
+            "chi2p_covmat_fixed", "chi2n_covmat", "chi2p_covmat_variable",
+            "chi2p_iterative", "chi2cnp", "chi2p_unbiased", "chi2cnp_covmat"
+        ],
         help="Choose chi-squared function for minimizer",
     )
     pars.add_argument(
