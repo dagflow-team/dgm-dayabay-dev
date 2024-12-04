@@ -108,7 +108,7 @@ def main(opts: Namespace) -> None:
             "reactor": [0],
             "detector": [0, 1],
             "isotope": [0],
-            "period": [2],
+            "period": [1, 2],
         }
         storage["parameter_group.all"].savegraphs(
             opts.graphs / "parameters",
@@ -117,12 +117,16 @@ def main(opts: Namespace) -> None:
             keep_direction=True,
             show="all",
             accept_index=accept_index,
-            filter={
-                "reactor": [0],
-                "detector": [0, 1],
-                "isotope": [0],
-                "period": [2],
-            },
+            filter=accept_index,
+        )
+        storage["parameters.sigma"].savegraphs(
+            opts.graphs / "parameters" / "sigma",
+            mindepth=mindepth,
+            maxdepth=maxdepth,
+            keep_direction=True,
+            show="all",
+            accept_index=accept_index,
+            filter=accept_index,
         )
         storage["nodes"].savegraphs(
             opts.graphs,
@@ -131,12 +135,7 @@ def main(opts: Namespace) -> None:
             keep_direction=True,
             show="all",
             accept_index=accept_index,
-            filter={
-                "reactor": [0],
-                "detector": [0, 1],
-                "isotope": [0],
-                "period": [1],
-            },
+            filter=accept_index,
         )
 
     if opts.graph_from_node:
