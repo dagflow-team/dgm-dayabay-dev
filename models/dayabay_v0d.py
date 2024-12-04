@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
-from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
@@ -29,12 +28,10 @@ FutureType = Literal[
     "reactor-35days",  # merge reactor data, each 5 weeks
     "data-a",  # use dataset A
     "bkg-order",  # use optimized background order (included in data-a)
-    "bkg-correlations",  # user proper background correlations (included in data-a)
 ]
 _future_redundant = ["all", "reactor-35days"]
 _future_included = {
-    "data-a": ("bkg-order", "bkg-correlations"),
-    "bkg-correlations": ("bkg-order",),
+    "data-a": ("bkg-order",),
 }
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -335,6 +332,9 @@ class model_dayabay_v0d:
             #     - alphan: ¹³C(α,n)¹⁶O background
             "bkg": ("acc", "lihe", "fastn", "amc", "alphan"),
             "bkg_stable": ("lihe", "fastn", "amc", "alphan"),  # TODO: doc
+            "bkg_site_correlated": ("lihe", "fastn"),  # TODO: doc
+            "bkg_not_site_correlated": ("acc", "amc", "alphan"),  # TODO: doc
+            "bkg_not_correlated": ("acc", "alphan"),  # TODO: doc
             # Experimental sites
             "site": ("EH1", "EH2", "EH3"),
             # Fissile isotopes
@@ -369,6 +369,7 @@ class model_dayabay_v0d:
             logger.warning("Future: initialize muonx background")
             index["bkg"] = index["bkg"] + ("muonx",)
             index["bkg_stable"] = index["bkg_stable"] + ("muonx",)
+            index["bkg_site_correlated"] = index["bkg_site_correlated"] + ("muonx",)
         # Define isotope names in lower case
         index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
@@ -417,6 +418,9 @@ class model_dayabay_v0d:
             "bkg.detector.period",
             "bkg.period.detector",
             "bkg_stable.detector.period",
+            "bkg_site_correlated.detector.period",
+            "bkg_not_site_correlated.detector.period",
+            "bkg_not_correlated.detector.period",
         )
         combinations = self.combinations
         for combname in required_combinations:
@@ -712,7 +716,7 @@ class model_dayabay_v0d:
                     load=path_parameters / "bkg_rate_uncertainty_scale_amc.yaml",
                 )
                 load_parameters(
-                    path="bkg.uncertainty_scale",
+                    path="bkg.uncertainty_scale_by_site",
                     load=path_parameters / "bkg_rate_uncertainty_scale_site.yaml",
                     replicate=combinations["site.period"],
                     ignore_keys=inactive_backgrounds,
@@ -1800,7 +1804,7 @@ class model_dayabay_v0d:
                 Product.replicate(
                         outputs("bkg.count_acc_fixed_s_day"),
                         parameters["constant.conversion.seconds_in_day_inverse"],
-                        name="bkg.count_acc_fixed",
+                        name="bkg.count_fixed.acc",
                         replicate_outputs=combinations["detector.period"],
                         )
 
@@ -2164,27 +2168,48 @@ class model_dayabay_v0d:
                 Product.replicate(
                         parameters("all.bkg.rate"),
                         outputs("detector.efflivetime_days"),
-                        name = "bkg.count",
+                        name = "bkg.count_fixed",
                         replicate_outputs=combinations["bkg_stable.detector.period"]
-                        )
-
-                # TODO: labels
-                ProductShiftedScaled.replicate(
-                        outputs("bkg.count.amc"),
-                        parameters("sigma.bkg.rate.amc"),
-                        parameters["all.bkg.uncertainty_scale.amc"],
-                        name = "bkg.count_scaled.amc",
-                        shift=1.0,
-                        replicate_outputs=combinations["detector.period"]
                         )
 
                 # TODO: labels
                 Product.replicate(
                         parameters("all.bkg.rate_scale.acc"),
-                        outputs("bkg.count_acc_fixed"),
+                        outputs("bkg.count_fixed.acc"),
                         name = "bkg.count.acc",
                         replicate_outputs=combinations["detector.period"]
                         )
+
+                remap_items(
+                        parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
+                        outputs.child("bkg.uncertainty_scale"),
+                        rename_indices = site_arrangement,
+                        skip_indices_target = inactive_detectors,
+                        )
+
+                # TODO: labels
+                ProductShiftedScaled.replicate(
+                        outputs("bkg.count_fixed"),
+                        parameters("sigma.bkg.rate"),
+                        outputs.get_dict("bkg.uncertainty_scale"),
+                        name = "bkg.count",
+                        shift=1.0,
+                        replicate_outputs=combinations["bkg_site_correlated.detector.period"],
+                        allow_skip_inputs = True,
+                        skippable_inputs_should_contain = combinations["bkg_not_site_correlated.detector.period"]
+                        )
+
+                # TODO: labels
+                ProductShiftedScaled.replicate(
+                        outputs("bkg.count_fixed.amc"),
+                        parameters("sigma.bkg.rate.amc"),
+                        parameters["all.bkg.uncertainty_scale.amc"],
+                        name = "bkg.count.amc",
+                        shift=1.0,
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                outputs["bkg.count.alphan"] = outputs.get_dict("bkg.count_fixed.alphan")
 
                 # TODO: labels
                 Product.replicate(
