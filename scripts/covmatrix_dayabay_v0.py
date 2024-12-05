@@ -6,7 +6,7 @@ from argparse import Namespace
 
 from h5py import File
 
-from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
+from dagflow.tools.logger import INFO1, INFO2, INFO3, logger, set_level
 from models import load_model, available_models
 
 set_level(INFO1)
@@ -27,31 +27,31 @@ def main(opts: Namespace) -> None:
     ofile = File(opts.output, "w")
 
     outputs = model.storage["outputs"]
-    for mode in ("detector", "detector_period"):
-        edges = outputs[f"edges.energy_final"]
-        prediction = outputs[f"eventscount.final.concatenated.{mode}"]
-        jacobians = outputs[f"covariance.{mode}.jacobians"]
-        covmats = outputs[f"covariance.{mode}.covmat_syst"]
+    mode = model.concatenation_mode
+    edges = outputs[f"edges.energy_final"]
+    prediction = outputs[f"eventscount.final.concatenated.selected"]
+    jacobians = outputs[f"covariance.jacobians"]
+    covmats = outputs[f"covariance.covmat_syst"]
 
-        idx_tuple = (
-            model.index["detector"]
-            if mode == "detector"
-            else model.combinations["detector.period"]
-        )
-        # idx_str = tuple(".".join(idx) for idx in idx_tuple)
+    idx_tuple = (
+        model.index["detector"]
+        if mode == "detector"
+        else model.combinations["detector.period"]
+    )
+    # idx_str = tuple(".".join(idx) for idx in idx_tuple)
 
-        group = ofile.create_group(mode)
+    group = ofile.create_group(mode)
 
-        group.create_dataset("elements", data=idx_tuple)
-        group.create_dataset("edges", data=edges.data)
-        group.create_dataset("model", data=prediction.data)
+    group.create_dataset("elements", data=idx_tuple)
+    group.create_dataset("edges", data=edges.data)
+    group.create_dataset("model", data=prediction.data)
 
-        for name, jacobian in jacobians.items():
-            logger.info(f"Compute {name} ({mode}), {jacobian.dd.shape[1]} pars")
-            group.create_dataset(f"jacobians/{name}", data=jacobian.data)
+    for name, jacobian in jacobians.items():
+        logger.info(f"Compute {name} ({mode}), {jacobian.dd.shape[1]} pars")
+        group.create_dataset(f"jacobians/{name}", data=jacobian.data)
 
-        for name, covmat in covmats.items():
-            group.create_dataset(f"covmat_syst/{name}", data=covmat.data)
+    for name, covmat in covmats.items():
+        group.create_dataset(f"covmat_syst/{name}", data=covmat.data)
 
     ofile.close()
     print(f"Save output file: {opts.output}")

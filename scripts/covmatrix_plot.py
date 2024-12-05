@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 from h5py import File
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from numpy import arange, diagonal, isnan
+from numpy import arange, diagonal, isnan, quantile
 from numpy.typing import NDArray
 
-from dagflow.logger import logger
-from dagflow.plot import add_colorbar
+from dagflow.plot.plot import add_colorbar
+from dagflow.tools.logger import logger
 
 if TYPE_CHECKING:
     from typing import Literal, Mapping, Sequence
@@ -105,12 +105,21 @@ def main(opts: Namespace) -> None:
             bmatrix_cov -= bmatrix_cov_subtract
             bmatrix_cor -= bmatrix_cor_subtract
 
+        as_min = max(array_sigma.min(), 0)
+        as_range = array_sigma.max()-as_min
+        as_coef = as_range/array_sigma.mean()
+        vmax = None
+        if sgroup is None and as_coef>10:
+            vmax = float(quantile(array_sigma, 0.95))
+
         plt.figure(figsize=figsize_1d)
         ax = plt.subplot(
             111, xlabel="", ylabel=r"$\sigma$", title=f"Uncertainty {name} (diagonal){title_suffix}"
         )
         ax.grid(axis="y")
         stairs_with_blocks(array_sigma, blocks=elements)
+        if vmax is not None:
+            ax.axhline(vmax, linestyle='--')
         if pdf:
             pdf.savefig()
 
@@ -133,6 +142,15 @@ def main(opts: Namespace) -> None:
         pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap)
         if pdf:
             pdf.savefig()
+
+        if vmax is not None:
+            plt.figure(figsize=figsize_2d)
+            ax = plt.subplot(
+                111, xlabel="", ylabel="bin", title=f"Covariance matrix (truncated) {name}{title_suffix}"
+            )
+            pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap, vmax=vmax)
+            if pdf:
+                pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
@@ -332,6 +350,7 @@ def pcolor_with_blocks(
     colorbar: bool = True,
     pcolormesh: bool = False,
     sep_kwargs: Mapping = {},
+    vmax: float | None = None,
     **kwargs,
 ):
     from numpy import fabs
@@ -341,7 +360,10 @@ def pcolor_with_blocks(
     dmax = data.max()
 
     bound = max(fabs(dmin), dmax)
-    vmin, vmax = -bound, bound
+    if vmax is not None:
+        vmin, vmax = -vmax, vmax
+    else:
+        vmin, vmax = -bound, bound
 
     # fdata = fabs(data)
     # data = array(data, mask=(fdata < 1.0e-9))
@@ -458,7 +480,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-m",
         "--mode",
-        default="detector",
+        default="detector_period",
         choices=("detector", "detector_period"),
         help="mode",
     )
