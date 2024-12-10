@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
+import yaml
+from matplotlib import pyplot as plt
+
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dagflow.parameters.gaussian_parameter import GaussianParameter
+from dagflow.tools.yaml_dumper import convert_numpy_to_lists, filter_fit
+from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import available_models, load_model
 
 set_level(INFO1)
@@ -37,10 +43,6 @@ def main(args: Namespace) -> None:
     if args.use_hm_unc_pull_terms:
         parameters_groups["constrained"].append("reactor_anue")
 
-    from yaml import safe_dump
-
-    from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
-
     chi2 = statistic[f"{args.chi2}"]
     minimization_parameters = {
         par_name: par
@@ -48,20 +50,52 @@ def main(args: Namespace) -> None:
         for par_name, par in parameters_free(key).walkjoineditems()
     }
     if "covmat" not in args.chi2:
-        minimization_parameters.update({
-            par_name: par
-            for key in parameters_groups["constrained"]
-            for par_name, par in parameters_constrained(key).walkjoineditems()
-        })
+        minimization_parameters.update(
+            {
+                par_name: par
+                for key in parameters_groups["constrained"]
+                for par_name, par in parameters_constrained(key).walkjoineditems()
+            }
+        )
 
     model.next_sample()
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters)
     fit = minimizer.fit()
     print(fit)
-    if args.output:
-        dagflow_fit = dict(**dagflow_fit)
-        with open(f"{args.full_fit_output}", "w") as f:
-            safe_dump(dagflow_fit, f)
+
+    if args.output_plot_pars:
+        values = []
+        errors = []
+        labels = []
+        for parname, par in minimization_parameters.items():
+            if isinstance(par, GaussianParameter):
+                values.append((fit["xdict"][parname] - par.central) / par.sigma)
+                errors.append(abs(fit["errorsdict"][parname] / par.sigma))
+                labels.append(parname)
+        npars = len(values)
+        plt.figure(figsize=(5, 0.225 * npars))
+        f_key = labels[0]
+        l_key = labels[-1]
+        plt.scatter(values, labels)
+        # plt.errorbar(values, labels, xerr=errors, linestyle="None")
+        plt.vlines(0, f_key, l_key, linestyle="--", color="black")
+        for i in range(1, 4):
+            plt.vlines(i, f_key, l_key, linestyle="--", color=f"C{i}")
+            plt.vlines(-i, f_key, l_key, linestyle="--", color=f"C{i}")
+        plt.ylim(-1, npars + 1)
+        plt.tight_layout()
+        plt.savefig(args.output_plot_pars)
+
+    if args.output_plot_covmat:
+        cs = plt.matshow(fit["covariance"])
+        plt.colorbar(cs)
+        plt.savefig(args.output_plot_covmat)
+
+    filter_fit(fit)
+    convert_numpy_to_lists(fit)
+    if args.output_fit:
+        with open(args.output_fit, "w") as f:
+            yaml.dump(fit, f)
 
 
 if __name__ == "__main__":
@@ -122,9 +156,10 @@ if __name__ == "__main__":
         "--chi2",
         default="stat.chi2p",
         choices=[
-            "chi2p_iterative", "chi2n", "chi2p", "chi2cnp", "chi2p_unbiased",
-            "chi2p_covmat_fixed", "chi2n_covmat", "chi2p_covmat_variable",
-            "chi2p_iterative", "chi2cnp", "chi2p_unbiased", "chi2cnp_covmat"
+            "stat.chi2p_iterative", "stat.chi2n", "stat.chi2p", "stat.chi2cnp",
+            "stat.chi2p_unbiased", "full.chi2p_covmat_fixed", "full.chi2n_covmat",
+            "full.chi2p_covmat_variable", "full.chi2p_iterative", "full.chi2cnp",
+            "full.chi2p_unbiased", "full.chi2cnp_covmat",
         ],
         help="Choose chi-squared function for minimizer",
     )
@@ -141,8 +176,16 @@ if __name__ == "__main__":
 
     outputs = parser.add_argument_group("outputs", "set outputs")
     outputs.add_argument(
-        "--output",
+        "--output-fit",
         help="path to save full fit, yaml format",
+    )
+    outputs.add_argument(
+        "--output-plot-pars",
+        help="path to save plot of normalized values",
+    )
+    outputs.add_argument(
+        "--output-plot-covmat",
+        help="path to save plot of normalized values",
     )
 
     args = parser.parse_args()
