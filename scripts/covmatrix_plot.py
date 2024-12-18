@@ -5,7 +5,7 @@ from __future__ import annotations
 from argparse import Namespace
 from typing import TYPE_CHECKING
 
-from h5py import File
+from h5py import File, Group
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from numpy import arange, diagonal, isnan, quantile
@@ -33,7 +33,7 @@ def main(opts: Namespace) -> None:
         sfile = File(opts.subtract, "r")
         sgroup = sfile[opts.mode]
         smodel = sgroup["model"][:]
-        plotmodel=model - smodel
+        plotmodel = model - smodel
     else:
         plotmodel = model
 
@@ -48,7 +48,6 @@ def main(opts: Namespace) -> None:
     except KeyError:
         elements = None
 
-
     if opts.output is not None:
         ofile = opts.output and opts.output[0] or opts.input.replace(".hdf5", ".pdf")
         assert ofile != opts.input and ofile.endswith(".pdf")
@@ -60,7 +59,7 @@ def main(opts: Namespace) -> None:
 
     title_suffix = f" {opts.title_suffix}" if opts.title_suffix else ""
     if opts.subtract:
-        title_suffix+=" [diff]"
+        title_suffix += " [diff]"
     if opts.mode == "detector":
         figsize_1d = (12, 6)
         figsize_2d = (6, 6)
@@ -74,7 +73,16 @@ def main(opts: Namespace) -> None:
     if pdf:
         pdf.savefig()
 
-    for name, matrix_cov in group["covmat_syst"].items():
+    items_to_process = dict(group["covmat_syst"].items())
+    for name, obj in tuple(items_to_process.items()):
+        if not isinstance(obj, Group):
+            continue
+
+        del items_to_process[name]
+        for subname, subobj in obj.items():
+            items_to_process[f"{name}.{subname}"] = subobj
+
+    for name, matrix_cov in items_to_process.items():
         matrix_cov = matrix_cov[:]
         (
             array_sigma,
@@ -106,20 +114,24 @@ def main(opts: Namespace) -> None:
             bmatrix_cor -= bmatrix_cor_subtract
 
         as_min = max(array_sigma.min(), 0)
-        as_range = array_sigma.max()-as_min
-        as_coef = as_range/array_sigma.mean()
-        vmax = None
-        if sgroup is None and as_coef>10:
+        as_range = array_sigma.max() - as_min
+        as_coef = as_range / array_sigma.mean()
+        vmax, vmax_rel = None, None
+        if sgroup is None and as_coef > 10:
             vmax = float(quantile(array_sigma, 0.95))
+            vmax_rel = float(quantile(array_sigma_rel, 0.95))
 
         plt.figure(figsize=figsize_1d)
         ax = plt.subplot(
-            111, xlabel="", ylabel=r"$\sigma$", title=f"Uncertainty {name} (diagonal){title_suffix}"
+            111,
+            xlabel="",
+            ylabel=r"$\sigma$",
+            title=f"Uncertainty {name} (diagonal){title_suffix}",
         )
         ax.grid(axis="y")
         stairs_with_blocks(array_sigma, blocks=elements)
         if vmax is not None:
-            ax.axhline(vmax, linestyle='--')
+            ax.axhline(vmax, linestyle="--", color="black", alpha=0.5)
         if pdf:
             pdf.savefig()
 
@@ -132,12 +144,17 @@ def main(opts: Namespace) -> None:
         )
         ax.grid(axis="y")
         stairs_with_blocks(array_sigma_rel, blocks=elements)
+        if vmax_rel is not None:
+            ax.axhline(vmax_rel, linestyle="--", color="black", alpha=0.5)
         if pdf:
             pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Covariance matrix {name}{title_suffix}"
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Covariance matrix {name}{title_suffix}",
         )
         pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap)
         if pdf:
@@ -146,7 +163,10 @@ def main(opts: Namespace) -> None:
         if vmax is not None:
             plt.figure(figsize=figsize_2d)
             ax = plt.subplot(
-                111, xlabel="", ylabel="bin", title=f"Covariance matrix (truncated) {name}{title_suffix}"
+                111,
+                xlabel="",
+                ylabel="bin",
+                title=f"Covariance matrix (truncated) {name}{title_suffix}",
             )
             pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap, vmax=vmax)
             if pdf:
@@ -154,7 +174,10 @@ def main(opts: Namespace) -> None:
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Covariance matrix {name} (blocks){title_suffix}"
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Covariance matrix {name} (blocks){title_suffix}",
         )
         pcolor_with_blocks(bmatrix_cov, blocks=elements, cmap=cmap)
         if pdf:
@@ -184,6 +207,20 @@ def main(opts: Namespace) -> None:
         if pdf:
             pdf.savefig()
 
+        if vmax_rel is not None:
+            plt.figure(figsize=figsize_2d)
+            ax = plt.subplot(
+                111,
+                xlabel="",
+                ylabel="bin",
+                title=rf"Relative covariance matrix {name}, %²{title_suffix}",
+            )
+            pcolor_with_blocks(
+                matrix_cov_rel, blocks=elements, cmap=cmap, vmax=vmax_rel
+            )
+            if pdf:
+                pdf.savefig()
+
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
             111,
@@ -199,7 +236,10 @@ def main(opts: Namespace) -> None:
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Correlation matrix {name}{title_suffix}"
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Correlation matrix {name}{title_suffix}",
         )
         pcolor_with_blocks(matrix_cor, blocks=elements, cmap=cmap)
         if pdf:
@@ -224,7 +264,10 @@ def main(opts: Namespace) -> None:
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
-            111, xlabel="", ylabel="bin", title=f"Correlation matrix {name} (blocks){title_suffix}"
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Correlation matrix {name} (blocks){title_suffix}",
         )
         hm = pcolor_with_blocks(
             bmatrix_cor, blocks=elements, pcolormesh=True, cmap=cmap
