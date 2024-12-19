@@ -1,10 +1,20 @@
 #!/usr/bin/env python
+
+from __future__ import annotations
+
 from argparse import Namespace
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dagflow.core import Graph, NodeStorage
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dagflow.tools.save_records import save_records
 from models import available_models, load_model
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
 
 # from dagflow.plot import plot_auto
 
@@ -56,6 +66,12 @@ def main(opts: Namespace) -> None:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate="auto"))
 
+    if opts.method:
+        method = getattr(model, opts.method)
+        assert method
+
+        method()
+
     if opts.plot_all:
         storage("outputs").plot(folder=opts.plot_all)
 
@@ -79,6 +95,9 @@ def main(opts: Namespace) -> None:
             f"output/dayabay_{opts.version}_pars.txt"
         )
 
+    if opts.summary:
+        save_summary(model, opts.summary)
+
     if opts.graph_auto:
         plot_graph(graph, storage, opts)
 
@@ -89,8 +108,26 @@ def main(opts: Namespace) -> None:
             "reactor": [0],
             "detector": [0, 1],
             "isotope": [0],
-            "period": [2],
+            "period": [1, 2],
         }
+        storage["parameter_group.all"].savegraphs(
+            opts.graphs / "parameters",
+            mindepth=mindepth,
+            maxdepth=maxdepth,
+            keep_direction=True,
+            show="all",
+            accept_index=accept_index,
+            filter=accept_index,
+        )
+        storage["parameters.sigma"].savegraphs(
+            opts.graphs / "parameters" / "sigma",
+            mindepth=mindepth,
+            maxdepth=maxdepth,
+            keep_direction=True,
+            show="all",
+            accept_index=accept_index,
+            filter=accept_index,
+        )
         storage["nodes"].savegraphs(
             opts.graphs,
             mindepth=mindepth,
@@ -98,12 +135,7 @@ def main(opts: Namespace) -> None:
             keep_direction=True,
             show="all",
             accept_index=accept_index,
-            filter={
-                "reactor": [0],
-                "detector": [0, 1],
-                "isotope": [0],
-                "period": [2],
-            },
+            filter=accept_index,
         )
 
     if opts.graph_from_node:
@@ -118,6 +150,17 @@ def main(opts: Namespace) -> None:
             maxdepth=opts.maxdepth,
             keep_direction=True,
         ).savegraph(filepath)
+
+
+def save_summary(model: Any, filenames: Sequence[str]):
+    data = {}
+    try:
+        for period in ["total", "6AD", "8AD", "7AD"]:
+            data[period] = model.make_summary_table(period=period)
+    except AttributeError:
+        return
+
+    save_records(data, filenames, tsv_allow_no_key=True)
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
@@ -181,7 +224,7 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="tsv",
+        default="hdf5",
         help="Data source type",
     )
     parser.add_argument(
@@ -215,6 +258,11 @@ if __name__ == "__main__":
     storage.add_argument(
         "--pars-text", action="store_true", help="print text tables with parameters"
     )
+    storage.add_argument(
+        "--summary",
+        nargs="+",
+        help="print/save summary data",
+    )
 
     graph = parser.add_argument_group("graph", "graph related options")
     graph.add_argument(
@@ -246,7 +294,7 @@ if __name__ == "__main__":
     dot.add_argument(
         "--graph-auto", "--ga", action="store_true", help="plot graphs auto"
     )
-    dot.add_argument("--graphs", help="save partial graphs from every node")
+    dot.add_argument("--graphs", type=Path, help="save partial graphs from every node")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
@@ -258,6 +306,7 @@ if __name__ == "__main__":
     model.add_argument(
         "--model-options", "--mo", default={}, help="Model options as yaml dict"
     )
+    model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(

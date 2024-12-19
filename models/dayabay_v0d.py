@@ -1,26 +1,38 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from contextlib import suppress
+from collections.abc import Collection, Mapping, Sequence
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 
 from numpy import ndarray
 from numpy.random import Generator
+from pandas import DataFrame
 
 from dagflow.bundles.file_reader import FileReader
 from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.core import Graph, NodeStorage
+from dagflow.tools.logger import logger
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
 if TYPE_CHECKING:
     from dagflow.core.meta_node import MetaNode
 
+FutureType = Literal[
+    "all",  # enable all the options
+    "reactor-28days",  # merge reactor data, each 4 weeks
+    "reactor-35days",  # merge reactor data, each 5 weeks
+    "data-a",  # use dataset A
+    "bkg-order",  # use optimized background order (included in data-a)
+]
+_future_redundant = ["all", "reactor-35days"]
+_future_included = {
+    "data-a": ("bkg-order",),
+}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
 # where path denotes the location of the parameters in the storage.
@@ -35,20 +47,23 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "snf": "reactor.snf_scale",
     "neq": "reactor.nonequilibrium_scale",
     "fission_fraction": "reactor.fission_fraction_scale",
-    "bkg_rate": "bkg.rate",
+    "bkg_rate": "bkg",
     "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
     "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
 }
 
 
+class model_dayabay_v0d:
+    """The Daya Bay analysis implementation version v0d.
 
-class model_dayabay_v0c:
-    """The Daya Bay analysis implementation version v0c.
+    Purpose:
+        - introduce alternative data inputs
+        - provide configuration to switch between inputs and compare them
 
     Attributes
     ----------
     storage : NodeStorage
-              nested dictionary with model elements: nodes, parameters, etc.
+        nested dictionary with model elements: nodes, parameters, etc.
 
     graph : Graph
         graph instance
@@ -126,6 +141,7 @@ class model_dayabay_v0c:
         "source_type",
         "_strict",
         "_close",
+        "_future",
         "_covariance_matrix",
         "_frozen_nodes",
         "_random_generator",
@@ -143,6 +159,7 @@ class model_dayabay_v0c:
     _strict: bool
     _close: bool
     _random_generator: Generator
+    _future: set[FutureType]
     _covariance_matrix: MetaNode
     _frozen_nodes: dict[str, tuple]
 
@@ -158,6 +175,7 @@ class model_dayabay_v0c:
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
+        future: Collection[FutureType] = set(),
     ):
         """Model initialization.
 
@@ -176,14 +194,26 @@ class model_dayabay_v0c:
         self._close = close
 
         self.storage = NodeStorage()
-        self.path_data = Path("data/dayabay-v0c")
+        self.path_data = Path("data/dayabay-v0d")
         self.source_type = source_type
         self.spectrum_correction_mode = spectrum_correction_mode
         self.concatenation_mode = concatenation_mode
         self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
 
-        self._covariance_matrix = None
+        self._future = set(future)
+        future_variants = set(get_args(FutureType))
+        assert all(f in future_variants for f in self._future)
+        if "all" in self._future:
+            self._future = future_variants
+            for ft in _future_redundant:
+                self._future.remove(ft)  # pyright: ignore [reportArgumentType]
+            for ft in self._future:
+                if not (extra := _future_included.get(ft)):
+                    continue
+                self._future.update(extra)  # pyright: ignore [reportArgumentType]
+        if self._future:
+            logger.info(f"Future options: {', '.join(self._future)}")
         self._frozen_nodes = {}
 
         self.combinations = {}
@@ -218,14 +248,14 @@ class model_dayabay_v0c:
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
-        from dagflow.lib.arithmetic import Division, Product, Sum
+        from dagflow.lib.arithmetic import Division, Product, ProductShiftedScaled, Sum
         from dagflow.lib.common import Array, Concatenation, Proxy, View
-        from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
         from dagflow.lib.interpolation import Interpolator
         from dagflow.lib.linalg import Cholesky, VectorMatrixProduct
         from dagflow.lib.normalization import RenormalizeDiag
+        from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
         from dagflow.lib.summation import ArraySum, SumMatOrDiag
         from dagflow.tools.schema import LoadPy
@@ -243,7 +273,7 @@ class model_dayabay_v0c:
         )
         from dgf_statistics import Chi2, CNPStat, MonteCarlo
         from models.bundles.refine_detector_data import refine_detector_data
-        from models.bundles.refine_reactor_data import split_refine_reactor_data
+        from models.bundles.refine_reactor_data import refine_reactor_data
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from multikeydict.tools import remap_items
 
@@ -253,13 +283,10 @@ class model_dayabay_v0c:
 
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self.source_type
-        # TODO: use source_type for everything
-        path_root = path_data / "root"
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        #
         antineutrino_model_edges = LoadPy(
             path_parameters / "reactor_antineutrino_spectrum_edges.py",
             variable="edges",
@@ -272,6 +299,11 @@ class model_dayabay_v0c:
             "U238": "²³⁸U",
             "Pu239": "²³⁹Pu",
             "Pu241": "²⁴¹Pu",
+        }
+        site_arrangement = {
+            "EH1": ("AD11", "AD12"),
+            "EH2": ("AD21", "AD22"),
+            "EH3": ("AD31", "AD32", "AD33", "AD34"),
         }
 
         #
@@ -299,6 +331,10 @@ class model_dayabay_v0c:
             #     - amc: ²⁴¹Am¹³C calibration source related background
             #     - alphan: ¹³C(α,n)¹⁶O background
             "bkg": ("acc", "lihe", "fastn", "amc", "alphan"),
+            "bkg_stable": ("lihe", "fastn", "amc", "alphan"),  # TODO: doc
+            "bkg_site_correlated": ("lihe", "fastn"),  # TODO: doc
+            "bkg_not_site_correlated": ("acc", "amc", "alphan"),  # TODO: doc
+            "bkg_not_correlated": ("acc", "alphan"),  # TODO: doc
             # Experimental sites
             "site": ("EH1", "EH2", "EH3"),
             # Fissile isotopes
@@ -329,6 +365,11 @@ class model_dayabay_v0c:
                 f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
             ),
         }
+        if "data-a" in self._future:
+            logger.warning("Future: initialize muonx background")
+            index["bkg"] = index["bkg"] + ("muonx",)
+            index["bkg_stable"] = index["bkg_stable"] + ("muonx",)
+            index["bkg_site_correlated"] = index["bkg_site_correlated"] + ("muonx",)
         # Define isotope names in lower case
         index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
@@ -351,6 +392,12 @@ class model_dayabay_v0c:
         # The dictionary combinations is one of the main elements to loop over and match
         # parts of the computational graph
         inactive_detectors = ({"6AD", "AD22"}, {"6AD", "AD34"}, {"7AD", "AD11"})
+        inactive_backgrounds = (
+            {"6AD", "muonx"},
+            {"8AD", "muonx"},
+            {"AD11", "muonx"},
+        )  # TODO: doc
+        inactive_combinations = inactive_detectors + inactive_backgrounds
         required_combinations = tuple(index.keys()) + (
             "reactor.detector",
             "reactor.isotope",
@@ -363,16 +410,24 @@ class model_dayabay_v0c:
             "reactor.isotope_neq.detector.period",
             "reactor.detector.period",
             "detector.period",
+            "site.period",
+            "period.detector",
             "anue_unc.isotope",
             "bkg.detector",
+            "bkg_stable.detector",
             "bkg.detector.period",
+            "bkg.period.detector",
+            "bkg_stable.detector.period",
+            "bkg_site_correlated.detector.period",
+            "bkg_not_site_correlated.detector.period",
+            "bkg_not_correlated.detector.period",
         )
         combinations = self.combinations
         for combname in required_combinations:
             combitems = combname.split(".")
             items = []
             for it in product(*(index[item] for item in combitems)):
-                if any(inact.issubset(it) for inact in inactive_detectors):
+                if any(inact.issubset(it) for inact in inactive_combinations):
                     continue
                 items.append(it)
             combinations[combname] = tuple(items)
@@ -640,8 +695,39 @@ class model_dayabay_v0c:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
-            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml")
-            load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
+            if "data-a" in self._future:
+                logger.warning("Future: load data A background rates")
+                load_parameters(
+                    path="bkg.rate_scale",
+                    load=path_parameters / "bkg_rate_scale_acc.yaml",
+                    replicate=combinations["period.detector"],
+                )
+                load_parameters(
+                    path="bkg.rate",
+                    load=path_parameters / "bkg_rates_uncorrelated_dataset_a.yaml",
+                )
+                load_parameters(
+                    path="bkg.rate",
+                    load=path_parameters / "bkg_rates_correlated_dataset_a.yaml",
+                    sigma_visible=True,
+                )
+                load_parameters(
+                    path="bkg.uncertainty_scale",
+                    load=path_parameters / "bkg_rate_uncertainty_scale_amc.yaml",
+                )
+                load_parameters(
+                    path="bkg.uncertainty_scale_by_site",
+                    load=path_parameters / "bkg_rate_uncertainty_scale_site.yaml",
+                    replicate=combinations["site.period"],
+                    ignore_keys=inactive_backgrounds,
+                )
+            else:
+                load_parameters(
+                    path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml"
+                )
+                load_parameters(
+                    path="bkg.rate", load=path_parameters / "bkg_rates.yaml"
+                )
 
             # Additionally a few constants are provided.
             # A constant to convert seconds to days for the backgrounds estimation
@@ -650,11 +736,13 @@ class model_dayabay_v0c:
                 state="fixed",
                 parameters={
                     "conversion": {
+                        "seconds_in_day": (60 * 60 * 24),
                         "seconds_in_day_inverse": 1 / (60 * 60 * 24),
                     }
                 },
                 labels={
                     "conversion": {
+                        "seconds_in_day": "Number of seconds in a day",
                         "seconds_in_day_inverse": "Fraction of a day in a second",
                     }
                 },
@@ -875,7 +963,10 @@ class model_dayabay_v0c:
             # ensured that there is no overlap in the keys.
 
             # As of now we know all the Edep and cosθ points to compute the target
-            # functions on. The next step is to initialize the functions themselves.
+            # functions on. The next step is to initialize the functions themselves,
+            # which include: Inverse Beta Decay cross section (IBD), electron
+            # antineutrino survival probability and antineutrino spectrum.
+
             # Here we create an instance of Inverse Beta Decay cross section, which also
             # includes conversion from deposited energy Edep to neutrino energy Enu and
             # corresponding dEnu/dEdep jacobian. The IBD nodes may operate with either
@@ -960,39 +1051,107 @@ class model_dayabay_v0c:
             nodes.get_dict("oscprob") << parameters("constrained.oscprob")
             nodes.get_dict("oscprob") << parameters("constant.oscprob")
 
-            # fmt: off
-
-
+            # The third component is the antineutrino spectrum as dN/dE per fission. We
+            # start from loading the reference antineutrino spectrum (Huber-Mueller)
+            # from input files. There are four spectra for four active isotopes. The
+            # loading is done with the command `load_graph`, which supports hdf5, npz,
+            # root, tsv (files or folder) or compressed tsv.bz2. The command will read
+            # items with names "U235", "U238", "Pu239" and "Pu241" (from
+            # index["isotope"]) as follows:
+            # - hdf5: open with filename, request (X,Y) dataset by name.
+            # - npz: open with filename, get (X,Y)  array from a dictionary by name.
+            # - root: open with filename, get TH1D object by name. Build graph by taking
+            #         left edges of the bins and their heights. `uproot` is used to load
+            #         ROOT files by default. If `$ROOTSYS` is defined, then ROOT is used
+            #         directly.
+            # - tsv: different arrays are kept in distinct files. Therefore for the tsv
+            #        some logic is implemeted to find the files. Given 'filename.tsv'
+            #        and 'key', the following files are checked:
+            #        + filename.tsv/key.tsv
+            #        + filename.tsv/filename_key.tsv
+            #        + filename_key.tsv
+            #        + filename.tsv/key.tsv.bz2
+            #        + filename.tsv/filename_key.tsv.bz2
+            #        + filename_key.tsv.bz2
+            #        The graph is expected to be writtein in 2 columns: X, Y.
             #
-            # Nominal antineutrino spectrum
-            #
+            # The appropriate loader is choosen based on extension. The objects are
+            # loaded and stored in the "reactor_anue.neutrino_per_fission_per_MeV_input"
+            # location. As `merge_x` flag is specified, only on X array is stored with
+            # no index. A dedicated check is performed to ensure the graphs have
+            # consistent X axes.
+            # Note, that each Y node (called spec) will have an reference to the X node,
+            # so it could be used when plotting.
             load_graph(
-                name = "reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames = path_arrays / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
-                x = "enu",
-                y = "spec",
-                merge_x = True,
-                replicate_outputs = index["isotope"],
+                name="reactor_anue.neutrino_per_fission_per_MeV_input",
+                filenames=path_arrays
+                / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
+                x="enu",
+                y="spec",
+                merge_x=True,
+                replicate_outputs=index["isotope"],
             )
 
-            #
-            # Interpolate for the integration mesh
-            #
+            # The input antineutrino spectra have step of 50 keV. They now should be
+            # interpolated to the integration mesh. Similarly to integration nodes,
+            # interpolation is implemented in two steps by two nodes: `indexer` node
+            # identifies the indexes of segments, which should be used to interpolate
+            # each mesh point. The `interpolator` does the actual interpolation, using
+            # the input coarse data and indices from indexer. We instruct interpolator
+            # to create a distinct node for each isotope by setting `replicate_outputs`
+            # argument. We use exponential interpolation (`method="exp"`) and provide
+            # names for the nodes and outputs. By default interpolator does
+            # extrapolation in both directions outside of the domain.
             Interpolator.replicate(
-                method = "exp",
-                names = {
+                method="exp",
+                names={
                     "indexer": "reactor_anue.spec_indexer",
                     "interpolator": "reactor_anue.neutrino_per_fission_per_MeV_nominal",
-                    },
-                replicate_outputs = index["isotope"],
+                },
+                replicate_outputs=index["isotope"],
             )
-            outputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_input.enu") >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
-            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine")
+            # Connect the common neutrino energy mesh as coarse input of the
+            # interpolator.
+            outputs.get_value(
+                "reactor_anue.neutrino_per_fission_per_MeV_input.enu"
+            ) >> inputs.get_value(
+                "reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse"
+            )
+            # Connect the input antineutrino spectra as coarse Y inputs of the
+            # interpolator. This is performed for each of the 4 isotopes.
+            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs(
+                "reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse"
+            )
+            # The interpolators are using the same target mesh for all the same target
+            # mesh. Use the neutrino energy mesh provided by interpolator as an input to
+            # fine X of the interpolation.
+            kinematic_integrator_enu >> inputs.get_value(
+                "reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine"
+            )
 
+            # The antineutrino spectrum in this analysis is a subject of five
+            # independent corrections:
+            # 1. Non-EQuilibrium correction (NEQ). A dedicated correction to ILL (Huber)
+            #    antineutrino spectra from ²³⁵U, ²³⁹Pu, ²⁴¹Pu. Note: that ²³⁸U as no NEQ
+            #    applied. In order to handle this an alternative index `isotope_neq` is
+            #    used.
+            # 2. Spent Nuclear Fuel (SNF) correction to account for the existence of
+            #    antineutrino flux from spent nuclear fuel.
+            # 3. Average antineutrino spectrum correction — not constrained correction
+            #    to the shape of average reactor antineutrino spectrum. Having its
+            #    parameters free during the fit effectively implements the relative
+            #    Far-to-Near measurement. The correction curve is single and is applied
+            #    to all the isotopes (correlated between the isotopes).
+            # 4. Huber-Mueller related:
+            #    a. constrained spectrum shape correction due to
+            #       model uncertainties. Uncorrelated between energy intervals and
+            #       uncorrelated between isotopes.
+            #    b. constrained spectrum shape correction due to model uncertainties.
+            #       Correlated between energy intervals and correlated between isotopes.
             #
-            # SNF and NEQ normalization factors
-            #
+            # For convenience reasons let us introduce two constants to enable/disable
+            # SNF and NEQ contributions. The `load_parameters()` method is used. The
+            # syntax is similar to the one in yaml files.
             load_parameters(
                 format="value",
                 state="fixed",
@@ -1010,106 +1169,199 @@ class model_dayabay_v0c:
                 },
             )
 
-            #
-            # Non-Equilibrium correction
-            #
+            # Similarly to the case of electron antineutrino spectrum load the
+            # corresponding corrections to 3 out of 4 isotopes. The correction C should
+            # be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
             load_graph(
-                name = "reactor_nonequilibrium_anue.correction_input",
-                x = "enu",
-                y = "nonequilibrium_correction",
-                merge_x = True,
-                filenames = path_arrays / f"nonequilibrium_correction.{self.source_type}",
-                replicate_outputs = index["isotope_neq"],
-                dtype = "d"
+                name="reactor_nonequilibrium_anue.correction_input",
+                x="enu",
+                y="nonequilibrium_correction",
+                merge_x=True,
+                filenames=path_arrays / f"nonequilibrium_correction.{self.source_type}",
+                replicate_outputs=index["isotope_neq"],
             )
 
+            # Create interpolators for NEQ correction. Use linear interpolation
+            # (`method="linear"`). The regions outside the domains will be filled with a
+            # constant (0 by default).
             Interpolator.replicate(
-                method = "linear",
-                names = {
+                method="linear",
+                names={
                     "indexer": "reactor_nonequilibrium_anue.correction_indexer",
                     "interpolator": "reactor_nonequilibrium_anue.correction_interpolated",
-                    },
-                replicate_outputs = index["isotope_neq"],
-                underflow = "constant",
-                overflow = "constant",
+                },
+                replicate_outputs=index["isotope_neq"],
+                underflow="constant",
+                overflow="constant",
             )
-            outputs.get_value("reactor_nonequilibrium_anue.correction_input.enu") >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xcoarse")
-            outputs("reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction") >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xfine")
+            # Similarly to the case of antineutrino spectrum connect coarse X, a few
+            # coarse Y and target mesh to the interpolator nodes.
+            outputs.get_value(
+                "reactor_nonequilibrium_anue.correction_input.enu"
+            ) >> inputs.get_value(
+                "reactor_nonequilibrium_anue.correction_interpolated.xcoarse"
+            )
+            outputs(
+                "reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction"
+            ) >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
+            kinematic_integrator_enu >> inputs.get_value(
+                "reactor_nonequilibrium_anue.correction_interpolated.xfine"
+            )
 
-            #
-            # SNF correction
-            #
+            # Now load the SNF correction. The SNF correction is different from NEQ in a
+            # sense that it is computed for each reactor, not isotope. Thus we will use
+            # reactor index for it. Aside from index the loading and interpolation
+            # procedure is similar to that of NEQ correction.
             load_graph(
-                name = "snf_anue.correction_input",
-                x = "enu",
-                y = "snf_correction",
-                merge_x = True,
-                filenames = path_arrays / f"snf_correction.{self.source_type}",
-                replicate_outputs = index["reactor"],
-                dtype = "d"
+                name="snf_anue.correction_input",
+                x="enu",
+                y="snf_correction",
+                merge_x=True,
+                filenames=path_arrays / f"snf_correction.{self.source_type}",
+                replicate_outputs=index["reactor"],
             )
             Interpolator.replicate(
-                method = "linear",
-                names = {
+                method="linear",
+                names={
                     "indexer": "snf_anue.correction_indexer",
                     "interpolator": "snf_anue.correction_interpolated",
-                    },
-                replicate_outputs = index["reactor"],
-                underflow = "constant",
-                overflow = "constant",
+                },
+                replicate_outputs=index["reactor"],
+                underflow="constant",
+                overflow="constant",
             )
-            outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value("snf_anue.correction_interpolated.xcoarse")
-            outputs("snf_anue.correction_input.snf_correction") >> inputs("snf_anue.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("snf_anue.correction_interpolated.xfine")
+            outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value(
+                "snf_anue.correction_interpolated.xcoarse"
+            )
+            outputs("snf_anue.correction_input.snf_correction") >> inputs(
+                "snf_anue.correction_interpolated.ycoarse"
+            )
+            kinematic_integrator_enu >> inputs.get_value(
+                "snf_anue.correction_interpolated.xfine"
+            )
 
+            # Finally create the parametrization of the correction to the shape of
+            # average reactor electron antineutrino spectrum. The `spec_scale`
+            # correction is defined on a user defined segments `spec_model_edges`. The
+            # values of the correction scale Fᵢ are 0 by default at each edge. There exit
+            # two options of operation:
+            # - exponential: Sᵢ=exp(F₁) are used for each edge. The result is always
+            #                positive, although non-linear.
+            # - linear: Sᵢ=1+Fᵢ is used. The behavior is always linear, but this approach
+            #           may yield negative results.
+            # The parameters Fᵢ are free parameters of the fit. The behavior of the
+            # correction Sᵢ is interpolated exponentially within the segments ensuring
+            # the overall correction is continuous for the whole spectrum.
             #
-            # Reactor antineutrino spectral correction:
-            #   - not constrained
-            #   - correlated between isotopes
-            #   - uncorrelated between energy intervals
-            #
+            # To initialize the correction we use a convenience function
+            # `make_y_parameters_for_x`, which is using `load_parameters()` to create
+            # 'parameters.free.neutrino_per_fission_factor.spec_scale_00` and other
+            # parameters with proper labels.
+            # An option `hide_nodes` is used to ensure the nodes are not shown on the
+            # graph to keep it less busy. It does not affect the computation mechanism.
+            # Note: in order to create the parameters, it will access the edges.
+            # Therefore the node with edges should be closed. This is typically the case
+            # for the Array nodes, which already have data, but may be not the case for
+            # other nodes.
             make_y_parameters_for_x(
-                    outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
-                    namefmt = "spec_scale_{:02d}",
-                    format = "value",
-                    state = "variable",
-                    key = "neutrino_per_fission_factor",
-                    values = 0.0,
-                    labels = "Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction" \
-                           + (" (exp)" if self.spectrum_correction_mode == "exponential" else " (linear)"),
-                    hide_nodes = True
-                    )
-
-            Concatenation.replicate(
-                    parameters("all.neutrino_per_fission_factor"),
-                    name = "reactor_anue.spectrum_free_correction.input"
-                    )
-            outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
-            if self.spectrum_correction_mode == "exponential":
-                Exp.replicate(
-                        outputs.get_value("reactor_anue.spectrum_free_correction.input"),
-                        name = "reactor_anue.spectrum_free_correction.correction"
-                        )
-            else:
-                Array.from_value("reactor_anue.spectrum_free_correction.unity", 1.0, dtype="d", mark="1", label="Array of 1 element =1", shape=1, store=True)
-                Sum.replicate(
-                        outputs.get_value("reactor_anue.spectrum_free_correction.unity"),
-                        outputs.get_value("reactor_anue.spectrum_free_correction.input"),
-                        name = "reactor_anue.spectrum_free_correction.correction"
-                        )
-                outputs.get_value("reactor_anue.spectrum_free_correction.correction").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
-
-            Interpolator.replicate(
-                method = "exp",
-                names = {
-                    "indexer": "reactor_anue.spectrum_free_correction.indexer",
-                    "interpolator": "reactor_anue.spectrum_free_correction.interpolated"
-                    },
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
+                namefmt="spec_scale_{:02d}",
+                format="value",
+                state="variable",
+                key="neutrino_per_fission_factor",
+                values=0.0,
+                labels="Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction"
+                + (
+                    " (exp)"
+                    if self.spectrum_correction_mode == "exponential"
+                    else " (linear)"
+                ),
+                hide_nodes=True,
             )
-            outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges") >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xcoarse")
-            outputs.get_value("reactor_anue.spectrum_free_correction.correction") >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xfine")
+
+            # The created parameters are now available to be used for the minimizer, but
+            # in order to use them conveniently they should be kept as an array.
+            # Concatenation node is used to organize an array. The result of
+            # concatenation will be updated lazily as the minimizer modifies the
+            # parameters.
+            Concatenation.replicate(
+                parameters("all.neutrino_per_fission_factor"),
+                name="reactor_anue.spectrum_free_correction.input",
+            )
+            # For convenience purposes let us assign `spec_model_edges` as X axis for
+            # the array of parameters.
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction.input"
+            ).dd.axes_meshes = (
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
+            )
+
+            # Depending on chosen method, convert the parameters to the correction
+            # on a scale.
+            if self.spectrum_correction_mode == "exponential":
+                # Exponentiate the array of values. No `>>` is used as the array is
+                # passed as an argument and the connection is done internally.
+                Exp.replicate(
+                    outputs.get_value("reactor_anue.spectrum_free_correction.input"),
+                    name="reactor_anue.spectrum_free_correction.correction",
+                )
+            else:
+                # Create an array with [1].
+                Array.from_value(
+                    "reactor_anue.spectrum_free_correction.unity",
+                    1.0,
+                    dtype="d",
+                    mark="1",
+                    label="Array of 1 element =1",
+                    shape=1,
+                    store=True,
+                )
+                # Calculate the sum of [1] and array of spectral parameters. The
+                # broadcasting is done similarly to numpy, i.e. the result of the
+                # operation has the shape of the spectral parameters and 1 is added to
+                # each element.
+                Sum.replicate(
+                    outputs.get_value("reactor_anue.spectrum_free_correction.unity"),
+                    outputs.get_value("reactor_anue.spectrum_free_correction.input"),
+                    name="reactor_anue.spectrum_free_correction.correction",
+                )
+                # For convenience purposes assign `spec_model_edges` as X axis for the
+                # array of scale factors.
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.correction"
+                ).dd.axes_meshes = (
+                    outputs.get_value(
+                        "reactor_anue.spectrum_free_correction.spec_model_edges"
+                    ),
+                )
+
+            # Interpolate the spectral correction exponentially. The extrapolation will
+            # be applied to the points outside the domain.
+            Interpolator.replicate(
+                method="exp",
+                names={
+                    "indexer": "reactor_anue.spectrum_free_correction.indexer",
+                    "interpolator": "reactor_anue.spectrum_free_correction.interpolated",
+                },
+            )
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction.spec_model_edges"
+            ) >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction.interpolated.xcoarse"
+            )
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction.correction"
+            ) >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction.interpolated.ycoarse"
+            )
+            kinematic_integrator_enu >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction.interpolated.xfine"
+            )
+            # fmt: off
 
             #
             # Huber+Mueller spectrum shape uncertainties
@@ -1229,28 +1481,64 @@ class model_dayabay_v0c:
             #
             # Livetime
             #
-            load_record_data(
-                name = "daily_data.detector_all",
-                filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self.source_type}",
-                replicate_outputs = index["detector"],
-                name_function = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
-                columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
-                skip = inactive_detectors
-            )
-            refine_detector_data(
-                data("daily_data.detector_all"),
-                data.child("daily_data.detector"),
-                detectors = index["detector"]
-            )
+            if "data-a" in self._future:
+                logger.warning("Future: load daily data A")
+                load_record_data(
+                    name = "daily_data.detector_all",
+                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_daily_detector_data.{self.source_type}",
+                    replicate_outputs = index["detector"],
+                    columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
+                    skip = inactive_detectors
+                )
+                refine_detector_data(
+                    data("daily_data.detector_all"),
+                    data.child("daily_data.detector"),
+                    detectors = index["detector"],
+                    skip = inactive_detectors,
+                    columns = ("livetime", "eff", "efflivetime", "rate_acc"),
+                )
+            else:
+                load_record_data(
+                    name = "daily_data.detector_all",
+                    filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self.source_type}",
+                    replicate_outputs = index["detector"],
+                    name_function = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
+                    columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
+                    skip = inactive_detectors
+                )
+                refine_detector_data(
+                    data("daily_data.detector_all"),
+                    data.child("daily_data.detector"),
+                    detectors = index["detector"],
+                    columns = ("livetime", "eff", "efflivetime"),
+                    skip = inactive_detectors
+                )
 
-            load_record_data(
-                name = "daily_data.reactor_all",
-                filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self.source_type}",
-                replicate_outputs = ("core_data",),
-                columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
-                key_order = (("week", "core_data"), ("week",))
-            )
-            split_refine_reactor_data(
+            if "reactor-28days" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name = "daily_data.reactor_all",
+                    filenames = path_arrays/f"reactor_power_28days.{self.source_type}",
+                    replicate_outputs = index["reactor"],
+                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                )
+                assert "reactor-35days" not in self._future, "Mutually exclusive options"
+            elif "reactor-35days" in self._future:
+                logger.warning("Future: use merged reactor data, period: 35 days")
+                load_record_data(
+                    name = "daily_data.reactor_all",
+                    filenames = path_arrays/f"reactor_power_35days.{self.source_type}",
+                    replicate_outputs = index["reactor"],
+                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                )
+            else:
+                load_record_data(
+                    name = "daily_data.reactor_all",
+                    filenames = path_arrays/f"reactor_thermal_power_weekly.{self.source_type}",
+                    replicate_outputs = index["reactor"],
+                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                )
+            refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
                 reactors = index["reactor"],
@@ -1282,6 +1570,15 @@ class model_dayabay_v0c:
                 remove_used_arrays = True,
                 dtype = "d"
             )
+
+            if "data-a" in self._future:
+                logger.warning("Future: create daily accidentals A")
+                Array.from_storage(
+                    "daily_data.detector.rate_acc",
+                    storage("data"),
+                    remove_used_arrays = True,
+                    dtype = "d"
+                )
 
             Array.from_storage(
                 "daily_data.reactor.power",
@@ -1443,12 +1740,73 @@ class model_dayabay_v0c:
 
             Product.replicate(
                     outputs("detector.efflivetime"),
-                    parameters.get_value("all.conversion.seconds_in_day_inverse"),
+                    parameters.get_value("constant.conversion.seconds_in_day_inverse"),
                     name="detector.efflivetime_days",
                     replicate_outputs=combinations["detector.period"],
                     allow_skip_inputs=True,
                     skippable_inputs_should_contain=inactive_detectors,
                     )
+
+            # Collect some summary data for output tables
+            Sum.replicate(
+                    outputs("detector.efflivetime"),
+                    name = "summary.total.efflivetime",
+                    replicate_outputs=index["detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("detector.efflivetime"),
+                    name = "summary.periods.efflivetime",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("detector.livetime"),
+                    name = "summary.total.livetime",
+                    replicate_outputs=index["detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("detector.livetime"),
+                    name = "summary.periods.livetime",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
+            Division.replicate(
+                    outputs("summary.total.efflivetime"),
+                    outputs("summary.total.livetime"),
+                    name = "summary.total.eff",
+                    replicate_outputs=index["detector"]
+                    )
+
+            Division.replicate(
+                    outputs("summary.periods.efflivetime"),
+                    outputs("summary.periods.livetime"),
+                    name = "summary.periods.eff",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
+            # Number of accidentals
+            if "data-a" in self._future:
+                logger.warning("Future: calculate number of accidentals A")
+                Product.replicate( # TODO: doc, label
+                        outputs("daily_data.detector.efflivetime"),
+                        outputs("daily_data.detector.rate_acc"),
+                        name="daily_data.detector.num_acc_s_day",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                ArraySum.replicate(
+                        outputs("daily_data.detector.num_acc_s_day"),
+                        name="bkg.count_acc_fixed_s_day",
+                        )
+
+                Product.replicate(
+                        outputs("bkg.count_acc_fixed_s_day"),
+                        parameters["constant.conversion.seconds_in_day_inverse"],
+                        name="bkg.count_fixed.acc",
+                        replicate_outputs=combinations["detector.period"],
+                        )
 
             # Effective live time × N protons × ε / (4πL²)  (SNF)
             Product.replicate(
@@ -1739,81 +2097,244 @@ class model_dayabay_v0c:
             #
             # Backgrounds
             #
-            bkg_names = {
-                'acc': "accidental",
-                'lihe': "lithium9",
-                'fastn': "fastNeutron",
-                'amc': "amCSource",
-                'alphan': "carbonAlpha",
-                'muon': "muonRelated"
-            }
-            load_hist(
-                name = "bkg",
-                x = "erec",
-                y = "spectrum_shape",
-                merge_x = True,
-                normalize = True,
-                filenames = path_root/"bkg_SYSU_input_by_period_{}.root",
-                replicate_files = index["period"],
-                replicate_outputs = combinations["bkg.detector"],
-                skip = inactive_detectors,
-                key_order = (1, 2, 0),
-                name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
-            )
+            if "data-a" in self._future:
+                logger.warning("Future: use bakckgrounds from dataset A")
+                bkg_names = {
+                    "acc": "accidental",
+                    "lihe": "lithium9",
+                    "fastn": "fastNeutron",
+                    "amc": "amCSource",
+                    "alphan": "carbonAlpha",
+                    "muon": "muonRelated"
+                }
+                load_hist(
+                    name = "bkg",
+                    x = "erec",
+                    y = "spectrum_shape",
+                    merge_x = True,
+                    normalize = True,
+                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_bkg_spectra_{{}}.{self.source_type}",
+                    replicate_files = index["period"],
+                    replicate_outputs = combinations["bkg.detector"],
+                    skip = inactive_combinations,
+                    key_order = (
+                        ("period", "bkg", "detector"),
+                        ("bkg", "detector", "period"),
+                    ),
+                    name_function = lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}"
+                )
+            else:
+                path_root = path_data / "root"
+                bkg_names = {
+                    "acc": "accidental",
+                    "lihe": "lithium9",
+                    "fastn": "fastNeutron",
+                    "amc": "amCSource",
+                    "alphan": "carbonAlpha",
+                    "muon": "muonRelated"
+                }
+                load_hist(
+                    name = "bkg",
+                    x = "erec",
+                    y = "spectrum_shape",
+                    merge_x = True,
+                    normalize = True,
+                    filenames = path_root/"bkg_tmp_B_input_by_period_{}.root",
+                    replicate_files = index["period"],
+                    replicate_outputs = combinations["bkg.detector"],
+                    skip = inactive_detectors,
+                    key_order = (
+                        ("period", "bkg", "detector"),
+                        ("bkg", "detector", "period"),
+                    ),
+                    name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
+                )
 
-            # TODO:
-            # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
-            # So, every bin contain 0.00416667.
-            # TODO: remove in dayabay-v1
-            fastn_data = ones(240) / 240
-            for key, spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkitems():
-                spectrum._data[:] = fastn_data
+            if "data-a" in self._future:
+                pass
+            else:
+                # TODO:
+                # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
+                # So, every bin contain 0.00416667.
+                # TODO: remove in dayabay-v1
+                fastn_data = ones(240) / 240
+                for spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkvalues():
+                    spectrum._data[:] = fastn_data
 
-            Product.replicate(
-                    parameters("all.bkg.rate.acc"),
-                    outputs("bkg.spectrum_shape.acc"),
-                    name="bkg.spectrum_per_day.acc",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+            if "bkg-order" in self._future:
+                logger.warning("Future: use updated bakckground normalization order")
 
-            Product.replicate(
-                    # outputs("bkg.rate.lihe"),
-                    parameters("all.bkg.rate.lihe"),
-                    outputs("bkg.spectrum_shape.lihe"),
-                    name="bkg.spectrum_per_day.lihe",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                # TODO: labels
+                Product.replicate(
+                        parameters("all.bkg.rate"),
+                        outputs("detector.efflivetime_days"),
+                        name = "bkg.count_fixed",
+                        replicate_outputs=combinations["bkg_stable.detector.period"]
+                        )
 
-            Product.replicate(
-                    # outputs("bkg.rate.fastn"),
-                    parameters("all.bkg.rate.fastn"),
-                    outputs("bkg.spectrum_shape.fastn"),
-                    name="bkg.spectrum_per_day.fastn",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                # TODO: labels
+                Product.replicate(
+                        parameters("all.bkg.rate_scale.acc"),
+                        outputs("bkg.count_fixed.acc"),
+                        name = "bkg.count.acc",
+                        replicate_outputs=combinations["detector.period"]
+                        )
 
-            Product.replicate(
-                    parameters("all.bkg.rate.alphan"),
-                    outputs("bkg.spectrum_shape.alphan"),
-                    name="bkg.spectrum_per_day.alphan",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                remap_items(
+                        parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
+                        outputs.child("bkg.uncertainty_scale"),
+                        rename_indices = site_arrangement,
+                        skip_indices_target = inactive_detectors,
+                        )
 
-            Product.replicate(
-                    parameters("all.bkg.rate.amc"),
-                    outputs("bkg.spectrum_shape.amc"),
-                    name="bkg.spectrum_per_day.amc",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                # TODO: labels
+                ProductShiftedScaled.replicate(
+                        outputs("bkg.count_fixed"),
+                        parameters("sigma.bkg.rate"),
+                        outputs.get_dict("bkg.uncertainty_scale"),
+                        name = "bkg.count",
+                        shift=1.0,
+                        replicate_outputs=combinations["bkg_site_correlated.detector.period"],
+                        allow_skip_inputs = True,
+                        skippable_inputs_should_contain = combinations["bkg_not_site_correlated.detector.period"]
+                        )
 
-            # Total spectrum of Background in Detector during Period
-            # spectrum_per_day [N / day] * efflivetime [sec] * seconds_in_day_inverse [day / sec] -> [N]
-            Product.replicate(
-                    outputs("detector.efflivetime_days"),
-                    outputs("bkg.spectrum_per_day"),
-                    name="bkg.spectrum",
-                    replicate_outputs=combinations["bkg.detector.period"],
-                    )
+                # TODO: labels
+                ProductShiftedScaled.replicate(
+                        outputs("bkg.count_fixed.amc"),
+                        parameters("sigma.bkg.rate.amc"),
+                        parameters["all.bkg.uncertainty_scale.amc"],
+                        name = "bkg.count.amc",
+                        shift=1.0,
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                outputs["bkg.count.alphan"] = outputs.get_dict("bkg.count_fixed.alphan")
+
+                # TODO: labels
+                Product.replicate(
+                        outputs("bkg.count"),
+                        outputs("bkg.spectrum_shape"),
+                        name="bkg.spectrum",
+                        replicate_outputs=combinations["bkg.detector.period"],
+                        )
+
+                # Summary data
+                Sum.replicate(
+                        outputs("bkg.count"),
+                        name = "summary.total.bkg_count",
+                        replicate_outputs=combinations["bkg.detector"],
+                        )
+
+                remap_items(
+                        outputs("bkg.count"),
+                        outputs.child("summary.periods.bkg_count"),
+                        reorder_indices=[
+                            ["bkg", "detector", "period"],
+                            ["bkg", "period", "detector"],
+                        ],
+                        )
+
+                Division.replicate(
+                        outputs("summary.total.bkg_count"),
+                        outputs("summary.total.efflivetime"),
+                        name = "summary.total.bkg_rate_s",
+                        replicate_outputs=combinations["bkg.detector"]
+                        )
+
+                Division.replicate(
+                        outputs("summary.periods.bkg_count"),
+                        outputs("summary.periods.efflivetime"),
+                        name = "summary.periods.bkg_rate_s",
+                        replicate_outputs=combinations["bkg.period.detector"]
+                        )
+
+                Product.replicate(
+                        outputs("summary.total.bkg_rate_s"),
+                        parameters["constant.conversion.seconds_in_day"],
+                        name = "summary.total.bkg_rate",
+                        replicate_outputs=combinations["bkg.detector"]
+                        )
+
+                Product.replicate(
+                        outputs("summary.periods.bkg_rate_s"),
+                        parameters["constant.conversion.seconds_in_day"],
+                        name = "summary.periods.bkg_rate",
+                        replicate_outputs=combinations["bkg.period.detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.total.bkg_rate.fastn"),
+                        outputs("summary.total.bkg_rate.muonx"),
+                        name = "summary.total.bkg_rate_fastn_muonx",
+                        replicate_outputs=index["detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.periods.bkg_rate.fastn"),
+                        outputs("summary.periods.bkg_rate.muonx"),
+                        name = "summary.periods.bkg_rate_fastn_muonx",
+                        replicate_outputs=combinations["period.detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.total.bkg_rate"),
+                        name = "summary.total.bkg_rate_total",
+                        replicate_outputs=index["detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.periods.bkg_rate"),
+                        name = "summary.periods.bkg_rate_total",
+                        replicate_outputs=combinations["period.detector"]
+                        )
+            else:
+                assert "data-a" not in self._future
+                Product.replicate(
+                        parameters("all.bkg.rate.acc"),
+                        outputs("bkg.spectrum_shape.acc"),
+                        name="bkg.spectrum_per_day.acc",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                Product.replicate(
+                        # outputs("bkg.rate.lihe"),
+                        parameters("all.bkg.rate.lihe"),
+                        outputs("bkg.spectrum_shape.lihe"),
+                        name="bkg.spectrum_per_day.lihe",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                Product.replicate(
+                        # outputs("bkg.rate.fastn"),
+                        parameters("all.bkg.rate.fastn"),
+                        outputs("bkg.spectrum_shape.fastn"),
+                        name="bkg.spectrum_per_day.fastn",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                Product.replicate(
+                        parameters("all.bkg.rate.alphan"),
+                        outputs("bkg.spectrum_shape.alphan"),
+                        name="bkg.spectrum_per_day.alphan",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                Product.replicate(
+                        parameters("all.bkg.rate.amc"),
+                        outputs("bkg.spectrum_shape.amc"),
+                        name="bkg.spectrum_per_day.amc",
+                        replicate_outputs=combinations["detector.period"],
+                        )
+
+                # Total spectrum of Background in Detector during Period
+                # spectrum_per_day [N / day] * efflivetime [sec] * seconds_in_day_inverse [day / sec] -> [N]
+                Product.replicate(
+                        outputs("detector.efflivetime_days"),
+                        outputs("bkg.spectrum_per_day"),
+                        name="bkg.spectrum",
+                        replicate_outputs=combinations["bkg.detector.period"],
+                        )
 
             Sum.replicate(
                     outputs("bkg.spectrum"),
@@ -2079,7 +2600,7 @@ class model_dayabay_v0c:
             Mapping[str, float | str] | Sequence[tuple[str, float | int]]
         ) = (),
         *,
-        mode: Literal["value", "normvalue"] = "value"
+        mode: Literal["value", "normvalue"] = "value",
     ):
         parameters_storage = self.storage("parameters.all")
         if isinstance(parameter_values, Mapping):
@@ -2089,13 +2610,17 @@ class model_dayabay_v0c:
 
         match mode:
             case "value":
+
                 def setter(par, value):
                     par.push(value)
                     print(f"Push {parname}={svalue}")
+
             case "normvalue":
+
                 def setter(par, value):
                     par.normvalue = value
                     print(f"Set norm {parname}={svalue}")
+
             case _:
                 raise ValueError(mode)
 
@@ -2145,10 +2670,18 @@ class model_dayabay_v0c:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
-        may_ignore = {}
-        for key in may_ignore:
-            with suppress(ValueError):
-                unused_keys.remove(key)
+        may_ignore = {
+            "bkg.spectrum_per_day",
+            "statistic.nuisance.parts.bkg.rate.acc",
+            "statistic.nuisance.parts.bkg.rate.amc",
+            "statistic.nuisance.parts.bkg.rate.lihe",
+            "statistic.nuisance.parts.bkg.rate.fastn",
+            "statistic.nuisance.parts.bkg.rate.muonx",
+        }
+        for key_may_ignore in may_ignore:
+            for i, key_unused in reversed(tuple(enumerate(unused_keys))):
+                if key_unused.startswith(key_may_ignore):
+                    del unused_keys[i]
 
         if not unused_keys:
             return
@@ -2157,4 +2690,51 @@ class model_dayabay_v0c:
             f"The following label groups were not used: {', '.join(unused_keys)}"
         )
 
+    def make_summary_table(
+        self, period: Literal["total", "6AD", "8AD", "7AD"] = "total"
+    ) -> DataFrame:
+        match period:
+            case "total":
+                source_fmt = f"summary.{period}.{{name}}"
+            case "6AD" | "8AD" | "7AD":
+                source_fmt = f"summary.periods.{{name}}.{period}"
+            case _:
+                raise ValueError(period)
 
+        columns_sources = {
+            # "count_ibd_candidates": "",
+            "daq_time_day": source_fmt.format(name="livetime"),
+            "eff": source_fmt.format(name="eff"),
+            "rate_acc": source_fmt.format(name="bkg_rate.acc"),
+            "rate_fastn": source_fmt.format(name="bkg_rate.fastn"),
+            "rate_muonx": source_fmt.format(name="bkg_rate.muonx"),
+            "rate_fastn_muonx": source_fmt.format(name="bkg_rate_fastn_muonx"),
+            "rate_lihe": source_fmt.format(name="bkg_rate.lihe"),
+            "rate_amc": source_fmt.format(name="bkg_rate.amc"),
+            "rate_alphan": source_fmt.format(name="bkg_rate.alphan"),
+            "rate_bkg_total": source_fmt.format(name="bkg_rate_total"),
+            # "rate_nu": ""
+        }
+
+        columns = ["name"] + list(self.index["detector"])
+        df = DataFrame(columns=columns, index=range(len(columns_sources)), dtype="f8")
+        df = df.astype({"name": str})
+
+        for i, (key, path) in enumerate(columns_sources.items()):
+            try:
+                source = self.storage["outputs"].get_dict(path)
+            except KeyError:
+                continue
+            for k, output in source.walkitems():
+                value = output.data[0]
+
+                df.loc[i, k] = value
+                df.loc[i, "name"] = key
+        df[df.isna()] = 0.0
+        df = df.astype({"name": "S"})
+
+        return df
+
+    def print_summary_table(self):
+        df = self.make_summary_table()
+        print(df.to_string())

@@ -724,7 +724,7 @@ class model_dayabay_v0:
                 name = "daily_data.detector_all",
                 filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
                 replicate_outputs = index["detector"],
-                objects = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
+                name_function = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
                 skip = self.inactive_detectors
             )
@@ -741,10 +741,10 @@ class model_dayabay_v0:
                 filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
                 replicate_outputs = ("core_data",),
                 columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
-                key_order = (0,)
+                key_order = (("week", "core_data"), ("week",))
             )
-            from models.bundles.refine_reactor_data import refine_reactor_data
-            refine_reactor_data(
+            from models.bundles.refine_reactor_data import split_refine_reactor_data
+            split_refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
                 reactors = index["reactor"],
@@ -1082,7 +1082,7 @@ class model_dayabay_v0:
                 name = "detector.iav",
                 filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self._source_type}",
                 replicate_outputs = ("matrix_raw",),
-                objects = {"matrix_raw": "iav_matrix"},
+                name_function = {"matrix_raw": "iav_matrix"},
                 array_kwargs = {
                     'edges': (edges_energy_escint, edges_energy_edep)
                     }
@@ -1262,7 +1262,7 @@ class model_dayabay_v0:
                 replicate_outputs = combinations["bkg.detector"],
                 skip = self.inactive_detectors,
                 key_order = (1, 2, 0),
-                objects = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
+                name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
             )
 
             # TODO: Daya Bay v1 (if needed)
@@ -1407,7 +1407,7 @@ class model_dayabay_v0:
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
-            from dagflow.lib.common import ParArrayInput
+            from dagflow.lib.parameters import ParArrayInput
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,
@@ -1614,6 +1614,8 @@ class model_dayabay_v0:
         parameter_values: (
             Mapping[str, float | str] | Sequence[tuple[str, float | int]]
         ) = (),
+        *,
+        mode: Literal["value", "normvalue"] = "value"
     ):
         parameters_storage = self.storage("parameters.all")
         if isinstance(parameter_values, Mapping):
@@ -1621,11 +1623,22 @@ class model_dayabay_v0:
         else:
             iterable = parameter_values
 
+        match mode:
+            case "value":
+                def setter(par, value):
+                    par.push(value)
+                    print(f"Push {parname}={svalue}")
+            case "normvalue":
+                def setter(par, value):
+                    par.normvalue = value
+                    print(f"Set norm {parname}={svalue}")
+            case _:
+                raise ValueError(mode)
+
         for parname, svalue in iterable:
             value = float(svalue)
             par = parameters_storage[parname]
-            par.push(value)
-            print(f"Set {parname}={svalue}")
+            setter(par, value)
 
     def next_sample(
         self, *, mc_parameters: bool = True, mc_statistics: bool = True
