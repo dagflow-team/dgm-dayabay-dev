@@ -7,9 +7,6 @@ from models import available_models, load_model
 
 @mark.parametrize("modelname", available_models())
 def test_dayabay_v0(modelname: str):
-    # TODO: remove when the model is done
-    if modelname=="v0d":
-        return
     model = load_model(modelname, close=True, strict=True)
 
     graph = model.graph
