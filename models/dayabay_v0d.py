@@ -59,6 +59,10 @@ class model_dayabay_v0d:
     Purpose:
         - introduce alternative data inputs
         - provide configuration to switch between inputs and compare them
+        - introduce dataset A:
+            - livetimes, efficiencies, accidentals rates
+            - muon decay background
+        - proper correlations between background rate parameters
 
     Attributes
     ----------
@@ -2671,12 +2675,23 @@ class model_dayabay_v0d:
 
         unused_keys = list(labels_mk.walkjoinedkeys())
         may_ignore = {
+            # future
             "bkg.spectrum_per_day",
             "statistic.nuisance.parts.bkg.rate.acc",
             "statistic.nuisance.parts.bkg.rate.amc",
             "statistic.nuisance.parts.bkg.rate.lihe",
             "statistic.nuisance.parts.bkg.rate.fastn",
             "statistic.nuisance.parts.bkg.rate.muonx",
+            # past
+            "daily_data.detector.rate_acc",
+            "daily_data.detector.rate_acc_s_day",
+            "daily_data.detector.num_acc_s_day",
+            "bkg.count_fixed",
+            "bkg.count",
+            "bkg.spectrum.muonx",
+            "bkg.spectrum_shape.muonx",
+            "statistic.nuisance.parts.bkg",
+            "summary",
         }
         for key_may_ignore in may_ignore:
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
