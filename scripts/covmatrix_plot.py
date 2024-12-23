@@ -18,6 +18,8 @@ from dagflow.tools.logger import logger
 if TYPE_CHECKING:
     from typing import Literal, Mapping, Sequence
 
+    from matplotlib.collections import QuadMesh
+
 
 def main(opts: Namespace) -> None:
     cmap = "RdBu_r"
@@ -50,7 +52,9 @@ def main(opts: Namespace) -> None:
 
     blocksize = edges.size - 1
     block_selected = 1
-    block_selection = slice(blocksize * block_selected, blocksize * (block_selected + 1))
+    block_selection = slice(
+        blocksize * block_selected, blocksize * (block_selected + 1)
+    )
     block_name = elements[block_selected]
 
     if opts.output is not None:
@@ -184,9 +188,7 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=f"Covariance matrix {name} (symlog){title_suffix}",
         )
-        hm = pcolor_with_blocks(
-            matrix_cov, blocks=elements, cmap=cmap, symlog=True
-        )
+        hm = pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap, symlog=True)
         if pdf and hm is not None:
             pdf.savefig()
 
@@ -220,7 +222,7 @@ def main(opts: Namespace) -> None:
             title=f"Covariance matrix {name} (block {block_name}){title_suffix}",
         )
         hm = pcolor_with_blocks(
-            matrix_cov[block_selection,block_selection], blocks=elements[:1], cmap=cmap
+            matrix_cov[block_selection, block_selection], blocks=elements[:1], cmap=cmap
         )
         if pdf and hm is not None:
             pdf.savefig()
@@ -233,7 +235,7 @@ def main(opts: Namespace) -> None:
             title=f"Covariance matrix {name} (block {block_name}, symlog){title_suffix}",
         )
         hm = pcolor_with_blocks(
-            matrix_cov[block_selection,block_selection],
+            matrix_cov[block_selection, block_selection],
             blocks=elements[:1],
             cmap=cmap,
             symlog=True,
@@ -273,9 +275,7 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=rf"Relative covariance matrix {name} (symlog), %²{title_suffix}",
         )
-        hm = pcolor_with_blocks(
-            matrix_cov_rel, blocks=elements, cmap=cmap, symlog=True
-        )
+        hm = pcolor_with_blocks(matrix_cov_rel, blocks=elements, cmap=cmap, symlog=True)
         if pdf and hm is not None:
             pdf.savefig()
 
@@ -287,7 +287,9 @@ def main(opts: Namespace) -> None:
             title=f"Relative covariance matrix {name} (block {block_name}){title_suffix}",
         )
         hm = pcolor_with_blocks(
-            matrix_cov_rel[block_selection,block_selection], blocks=elements[:1], cmap=cmap
+            matrix_cov_rel[block_selection, block_selection],
+            blocks=elements[:1],
+            cmap=cmap,
         )
         if pdf and hm is not None:
             pdf.savefig()
@@ -300,7 +302,7 @@ def main(opts: Namespace) -> None:
             title=f"Relative covariance matrix {name} (block {block_name}, symlog){title_suffix}",
         )
         hm = pcolor_with_blocks(
-            matrix_cov_rel[block_selection,block_selection],
+            matrix_cov_rel[block_selection, block_selection],
             blocks=elements[:1],
             cmap=cmap,
             symlog=True,
@@ -327,7 +329,7 @@ def main(opts: Namespace) -> None:
             title=f"Correlation matrix {name} (block {block_name}){title_suffix}",
         )
         hm = pcolor_with_blocks(
-            matrix_cor[block_selection,block_selection],
+            matrix_cor[block_selection, block_selection],
             blocks=elements[:1],
             pcolormesh=True,
             cmap=cmap,
@@ -401,7 +403,7 @@ def covariance_get_matrices(
 
 
 def heatmap_show_values(
-    pc: "QuadMesh", fmt: str = "%.2f", lower_triangle: bool = False, **kwargs
+    pc: QuadMesh, fmt: str = "%.2f", lower_triangle: bool = False, **kwargs
 ):
     from numpy import mean, unravel_index
 
@@ -438,9 +440,9 @@ def matrix_sum_blocks(matrix: NDArray, blocksize: int) -> NDArray:
     nblocks = nr // blocksize
     ret = empty((nblocks, nblocks), dtype=matrix.dtype)
     for row in range(nblocks):
+        row1 = row * blocksize
+        row2 = row1 + blocksize
         for col in range(nblocks):
-            row1 = row * blocksize
-            row2 = row1 + blocksize
             col1 = col * blocksize
             col2 = col1 + blocksize
 
@@ -476,7 +478,7 @@ def pcolor_with_blocks(
     dmin = data.min()
     dmax = data.max()
 
-    if dmin==dmax==0:
+    if dmin == dmax == 0:
         return None
 
     bound = max(fabs(dmin), dmax)
@@ -523,9 +525,7 @@ def pcolor_with_blocks(
 def _get_blocks_data(size: int, blocks: Sequence[str]) -> NDArray:
     n_blocks = len(blocks)
     bins_in_block = size // n_blocks
-    xs = arange(0, n_blocks + 1) * bins_in_block
-
-    return xs
+    return arange(0, n_blocks + 1) * bins_in_block
 
 
 def _plot_separators(
