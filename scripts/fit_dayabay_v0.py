@@ -88,18 +88,18 @@ def main(args: Namespace) -> None:
     chi2p_syst = statistic["full.chi2p"]
 
     if args.full_fit:
-        minimization_pars = [par for par in parameters("oscprob").walkvalues()][:-1]
-        minimization_pars.extend([par for par in parameters("detector.eres").walkvalues()])
-        minimization_pars.extend([par for par in parameters("detector.lsnl_scale_a").walkvalues()])
-        minimization_pars.extend([par for par in parameters("detector.iav_offdiag_scale_factor").walkvalues()])
-        minimization_pars.extend([par for par in parameters("detector.detector_relative").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.energy_per_fission").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.nominal_thermal_power").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.snf_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.offequilibrium_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("reactor.fission_fraction_scale").walkvalues()])
-        minimization_pars.extend([par for par in parameters("bkg").walkvalues()])
-        minimization_pars.extend([parameters.get_value("detector.global_normalization")])
+        minimization_pars = {par_name: par for par_name, par in parameters("oscprob").walkjoineditems() if par_name != "nmo"}
+        minimization_pars.update(dict(parameters["detector.eres"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["detector.lsnl_scale_a"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["detector.iav_offdiag_scale_factor"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["detector.detector_relative"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["reactor.energy_per_fission"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["reactor.nominal_thermal_power"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["reactor.snf_scale"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["reactor.nonequilibrium_scale"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["reactor.fission_fraction_scale"].walkjoineditems()))
+        minimization_pars.update(dict(parameters["bkg"].walkjoineditems()))
+        minimization_pars.update({"detector.global_normalization": parameters["detector.global_normalization"]})
         model.set_parameters({"detector.global_normalization": 1.})
         model.next_sample()
         model.set_parameters({"detector.global_normalization": 1.})
