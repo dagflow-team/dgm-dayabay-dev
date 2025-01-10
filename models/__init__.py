@@ -7,6 +7,8 @@ from .dayabay_v0b import model_dayabay_v0b
 from .dayabay_v0c import model_dayabay_v0c
 from .dayabay_v0d import model_dayabay_v0d
 
+from .dayabay_labels import LATEX_SYMBOLS
+
 _dayabay_models = {
     "v0": model_dayabay_v0,
     "v0b": model_dayabay_v0b,
