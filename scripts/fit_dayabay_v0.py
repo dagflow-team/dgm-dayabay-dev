@@ -79,8 +79,8 @@ def main(args: Namespace) -> None:
     )
 
     storage = model.storage
-    parameters = model.storage("parameters.all")
-    statistic = model.storage("outputs.statistic")
+    parameters = storage("parameters.all")
+    statistic = storage("outputs.statistic")
 
     from yaml import safe_dump
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
