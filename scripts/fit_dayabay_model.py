@@ -4,11 +4,11 @@ from argparse import Namespace
 import numpy as np
 from matplotlib import pyplot as plt
 from yaml import dump as yaml_dump
+from yaml import add_representer
 
 from dagflow.parameters import GaussianParameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-from dagflow.tools.yaml_dumper import convert_numpy_to_lists, filter_fit
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import LATEX_SYMBOLS, available_models, load_model
 from scripts import update_dict_parameters
@@ -16,6 +16,31 @@ from scripts import update_dict_parameters
 set_level(INFO1)
 
 DATA_INDICES = {"asimov": 0, "data-a": 1}
+
+
+add_representer(
+    np.ndarray,
+    lambda representer, obj: representer.represent_str(np.array_repr(obj)),
+)
+
+
+def filter_fit(src: dict, keys_to_fiter: list[str]) -> dict:
+    keys = list(src.keys())
+    for key in keys:
+        if key in keys_to_fiter:
+            del src[key]
+            continue
+        if isinstance(src[key], dict):
+            filter_fit(src[key], keys_to_fiter)
+
+
+def convert_numpy_to_lists(src: dict) -> dict:
+    for key, value in src.items():
+        if isinstance(value, np.ndarray):
+            src[key] = value.tolist()
+        elif isinstance(value, dict):
+            convert_numpy_to_lists(value)
+
 
 
 def main(args: Namespace) -> None:
