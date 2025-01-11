@@ -1,28 +1,21 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
-from yaml import dump as yaml_dump
 import numpy as np
 from matplotlib import pyplot as plt
+from yaml import dump as yaml_dump
 
+from dagflow.parameters import GaussianParameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-from dagflow.core import NodeStorage
-from dagflow.parameters import Parameter, GaussianParameter
 from dagflow.tools.yaml_dumper import convert_numpy_to_lists, filter_fit
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
-from models import available_models, load_model, LATEX_SYMBOLS
+from models import LATEX_SYMBOLS, available_models, load_model
+from scripts import update_dict_parameters
 
 set_level(INFO1)
 
 DATA_INDICES = {"asimov": 0, "data-a": 1}
-
-
-def update_minimization_paramers(
-    minimization_parameters: dict[str, Parameter], groups: list[str], model_parameters: NodeStorage,
-) -> None:
-    for group in groups:
-        minimization_parameters.update(dict(model_parameters(group).walkjoineditems()))
 
 
 def main(args: Namespace) -> None:
@@ -39,7 +32,7 @@ def main(args: Namespace) -> None:
         seed=args.seed,
     )
 
-    storage: NodeStorage = model.storage
+    storage = model.storage
     storage["nodes.data.proxy"].switch_input(DATA_INDICES[args.data])
     parameters_free = storage("parameters.free")
     parameters_constrained = storage("parameters.constrained")
@@ -58,11 +51,11 @@ def main(args: Namespace) -> None:
 
     stat_chi2 = statistic[f"{args.chi2}"]
     minimization_parameters = {}
-    update_minimization_paramers(
+    update_dict_parameters(
         minimization_parameters, parameters_groups["free"], parameters_free
     )
     if "covmat" not in args.chi2:
-        update_minimization_paramers(
+        update_dict_parameters(
             minimization_parameters,
             parameters_groups["constrained"],
             parameters_constrained,

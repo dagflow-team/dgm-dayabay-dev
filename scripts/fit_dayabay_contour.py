@@ -1,26 +1,41 @@
 #!/usr/bin/env python
+import itertools
 from argparse import Namespace
 
 import numpy as np
-import itertools
-from numpy.typing import NDArray
-from scipy.stats import norm, chi2
 from matplotlib import pyplot as plt
+from numpy.typing import NDArray
+from scipy.stats import chi2, norm
 
+from dagflow.parameters.gaussian_parameter import GaussianParameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-from dagflow.parameters.gaussian_parameter import GaussianParameter
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import available_models, load_model
+from scripts import update_dict_parameters
 
 set_level(INFO1)
 
 DATA_INDICES = {"asimov": 0, "data-a": 1}
 
 
-def convert_sigmas_to_chi2(ndof, nsigmas) -> NDArray:
-    percentiles = 2 * norm(0, 1).cdf(range(nsigmas + 1)) - 1
-    return chi2(ndof).ppf(percentiles)
+def convert_sigmas_to_chi2(df: int, sigmas: list[float] | NDArray) -> NDArray:
+    """Convert deviation of normal unit distribution N(0, 1) to critical value of chi-squared
+
+    Parameters
+    ----------
+    df : int
+        degree of freedom of chi-squared distribution
+    sigmas : list[float] | NDArray
+        list or array deviations from 0 in terms of standard deviation of normal unit distribution N(0, 1)
+
+    Returns
+    -------
+    NDArray
+        array of critical values of chi-squared
+    """
+    percentiles = 2 * norm(0, 1).cdf(sigmas) - 1
+    return chi2(df).ppf(percentiles)
 
 
 def get_profile_of_chi2(
@@ -30,6 +45,27 @@ def get_profile_of_chi2(
     best_fit_value: float,
     best_fit_fun: float,
 ) -> tuple[NDArray, NDArray]:
+    """Make a profile of the chi-squared map using thee minimum value.
+    Works with 2-dimensional maps.
+
+    Parameters
+    ----------
+    parameter_grid : NDArray
+        array of grid to look for best fit value of parameter
+    profile_grid : NDArray
+        array of grid to create profile grid
+    chi2_map : NDArray
+        map of chi-squared values
+    best_fit_value : float
+        value of parameter in best fit point
+    best_fit_fun : float
+        value of the chi-squared in best fit point
+
+    Returns
+    -------
+    tuple[NDArray, NDArray]
+        array of profile grid values and array of chi-squared values
+    """
     abs_difference = np.abs(parameter_grid - best_fit_value)
     closest_value = abs_difference.min()
     mask = abs_difference == closest_value
@@ -40,31 +76,61 @@ def get_profile_of_chi2(
 def prepare_axes(
     ax: plt.Axes,
     limits: list[tuple[float, float], tuple[float, float]],
-    profile: tuple[NDArray],
+    profile: tuple[NDArray, NDArray],
     xlabel: str = "",
     ylabel: str = "",
     ticks: list[float] = [5, 10, 15, 20],
     levels: list[float] = [1, 4, 9, 16],
 ):
+    """Update axis labels, limits, ticks, and plot levels
+
+    Parameters
+    ----------
+    ax : plt.Axes
+        element of (sub-)plot
+    limits : list[tuple[float, float], tuple[float, float]]
+        tuples of xlimits and ylimits
+    profile : tuple[NDArray, NDArray]
+        array of x values and y values (profile grid and chi-squared values or reversed)
+    xlabel : str, optional
+        label of x axis, by default ""
+    ylabel : str, optional
+        label of y axis, by default ""
+    ticks : list[float], optional
+        ticks of chi-squared axis, by default [5, 10, 15, 20]
+    levels : list[float], optional
+        levels of constant chi-squared, by default [1, 4, 9, 16]
+    """
     xlim, ylim = limits
     if xlabel:
         ax.set_xticks(ticks, ticks)
         ax.set_yticks([], [])
         ax.set_xlabel(xlabel)
         ax.vlines(levels, *ylim, linestyle="--", alpha=0.25, colors="black")
-        ax.plot(profile[1], profile[0], color="black")
     elif ylabel:
         ax.set_xticks([], [])
         ax.set_yticks(ticks, ticks)
         ax.set_ylabel(ylabel)
         ax.hlines(levels, *xlim, linestyle="--", alpha=0.25, colors="black")
-        ax.plot(profile[0], profile[1], color="black")
+    ax.plot(profile[0], profile[1], color="black")
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.minorticks_on()
 
 
-def cartesian_product(grid_opts: list[tuple[GaussianParameter, float, float, int]]):
+def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[list[str], NDArray]:
+    """Create cartesian products of several axes
+
+    Parameters
+    ----------
+    grid_opts : list[tuple[str, float, float, int]]
+        tuple of parameter name, left and right bounds, and the number of points with equal distance between the bounds
+
+    Returns
+    -------
+    tuple[list[str], NDArray]
+        list of parameter names, and array of cartesian products of grids
+    """
     parameters = []
     grids = []
     for parameter, l_bound, r_bound, num in grid_opts:
@@ -75,6 +141,15 @@ def cartesian_product(grid_opts: list[tuple[GaussianParameter, float, float, int
 
 
 def push_parameters(parameters: list[GaussianParameter], values: NDArray) -> None:
+    """Push values of parameters
+
+    Parameters
+    ----------
+    parameters : list[GaussianParameter]
+        list of parameters to be changed
+    values : NDArray
+        array of values to be pushed in parameters
+    """
     for parameter, value in zip(parameters, values):
         parameter.push(value)
 
@@ -107,18 +182,15 @@ def main(args: Namespace) -> None:
         parameters_groups["constrained"].append("reactor_anue")
 
     stat_chi2 = statistic[f"{args.chi2}"]
-    minimization_parameters = {
-        par_name: par
-        for key in parameters_groups["free"]
-        for par_name, par in parameters_free(key).walkjoineditems()
-    }
+    minimization_parameters = {}
+    update_dict_parameters(
+        minimization_parameters, parameters_groups["free"], parameters_free
+    )
     if "covmat" not in args.chi2:
-        minimization_parameters.update(
-            {
-                par_name: par
-                for key in parameters_groups["constrained"]
-                for par_name, par in parameters_constrained(key).walkjoineditems()
-            }
+        update_dict_parameters(
+            minimization_parameters,
+            parameters_groups["constrained"],
+            parameters_constrained,
         )
 
     model.next_sample()
@@ -126,6 +198,7 @@ def main(args: Namespace) -> None:
     global_fit = minimizer.fit()
     best_fit_fun = global_fit["fun"]
     best_fit_values = global_fit["x"]
+    best_fit_x, best_fit_y, *_ = best_fit_values
     best_fit_errors = global_fit["errors"]
     push_parameters(minimization_parameters.values(), best_fit_values)
 
@@ -147,36 +220,34 @@ def main(args: Namespace) -> None:
     chi2_map = np.array(chi2_map)
 
     fig, axes = plt.subplots(2, 2, gridspec_kw={"width_ratios": [3, 1], "height_ratios": [1, 3]})
-    ndof = len(parameters)
-    profiles = []
-    for i in range(ndof):
-        x_profile, y_profile = get_profile_of_chi2(
-            grid[:, i], grid[:, (i + 1) % 2], chi2_map, best_fit_values[i], best_fit_fun,
-        )
-        profiles.append((x_profile, y_profile))
-
+    sinSqD13_profile, chi2_profile = get_profile_of_chi2(
+        grid[:, 1], grid[:, 0], chi2_map, best_fit_y, best_fit_fun,
+    )
 
     label = r"$\Delta\chi^2$"
     prepare_axes(
         axes[0, 0],
         limits=[(grid[:, 0].min(), grid[:, 0].max()), (0, 20)],
         ylabel=label,
-        profile=profiles[1],
+        profile=(sinSqD13_profile, chi2_profile),
     )
 
+    dm32_profile, chi2_profile = get_profile_of_chi2(
+        grid[:, 0], grid[:, 1], chi2_map, best_fit_x, best_fit_fun,
+    )
     prepare_axes(
         axes[1, 1],
         limits=[(0, 20), (grid[:, 1].min(), grid[:, 1].max())],
-        xlabel=r"$\Delta\chi^2$",
-        profile=profiles[0],
+        xlabel=label,
+        profile=(chi2_profile, dm32_profile),
     )
 
-    levels = convert_sigmas_to_chi2(ndof, 3)
+    ndof = len(parameters)
+    levels = convert_sigmas_to_chi2(ndof, [0, 1, 2, 3])
     axes[1, 0].grid(linestyle="--")
     axes[1, 0].tricontourf(grid[:, 0], grid[:, 1], chi2_map - best_fit_fun, levels=levels, cmap="GnBu")
-    bf_x, bf_y, *_ = best_fit_values
     bf_x_error, bf_y_error, *_ = best_fit_errors
-    axes[1, 0].errorbar(bf_x, bf_y, xerr=bf_x_error, yerr=bf_y_error, color="black", marker="o", markersize=3, capsize=3)
+    axes[1, 0].errorbar(best_fit_x, best_fit_y, xerr=bf_x_error, yerr=bf_y_error, color="black", marker="o", markersize=3, capsize=3)
 
     axes[1, 0].set_ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
     axes[1, 0].set_xlabel(r"$\sin^22\theta_{13}$")
@@ -184,12 +255,9 @@ def main(args: Namespace) -> None:
     fig.delaxes(axes[0, 1])
     plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
-    plt.savefig(f"/tmp/contour-profile.pdf")
-    plt.cla(), plt.clf()
-
-
-
-    import IPython; IPython.embed()
+    if args.output_contour:
+        plt.savefig(args.output_contour)
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -270,16 +338,8 @@ if __name__ == "__main__":
 
     outputs = parser.add_argument_group("outputs", "set outputs")
     outputs.add_argument(
-        "--output-fit",
-        help="path to save full fit, yaml format",
-    )
-    outputs.add_argument(
-        "--output-plot-pars",
-        help="path to save plot of normalized values",
-    )
-    outputs.add_argument(
-        "--output-plot-covmat",
-        help="path to save plot of normalized values",
+        "--output-contour",
+        help="path to save plot of contour plots",
     )
 
     args = parser.parse_args()
