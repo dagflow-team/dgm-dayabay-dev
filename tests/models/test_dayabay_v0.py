@@ -44,7 +44,7 @@ def test_dayabay_v0_proxy_switch(modelname: str):
 
     storage = model.storage
 
-    proxy_node = storage["nodes.data.pseudo.proxy"]
+    proxy_node = storage["nodes.data.proxy"]
     obs = storage.get_value("outputs.eventscount.final.concatenated.selected")
     chi2 = storage["outputs.statistic.stat.chi2p"]
     assert chi2.data != 0.0
