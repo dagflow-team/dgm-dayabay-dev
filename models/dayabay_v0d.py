@@ -26,12 +26,13 @@ FutureType = Literal[
     "all",  # enable all the options
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
-    "data-a",  # use dataset A
-    "bkg-order",  # use optimized background order (included in data-a)
+    "dataset_a",  # use dataset A
+    "dataset_b",  # use dataset B
+    "bkg-order",  # use optimized background order (included in dataset_a/dataset_b)
 ]
 _future_redundant = ["all", "reactor-35days"]
 _future_included = {
-    "data-a": ("bkg-order",),
+    "dataset_a": ("bkg-order",),
 }
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -284,6 +285,15 @@ class model_dayabay_v0d:
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self.source_type
 
+        # Provide variable for chosen dataset
+        dataset = None
+        if "dataset_a" in self._future:
+            dataset = "dataset_a"
+            dataset_label = "a"
+        elif "dataset_b" in self._future:
+            dataset = "dataset_b"
+            dataset_label = "b"
+
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
@@ -365,7 +375,7 @@ class model_dayabay_v0d:
                 f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
             ),
         }
-        if "data-a" in self._future:
+        if dataset == "dataset_a":
             logger.warning("Future: initialize muonx background")
             index["bkg"] = index["bkg"] + ("muonx",)
             index["bkg_stable"] = index["bkg_stable"] + ("muonx",)
@@ -695,8 +705,8 @@ class model_dayabay_v0d:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
-            if "data-a" in self._future:
-                logger.warning("Future: load data A background rates")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: load data {dataset_label.upper()} background rates")
                 load_parameters(
                     path="bkg.rate_scale",
                     load=path_parameters / "bkg_rate_scale_acc.yaml",
@@ -704,20 +714,20 @@ class model_dayabay_v0d:
                 )
                 load_parameters(
                     path="bkg.rate",
-                    load=path_parameters / "bkg_rates_uncorrelated_dataset_a.yaml",
+                    load=path_parameters / f"bkg_rates_uncorrelated_{dataset}.yaml",
                 )
                 load_parameters(
                     path="bkg.rate",
-                    load=path_parameters / "bkg_rates_correlated_dataset_a.yaml",
+                    load=path_parameters / f"bkg_rates_correlated_{dataset}.yaml",
                     sigma_visible=True,
                 )
                 load_parameters(
                     path="bkg.uncertainty_scale",
-                    load=path_parameters / "bkg_rate_uncertainty_scale_amc.yaml",
+                    load=path_parameters / f"bkg_rate_uncertainty_scale_amc.yaml",
                 )
                 load_parameters(
                     path="bkg.uncertainty_scale_by_site",
-                    load=path_parameters / "bkg_rate_uncertainty_scale_site.yaml",
+                    load=path_parameters / f"bkg_rate_uncertainty_scale_site_{dataset}.yaml",
                     replicate=combinations["site.period"],
                     ignore_keys=inactive_backgrounds,
                 )
@@ -1481,11 +1491,11 @@ class model_dayabay_v0d:
             #
             # Livetime
             #
-            if "data-a" in self._future:
-                logger.warning("Future: load daily data A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: load daily data {dataset_label.upper()}")
                 load_record_data(
                     name = "daily_data.detector_all",
-                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_daily_detector_data.{self.source_type}",
+                    filenames = path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_daily_detector_data.{self.source_type}",
                     replicate_outputs = index["detector"],
                     columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
                     skip = inactive_detectors
@@ -1571,8 +1581,8 @@ class model_dayabay_v0d:
                 dtype = "d"
             )
 
-            if "data-a" in self._future:
-                logger.warning("Future: create daily accidentals A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: create daily accidentals {dataset_label.upper()}")
                 Array.from_storage(
                     "daily_data.detector.rate_acc",
                     storage("data"),
@@ -1787,8 +1797,8 @@ class model_dayabay_v0d:
                     )
 
             # Number of accidentals
-            if "data-a" in self._future:
-                logger.warning("Future: calculate number of accidentals A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: calculate number of accidentals {dataset_label.upper()}")
                 Product.replicate( # TODO: doc, label
                         outputs("daily_data.detector.efflivetime"),
                         outputs("daily_data.detector.rate_acc"),
@@ -2097,8 +2107,8 @@ class model_dayabay_v0d:
             #
             # Backgrounds
             #
-            if "data-a" in self._future:
-                logger.warning("Future: use bakckgrounds from dataset A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: use bakckgrounds from dataset {dataset_label.upper()}")
                 bkg_names = {
                     "acc": "accidental",
                     "lihe": "lithium9",
@@ -2113,7 +2123,7 @@ class model_dayabay_v0d:
                     y = "spectrum_shape",
                     merge_x = True,
                     normalize = True,
-                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_bkg_spectra_{{}}.{self.source_type}",
+                    filenames = path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_bkg_spectra_{{}}.{self.source_type}",
                     replicate_files = index["period"],
                     replicate_outputs = combinations["bkg.detector"],
                     skip = inactive_combinations,
@@ -2150,7 +2160,7 @@ class model_dayabay_v0d:
                     name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
                 )
 
-            if "data-a" in self._future:
+            if dataset in ("dataset_a", "dataset_b"):
                 pass
             else:
                 # TODO:
@@ -2263,19 +2273,20 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["bkg.period.detector"]
                         )
 
-                Sum.replicate(
-                        outputs("summary.total.bkg_rate.fastn"),
-                        outputs("summary.total.bkg_rate.muonx"),
-                        name = "summary.total.bkg_rate_fastn_muonx",
-                        replicate_outputs=index["detector"]
-                        )
+                if dataset == "dataset_a":
+                    Sum.replicate(
+                            outputs("summary.total.bkg_rate.fastn"),
+                            outputs("summary.total.bkg_rate.muonx"),
+                            name = "summary.total.bkg_rate_fastn_muonx",
+                            replicate_outputs=index["detector"]
+                            )
 
-                Sum.replicate(
-                        outputs("summary.periods.bkg_rate.fastn"),
-                        outputs("summary.periods.bkg_rate.muonx"),
-                        name = "summary.periods.bkg_rate_fastn_muonx",
-                        replicate_outputs=combinations["period.detector"]
-                        )
+                    Sum.replicate(
+                            outputs("summary.periods.bkg_rate.fastn"),
+                            outputs("summary.periods.bkg_rate.muonx"),
+                            name = "summary.periods.bkg_rate_fastn_muonx",
+                            replicate_outputs=combinations["period.detector"]
+                            )
 
                 Sum.replicate(
                         outputs("summary.total.bkg_rate"),
@@ -2289,7 +2300,8 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["period.detector"]
                         )
             else:
-                assert "data-a" not in self._future
+                assert dataset in ("dataset_a", "dataset_b")  # not in self._future
+                # assert dataset not in self._future
                 Product.replicate(
                         parameters("all.bkg.rate.acc"),
                         outputs("bkg.spectrum_shape.acc"),
@@ -2416,7 +2428,7 @@ class model_dayabay_v0d:
                 x="erec",
                 y="fine",
                 merge_x=True,
-                filenames=path_arrays/f"dayabay_dataset_a/dayabay_a_ibd_spectra_{{}}.{self.source_type}",
+                filenames=path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_ibd_spectra_{{}}.{self.source_type}",
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
