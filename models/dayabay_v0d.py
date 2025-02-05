@@ -290,13 +290,9 @@ class model_dayabay_v0d:
         path_arrays = path_data / self.source_type
 
         # Provide variable for chosen dataset
-        dataset = None
-        if "dataset_a" in self._future:
-            dataset = "dataset_a"
-            dataset_label = "a"
-        elif "dataset_b" in self._future:
-            dataset = "dataset_b"
-            dataset_label = "b"
+        dataset = next(iter({"dataset_a", "dataset_b"}.intersection(set(self._future))))
+        if dataset:
+            dataset_label = dataset[-1]
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
