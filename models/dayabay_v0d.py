@@ -721,7 +721,7 @@ class model_dayabay_v0d:
                 )
                 load_parameters(
                     path="bkg.uncertainty_scale_by_site",
-                    load=path_parameters / "bkg_rate_uncertainty_scale_site.yaml",
+                    load=path_parameters / "bkg_rate_uncertainty_scale_site_dataset_a.yaml",
                     replicate=combinations["site.period"],
                     ignore_keys=inactive_backgrounds,
                 )
