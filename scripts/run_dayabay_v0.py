@@ -119,15 +119,16 @@ def main(opts: Namespace) -> None:
             accept_index=accept_index,
             filter=accept_index,
         )
-        storage["parameters.sigma"].savegraphs(
-            opts.graphs / "parameters" / "sigma",
-            mindepth=mindepth,
-            maxdepth=maxdepth,
-            keep_direction=True,
-            show="all",
-            accept_index=accept_index,
-            filter=accept_index,
-        )
+        with suppress(KeyError):
+            storage["parameters.sigma"].savegraphs(
+                opts.graphs / "parameters" / "sigma",
+                mindepth=mindepth,
+                maxdepth=maxdepth,
+                keep_direction=True,
+                show="all",
+                accept_index=accept_index,
+                filter=accept_index,
+            )
         storage["nodes"].savegraphs(
             opts.graphs,
             mindepth=mindepth,
