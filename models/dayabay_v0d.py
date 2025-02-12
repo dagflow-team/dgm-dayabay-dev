@@ -1555,6 +1555,14 @@ class model_dayabay_v0d:
                     )
 
             Array.from_storage(
+                "daily_data.detector.days",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "i"
+            )
+            outputs["daily_data.days"] = outputs.pop("daily_data.detector.days", delete_parents=True)
+
+            Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
                 remove_used_arrays = True,

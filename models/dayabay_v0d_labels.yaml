@@ -105,6 +105,9 @@ kinematics:
         axis: "IBD flux [cm²/proton]"
 daily_data:
   detector:
+    days:
+      group:
+        text: "Day since DAQ start {key}"
     eff:
       group:
         text: "Daily detector efficiency {key}"
