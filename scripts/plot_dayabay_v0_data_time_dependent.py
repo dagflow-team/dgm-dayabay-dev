@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from matplotlib import pyplot as plt
 
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
@@ -32,6 +33,19 @@ def main(opts: Namespace) -> None:
 
         method()
 
+    days_storage = storage["outputs.daily_data.days"]
+    eff_storage = storage["outputs.daily_data.detector.eff"]
+
+    plt.figure(figsize=(12,4))
+    ax = plt.subplot(111, xlabel="Day", ylabel="", title="")
+
+    for (period, ad), data in eff.walkitems():
+        data_days = eff_storage[period, ad]
+        import IPython; IPython.embed(colors='neutral') # fmt: skip
+
+    if opts.show:
+        plt.show()
+
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -41,7 +55,6 @@ if __name__ == "__main__":
         "-v", "--verbose", default=0, action="count", help="verbosity level"
     )
     parser.add_argument(
-        "-s",
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
@@ -65,5 +78,7 @@ if __name__ == "__main__":
     pars.add_argument(
         "--par", nargs=2, action="append", default=[], help="set parameter value"
     )
+
+    parser.add_argument("-s", "--show", action="store_true", help="show")
 
     main(parser.parse_args())
