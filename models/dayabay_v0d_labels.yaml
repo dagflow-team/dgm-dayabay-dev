@@ -528,11 +528,31 @@ mc:
     inputs: 
       text: "Node to set nuisance parameters values"
 data:
+  # real:
+  #   erec:
+  #     text: "Reconstructed energy (Erec) bin edges [MeV]\\nfor IBD events (real data)"
+  #     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV] (for IBD events, real data)"
+  #     axis: "$E_{\\rm rec}$ [MeV]"
+  #   fine:
+  #     group:
+  #       text: "Scaled (fit) # of IBD events at {index[0]} during {index[1]} [#ν]\\nfine binning, real data"
+  #   final:
+  #     detector:
+  #       group:
+  #         text: "# of IBD events at {index[0]} [#]\\nfinal binning, real data"
+  #     detector_period:
+  #       group:
+  #         text: "# of IBD events at {index[0]} during {index[1]} [#]\\nfinal binning, real data"
+  #   concatenated:
+  #     detector:
+  #       text: "# of IBD candidates in all detectors and all periods [#ν]\\nconcatenated, real data"
+  #     detector_period:
+  #       text: "# of IBD candidates in all detectors [#ν]\\nconcatenated, real data"
+  proxy:
+    text: "Switcher of the data source for likelihood"
   pseudo:
     self:
       text: "Pseudo data (this model) node for likelihood"
-    proxy:
-      text: "Switcher of the data source for likelihood"
 covariance:
   jacobians:
     oscprob:
