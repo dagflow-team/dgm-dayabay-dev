@@ -288,8 +288,9 @@ class model_dayabay_v0d:
 
         # Provide variable for chosen dataset
         dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
-        if dataset:
-            dataset_label = dataset
+        if dataset.endswith("a") or dataset.endswith("b"):
+            dataset_path = "dayabay_" + dataset
+            dataset_label = dataset[-1].upper()
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
@@ -1492,7 +1493,7 @@ class model_dayabay_v0d:
                 logger.warning(f"Future: load daily data {dataset_label.upper()}")
                 load_record_data(
                     name = "daily_data.detector_all",
-                    filenames = path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_daily_detector_data.{self.source_type}",
+                    filenames = path_arrays/f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
                     replicate_outputs = index["detector"],
                     columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
                     skip = inactive_detectors
@@ -2120,7 +2121,7 @@ class model_dayabay_v0d:
                     y = "spectrum_shape",
                     merge_x = True,
                     normalize = True,
-                    filenames = path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_bkg_spectra_{{}}.{self.source_type}",
+                    filenames = path_arrays/f"{dataset_path}/{dataset_path}_bkg_spectra_{{}}.{self.source_type}",
                     replicate_files = index["period"],
                     replicate_outputs = combinations["bkg.detector"],
                     skip = inactive_combinations,
@@ -2425,7 +2426,7 @@ class model_dayabay_v0d:
                     x="erec",
                     y="fine",
                     merge_x=True,
-                    filenames=path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_ibd_spectra_{{}}.{self.source_type}",
+                    filenames=path_arrays/f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
                     replicate_files=index["period"],
                     replicate_outputs=combinations["detector"],
                     skip=inactive_combinations,
