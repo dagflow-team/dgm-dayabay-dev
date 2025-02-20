@@ -28,6 +28,7 @@ FutureType = Literal[
     "reactor-35days",  # merge reactor data, each 5 weeks
     "dataset_a",  # use dataset A
     "dataset_b",  # use dataset B
+    "asimov",
     "bkg-order",  # use optimized background order (included in dataset_a/dataset_b)
 ]
 _future_redundant = ["all", "reactor-35days"]
@@ -286,9 +287,9 @@ class model_dayabay_v0d:
         path_arrays = path_data / self.source_type
 
         # Provide variable for chosen dataset
-        dataset = next(iter({"dataset_a", "dataset_b"}.intersection(set(self._future))))
+        dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
         if dataset:
-            dataset_label = dataset[-1]
+            dataset_label = dataset
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
@@ -2296,8 +2297,7 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["period.detector"]
                         )
             else:
-                assert dataset in ("dataset_a", "dataset_b")  # not in self._future
-                # assert dataset not in self._future
+                assert dataset == "asimov"  # not in self._future
                 Product.replicate(
                         parameters("all.bkg.rate.acc"),
                         outputs("bkg.spectrum_shape.acc"),
@@ -2419,43 +2419,44 @@ class model_dayabay_v0d:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
-            load_hist(
-                name="data.real",
-                x="erec",
-                y="fine",
-                merge_x=True,
-                filenames=path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_ibd_spectra_{{}}.{self.source_type}",
-                replicate_files=index["period"],
-                replicate_outputs=combinations["detector"],
-                skip=inactive_combinations,
-                name_function=lambda _, idx: f"anue_{idx[1]}"
-            )
+            if dataset != "asimov":
+                load_hist(
+                    name="data.real",
+                    x="erec",
+                    y="fine",
+                    merge_x=True,
+                    filenames=path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_ibd_spectra_{{}}.{self.source_type}",
+                    replicate_files=index["period"],
+                    replicate_outputs=combinations["detector"],
+                    skip=inactive_combinations,
+                    name_function=lambda _, idx: f"anue_{idx[1]}"
+                )
 
-            Rebin.replicate(
-                names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real.final.detector_period"},
-                replicate_outputs=combinations["detector.period"],
-            )
-            edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
-            outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
+                Rebin.replicate(
+                    names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real.final.detector_period"},
+                    replicate_outputs=combinations["detector.period"],
+                )
+                edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
+                edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
+                outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
 
-            Concatenation.replicate(
-                outputs("data.real.final.detector_period"),
-                name="data.real.concatenated.detector_period",
-            )
+                Concatenation.replicate(
+                    outputs("data.real.final.detector_period"),
+                    name="data.real.concatenated.detector_period",
+                )
 
-            Sum.replicate(
-                outputs("data.real.final.detector_period"),
-                name="data.real.final.detector",
-                replicate_outputs=index["detector"],
-            )
+                Sum.replicate(
+                    outputs("data.real.final.detector_period"),
+                    name="data.real.final.detector",
+                    replicate_outputs=index["detector"],
+                )
 
-            Concatenation.replicate(
-                outputs["data.real.final.detector"],
-                name="data.real.concatenated.detector"
-            )
+                Concatenation.replicate(
+                    outputs["data.real.final.detector"],
+                    name="data.real.concatenated.detector"
+                )
 
-            outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
+                outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
 
             MonteCarlo.replicate(
                 name="data.pseudo.self",
@@ -2469,7 +2470,8 @@ class model_dayabay_v0d:
                 name="data.proxy",
             )
             outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
-            outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
+            if dataset in ("dataset_a", "dataset_b"):
+                outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
