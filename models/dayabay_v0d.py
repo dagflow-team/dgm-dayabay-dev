@@ -29,6 +29,7 @@ FutureType = Literal[
     "reactor-35days",  # merge reactor data, each 5 weeks
     "dataset_a",  # use dataset A
     "dataset_b",  # use dataset B
+    "asimov",
     "bkg-order",  # use optimized background order (included in dataset_a/dataset_b)
 ]
 _future_redundant = ["all", "reactor-35days"]
@@ -292,9 +293,9 @@ class model_dayabay_v0d:
         path_arrays = path_data / self.source_type
 
         # Provide variable for chosen dataset
-        dataset = next(iter({"dataset_a", "dataset_b"}.intersection(set(self._future))))
+        dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
         if dataset:
-            dataset_label = dataset[-1]
+            dataset_label = dataset
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
@@ -2324,8 +2325,7 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["period.detector"]
                         )
             else:
-                assert dataset in ("dataset_a", "dataset_b")  # not in self._future
-                # assert dataset not in self._future
+                assert dataset in ("asimov", "dataset_a")
                 Product.replicate(
                         parameters("all.bkg.rate.acc"),
                         outputs("bkg.spectrum_shape.acc"),
@@ -2447,43 +2447,44 @@ class model_dayabay_v0d:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
-            load_hist(
-                name="data.real",
-                x="erec",
-                y="fine",
-                merge_x=True,
-                filenames=path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_ibd_spectra_{{}}.{self.source_type}",
-                replicate_files=index["period"],
-                replicate_outputs=combinations["detector"],
-                skip=inactive_combinations,
-                name_function=lambda _, idx: f"anue_{idx[1]}"
-            )
+            if dataset != "asimov":
+                load_hist(
+                    name="data.real",
+                    x="erec",
+                    y="fine",
+                    merge_x=True,
+                    filenames=path_arrays/f"dayabay_{dataset}/dayabay_{dataset_label}_ibd_spectra_{{}}.{self.source_type}",
+                    replicate_files=index["period"],
+                    replicate_outputs=combinations["detector"],
+                    skip=inactive_combinations,
+                    name_function=lambda _, idx: f"anue_{idx[1]}"
+                )
 
-            Rebin.replicate(
-                names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real.final.detector_period"},
-                replicate_outputs=combinations["detector.period"],
-            )
-            edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
-            outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
+                Rebin.replicate(
+                    names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real.final.detector_period"},
+                    replicate_outputs=combinations["detector.period"],
+                )
+                edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
+                edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
+                outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
 
-            Concatenation.replicate(
-                outputs("data.real.final.detector_period"),
-                name="data.real.concatenated.detector_period",
-            )
+                Concatenation.replicate(
+                    outputs("data.real.final.detector_period"),
+                    name="data.real.concatenated.detector_period",
+                )
 
-            Sum.replicate(
-                outputs("data.real.final.detector_period"),
-                name="data.real.final.detector",
-                replicate_outputs=index["detector"],
-            )
+                Sum.replicate(
+                    outputs("data.real.final.detector_period"),
+                    name="data.real.final.detector",
+                    replicate_outputs=index["detector"],
+                )
 
-            Concatenation.replicate(
-                outputs["data.real.final.detector"],
-                name="data.real.concatenated.detector"
-            )
+                Concatenation.replicate(
+                    outputs["data.real.final.detector"],
+                    name="data.real.concatenated.detector"
+                )
 
-            outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
+                outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
 
             MonteCarlo.replicate(
                 name="data.pseudo.self",
@@ -2494,9 +2495,11 @@ class model_dayabay_v0d:
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
             Proxy.replicate(
-                name="data.pseudo.proxy",
+                name="data.proxy",
             )
-            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.pseudo.proxy.input")
+            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
+            if dataset in ("dataset_a", "dataset_b"):
+                outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
@@ -2522,7 +2525,7 @@ class model_dayabay_v0d:
             outputs.get_value("covariance.data.fixed") >> inputs.get_value("cholesky.stat.fixed")
 
             Cholesky.replicate(name="cholesky.stat.data.fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
+            outputs.get_value("data.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
@@ -2539,7 +2542,7 @@ class model_dayabay_v0d:
             outputs.get_value("covariance.covmat_full_p.stat_variable") >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
-            outputs.get_value("data.pseudo.proxy") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("data.proxy") >> nodes.get_value("covariance.covmat_full_n")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
 
             Cholesky.replicate(name="cholesky.covmat_full_n")
@@ -2550,45 +2553,45 @@ class model_dayabay_v0d:
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
             outputs.get_value("cholesky.stat.fixed") >> inputs.get_value("statistic.stat.chi2p_iterative.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
 
             # (2-2) chi-squared Neyman stat
             Chi2.replicate(name="statistic.stat.chi2n")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2n.theory")
             outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value("statistic.stat.chi2n.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
 
             # (2-1)
             Chi2.replicate(name="statistic.stat.chi2p")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
             outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
 
             # (5) chi-squared Pearson syst (fixed Pearson errors)
             Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.errors")
 
             # (2-3) chi-squared Neyman syst
             Chi2.replicate(name="statistic.full.chi2n_covmat")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
             outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
 
             # (2-4) Pearson variable stat errors
             Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
             CNPStat.replicate(name="statistic.staterr.cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
 
             # (3) chi-squared CNP stat
             Chi2.replicate(name="statistic.stat.chi2cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2cnp.theory")
             outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
 
