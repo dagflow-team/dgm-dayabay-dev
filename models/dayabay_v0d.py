@@ -1489,7 +1489,7 @@ class model_dayabay_v0d:
                 logger.warning("Future: load daily data A")
                 load_record_data(
                     name = "daily_data.detector_all",
-                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_daily_detector_data.{self.source_type}",
+                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_dataset_a_daily_detector_data.{self.source_type}",
                     replicate_outputs = index["detector"],
                     columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
                     skip = inactive_detectors
@@ -2125,7 +2125,7 @@ class model_dayabay_v0d:
                     y = "spectrum_shape",
                     merge_x = True,
                     normalize = True,
-                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_bkg_spectra_{{}}.{self.source_type}",
+                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_dataset_a_bkg_spectra_{{}}.{self.source_type}",
                     replicate_files = index["period"],
                     replicate_outputs = combinations["bkg.detector"],
                     skip = inactive_combinations,
