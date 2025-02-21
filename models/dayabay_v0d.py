@@ -721,7 +721,8 @@ class model_dayabay_v0d:
                 )
                 load_parameters(
                     path="bkg.uncertainty_scale_by_site",
-                    load=path_parameters / "bkg_rate_uncertainty_scale_site_dataset_a.yaml",
+                    load=path_parameters
+                    / "bkg_rate_uncertainty_scale_site_dataset_a.yaml",
                     replicate=combinations["site.period"],
                     ignore_keys=inactive_backgrounds,
                 )
@@ -1552,6 +1553,20 @@ class model_dayabay_v0d:
             sync_reactor_detector_data(
                     data("daily_data.reactor"),
                     data("daily_data.detector"),
+                    )
+            data["daily_data.reactor.power"] = remap_items(
+                    data.get_dict("daily_data.reactor.power"),
+                    reorder_indices=[
+                        ["period", "reactor"],
+                        ["reactor", "period"]
+                        ]
+                    )
+            data["daily_data.reactor.fission_fraction"] = remap_items(
+                    data.get_dict("daily_data.reactor.fission_fraction"),
+                    reorder_indices=[
+                        ["period", "reactor", "isotope"],
+                        ["reactor", "isotope", "period"]
+                        ]
                     )
 
             Array.from_storage(
