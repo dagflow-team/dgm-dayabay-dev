@@ -2485,44 +2485,6 @@ class model_dayabay_v0d:
 
                 outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
 
-                load_hist(
-                    name="data.real_ibd",
-                    x="erec",
-                    y="fine",
-                    merge_x=True,
-                    filenames=path_arrays/f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
-                    replicate_files=index["period"],
-                    replicate_outputs=combinations["detector"],
-                    skip=inactive_combinations,
-                    name_function=lambda _, idx: f"expected_ibd_{idx[0]}_{idx[1]}"
-                )
-
-                Rebin.replicate(
-                    names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real_ibd.final.detector_period"},
-                    replicate_outputs=combinations["detector.period"],
-                )
-                edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
-                edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
-                outputs["data.real_ibd.fine"] >> inputs["data.real_ibd.final.detector_period"]
-
-                Concatenation.replicate(
-                    outputs("data.real_ibd.final.detector_period"),
-                    name="data.real_ibd.concatenated.detector_period",
-                )
-
-                Sum.replicate(
-                    outputs("data.real_ibd.final.detector_period"),
-                    name="data.real_ibd.final.detector",
-                    replicate_outputs=index["detector"],
-                )
-
-                Concatenation.replicate(
-                    outputs["data.real_ibd.final.detector"],
-                    name="data.real_ibd.concatenated.detector"
-                )
-
-                outputs["data.real_ibd.concatenated.selected"] = outputs[f"data.real_ibd.concatenated.{self.concatenation_mode}"]
-
             MonteCarlo.replicate(
                 name="data.pseudo.self",
                 mode=self.monte_carlo_mode,
@@ -2584,25 +2546,6 @@ class model_dayabay_v0d:
 
             Cholesky.replicate(name="cholesky.covmat_full_n")
             outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
-
-            # DEBUG
-            Cholesky.replicate(name="cholesky.tmp_ibd")
-            outputs["data.real_ibd.fine.8AD.AD11"] >> inputs["cholesky.tmp_ibd"]
-
-            Chi2.replicate(name="statistic.tmp_ibd")
-            outputs["eventscount.fine.ibd_normalized.AD11.8AD"] >> inputs["statistic.tmp_ibd.theory"]
-            outputs["cholesky.tmp_ibd"] >> inputs["statistic.tmp_ibd.errors"]
-            outputs["data.real_ibd.fine.8AD.AD11"] >> inputs["statistic.tmp_ibd.data"]
-
-
-            Cholesky.replicate(name="cholesky.tmp")
-            outputs["data.real.final.detector.AD11"] >> inputs["cholesky.tmp"]
-
-            Chi2.replicate(name="statistic.tmp")
-            outputs["eventscount.final.detector.AD11"] >> inputs["statistic.tmp.theory"]
-            outputs["cholesky.tmp"] >> inputs["statistic.tmp.errors"]
-            outputs["data.real.final.detector.AD11"] >> inputs["statistic.tmp.data"]
-
 
             # (1) chi-squared Pearson stat (fixed Pearson errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
