@@ -710,7 +710,7 @@ class model_dayabay_v0d:
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: load data {dataset_label.upper()} background rates")
+                logger.warning(f"Future: load data {dataset_label} background rates")
                 load_parameters(
                     path="bkg.rate_scale",
                     load=path_parameters / "bkg_rate_scale_acc.yaml",
@@ -1496,7 +1496,7 @@ class model_dayabay_v0d:
             # Livetime
             #
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: load daily data {dataset_label.upper()}")
+                logger.warning(f"Future: load daily data {dataset_label}")
                 load_record_data(
                     name = "daily_data.detector_all",
                     filenames = path_arrays/f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
@@ -1608,7 +1608,7 @@ class model_dayabay_v0d:
             )
 
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: create daily accidentals {dataset_label.upper()}")
+                logger.warning(f"Future: create daily accidentals {dataset_label}")
                 Array.from_storage(
                     "daily_data.detector.rate_acc",
                     storage("data"),
@@ -1824,7 +1824,7 @@ class model_dayabay_v0d:
 
             # Number of accidentals
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: calculate number of accidentals {dataset_label.upper()}")
+                logger.warning(f"Future: calculate number of accidentals {dataset_label}")
                 Product.replicate( # TODO: doc, label
                         outputs("daily_data.detector.efflivetime"),
                         outputs("daily_data.detector.rate_acc"),
@@ -2134,7 +2134,7 @@ class model_dayabay_v0d:
             # Backgrounds
             #
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: use bakckgrounds from dataset {dataset_label.upper()}")
+                logger.warning(f"Future: use bakckgrounds from dataset {dataset_label}")
                 bkg_names = {
                     "acc": "accidental",
                     "lihe": "lithium9",
@@ -2326,7 +2326,7 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["period.detector"]
                         )
             else:
-                assert dataset in ("asimov", "dataset_a")
+                assert dataset == "asimov"
                 Product.replicate(
                         parameters("all.bkg.rate.acc"),
                         outputs("bkg.spectrum_shape.acc"),
@@ -2458,8 +2458,7 @@ class model_dayabay_v0d:
                     replicate_files=index["period"],
                     replicate_outputs=combinations["detector"],
                     skip=inactive_combinations,
-                    # name_function=lambda _, idx: f"anue_{idx[1]}"
-                    name_function=lambda _, idx: f"expected_total_{idx[0]}_{idx[1]}"
+                    name_function=lambda _, idx: f"anue_{idx[1]}"
                 )
 
                 Rebin.replicate(
