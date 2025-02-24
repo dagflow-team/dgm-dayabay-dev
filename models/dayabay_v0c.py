@@ -1899,9 +1899,9 @@ class model_dayabay_v0c:
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
             Proxy.replicate(
-                name="data.pseudo.proxy",
+                name="data.proxy",
             )
-            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.pseudo.proxy.input")
+            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
@@ -1927,7 +1927,7 @@ class model_dayabay_v0c:
             outputs.get_value("covariance.data.fixed") >> inputs.get_value("cholesky.stat.fixed")
 
             Cholesky.replicate(name="cholesky.stat.data.fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
+            outputs.get_value("data.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
@@ -1944,7 +1944,7 @@ class model_dayabay_v0c:
             outputs.get_value("covariance.covmat_full_p.stat_variable") >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
-            outputs.get_value("data.pseudo.proxy") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("data.proxy") >> nodes.get_value("covariance.covmat_full_n")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
 
             Cholesky.replicate(name="cholesky.covmat_full_n")
@@ -1955,45 +1955,45 @@ class model_dayabay_v0c:
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
             outputs.get_value("cholesky.stat.fixed") >> inputs.get_value("statistic.stat.chi2p_iterative.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
 
             # (2-2) chi-squared Neyman stat
             Chi2.replicate(name="statistic.stat.chi2n")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2n.theory")
             outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value("statistic.stat.chi2n.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
 
             # (2-1)
             Chi2.replicate(name="statistic.stat.chi2p")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
             outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
 
             # (5) chi-squared Pearson syst (fixed Pearson errors)
             Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.errors")
 
             # (2-3) chi-squared Neyman syst
             Chi2.replicate(name="statistic.full.chi2n_covmat")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
             outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
 
             # (2-4) Pearson variable stat errors
             Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
             CNPStat.replicate(name="statistic.staterr.cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
 
             # (3) chi-squared CNP stat
             Chi2.replicate(name="statistic.stat.chi2cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2cnp.theory")
             outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
 

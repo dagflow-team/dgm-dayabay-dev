@@ -472,11 +472,11 @@ mc:
     inputs: 
       text: "Node to set nuisance parameters values"
 data:
+  proxy:
+    text: "Switcher of the data source for likelihood"
   pseudo:
     self:
       text: "Pseudo data (this model) node for likelihood"
-    proxy:
-      text: "Switcher of the data source for likelihood"
 covariance:
   jacobians:
     oscprob:
