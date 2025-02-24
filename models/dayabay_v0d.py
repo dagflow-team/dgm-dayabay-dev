@@ -291,7 +291,9 @@ class model_dayabay_v0d:
         path_arrays = path_data / self.source_type
 
         # Provide variable for chosen dataset
-        dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
+        dataset = "asimov"
+        if "dataset_a" in self._future or "dataset_b" in self._future:
+            dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
         if dataset.endswith("a") or dataset.endswith("b"):
             dataset_path = "dayabay_" + dataset
             dataset_label = dataset[-1].upper()
