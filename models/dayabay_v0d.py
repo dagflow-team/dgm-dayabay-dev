@@ -61,6 +61,10 @@ class model_dayabay_v0d:
     Purpose:
         - introduce alternative data inputs
         - provide configuration to switch between inputs and compare them
+        - introduce dataset A:
+            - livetimes, efficiencies, accidentals rates
+            - muon decay background
+        - proper correlations between background rate parameters
 
     Attributes
     ----------
@@ -287,7 +291,9 @@ class model_dayabay_v0d:
         path_arrays = path_data / self.source_type
 
         # Provide variable for chosen dataset
-        dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
+        dataset = "asimov"
+        if "dataset_a" in self._future or "dataset_b" in self._future:
+            dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
         if dataset.endswith("a") or dataset.endswith("b"):
             dataset_path = "dayabay_" + dataset
             dataset_label = dataset[-1].upper()
@@ -704,7 +710,7 @@ class model_dayabay_v0d:
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: load data {dataset_label.upper()} background rates")
+                logger.warning(f"Future: load data {dataset_label} background rates")
                 load_parameters(
                     path="bkg.rate_scale",
                     load=path_parameters / "bkg_rate_scale_acc.yaml",
@@ -1490,7 +1496,7 @@ class model_dayabay_v0d:
             # Livetime
             #
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: load daily data {dataset_label.upper()}")
+                logger.warning(f"Future: load daily data {dataset_label}")
                 load_record_data(
                     name = "daily_data.detector_all",
                     filenames = path_arrays/f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
@@ -1557,6 +1563,28 @@ class model_dayabay_v0d:
                     data("daily_data.reactor"),
                     data("daily_data.detector"),
                     )
+            data["daily_data.reactor.power"] = remap_items(
+                    data.get_dict("daily_data.reactor.power"),
+                    reorder_indices=[
+                        ["period", "reactor"],
+                        ["reactor", "period"]
+                        ]
+                    )
+            data["daily_data.reactor.fission_fraction"] = remap_items(
+                    data.get_dict("daily_data.reactor.fission_fraction"),
+                    reorder_indices=[
+                        ["period", "reactor", "isotope"],
+                        ["reactor", "isotope", "period"]
+                        ]
+                    )
+
+            Array.from_storage(
+                "daily_data.detector.days",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "i"
+            )
+            outputs["daily_data.days"] = outputs.pop("daily_data.detector.days", delete_parents=True)
 
             Array.from_storage(
                 "daily_data.detector.livetime",
@@ -1580,7 +1608,7 @@ class model_dayabay_v0d:
             )
 
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: create daily accidentals {dataset_label.upper()}")
+                logger.warning(f"Future: create daily accidentals {dataset_label}")
                 Array.from_storage(
                     "daily_data.detector.rate_acc",
                     storage("data"),
@@ -1796,7 +1824,7 @@ class model_dayabay_v0d:
 
             # Number of accidentals
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: calculate number of accidentals {dataset_label.upper()}")
+                logger.warning(f"Future: calculate number of accidentals {dataset_label}")
                 Product.replicate( # TODO: doc, label
                         outputs("daily_data.detector.efflivetime"),
                         outputs("daily_data.detector.rate_acc"),
@@ -2106,7 +2134,7 @@ class model_dayabay_v0d:
             # Backgrounds
             #
             if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: use bakckgrounds from dataset {dataset_label.upper()}")
+                logger.warning(f"Future: use bakckgrounds from dataset {dataset_label}")
                 bkg_names = {
                     "acc": "accidental",
                     "lihe": "lithium9",
@@ -2298,7 +2326,7 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["period.detector"]
                         )
             else:
-                assert dataset == "asimov"  # not in self._future
+                assert dataset == "asimov"
                 Product.replicate(
                         parameters("all.bkg.rate.acc"),
                         outputs("bkg.spectrum_shape.acc"),
@@ -2430,7 +2458,6 @@ class model_dayabay_v0d:
                     replicate_files=index["period"],
                     replicate_outputs=combinations["detector"],
                     skip=inactive_combinations,
-                    # name_function=lambda _, idx: f"anue_{idx[1]}"
                     name_function=lambda _, idx: f"expected_total_{idx[0]}_{idx[1]}"
                 )
 
@@ -2785,12 +2812,23 @@ class model_dayabay_v0d:
 
         unused_keys = list(labels_mk.walkjoinedkeys())
         may_ignore = {
+            # future
             "bkg.spectrum_per_day",
             "statistic.nuisance.parts.bkg.rate.acc",
             "statistic.nuisance.parts.bkg.rate.amc",
             "statistic.nuisance.parts.bkg.rate.lihe",
             "statistic.nuisance.parts.bkg.rate.fastn",
             "statistic.nuisance.parts.bkg.rate.muonx",
+            # past
+            "daily_data.detector.rate_acc",
+            "daily_data.detector.rate_acc_s_day",
+            "daily_data.detector.num_acc_s_day",
+            "bkg.count_fixed",
+            "bkg.count",
+            "bkg.spectrum.muonx",
+            "bkg.spectrum_shape.muonx",
+            "statistic.nuisance.parts.bkg",
+            "summary",
         }
         for key_may_ignore in may_ignore:
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):

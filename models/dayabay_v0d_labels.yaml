@@ -105,6 +105,9 @@ kinematics:
         axis: "IBD flux [cm²/proton]"
 daily_data:
   detector:
+    days:
+      group:
+        text: "Day since DAQ start {key}"
     eff:
       group:
         text: "Daily detector efficiency {key}"
@@ -114,6 +117,12 @@ daily_data:
     livetime:
       group:
         text: "Daily detector wall clock livetime {key} [s]"
+    rate_acc:
+      group:
+        text: "Daily rate of accidental background events [#/day]"
+    num_acc_s_day:
+      group:
+        text: "Daily # of accidental background events × day/s [#]"
   reactor:
     power:
       group:
@@ -221,22 +230,66 @@ bkg:
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV] (for background events)"
     axis: "$E_{\\rm rec}$ [MeV]"
     plotmethod: 'none'
+  count_acc_fixed_s_day:
+    group:
+      text: "# of accidental background events in {key} × day/s [#]"
+  count_fixed:
+    acc: 
+      group:
+        text: "# of accidental background events in {index[0]} during {index[1]} [#]\\nbefore nuisance"
+    alphan: 
+      group:
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]} [#]\\nbefore nuisance"
+    amc: 
+      group:
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]} [#]\\nbefore nuisance"
+    fastn: 
+      group:
+        text: "# of fast neutron background events in {index[0]} during {index[1]} [#]\\nbefore nuisance"
+    lihe: 
+      group:
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]} [#]\\nbefore nuisance"
+    muonx: 
+      group:
+        text: "# of μ decay background events in {index[0]} during {index[1]} [#]\\nbefore nuisance"
+  count:
+    acc: 
+      group:
+        text: "# of accidental background events in {index[0]} during {index[1]} [#]"
+    alphan: 
+      group:
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]} [#]"
+    amc: 
+      group:
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]} [#]"
+    fastn: 
+      group:
+        text: "# of fast neutron background events in {index[0]} during {index[1]} [#]"
+    lihe: 
+      group:
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]} [#]"
+    muonx: 
+      group:
+        text: "# of μ decay background events in {index[0]} during {index[1]} [#]"
   spectrum:
     acc: 
       group:
-        text: "# of accidental background events in {key} [#]"
+        text: "# of accidental background events in {index[0]} during {index[1]} [#]"
     alphan: 
       group:
-        text: "# of ¹³C(α,n)¹⁶O background events in {key} [#]"
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]} [#]"
     amc: 
       group:
-        text: "# of ²⁴¹Am¹³C related background events in {key} [#]"
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]} [#]"
     fastn: 
       group:
-        text: "# of fast neutron background events in {key} [#]"
+        text: "# of fast neutron background events in {index[0]} during {index[1]} [#]"
     lihe: 
       group:
-        text: "# of ⁹Li/⁸He background events in {key} [#]"
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]} [#]"
+    muonx: 
+      group:
+        text: "# of μ decay background events in {index[0]} during {index[1]} [#]"
   spectrum_per_day:
     acc: 
       group:
@@ -269,6 +322,9 @@ bkg:
     lihe: 
       group:
         text: "Shape of spectrum of ⁹Li/⁸He background events in {key}"
+    muonx: 
+      group:
+        text: "Shape of spectrum of μ decay background events in {key}"
 oscprob:
   group:
     text: "ν̅(e) survival probability {key}"
@@ -662,3 +718,56 @@ statistic:
             text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
           lihe:
             text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
+        rate_scale:
+          acc:
+            text: "χ² nuisance term for parameters for background rate\\naccidentals"
+        uncertainty_scale:
+          amc:
+            text: "χ² nuisance term for parameters for background rate\\n²⁴¹Am¹³C"
+        uncertainty_scale_by_site:
+          fastn:
+            text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
+          lihe:
+            text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
+          muonx:
+            text: "χ² nuisance term for parameters for background rate\\nμ decay"
+summary:
+  total:
+    bkg_count:
+      group:
+        text: "Total # of {index[0]} background events in {index[1]}"
+    bkg_rate_s:
+      group:
+        text: "Total rate of {index[0]} background events in {index[1]}"
+    bkg_rate:
+      group:
+        text: "Total rate {index[0]} background events in {index[1]}"
+    eff:
+      group:
+        text: "Total detector {index[0]} efficiency"
+    efflivetime:
+      group:
+        text: "Total detector {index[0]} effective livetime [s]"
+    livetime:
+      group:
+        text: "Total detector {index[0]} wall clock livetime [s]"
+  periods:
+    bkg_count:
+      group:
+        text: "Total # of {index[0]} background events in {index[2]} during {index[1]}"
+    bkg_rate_s:
+      group:
+        text: "Total rate of {index[0]} background events in {index[2]} during {index[1]}"
+    bkg_rate:
+      group:
+        text: "Total rate {index[0]} background events in {index[2]} during {index[1]}"
+    eff:
+      group:
+        text: "Total detector {index[1]} efficiency during {index[0]}"
+    efflivetime:
+      group:
+        text: "Total detector {index[1]} effective livetime during {index[0]} [s]"
+    livetime:
+      group:
+        text: "Total detector {index[1]} wall clock livetime during {index[0]} [s]"
+

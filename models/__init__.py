@@ -6,6 +6,7 @@ from .dayabay_v0 import model_dayabay_v0
 from .dayabay_v0b import model_dayabay_v0b
 from .dayabay_v0c import model_dayabay_v0c
 from .dayabay_v0d import model_dayabay_v0d
+# from .dayabay_v0e import model_dayabay_v0e
 
 from .dayabay_labels import LATEX_SYMBOLS
 
@@ -14,7 +15,9 @@ _dayabay_models = {
     "v0b": model_dayabay_v0b,
     "v0c": model_dayabay_v0c,
     "v0d": model_dayabay_v0d,
+    # "v0e": model_dayabay_v0e,
 }
+_dayabay_models["recent"] = _dayabay_models["v0d"]
 
 _available_sources = ("tsv", "hdf5", "root", "npz")
 

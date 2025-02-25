@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from h5py import File, Group
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.colors import SymLogNorm
 from numpy import arange, diagonal, isnan, quantile
 from numpy.typing import NDArray
 
@@ -16,6 +17,8 @@ from dagflow.tools.logger import logger
 
 if TYPE_CHECKING:
     from typing import Literal, Mapping, Sequence
+
+    from matplotlib.collections import QuadMesh
 
 
 def main(opts: Namespace) -> None:
@@ -26,7 +29,6 @@ def main(opts: Namespace) -> None:
 
     model = group["model"][:]
     edges = group["edges"][:]
-    blocksize = edges.size - 1
 
     sfile, sgroup, smodel = None, None, None
     if opts.subtract:
@@ -47,6 +49,13 @@ def main(opts: Namespace) -> None:
             )
     except KeyError:
         elements = None
+
+    blocksize = edges.size - 1
+    block_selected = 1
+    block_selection = slice(
+        blocksize * block_selected, blocksize * (block_selected + 1)
+    )
+    block_name = elements[block_selected]
 
     if opts.output is not None:
         ofile = opts.output and opts.output[0] or opts.input.replace(".hdf5", ".pdf")
@@ -156,8 +165,8 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=f"Covariance matrix {name}{title_suffix}",
         )
-        pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap)
-        if pdf:
+        hm = pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap)
+        if pdf and hm is not None:
             pdf.savefig()
 
         if vmax is not None:
@@ -166,11 +175,22 @@ def main(opts: Namespace) -> None:
                 111,
                 xlabel="",
                 ylabel="bin",
-                title=f"Covariance matrix (truncated) {name}{title_suffix}",
+                title=f"Covariance matrix {name} (truncated){title_suffix}",
             )
-            pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap, vmax=vmax)
-            if pdf:
+            hm = pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap, vmax=vmax)
+            if pdf and hm is not None:
                 pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Covariance matrix {name} (symlog){title_suffix}",
+        )
+        hm = pcolor_with_blocks(matrix_cov, blocks=elements, cmap=cmap, symlog=True)
+        if pdf and hm is not None:
+            pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
         ax = plt.subplot(
@@ -179,8 +199,8 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=f"Covariance matrix {name} (blocks){title_suffix}",
         )
-        pcolor_with_blocks(bmatrix_cov, blocks=elements, cmap=cmap)
-        if pdf:
+        hm = pcolor_with_blocks(bmatrix_cov, blocks=elements, cmap=cmap)
+        if pdf and hm is not None:
             pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
@@ -188,12 +208,39 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=f"Covariance matrix {name} ({elements[0]}){title_suffix}",
+            title=f"Covariance matrix {name} (blocks, symlog){title_suffix}",
         )
-        pcolor_with_blocks(
-            matrix_cov[:blocksize, :blocksize], blocks=elements[:1], cmap=cmap
+        hm = pcolor_with_blocks(bmatrix_cov, blocks=elements, cmap=cmap, symlog=True)
+        if pdf and hm is not None:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Covariance matrix {name} (block {block_name}){title_suffix}",
         )
-        if pdf:
+        hm = pcolor_with_blocks(
+            matrix_cov[block_selection, block_selection], blocks=elements[:1], cmap=cmap
+        )
+        if pdf and hm is not None:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Covariance matrix {name} (block {block_name}, symlog){title_suffix}",
+        )
+        hm = pcolor_with_blocks(
+            matrix_cov[block_selection, block_selection],
+            blocks=elements[:1],
+            cmap=cmap,
+            symlog=True,
+        )
+        if pdf and hm is not None:
             pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
@@ -203,8 +250,8 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=rf"Relative covariance matrix {name}, %²{title_suffix}",
         )
-        pcolor_with_blocks(matrix_cov_rel, blocks=elements, cmap=cmap)
-        if pdf:
+        hm = pcolor_with_blocks(matrix_cov_rel, blocks=elements, cmap=cmap)
+        if pdf and hm is not None:
             pdf.savefig()
 
         if vmax_rel is not None:
@@ -213,12 +260,12 @@ def main(opts: Namespace) -> None:
                 111,
                 xlabel="",
                 ylabel="bin",
-                title=rf"Relative covariance matrix {name}, %²{title_suffix}",
+                title=rf"Relative covariance matrix {name} (truncated), %²{title_suffix}",
             )
-            pcolor_with_blocks(
+            hm = pcolor_with_blocks(
                 matrix_cov_rel, blocks=elements, cmap=cmap, vmax=vmax_rel
             )
-            if pdf:
+            if pdf and hm is not None:
                 pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
@@ -226,12 +273,41 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=f"Relative covariance matrix {name} ({elements[0]}){title_suffix}",
+            title=rf"Relative covariance matrix {name} (symlog), %²{title_suffix}",
         )
-        pcolor_with_blocks(
-            matrix_cov_rel[:blocksize, :blocksize], blocks=elements[:1], cmap=cmap
+        hm = pcolor_with_blocks(matrix_cov_rel, blocks=elements, cmap=cmap, symlog=True)
+        if pdf and hm is not None:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Relative covariance matrix {name} (block {block_name}){title_suffix}",
         )
-        if pdf:
+        hm = pcolor_with_blocks(
+            matrix_cov_rel[block_selection, block_selection],
+            blocks=elements[:1],
+            cmap=cmap,
+        )
+        if pdf and hm is not None:
+            pdf.savefig()
+
+        plt.figure(figsize=figsize_2d)
+        ax = plt.subplot(
+            111,
+            xlabel="",
+            ylabel="bin",
+            title=f"Relative covariance matrix {name} (block {block_name}, symlog){title_suffix}",
+        )
+        hm = pcolor_with_blocks(
+            matrix_cov_rel[block_selection, block_selection],
+            blocks=elements[:1],
+            cmap=cmap,
+            symlog=True,
+        )
+        if pdf and hm is not None:
             pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
@@ -241,8 +317,8 @@ def main(opts: Namespace) -> None:
             ylabel="bin",
             title=f"Correlation matrix {name}{title_suffix}",
         )
-        pcolor_with_blocks(matrix_cor, blocks=elements, cmap=cmap)
-        if pdf:
+        hm = pcolor_with_blocks(matrix_cor, blocks=elements, cmap=cmap)
+        if pdf and hm is not None:
             pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
@@ -250,16 +326,16 @@ def main(opts: Namespace) -> None:
             111,
             xlabel="",
             ylabel="bin",
-            title=f"Correlation matrix {name} ({elements[0]}){title_suffix}",
+            title=f"Correlation matrix {name} (block {block_name}){title_suffix}",
         )
         hm = pcolor_with_blocks(
-            matrix_cor[:blocksize, :blocksize],
+            matrix_cor[block_selection, block_selection],
             blocks=elements[:1],
             pcolormesh=True,
             cmap=cmap,
         )
         # heatmap_show_values(hm, lower_triangle=True)
-        if pdf:
+        if pdf and hm is not None:
             pdf.savefig()
 
         plt.figure(figsize=figsize_2d)
@@ -276,7 +352,7 @@ def main(opts: Namespace) -> None:
 
         logger.info(f"Plot {name}")
 
-        if pdf:
+        if pdf and hm is not None:
             pdf.savefig()
 
         if opts.show:
@@ -285,7 +361,7 @@ def main(opts: Namespace) -> None:
         if not opts.show:
             plt.close("all")
 
-    if pdf:
+    if pdf and hm is not None:
         pdf.__exit__(None, None, None)
         logger.info(f"Write output file: {ofile}")
 
@@ -327,7 +403,7 @@ def covariance_get_matrices(
 
 
 def heatmap_show_values(
-    pc: "QuadMesh", fmt: str = "%.2f", lower_triangle: bool = False, **kwargs
+    pc: QuadMesh, fmt: str = "%.2f", lower_triangle: bool = False, **kwargs
 ):
     from numpy import mean, unravel_index
 
@@ -364,9 +440,9 @@ def matrix_sum_blocks(matrix: NDArray, blocksize: int) -> NDArray:
     nblocks = nr // blocksize
     ret = empty((nblocks, nblocks), dtype=matrix.dtype)
     for row in range(nblocks):
+        row1 = row * blocksize
+        row2 = row1 + blocksize
         for col in range(nblocks):
-            row1 = row * blocksize
-            row2 = row1 + blocksize
             col1 = col * blocksize
             col2 = col1 + blocksize
 
@@ -394,13 +470,16 @@ def pcolor_with_blocks(
     pcolormesh: bool = False,
     sep_kwargs: Mapping = {},
     vmax: float | None = None,
+    symlog: bool = False,
     **kwargs,
 ):
     from numpy import fabs
-    from numpy.ma import array
 
     dmin = data.min()
     dmax = data.max()
+
+    if dmin == dmax == 0:
+        return None
 
     bound = max(fabs(dmin), dmax)
     if vmax is not None:
@@ -408,14 +487,24 @@ def pcolor_with_blocks(
     else:
         vmin, vmax = -bound, bound
 
+    if symlog:
+        pcolor_kwargs = dict(
+            norm=SymLogNorm(
+                linthresh=bound * 0.01, linscale=0.05, vmin=vmin, vmax=vmax
+            ),
+            **kwargs,
+        )
+    else:
+        pcolor_kwargs = dict(vmin=vmin, vmax=vmax, **kwargs)
+
     # fdata = fabs(data)
     # data = array(data, mask=(fdata < 1.0e-9))
     ax = plt.gca()
     ax.set_aspect("equal")
     if pcolormesh:
-        hm = ax.pcolormesh(data, *args, vmin=vmin, vmax=vmax, **kwargs)
+        hm = ax.pcolormesh(data, *args, **pcolor_kwargs)
     else:
-        hm = ax.pcolorfast(data, *args, vmin=vmin, vmax=vmax, **kwargs)
+        hm = ax.pcolorfast(data, *args, **pcolor_kwargs)
     hm.set_rasterized(True)
     if colorbar:
         add_colorbar(hm, rasterized=True)
@@ -436,9 +525,7 @@ def pcolor_with_blocks(
 def _get_blocks_data(size: int, blocks: Sequence[str]) -> NDArray:
     n_blocks = len(blocks)
     bins_in_block = size // n_blocks
-    xs = arange(0, n_blocks + 1) * bins_in_block
-
-    return xs
+    return arange(0, n_blocks + 1) * bins_in_block
 
 
 def _plot_separators(
