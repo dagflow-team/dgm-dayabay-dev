@@ -27,14 +27,15 @@ FutureType = Literal[
     "all",  # enable all the options
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
-    "dataset_a",  # use dataset A
-    "dataset_b",  # use dataset B
+    "dataset-a",  # use dataset A
+    "dataset-b",  # use dataset B
     "asimov",
-    "bkg-order",  # use optimized background order (included in dataset_a/dataset_b)
+    "bkg-order",  # use optimized background order (included in dataset-a/dataset-b)
 ]
 _future_redundant = ["all", "reactor-35days"]
 _future_included = {
-    "dataset_a": ("bkg-order",),
+    "dataset-a": ("bkg-order",),
+    "dataset-b": ("bkg-order",),
 }
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -294,8 +295,8 @@ class model_dayabay_v0d:
 
         # Provide variable for chosen dataset
         dataset = "asimov"
-        if "dataset_a" in self._future or "dataset_b" in self._future:
-            dataset = next(iter({"asimov", "dataset_a", "dataset_b"}.intersection(set(self._future))))
+        if "dataset-a" in self._future or "dataset-b" in self._future:
+            dataset = next(iter({"asimov", "dataset-a", "dataset-b"}.intersection(set(self._future)))).replace("-", "_")
         if dataset.endswith("a") or dataset.endswith("b"):
             dataset_path = "dayabay_" + dataset
             dataset_label = dataset[-1].upper()
