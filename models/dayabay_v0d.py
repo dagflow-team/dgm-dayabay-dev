@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
+from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
@@ -210,12 +211,13 @@ class model_dayabay_v0d:
         assert all(f in future_variants for f in self._future)
         if "all" in self._future:
             self._future = future_variants
-            for ft in _future_redundant:
+        for ft in _future_redundant:
+            with suppress(KeyError):
                 self._future.remove(ft)  # pyright: ignore [reportArgumentType]
-            for ft in self._future:
-                if not (extra := _future_included.get(ft)):
-                    continue
-                self._future.update(extra)  # pyright: ignore [reportArgumentType]
+        for ft in self._future.copy():
+            if not (extra := _future_included.get(ft)):
+                continue
+            self._future.update(extra)  # pyright: ignore [reportArgumentType]
         if self._future:
             logger.info(f"Future options: {', '.join(self._future)}")
         self._frozen_nodes = {}
@@ -2769,6 +2771,7 @@ class model_dayabay_v0d:
                 df.loc[i, k] = value
                 df.loc[i, "name"] = key
         df[df.isna()] = 0.0
+        df["daq_time_day"]/=60.*60.*24.
         df = df.astype({"name": "S"})
 
         return df
