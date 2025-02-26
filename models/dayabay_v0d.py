@@ -384,11 +384,13 @@ class model_dayabay_v0d:
                 f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
             ),
         }
+
         if dataset == "dataset_a":
             logger.warning("Future: initialize muonx background")
             index["bkg"] = index["bkg"] + ("muonx",)
             index["bkg_stable"] = index["bkg_stable"] + ("muonx",)
             index["bkg_site_correlated"] = index["bkg_site_correlated"] + ("muonx",)
+
         # Define isotope names in lower case
         index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
@@ -732,7 +734,7 @@ class model_dayabay_v0d:
                 )
                 load_parameters(
                     path="bkg.uncertainty_scale",
-                    load=path_parameters / f"bkg_rate_uncertainty_scale_amc.yaml",
+                    load=path_parameters / "bkg_rate_uncertainty_scale_amc.yaml",
                 )
                 load_parameters(
                     path="bkg.uncertainty_scale_by_site",
