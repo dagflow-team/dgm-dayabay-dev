@@ -88,7 +88,7 @@ def main(args: Namespace) -> None:
     #         parameters_constrained,
     #     )
 
-    model.next_sample()
+    model.next_sample(mc_parameters=False, mc_statistics=False)
     minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters)
 
     if args.interactive:
@@ -167,6 +167,15 @@ def main(args: Namespace) -> None:
         plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
         plt.legend()
         plt.tight_layout()
+        for name, par_values in compare_fit.items():
+            fit_value = fit["xdict"][name]
+            fit_error = fit["errorsdict"][name]
+            value = par_values["value"]
+            error = par_values["error"]
+            print(f"{name:>22}:")
+            print(f"{'SYSU':>22}: value={value:1.5e}, error={error:1.5e}")
+            print(f"{'JINR':>22}: value={fit_value:1.5e}, error={fit_error:1.5e}")
+            print(f"{' '*23} value_diff={(value - fit_value) / value*100:1.3f}%, error_diff={(error - fit_error) / error*100:1.3f}%")
         plt.show()
 
     # plt.figure(figsize=(8, 5))

@@ -2458,7 +2458,7 @@ class model_dayabay_v0d:
                     replicate_files=index["period"],
                     replicate_outputs=combinations["detector"],
                     skip=inactive_combinations,
-                    name_function=lambda _, idx: f"expected_total_{idx[0]}_{idx[1]}"
+                    name_function=lambda _, idx: f"anue_{idx[1]}"
                 )
 
                 Rebin.replicate(
@@ -2496,7 +2496,7 @@ class model_dayabay_v0d:
                     replicate_files=index["period"],
                     replicate_outputs=combinations["detector"],
                     skip=inactive_combinations,
-                    name_function=lambda _, idx: f"expected_ibd_{idx[0]}_{idx[1]}"
+                    name_function=lambda _, idx: f"anue_{idx[1]}"
                 )
 
                 Rebin.replicate(
