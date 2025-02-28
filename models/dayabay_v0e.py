@@ -16,7 +16,7 @@ from dagflow.bundles.load_array import load_array
 from dagflow.bundles.load_graph import load_graph, load_graph_data
 from dagflow.bundles.load_parameters import load_parameters
 from dagflow.core import Graph, NodeStorage
-from dagflow.tools.logger import logger
+from dagflow.tools.logger import INFO, logger
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
@@ -24,19 +24,11 @@ if TYPE_CHECKING:
     from dagflow.core.meta_node import MetaNode
 
 FutureType = Literal[
-    "all",  # enable all the options
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
-    "dataset-a",  # use dataset A
-    "dataset-b",  # use dataset B
-    "asimov",
-    "bkg-order",  # use optimized background order (included in dataset-a/dataset-b)
 ]
-_future_redundant = ["all", "reactor-35days"]
-_future_included = {
-    "dataset-a": ("bkg-order",),
-    "dataset-b": ("bkg-order",),
-}
+_future_redundant = ["reactor-35days"]
+_future_included = {}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
 # where path denotes the location of the parameters in the storage.
@@ -57,18 +49,11 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
 }
 
 
-class model_dayabay_v0d:
-    """The Daya Bay analysis implementation version v0d.
+class model_dayabay_v0e:
+    """The Daya Bay analysis implementation version v0e.
 
     Purpose:
-        - introduce alternative data inputs
-        - provide configuration to switch between inputs and compare them
-        - introduce dataset A:
-            - livetimes, efficiencies, accidentals rates
-            - muon decay background
-        - introduce dataset B:
-            - livetimes, efficiencies, accidentals rates
-        - proper correlations between background rate parameters
+        - copy of model v0d with removed old options
 
     Attributes
     ----------
@@ -148,7 +133,8 @@ class model_dayabay_v0d:
         "spectrum_correction_mode",
         "concatenation_mode",
         "monte_carlo_mode",
-        "source_type",
+        "_source_type",
+        "_dataset",
         "_strict",
         "_close",
         "_future",
@@ -165,7 +151,8 @@ class model_dayabay_v0d:
     spectrum_correction_mode: Literal["linear", "exponential"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
-    source_type: Literal["tsv", "hdf5", "root", "npz"]
+    _source_type: Literal["tsv", "hdf5", "root", "npz"]
+    _dataset: Literal["a", "b"]  # todo: doc
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -177,6 +164,7 @@ class model_dayabay_v0d:
         self,
         *,
         source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
+        dataset: Literal["a", "b"] = "a",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -203,13 +191,23 @@ class model_dayabay_v0d:
         self._strict = strict
         self._close = close
 
+        assert source_type in {"tsv", "hdf5", "root", "npz"}
+        assert dataset in {"a", "b"}
+
         self.storage = NodeStorage()
-        self.path_data = Path("data/dayabay-v0d")
-        self.source_type = source_type
+        self.path_data = Path("data/dayabay-v0e")
+        self._source_type = source_type
+        self._dataset = dataset
         self.spectrum_correction_mode = spectrum_correction_mode
         self.concatenation_mode = concatenation_mode
         self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
+
+        logger.log(INFO, f"Dataset: {self._dataset}")
+        logger.log(INFO, f"Source type: {self._source_type}")
+        logger.log(INFO, f"Data path: {self.path_data!s}")
+        logger.log(INFO, f"Concatenation mode: {self.concatenation_mode}")
+        logger.log(INFO, f"Spectrum correction mode: {self.spectrum_correction_mode}")
 
         self._future = set(future)
         future_variants = set(get_args(FutureType))
@@ -234,6 +232,14 @@ class model_dayabay_v0d:
 
         if parameter_values:
             self.set_parameters(parameter_values)
+
+    @property
+    def source_type(self) -> Literal["tsv", "hdf5", "npz", "root"]:
+        return self._source_type
+
+    @property
+    def dataset(self) -> Literal["a", "b"]:
+        return self._dataset
 
     def build(self, override_indices: dict[str, tuple[str, ...]] = {}):
         """Actually build the model.
@@ -295,13 +301,8 @@ class model_dayabay_v0d:
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self.source_type
 
-        # Provide variable for chosen dataset
-        dataset = "asimov"
-        if "dataset-a" in self._future or "dataset-b" in self._future:
-            dataset = next(iter({"asimov", "dataset-a", "dataset-b"}.intersection(set(self._future)))).replace("-", "_")
-        if dataset.endswith("a") or dataset.endswith("b"):
-            dataset_path = "dayabay_" + dataset
-            dataset_label = dataset[-1].upper()
+        # Dataset items
+        dataset_path = f"dayabay_dataset_{self.dataset}"
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
@@ -385,8 +386,7 @@ class model_dayabay_v0d:
             ),
         }
 
-        if dataset == "dataset_a":
-            logger.warning("Future: initialize muonx background")
+        if self.dataset == "a":
             index["bkg"] = index["bkg"] + ("muonx",)
             index["bkg_stable"] = index["bkg_stable"] + ("muonx",)
             index["bkg_site_correlated"] = index["bkg_site_correlated"] + ("muonx",)
@@ -716,39 +716,33 @@ class model_dayabay_v0d:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
-            if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: load data {dataset_label} background rates")
-                load_parameters(
-                    path="bkg.rate_scale",
-                    load=path_parameters / "bkg_rate_scale_acc.yaml",
-                    replicate=combinations["period.detector"],
-                )
-                load_parameters(
-                    path="bkg.rate",
-                    load=path_parameters / f"bkg_rates_uncorrelated_{dataset}.yaml",
-                )
-                load_parameters(
-                    path="bkg.rate",
-                    load=path_parameters / f"bkg_rates_correlated_{dataset}.yaml",
-                    sigma_visible=True,
-                )
-                load_parameters(
-                    path="bkg.uncertainty_scale",
-                    load=path_parameters / f"bkg_rate_uncertainty_scale_amc.yaml",
-                )
-                load_parameters(
-                    path="bkg.uncertainty_scale_by_site",
-                    load=path_parameters / f"bkg_rate_uncertainty_scale_site_{dataset}.yaml",
-                    replicate=combinations["site.period"],
-                    ignore_keys=inactive_backgrounds,
-                )
-            else:
-                load_parameters(
-                    path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml"
-                )
-                load_parameters(
-                    path="bkg.rate", load=path_parameters / "bkg_rates.yaml"
-                )
+            load_parameters(
+                path="bkg.rate_scale",
+                load=path_parameters / "bkg_rate_scale_acc.yaml",
+                replicate=combinations["period.detector"],
+            )
+            load_parameters(
+                path="bkg.rate",
+                load=path_parameters
+                / f"bkg_rates_uncorrelated_dataset_{self.dataset}.yaml",
+            )
+            load_parameters(
+                path="bkg.rate",
+                load=path_parameters
+                / f"bkg_rates_correlated_dataset_{self.dataset}.yaml",
+                sigma_visible=True,
+            )
+            load_parameters(
+                path="bkg.uncertainty_scale",
+                load=path_parameters / "bkg_rate_uncertainty_scale_amc.yaml",
+            )
+            load_parameters(
+                path="bkg.uncertainty_scale_by_site",
+                load=path_parameters
+                / f"bkg_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
+                replicate=combinations["site.period"],
+                ignore_keys=inactive_backgrounds,
+            )
 
             # Additionally a few constants are provided.
             # A constant to convert seconds to days for the backgrounds estimation
@@ -1502,38 +1496,20 @@ class model_dayabay_v0d:
             #
             # Livetime
             #
-            if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: load daily data {dataset_label}")
-                load_record_data(
-                    name = "daily_data.detector_all",
-                    filenames = path_arrays/f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
-                    replicate_outputs = index["detector"],
-                    columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
-                    skip = inactive_detectors
-                )
-                refine_detector_data(
-                    data("daily_data.detector_all"),
-                    data.child("daily_data.detector"),
-                    detectors = index["detector"],
-                    skip = inactive_detectors,
-                    columns = ("livetime", "eff", "efflivetime", "rate_acc"),
-                )
-            else:
-                load_record_data(
-                    name = "daily_data.detector_all",
-                    filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self.source_type}",
-                    replicate_outputs = index["detector"],
-                    name_function = lambda idx, _: f"EH{idx[-2]}AD{idx[-1]}",
-                    columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
-                    skip = inactive_detectors
-                )
-                refine_detector_data(
-                    data("daily_data.detector_all"),
-                    data.child("daily_data.detector"),
-                    detectors = index["detector"],
-                    columns = ("livetime", "eff", "efflivetime"),
-                    skip = inactive_detectors
-                )
+            load_record_data(
+                name = "daily_data.detector_all",
+                filenames = path_arrays/f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
+                replicate_outputs = index["detector"],
+                columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
+                skip = inactive_detectors
+            )
+            refine_detector_data(
+                data("daily_data.detector_all"),
+                data.child("daily_data.detector"),
+                detectors = index["detector"],
+                skip = inactive_detectors,
+                columns = ("livetime", "eff", "efflivetime", "rate_acc"),
+            )
 
             if "reactor-28days" in self._future:
                 logger.warning("Future: use merged reactor data, period: 28 days")
@@ -1614,14 +1590,12 @@ class model_dayabay_v0d:
                 dtype = "d"
             )
 
-            if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: create daily accidentals {dataset_label}")
-                Array.from_storage(
-                    "daily_data.detector.rate_acc",
-                    storage("data"),
-                    remove_used_arrays = True,
-                    dtype = "d"
-                )
+            Array.from_storage(
+                "daily_data.detector.rate_acc",
+                storage("data"),
+                remove_used_arrays = True,
+                dtype = "d"
+            )
 
             Array.from_storage(
                 "daily_data.reactor.power",
@@ -1830,26 +1804,24 @@ class model_dayabay_v0d:
                     )
 
             # Number of accidentals
-            if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: calculate number of accidentals {dataset_label}")
-                Product.replicate( # TODO: doc, label
-                        outputs("daily_data.detector.efflivetime"),
-                        outputs("daily_data.detector.rate_acc"),
-                        name="daily_data.detector.num_acc_s_day",
-                        replicate_outputs=combinations["detector.period"],
-                        )
+            Product.replicate( # TODO: doc
+                    outputs("daily_data.detector.efflivetime"),
+                    outputs("daily_data.detector.rate_acc"),
+                    name="daily_data.detector.num_acc_s_day",
+                    replicate_outputs=combinations["detector.period"],
+                    )
 
-                ArraySum.replicate(
-                        outputs("daily_data.detector.num_acc_s_day"),
-                        name="bkg.count_acc_fixed_s_day",
-                        )
+            ArraySum.replicate(
+                    outputs("daily_data.detector.num_acc_s_day"),
+                    name="bkg.count_acc_fixed_s_day",
+                    )
 
-                Product.replicate(
-                        outputs("bkg.count_acc_fixed_s_day"),
-                        parameters["constant.conversion.seconds_in_day_inverse"],
-                        name="bkg.count_fixed.acc",
-                        replicate_outputs=combinations["detector.period"],
-                        )
+            Product.replicate(
+                    outputs("bkg.count_acc_fixed_s_day"),
+                    parameters["constant.conversion.seconds_in_day_inverse"],
+                    name="bkg.count_fixed.acc",
+                    replicate_outputs=combinations["detector.period"],
+                    )
 
             # Effective live time × N protons × ε / (4πL²)  (SNF)
             Product.replicate(
@@ -2140,245 +2112,156 @@ class model_dayabay_v0d:
             #
             # Backgrounds
             #
-            if dataset in ("dataset_a", "dataset_b"):
-                logger.warning(f"Future: use bakckgrounds from dataset {dataset_label}")
-                bkg_names = {
-                    "acc": "accidental",
-                    "lihe": "lithium9",
-                    "fastn": "fastNeutron",
-                    "amc": "amCSource",
-                    "alphan": "carbonAlpha",
-                    "muon": "muonRelated"
-                }
-                load_hist(
-                    name = "bkg",
-                    x = "erec",
-                    y = "spectrum_shape",
-                    merge_x = True,
-                    normalize = True,
-                    filenames = path_arrays/f"{dataset_path}/{dataset_path}_bkg_spectra_{{}}.{self.source_type}",
-                    replicate_files = index["period"],
-                    replicate_outputs = combinations["bkg.detector"],
-                    skip = inactive_combinations,
-                    key_order = (
-                        ("period", "bkg", "detector"),
-                        ("bkg", "detector", "period"),
-                    ),
-                    name_function = lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}"
-                )
-            else:
-                path_root = path_data / "root"
-                bkg_names = {
-                    "acc": "accidental",
-                    "lihe": "lithium9",
-                    "fastn": "fastNeutron",
-                    "amc": "amCSource",
-                    "alphan": "carbonAlpha",
-                    "muon": "muonRelated"
-                }
-                load_hist(
-                    name = "bkg",
-                    x = "erec",
-                    y = "spectrum_shape",
-                    merge_x = True,
-                    normalize = True,
-                    filenames = path_root/"bkg_tmp_B_input_by_period_{}.root",
-                    replicate_files = index["period"],
-                    replicate_outputs = combinations["bkg.detector"],
-                    skip = inactive_detectors,
-                    key_order = (
-                        ("period", "bkg", "detector"),
-                        ("bkg", "detector", "period"),
-                    ),
-                    name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
-                )
+            bkg_names = {
+                "acc": "accidental",
+                "lihe": "lithium9",
+                "fastn": "fastNeutron",
+                "amc": "amCSource",
+                "alphan": "carbonAlpha",
+                "muon": "muonRelated"
+            }
+            load_hist(
+                name = "bkg",
+                x = "erec",
+                y = "spectrum_shape",
+                merge_x = True,
+                normalize = True,
+                filenames = path_arrays/f"{dataset_path}/{dataset_path}_bkg_spectra_{{}}.{self.source_type}",
+                replicate_files = index["period"],
+                replicate_outputs = combinations["bkg.detector"],
+                skip = inactive_combinations,
+                key_order = (
+                    ("period", "bkg", "detector"),
+                    ("bkg", "detector", "period"),
+                ),
+                name_function = lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}"
+            )
 
-            if dataset in ("dataset_a", "dataset_b"):
-                pass
-            else:
-                # TODO:
-                # GNA upload fast-n as array from 0 to 12 MeV (50 keV), and it normalized to 1.
-                # So, every bin contain 0.00416667.
-                # TODO: remove in dayabay-v1
-                fastn_data = ones(240) / 240
-                for spectrum in storage("outputs.bkg.spectrum_shape.fastn").walkvalues():
-                    spectrum._data[:] = fastn_data
+            # TODO: labels
+            Product.replicate(
+                    parameters("all.bkg.rate"),
+                    outputs("detector.efflivetime_days"),
+                    name = "bkg.count_fixed",
+                    replicate_outputs=combinations["bkg_stable.detector.period"]
+                    )
 
-            if "bkg-order" in self._future:
-                logger.warning("Future: use updated bakckground normalization order")
+            # TODO: labels
+            Product.replicate(
+                    parameters("all.bkg.rate_scale.acc"),
+                    outputs("bkg.count_fixed.acc"),
+                    name = "bkg.count.acc",
+                    replicate_outputs=combinations["detector.period"]
+                    )
 
-                # TODO: labels
-                Product.replicate(
-                        parameters("all.bkg.rate"),
-                        outputs("detector.efflivetime_days"),
-                        name = "bkg.count_fixed",
-                        replicate_outputs=combinations["bkg_stable.detector.period"]
-                        )
+            remap_items(
+                    parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
+                    outputs.child("bkg.uncertainty_scale"),
+                    rename_indices = site_arrangement,
+                    skip_indices_target = inactive_detectors,
+                    )
 
-                # TODO: labels
-                Product.replicate(
-                        parameters("all.bkg.rate_scale.acc"),
-                        outputs("bkg.count_fixed.acc"),
-                        name = "bkg.count.acc",
-                        replicate_outputs=combinations["detector.period"]
-                        )
+            # TODO: labels
+            ProductShiftedScaled.replicate(
+                    outputs("bkg.count_fixed"),
+                    parameters("sigma.bkg.rate"),
+                    outputs.get_dict("bkg.uncertainty_scale"),
+                    name = "bkg.count",
+                    shift=1.0,
+                    replicate_outputs=combinations["bkg_site_correlated.detector.period"],
+                    allow_skip_inputs = True,
+                    skippable_inputs_should_contain = combinations["bkg_not_site_correlated.detector.period"]
+                    )
 
-                remap_items(
-                        parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                        outputs.child("bkg.uncertainty_scale"),
-                        rename_indices = site_arrangement,
-                        skip_indices_target = inactive_detectors,
-                        )
+            # TODO: labels
+            ProductShiftedScaled.replicate(
+                    outputs("bkg.count_fixed.amc"),
+                    parameters("sigma.bkg.rate.amc"),
+                    parameters["all.bkg.uncertainty_scale.amc"],
+                    name = "bkg.count.amc",
+                    shift=1.0,
+                    replicate_outputs=combinations["detector.period"],
+                    )
 
-                # TODO: labels
-                ProductShiftedScaled.replicate(
-                        outputs("bkg.count_fixed"),
-                        parameters("sigma.bkg.rate"),
-                        outputs.get_dict("bkg.uncertainty_scale"),
-                        name = "bkg.count",
-                        shift=1.0,
-                        replicate_outputs=combinations["bkg_site_correlated.detector.period"],
-                        allow_skip_inputs = True,
-                        skippable_inputs_should_contain = combinations["bkg_not_site_correlated.detector.period"]
-                        )
+            outputs["bkg.count.alphan"] = outputs.get_dict("bkg.count_fixed.alphan")
 
-                # TODO: labels
-                ProductShiftedScaled.replicate(
-                        outputs("bkg.count_fixed.amc"),
-                        parameters("sigma.bkg.rate.amc"),
-                        parameters["all.bkg.uncertainty_scale.amc"],
-                        name = "bkg.count.amc",
-                        shift=1.0,
-                        replicate_outputs=combinations["detector.period"],
-                        )
+            # TODO: labels
+            Product.replicate(
+                    outputs("bkg.count"),
+                    outputs("bkg.spectrum_shape"),
+                    name="bkg.spectrum",
+                    replicate_outputs=combinations["bkg.detector.period"],
+                    )
 
-                outputs["bkg.count.alphan"] = outputs.get_dict("bkg.count_fixed.alphan")
+            # Summary data
+            Sum.replicate(
+                    outputs("bkg.count"),
+                    name = "summary.total.bkg_count",
+                    replicate_outputs=combinations["bkg.detector"],
+                    )
 
-                # TODO: labels
-                Product.replicate(
-                        outputs("bkg.count"),
-                        outputs("bkg.spectrum_shape"),
-                        name="bkg.spectrum",
-                        replicate_outputs=combinations["bkg.detector.period"],
-                        )
+            remap_items(
+                    outputs("bkg.count"),
+                    outputs.child("summary.periods.bkg_count"),
+                    reorder_indices=[
+                        ["bkg", "detector", "period"],
+                        ["bkg", "period", "detector"],
+                    ],
+                    )
 
-                # Summary data
+            Division.replicate(
+                    outputs("summary.total.bkg_count"),
+                    outputs("summary.total.efflivetime"),
+                    name = "summary.total.bkg_rate_s",
+                    replicate_outputs=combinations["bkg.detector"]
+                    )
+
+            Division.replicate(
+                    outputs("summary.periods.bkg_count"),
+                    outputs("summary.periods.efflivetime"),
+                    name = "summary.periods.bkg_rate_s",
+                    replicate_outputs=combinations["bkg.period.detector"]
+                    )
+
+            Product.replicate(
+                    outputs("summary.total.bkg_rate_s"),
+                    parameters["constant.conversion.seconds_in_day"],
+                    name = "summary.total.bkg_rate",
+                    replicate_outputs=combinations["bkg.detector"]
+                    )
+
+            Product.replicate(
+                    outputs("summary.periods.bkg_rate_s"),
+                    parameters["constant.conversion.seconds_in_day"],
+                    name = "summary.periods.bkg_rate",
+                    replicate_outputs=combinations["bkg.period.detector"]
+                    )
+
+            if self.dataset == "a":
                 Sum.replicate(
-                        outputs("bkg.count"),
-                        name = "summary.total.bkg_count",
-                        replicate_outputs=combinations["bkg.detector"],
-                        )
-
-                remap_items(
-                        outputs("bkg.count"),
-                        outputs.child("summary.periods.bkg_count"),
-                        reorder_indices=[
-                            ["bkg", "detector", "period"],
-                            ["bkg", "period", "detector"],
-                        ],
-                        )
-
-                Division.replicate(
-                        outputs("summary.total.bkg_count"),
-                        outputs("summary.total.efflivetime"),
-                        name = "summary.total.bkg_rate_s",
-                        replicate_outputs=combinations["bkg.detector"]
-                        )
-
-                Division.replicate(
-                        outputs("summary.periods.bkg_count"),
-                        outputs("summary.periods.efflivetime"),
-                        name = "summary.periods.bkg_rate_s",
-                        replicate_outputs=combinations["bkg.period.detector"]
-                        )
-
-                Product.replicate(
-                        outputs("summary.total.bkg_rate_s"),
-                        parameters["constant.conversion.seconds_in_day"],
-                        name = "summary.total.bkg_rate",
-                        replicate_outputs=combinations["bkg.detector"]
-                        )
-
-                Product.replicate(
-                        outputs("summary.periods.bkg_rate_s"),
-                        parameters["constant.conversion.seconds_in_day"],
-                        name = "summary.periods.bkg_rate",
-                        replicate_outputs=combinations["bkg.period.detector"]
-                        )
-
-                if dataset == "dataset_a":
-                    Sum.replicate(
-                            outputs("summary.total.bkg_rate.fastn"),
-                            outputs("summary.total.bkg_rate.muonx"),
-                            name = "summary.total.bkg_rate_fastn_muonx",
-                            replicate_outputs=index["detector"]
-                            )
-
-                    Sum.replicate(
-                            outputs("summary.periods.bkg_rate.fastn"),
-                            outputs("summary.periods.bkg_rate.muonx"),
-                            name = "summary.periods.bkg_rate_fastn_muonx",
-                            replicate_outputs=combinations["period.detector"]
-                            )
-
-                Sum.replicate(
-                        outputs("summary.total.bkg_rate"),
-                        name = "summary.total.bkg_rate_total",
+                        outputs("summary.total.bkg_rate.fastn"),
+                        outputs("summary.total.bkg_rate.muonx"),
+                        name = "summary.total.bkg_rate_fastn_muonx",
                         replicate_outputs=index["detector"]
                         )
 
                 Sum.replicate(
-                        outputs("summary.periods.bkg_rate"),
-                        name = "summary.periods.bkg_rate_total",
+                        outputs("summary.periods.bkg_rate.fastn"),
+                        outputs("summary.periods.bkg_rate.muonx"),
+                        name = "summary.periods.bkg_rate_fastn_muonx",
                         replicate_outputs=combinations["period.detector"]
                         )
-            else:
-                assert dataset == "asimov"
-                Product.replicate(
-                        parameters("all.bkg.rate.acc"),
-                        outputs("bkg.spectrum_shape.acc"),
-                        name="bkg.spectrum_per_day.acc",
-                        replicate_outputs=combinations["detector.period"],
-                        )
 
-                Product.replicate(
-                        # outputs("bkg.rate.lihe"),
-                        parameters("all.bkg.rate.lihe"),
-                        outputs("bkg.spectrum_shape.lihe"),
-                        name="bkg.spectrum_per_day.lihe",
-                        replicate_outputs=combinations["detector.period"],
-                        )
+            Sum.replicate(
+                    outputs("summary.total.bkg_rate"),
+                    name = "summary.total.bkg_rate_total",
+                    replicate_outputs=index["detector"]
+                    )
 
-                Product.replicate(
-                        # outputs("bkg.rate.fastn"),
-                        parameters("all.bkg.rate.fastn"),
-                        outputs("bkg.spectrum_shape.fastn"),
-                        name="bkg.spectrum_per_day.fastn",
-                        replicate_outputs=combinations["detector.period"],
-                        )
-
-                Product.replicate(
-                        parameters("all.bkg.rate.alphan"),
-                        outputs("bkg.spectrum_shape.alphan"),
-                        name="bkg.spectrum_per_day.alphan",
-                        replicate_outputs=combinations["detector.period"],
-                        )
-
-                Product.replicate(
-                        parameters("all.bkg.rate.amc"),
-                        outputs("bkg.spectrum_shape.amc"),
-                        name="bkg.spectrum_per_day.amc",
-                        replicate_outputs=combinations["detector.period"],
-                        )
-
-                # Total spectrum of Background in Detector during Period
-                # spectrum_per_day [N / day] * efflivetime [sec] * seconds_in_day_inverse [day / sec] -> [N]
-                Product.replicate(
-                        outputs("detector.efflivetime_days"),
-                        outputs("bkg.spectrum_per_day"),
-                        name="bkg.spectrum",
-                        replicate_outputs=combinations["bkg.detector.period"],
-                        )
+            Sum.replicate(
+                    outputs("summary.periods.bkg_rate"),
+                    name = "summary.periods.bkg_rate_total",
+                    replicate_outputs=combinations["period.detector"]
+                    )
 
             Sum.replicate(
                     outputs("bkg.spectrum"),
@@ -2455,82 +2338,43 @@ class model_dayabay_v0d:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
-            if dataset != "asimov":
-                load_hist(
-                    name="data.real",
-                    x="erec",
-                    y="fine",
-                    merge_x=True,
-                    filenames=path_arrays/f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
-                    replicate_files=index["period"],
-                    replicate_outputs=combinations["detector"],
-                    skip=inactive_combinations,
-                    name_function=lambda _, idx: f"anue_{idx[1]}"
-                )
+            load_hist(
+                name="data.real",
+                x="erec",
+                y="fine",
+                merge_x=True,
+                filenames=path_arrays/f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
+                replicate_files=index["period"],
+                replicate_outputs=combinations["detector"],
+                skip=inactive_combinations,
+                name_function=lambda _, idx: f"anue_{idx[1]}"
+            )
 
-                Rebin.replicate(
-                    names={"matrix": "detector.rebin_matrix.real", "product": "data.real.final.detector_period"},
-                    replicate_outputs=combinations["detector.period"],
-                )
-                edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real.edges_old")
-                edges_energy_final >> inputs.get_value("detector.rebin_matrix.real.edges_new")
-                outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
+            Rebin.replicate(
+                names={"matrix": "detector.rebin_matrix.real", "product": "data.real.final.detector_period"},
+                replicate_outputs=combinations["detector.period"],
+            )
+            edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real.edges_old")
+            edges_energy_final >> inputs.get_value("detector.rebin_matrix.real.edges_new")
+            outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
 
-                Concatenation.replicate(
-                    outputs("data.real.final.detector_period"),
-                    name="data.real.concatenated.detector_period",
-                )
+            Concatenation.replicate(
+                outputs("data.real.final.detector_period"),
+                name="data.real.concatenated.detector_period",
+            )
 
-                Sum.replicate(
-                    outputs("data.real.final.detector_period"),
-                    name="data.real.final.detector",
-                    replicate_outputs=index["detector"],
-                )
+            Sum.replicate(
+                outputs("data.real.final.detector_period"),
+                name="data.real.final.detector",
+                replicate_outputs=index["detector"],
+            )
 
-                Concatenation.replicate(
-                    outputs["data.real.final.detector"],
-                    name="data.real.concatenated.detector"
-                )
+            Concatenation.replicate(
+                outputs["data.real.final.detector"],
+                name="data.real.concatenated.detector"
+            )
 
-                outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
-
-                load_hist(
-                    name="data.real_ibd",
-                    x="erec",
-                    y="fine",
-                    merge_x=True,
-                    filenames=path_arrays/f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
-                    replicate_files=index["period"],
-                    replicate_outputs=combinations["detector"],
-                    skip=inactive_combinations,
-                    name_function=lambda _, idx: f"anue_{idx[1]}"
-                )
-
-                Rebin.replicate(
-                    names={"matrix": "detector.rebin_matrix.real_ibd", "product": "data.real_ibd.final.detector_period"},
-                    replicate_outputs=combinations["detector.period"],
-                )
-                edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_old")
-                edges_energy_final >> inputs.get_value("detector.rebin_matrix.real_ibd.edges_new")
-                outputs["data.real_ibd.fine"] >> inputs["data.real_ibd.final.detector_period"]
-
-                Concatenation.replicate(
-                    outputs("data.real_ibd.final.detector_period"),
-                    name="data.real_ibd.concatenated.detector_period",
-                )
-
-                Sum.replicate(
-                    outputs("data.real_ibd.final.detector_period"),
-                    name="data.real_ibd.final.detector",
-                    replicate_outputs=index["detector"],
-                )
-
-                Concatenation.replicate(
-                    outputs["data.real_ibd.final.detector"],
-                    name="data.real_ibd.concatenated.detector"
-                )
-
-                outputs["data.real_ibd.concatenated.selected"] = outputs[f"data.real_ibd.concatenated.{self.concatenation_mode}"]
+            outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
 
             MonteCarlo.replicate(
                 name="data.pseudo.self",
@@ -2544,8 +2388,7 @@ class model_dayabay_v0d:
                 name="data.proxy",
             )
             outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
-            if dataset in ("dataset_a", "dataset_b"):
-                outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
+            outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
@@ -2594,25 +2437,6 @@ class model_dayabay_v0d:
             Cholesky.replicate(name="cholesky.covmat_full_n")
             outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
-            # DEBUG
-            Cholesky.replicate(name="cholesky.tmp_ibd")
-            outputs["data.real_ibd.fine.8AD.AD11"] >> inputs["cholesky.tmp_ibd"]
-
-            Chi2.replicate(name="statistic.tmp_ibd")
-            outputs["eventscount.fine.ibd_normalized.AD11.8AD"] >> inputs["statistic.tmp_ibd.theory"]
-            outputs["cholesky.tmp_ibd"] >> inputs["statistic.tmp_ibd.errors"]
-            outputs["data.real_ibd.fine.8AD.AD11"] >> inputs["statistic.tmp_ibd.data"]
-
-
-            Cholesky.replicate(name="cholesky.tmp")
-            outputs["data.real.final.detector.AD11"] >> inputs["cholesky.tmp"]
-
-            Chi2.replicate(name="statistic.tmp")
-            outputs["eventscount.final.detector.AD11"] >> inputs["statistic.tmp.theory"]
-            outputs["cholesky.tmp"] >> inputs["statistic.tmp.errors"]
-            outputs["data.real.final.detector.AD11"] >> inputs["statistic.tmp.data"]
-
-
             # (1) chi-squared Pearson stat (fixed Pearson errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
@@ -2630,13 +2454,6 @@ class model_dayabay_v0d:
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
             outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
             outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
-
-            # (2-2) chi-squared Neyman stat
-            Sum.replicate(
-                outputs.get_value("statistic.stat.chi2n"),
-                outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2n",
-            )
 
             # (5) chi-squared Pearson syst (fixed Pearson errors)
             Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
@@ -2818,30 +2635,27 @@ class model_dayabay_v0d:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
-        may_ignore = {
-            # future
-            "bkg.spectrum_per_day",
-            "statistic.nuisance.parts.bkg.rate.acc",
-            "statistic.nuisance.parts.bkg.rate.amc",
-            "statistic.nuisance.parts.bkg.rate.lihe",
-            "statistic.nuisance.parts.bkg.rate.fastn",
-            "statistic.nuisance.parts.bkg.rate.muonx",
-            "data.real",
-            # past
-            "daily_data.detector.rate_acc",
-            "daily_data.detector.rate_acc_s_day",
-            "daily_data.detector.num_acc_s_day",
-            "bkg.count_fixed",
-            "bkg.count",
-            "bkg.spectrum.muonx",
-            "bkg.spectrum_shape.muonx",
-            "statistic.nuisance.parts.bkg",
-            "summary",
-        }
-        for key_may_ignore in may_ignore:
+        if self.dataset == "b":
+            may_ignore = {
+                "bkg.count_fixed.muonx",
+                "bkg.count.muonx",
+                "bkg.spectrum.muonx",
+                "bkg.spectrum_shape.muonx",
+                "statistic.nuisance.parts.bkg.uncertainty_scale_by_site.muonx",
+            }
+        else:
+            may_ignore = set()
+        for key_may_ignore in list(may_ignore):
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
                     del unused_keys[i]
+                    may_ignore.remove(key_may_ignore)
+
+        if may_ignore:
+            raise RuntimeError(
+                    "The following items to ignore were not used, update the model._setup_labels:\n"
+                    f"{may_ignore}"
+            )
 
         if not unused_keys:
             return
@@ -2891,7 +2705,6 @@ class model_dayabay_v0d:
                 df.loc[i, k] = value
                 df.loc[i, "name"] = key
         df[df.isna()] = 0.0
-        df["daq_time_day"]/=60.*60.*24.
         df = df.astype({"name": "S"})
 
         return df

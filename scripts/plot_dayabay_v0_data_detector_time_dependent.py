@@ -17,6 +17,7 @@ plt.rcParams.update(
     {
         "axes.grid": False,
         "xtick.minor.visible": True,
+        "ytick.minor.visible": True,
     }
 )
 
@@ -131,6 +132,8 @@ def main(opts: Namespace) -> None:
             )
             if ticks_right:
                 ax.yaxis.set_label_position("right")
+
+        labels_added.add(ad)
 
     for axes in (axes_eff, axes_efflivetime, axes_rate_acc):
         ax = axes[-1]

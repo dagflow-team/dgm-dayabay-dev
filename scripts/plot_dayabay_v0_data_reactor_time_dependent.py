@@ -17,6 +17,7 @@ plt.rcParams.update(
     {
         "axes.grid": False,
         "xtick.minor.visible": True,
+        "ytick.minor.visible": True,
     }
 )
 
@@ -117,7 +118,6 @@ def main(opts: Namespace) -> None:
                     va="top",
                     ha="right",
                 )
-                labels_added.add(reactor)
 
             ax.tick_params(
                 axis="y",
@@ -129,6 +129,8 @@ def main(opts: Namespace) -> None:
             )
             if ticks_right:
                 ax.yaxis.set_label_position("right")
+
+        labels_added.add(reactor)
 
     for axes in (axes_power, axes_ff):
         ax = axes[-1]

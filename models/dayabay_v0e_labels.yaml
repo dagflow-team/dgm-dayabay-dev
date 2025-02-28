@@ -290,22 +290,6 @@ bkg:
     muonx: 
       group:
         text: "# of μ decay background events in {index[0]} during {index[1]} [#]"
-  spectrum_per_day:
-    acc: 
-      group:
-        text: "Rate of accidental background events in {key} [#/day]"
-    alphan: 
-      group:
-        text: "Rate of ¹³C(α,n)¹⁶O background events in {key} [#/day]"
-    amc: 
-      group:
-        text: "Rate of ²⁴¹Am¹³C related background events in {key} [#/day]"
-    fastn: 
-      group:
-        text: "Rate of fast neutron background events in {key} [#/day]"
-    lihe: 
-      group:
-        text: "Rate of ⁹Li/⁸He background events in {key} [#/day]"
   spectrum_shape:
     acc: 
       group:
@@ -708,16 +692,8 @@ statistic:
         text: "χ² nuisance term for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
       bkg:
         rate:
-          acc:
-            text: "χ² nuisance term for parameters for background rate\\naccidentals"
           alphan:
             text: "χ² nuisance term for parameters for background rate\\n¹³C(α,n)¹⁶O"
-          amc:
-            text: "χ² nuisance term for parameters for background rate\\n²⁴¹Am¹³C"
-          fastn:
-            text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
-          lihe:
-            text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
         rate_scale:
           acc:
             text: "χ² nuisance term for parameters for background rate\\naccidentals"
