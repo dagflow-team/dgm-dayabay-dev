@@ -547,7 +547,12 @@ class model_dayabay_v0e:
             # - Free sin²2θ₁₃ and Δm²₃₂
             # - Constrained sin²2θ₁₃ and Δm²₃₂
             # - Fixed: Neutrino Mass Ordering
-            load_parameters(path="oscprob", load=path_parameters / "oscprob.yaml")
+            if self.dataset!="b":
+                load_parameters(path="oscprob", load=path_parameters / "oscprob.yaml")
+            else:
+                logger.warning("Dataset B: Use PDG 2020 oscillation parameters for the cross check")
+                load_parameters(path="oscprob", load=path_parameters / "oscprob_pdg2020_dataset_b.yaml")
+
             load_parameters(
                 path="oscprob",
                 load=path_parameters / "oscprob_solar.yaml",
@@ -611,6 +616,17 @@ class model_dayabay_v0e:
             load_parameters(
                 path="detector", load=path_parameters / "detector_efficiency.yaml"
             )
+            if self.dataset!="b":
+                load_parameters(
+                    path="detector",
+                    load=path_parameters / "detector_nprotons_nominal.yaml",
+                )
+            else:
+                logger.warning("Dataset B: use modified number of nominal protons")
+                load_parameters(
+                    path="detector",
+                    load=path_parameters / "detector_nprotons_nominal_dataset_b.yaml",
+                )
             load_parameters(
                 path="detector",
                 load=path_parameters / "detector_nprotons_correction.yaml",
@@ -1900,15 +1916,27 @@ class model_dayabay_v0e:
             #
             # Detector effects
             #
-            load_array(
-                name = "detector.iav",
-                filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self.source_type}",
-                replicate_outputs = ("matrix_raw",),
-                name_function = {"matrix_raw": "iav_matrix"},
-                array_kwargs = {
-                    'edges': (edges_energy_escint, edges_energy_edep)
-                    }
-            )
+            if self.dataset!="b":
+                load_array(
+                    name = "detector.iav",
+                    filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self.source_type}",
+                    replicate_outputs = ("matrix_raw",),
+                    name_function = {"matrix_raw": "iav_matrix"},
+                    array_kwargs = {
+                        'edges': (edges_energy_escint, edges_energy_edep)
+                        }
+                )
+            else:
+                logger.warning("Dataset B: use alternative IAV matrix")
+                load_array(
+                    name = "detector.iav",
+                    filenames = path_arrays/f"detector_IAV_matrix_P12.{self.source_type}",
+                    replicate_outputs = ("matrix_raw",),
+                    name_function = {"matrix_raw": "iav_matrix"},
+                    array_kwargs = {
+                        'edges': (edges_energy_escint, edges_energy_edep)
+                        }
+                )
 
             RenormalizeDiag.replicate(mode="offdiag", name="detector.iav.matrix_rescaled", replicate_outputs=index["detector"])
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
