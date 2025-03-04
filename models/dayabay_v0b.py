@@ -833,7 +833,7 @@ class model_dayabay_v0b:
                 filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self._source_type}",
                 replicate_outputs = ("core_data",),
                 columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
-                key_order = (("week", "core_data"), ("week",))
+                output_key_order = (("week", "core_data"), ("week",))
             )
             from models.bundles.refine_reactor_data import split_refine_reactor_data
             split_refine_reactor_data(
