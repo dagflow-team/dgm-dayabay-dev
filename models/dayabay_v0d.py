@@ -2891,7 +2891,11 @@ class model_dayabay_v0d:
                 df.loc[i, k] = value
                 df.loc[i, "name"] = key
         df[df.isna()] = 0.0
-        df["daq_time_day"]/=60.*60.*24.
+
+        df.set_index("name", inplace=True)
+        df.loc["daq_time_day"]/=60.*60.*24.
+        df.reset_index(inplace=True)
+
         df = df.astype({"name": "S"})
 
         return df
