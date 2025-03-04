@@ -1764,45 +1764,6 @@ class model_dayabay_v0e:
                     skippable_inputs_should_contain=inactive_detectors,
                     )
 
-            # Collect some summary data for output tables
-            Sum.replicate(
-                    outputs("detector.efflivetime"),
-                    name = "summary.total.efflivetime",
-                    replicate_outputs=index["detector"]
-                    )
-
-            Sum.replicate(
-                    outputs("detector.efflivetime"),
-                    name = "summary.periods.efflivetime",
-                    replicate_outputs=combinations["period.detector"]
-                    )
-
-            Sum.replicate(
-                    outputs("detector.livetime"),
-                    name = "summary.total.livetime",
-                    replicate_outputs=index["detector"]
-                    )
-
-            Sum.replicate(
-                    outputs("detector.livetime"),
-                    name = "summary.periods.livetime",
-                    replicate_outputs=combinations["period.detector"]
-                    )
-
-            Division.replicate(
-                    outputs("summary.total.efflivetime"),
-                    outputs("summary.total.livetime"),
-                    name = "summary.total.eff",
-                    replicate_outputs=index["detector"]
-                    )
-
-            Division.replicate(
-                    outputs("summary.periods.efflivetime"),
-                    outputs("summary.periods.livetime"),
-                    name = "summary.periods.eff",
-                    replicate_outputs=combinations["period.detector"]
-                    )
-
             # Number of accidentals
             Product.replicate( # TODO: doc
                     outputs("daily_data.detector.efflivetime"),
@@ -2192,77 +2153,6 @@ class model_dayabay_v0e:
                     replicate_outputs=combinations["bkg.detector.period"],
                     )
 
-            # Summary data
-            Sum.replicate(
-                    outputs("bkg.count"),
-                    name = "summary.total.bkg_count",
-                    replicate_outputs=combinations["bkg.detector"],
-                    )
-
-            remap_items(
-                    outputs("bkg.count"),
-                    outputs.child("summary.periods.bkg_count"),
-                    reorder_indices=[
-                        ["bkg", "detector", "period"],
-                        ["bkg", "period", "detector"],
-                    ],
-                    )
-
-            Division.replicate(
-                    outputs("summary.total.bkg_count"),
-                    outputs("summary.total.efflivetime"),
-                    name = "summary.total.bkg_rate_s",
-                    replicate_outputs=combinations["bkg.detector"]
-                    )
-
-            Division.replicate(
-                    outputs("summary.periods.bkg_count"),
-                    outputs("summary.periods.efflivetime"),
-                    name = "summary.periods.bkg_rate_s",
-                    replicate_outputs=combinations["bkg.period.detector"]
-                    )
-
-            Product.replicate(
-                    outputs("summary.total.bkg_rate_s"),
-                    parameters["constant.conversion.seconds_in_day"],
-                    name = "summary.total.bkg_rate",
-                    replicate_outputs=combinations["bkg.detector"]
-                    )
-
-            Product.replicate(
-                    outputs("summary.periods.bkg_rate_s"),
-                    parameters["constant.conversion.seconds_in_day"],
-                    name = "summary.periods.bkg_rate",
-                    replicate_outputs=combinations["bkg.period.detector"]
-                    )
-
-            if self.dataset == "a":
-                Sum.replicate(
-                        outputs("summary.total.bkg_rate.fastn"),
-                        outputs("summary.total.bkg_rate.muonx"),
-                        name = "summary.total.bkg_rate_fastn_muonx",
-                        replicate_outputs=index["detector"]
-                        )
-
-                Sum.replicate(
-                        outputs("summary.periods.bkg_rate.fastn"),
-                        outputs("summary.periods.bkg_rate.muonx"),
-                        name = "summary.periods.bkg_rate_fastn_muonx",
-                        replicate_outputs=combinations["period.detector"]
-                        )
-
-            Sum.replicate(
-                    outputs("summary.total.bkg_rate"),
-                    name = "summary.total.bkg_rate_total",
-                    replicate_outputs=index["detector"]
-                    )
-
-            Sum.replicate(
-                    outputs("summary.periods.bkg_rate"),
-                    name = "summary.periods.bkg_rate_total",
-                    replicate_outputs=combinations["period.detector"]
-                    )
-
             Sum.replicate(
                     outputs("bkg.spectrum"),
                     name="eventscount.fine.bkg",
@@ -2333,11 +2223,8 @@ class model_dayabay_v0e:
             )
 
             #
-            # Statistic
+            # Real data
             #
-            # Create Nuisance parameters
-            Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
-
             load_hist(
                 name="data.real",
                 x="erec",
@@ -2347,7 +2234,7 @@ class model_dayabay_v0e:
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
-                name_function=lambda _, idx: f"anue_{idx[1]}"
+                name_function=lambda _, idx: f"anue_{idx[1]}",
             )
 
             Rebin.replicate(
@@ -2375,6 +2262,142 @@ class model_dayabay_v0e:
             )
 
             outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
+
+            #
+            # Summary
+            # Collect some summary data for output tables
+            #
+            ArraySum.replicate(
+                    outputs("data.real.final.detector"),
+                    name = "summary.total.ibd_candidates",
+                    )
+
+            ArraySum.replicate(
+                    outputs("data.real.final.detector_period"),
+                    name = "summary.periods.ibd_candidates",
+                    )
+            outputs["summary.periods.ibd_candidates"] = remap_items(
+                    outputs.get_dict("summary.periods.ibd_candidates"),
+                    reorder_indices=[
+                        ["detector", "period"],
+                        ["period", "detector"]
+                        ]
+                    )
+
+            Sum.replicate(
+                    outputs("detector.livetime"),
+                    name = "summary.total.livetime",
+                    replicate_outputs=index["detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("detector.livetime"),
+                    name = "summary.periods.livetime",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("detector.efflivetime"),
+                    name = "summary.total.efflivetime",
+                    replicate_outputs=index["detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("detector.efflivetime"),
+                    name = "summary.periods.efflivetime",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
+            Division.replicate(
+                    outputs("summary.total.efflivetime"),
+                    outputs("summary.total.livetime"),
+                    name = "summary.total.eff",
+                    replicate_outputs=index["detector"]
+                    )
+
+            Division.replicate(
+                    outputs("summary.periods.efflivetime"),
+                    outputs("summary.periods.livetime"),
+                    name = "summary.periods.eff",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("bkg.count"),
+                    name = "summary.total.bkg_count",
+                    replicate_outputs=combinations["bkg.detector"],
+                    )
+
+            remap_items(
+                    outputs("bkg.count"),
+                    outputs.child("summary.periods.bkg_count"),
+                    reorder_indices=[
+                        ["bkg", "detector", "period"],
+                        ["bkg", "period", "detector"],
+                    ],
+                    )
+
+            Division.replicate(
+                    outputs("summary.total.bkg_count"),
+                    outputs("summary.total.efflivetime"),
+                    name = "summary.total.bkg_rate_s",
+                    replicate_outputs=combinations["bkg.detector"]
+                    )
+
+            Division.replicate(
+                    outputs("summary.periods.bkg_count"),
+                    outputs("summary.periods.efflivetime"),
+                    name = "summary.periods.bkg_rate_s",
+                    replicate_outputs=combinations["bkg.period.detector"]
+                    )
+
+            Product.replicate(
+                    outputs("summary.total.bkg_rate_s"),
+                    parameters["constant.conversion.seconds_in_day"],
+                    name = "summary.total.bkg_rate",
+                    replicate_outputs=combinations["bkg.detector"]
+                    )
+
+            Product.replicate(
+                    outputs("summary.periods.bkg_rate_s"),
+                    parameters["constant.conversion.seconds_in_day"],
+                    name = "summary.periods.bkg_rate",
+                    replicate_outputs=combinations["bkg.period.detector"]
+                    )
+
+            if self.dataset == "a":
+                Sum.replicate(
+                        outputs("summary.total.bkg_rate.fastn"),
+                        outputs("summary.total.bkg_rate.muonx"),
+                        name = "summary.total.bkg_rate_fastn_muonx",
+                        replicate_outputs=index["detector"]
+                        )
+
+                Sum.replicate(
+                        outputs("summary.periods.bkg_rate.fastn"),
+                        outputs("summary.periods.bkg_rate.muonx"),
+                        name = "summary.periods.bkg_rate_fastn_muonx",
+                        replicate_outputs=combinations["period.detector"]
+                        )
+
+            Sum.replicate(
+                    outputs("summary.total.bkg_rate"),
+                    name = "summary.total.bkg_rate_total",
+                    replicate_outputs=index["detector"]
+                    )
+
+            Sum.replicate(
+                    outputs("summary.periods.bkg_rate"),
+                    name = "summary.periods.bkg_rate_total",
+                    replicate_outputs=combinations["period.detector"]
+                    )
+
+
+            #
+            # Statistic
+            #
+            # Create Nuisance parameters
+            Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
             MonteCarlo.replicate(
                 name="data.pseudo.self",
@@ -2653,8 +2676,8 @@ class model_dayabay_v0e:
 
         if may_ignore:
             raise RuntimeError(
-                    "The following items to ignore were not used, update the model._setup_labels:\n"
-                    f"{may_ignore}"
+                "The following items to ignore were not used, update the model._setup_labels:\n"
+                f"{may_ignore}"
             )
 
         if not unused_keys:
@@ -2675,9 +2698,11 @@ class model_dayabay_v0e:
             case _:
                 raise ValueError(period)
 
-        columns_sources = {
+        column_sources = {
             # "count_ibd_candidates": "",
+            "ibd_candidates": source_fmt.format(name="ibd_candidates"),
             "daq_time_day": source_fmt.format(name="livetime"),
+            "daq_time_day_eff": source_fmt.format(name="efflivetime"),
             "eff": source_fmt.format(name="eff"),
             "rate_acc": source_fmt.format(name="bkg_rate.acc"),
             "rate_fastn": source_fmt.format(name="bkg_rate.fastn"),
@@ -2689,23 +2714,38 @@ class model_dayabay_v0e:
             "rate_bkg_total": source_fmt.format(name="bkg_rate_total"),
             # "rate_nu": ""
         }
+        if self._dataset == "b":
+            del column_sources["rate_muonx"]
+            del column_sources["rate_fastn_muonx"]
 
-        columns = ["name"] + list(self.index["detector"])
-        df = DataFrame(columns=columns, index=range(len(columns_sources)), dtype="f8")
-        df = df.astype({"name": str})
+        rows = list(self.index["detector"])
+        columns = list(column_sources)
+        df = DataFrame(index=rows, columns=columns, dtype="f8")
 
-        for i, (key, path) in enumerate(columns_sources.items()):
+        for key, path in column_sources.items():
             try:
                 source = self.storage["outputs"].get_dict(path)
             except KeyError:
+                print("error", key)
+                import IPython; IPython.embed(colors='neutral') # fmt: skip
                 continue
             for k, output in source.walkitems():
+                data = output.data
+                assert data.size == 1
                 value = output.data[0]
 
-                df.loc[i, k] = value
-                df.loc[i, "name"] = key
+                df.loc[k, key] = value
         df[df.isna()] = 0.0
-        df = df.astype({"name": "S"})
+
+        df["daq_time_day"] /= 60.0 * 60.0 * 24.0
+
+        df.reset_index(inplace=True, names=["name"])
+        df = df.astype(
+            {
+                "name": str,
+                "ibd_candidates": int,
+            }
+        )
 
         return df
 
