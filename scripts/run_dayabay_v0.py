@@ -162,7 +162,7 @@ def save_summary(model: Any, filenames: Sequence[str]):
     except AttributeError:
         return
 
-    save_records(data, filenames, tsv_allow_no_key=True)
+    save_records(data, filenames, tsv_allow_no_key=True, to_records_kwargs={'index': False})
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
