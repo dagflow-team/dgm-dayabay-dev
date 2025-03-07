@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 FutureType = Literal[
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
+    "anue-spectra-sysu",  # merge reactor data, each 5 weeks
 ]
 _future_redundant = ["reactor-35days"]
 _future_included = {}
@@ -1113,15 +1114,27 @@ class model_dayabay_v0e:
             # consistent X axes.
             # Note, that each Y node (called spec) will have an reference to the X node,
             # so it could be used when plotting.
-            load_graph(
-                name="reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames=path_arrays
-                / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
-                x="enu",
-                y="spec",
-                merge_x=True,
-                replicate_outputs=index["isotope"],
-            )
+            if "anue-spectra-sysu" not in self._future:
+                load_graph(
+                    name="reactor_anue.neutrino_per_fission_per_MeV_input",
+                    filenames=path_arrays
+                    / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
+                    x="enu",
+                    y="spec",
+                    merge_x=True,
+                    replicate_outputs=index["isotope"],
+                )
+            elif "anue-spectra-sysu" in self._future:
+                logger.warning("Future: use SYSU antineutrino spectra")
+                load_graph(
+                    name="reactor_anue.neutrino_per_fission_per_MeV_input",
+                    filenames=path_arrays
+                    / f"reactor_anue_spectrum_sysu.{self.source_type}",
+                    x="enu",
+                    y="spec",
+                    merge_x=True,
+                    replicate_outputs=index["isotope"],
+                )
 
             # The input antineutrino spectra have step of 50 keV. They now should be
             # interpolated to the integration mesh. Similarly to integration nodes,
