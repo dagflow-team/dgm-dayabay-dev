@@ -212,12 +212,16 @@ class model_dayabay_v0e:
 
         self._future = set(future)
         future_variants = set(get_args(FutureType))
-        assert all(f in future_variants for f in self._future)
+
+        unknown_features = self._future - future_variants
+        if unknown_features:
+            raise RuntimeError(f"Unknown future options: {','.join(unknown_features)}")
+
         if "all" in self._future:
             self._future = future_variants
-        for ft in _future_redundant:
-            with suppress(KeyError):
-                self._future.remove(ft)  # pyright: ignore [reportArgumentType]
+            for ft in _future_redundant:
+                with suppress(KeyError):
+                    self._future.remove(ft)  # pyright: ignore [reportArgumentType]
         for ft in self._future.copy():
             if not (extra := _future_included.get(ft)):
                 continue
