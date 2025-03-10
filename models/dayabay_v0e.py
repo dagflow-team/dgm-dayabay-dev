@@ -552,11 +552,16 @@ class model_dayabay_v0e:
             # - Free sin²2θ₁₃ and Δm²₃₂
             # - Constrained sin²2θ₁₃ and Δm²₃₂
             # - Fixed: Neutrino Mass Ordering
-            if self.dataset!="b":
+            if self.dataset != "b":
                 load_parameters(path="oscprob", load=path_parameters / "oscprob.yaml")
             else:
-                logger.warning("Dataset B: Use PDG 2020 oscillation parameters for the cross check")
-                load_parameters(path="oscprob", load=path_parameters / "oscprob_pdg2020_dataset_b.yaml")
+                logger.warning(
+                    "Dataset B: Use PDG 2020 oscillation parameters for the cross check"
+                )
+                load_parameters(
+                    path="oscprob",
+                    load=path_parameters / "oscprob_pdg2020_dataset_b.yaml",
+                )
 
             load_parameters(
                 path="oscprob",
@@ -621,7 +626,7 @@ class model_dayabay_v0e:
             load_parameters(
                 path="detector", load=path_parameters / "detector_efficiency.yaml"
             )
-            if self.dataset!="b":
+            if self.dataset != "b":
                 load_parameters(
                     path="detector",
                     load=path_parameters / "detector_nprotons_nominal.yaml",
@@ -1097,9 +1102,9 @@ class model_dayabay_v0e:
             # - hdf5: open with filename, request (X,Y) dataset by name.
             # - npz: open with filename, get (X,Y)  array from a dictionary by name.
             # - root: open with filename, get TH1D object by name. Build graph by taking
-            #         left edges of the bins and their heights. `uproot` is used to load
-            #         ROOT files by default. If `$ROOTSYS` is defined, then ROOT is used
-            #         directly.
+            #         **left edges** of the bins and their heights. `uproot` is used to
+            #         load ROOT files by default. If `$ROOTSYS` is defined, then ROOT is
+            #         used directly.
             # - tsv: different arrays are kept in distinct files. Therefore for the tsv
             #        some logic is implemeted to find the files. Given 'filename.tsv'
             #        and 'key', the following files are checked:
@@ -1190,7 +1195,7 @@ class model_dayabay_v0e:
             #    parameters free during the fit effectively implements the relative
             #    Far-to-Near measurement. The correction curve is single and is applied
             #    to all the isotopes (correlated between the isotopes).
-            # 4. Huber-Mueller related:
+            # 4. Input antineutrino spectrum (Huber-Mueller) related:
             #    a. constrained spectrum shape correction due to
             #       model uncertainties. Uncorrelated between energy intervals and
             #       uncorrelated between isotopes.
@@ -1218,8 +1223,8 @@ class model_dayabay_v0e:
             )
 
             # Similarly to the case of electron antineutrino spectrum load the
-            # corresponding corrections to 3 out of 4 isotopes. The correction C should
-            # be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
+            # corresponding NEQ (1.) corrections to 3 out of 4 isotopes. The correction
+            # C should be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
             load_graph(
                 name="reactor_nonequilibrium_anue.correction_input",
                 x="enu",
@@ -1256,9 +1261,9 @@ class model_dayabay_v0e:
                 "reactor_nonequilibrium_anue.correction_interpolated.xfine"
             )
 
-            # Now load the SNF correction. The SNF correction is different from NEQ in a
-            # sense that it is computed for each reactor, not isotope. Thus we will use
-            # reactor index for it. Aside from index the loading and interpolation
+            # Now load the SNF (2.) correction. The SNF correction is different from NEQ
+            # in a sense that it is computed for each reactor, not isotope. Thus we will
+            # use reactor index for it. Aside from index the loading and interpolation
             # procedure is similar to that of NEQ correction.
             load_graph(
                 name="snf_anue.correction_input",
@@ -1289,7 +1294,7 @@ class model_dayabay_v0e:
             )
 
             # Finally create the parametrization of the correction to the shape of
-            # average reactor electron antineutrino spectrum. The `spec_scale`
+            # average reactor electron antineutrino spectrum (3.). The `spec_scale`
             # correction is defined on a user defined segments `spec_model_edges`. The
             # values of the correction scale Fᵢ are 0 by default at each edge. There exit
             # two options of operation:
@@ -1358,7 +1363,8 @@ class model_dayabay_v0e:
                     name="reactor_anue.spectrum_free_correction.correction",
                 )
             else:
-                # Create an array with [1].
+                # Istead of exponent use linear `1+x` approach. First, ceate an array
+                # with [1].
                 Array.from_value(
                     "reactor_anue.spectrum_free_correction.unity",
                     1.0,
@@ -1388,7 +1394,8 @@ class model_dayabay_v0e:
                 )
 
             # Interpolate the spectral correction exponentially. The extrapolation will
-            # be applied to the points outside the domain.
+            # be applied to the points outside of the domain. The description of the
+            # interpolation procedure is given above
             Interpolator.replicate(
                 method="exp",
                 names={
@@ -1409,123 +1416,194 @@ class model_dayabay_v0e:
             kinematic_integrator_enu >> inputs.get_value(
                 "reactor_anue.spectrum_free_correction.interpolated.xfine"
             )
-            # fmt: off
 
+            # Load the uncertainties, related to Huber+Mueller antineutrino spectrum
+            # shape. The uncertainties are individual for each of the isotopes. There
+            # are two parts:
+            #   - uncorrelated between isotopes and energy intervals. Will add an extra
+            #     parameter for each energy interval for each isotope (4a).
+            #   - correlated between isotopes and energy intervals. Controlled by a
+            #     single parameter (4b).
+            # Note, that on average the antineutrino spectrum shape is free and
+            # controlled by antineutrino spectrum correction, which will be the dominant
+            # one, but is applied to all the isotopes. Therefore during the fit the
+            # spectrum shape distortions which may be introduced by both the free
+            # average shape correction and constrained isotope spectrum shape
+            # correction, the former will take precedence. Only distortions, which may
+            # not be introduced by average correction will be introduced by isotope
+            # (un)correlated correction and will cause an extra punishment to the χ²
+            # function.
             #
-            # Huber+Mueller spectrum shape uncertainties
-            #   - constrained
-            #   - two parts:
-            #       - uncorrelated between isotopes and energy intervals
-            #       - correlated between isotopes and energy intervals
+            # The total correction to antineutrino spectrum of isotope i Sᵢ(Eₖ) is
+            # defined as Cₖ(Eᵢ)=(1+ηᵢₖσᵢₖ)·(1+ζΣᵢₖ), where σᵢₖ is a value of
+            # uncorrelated uncertainty of isotope i at energy k and ηᵢₖ is the value of
+            # corresponding nuisance parameter (central value=0, uncertainty=1). Σᵢₖ is
+            # a value of correlated uncertainty of isotope i at energy k and ζ is the
+            # value of corresponding nuisance parameter, common for all bins and
+            # isotopes. As with previous corrections, the Cₖ(Eᵢ) define the correction
+            # and the nodes, while the behaviour between the nodes is defined by the
+            # interpolation.
             #
+            # Load uncorrelated uncertainties as graphs from the input files. Original
+            # Huber+Mueller uncertainties provided for 250 keV bins are scaled down to
+            # 50 keV bins assuming the fine bins have no correlations between each
+            # other. Both correlated and uncorrelated uncertainties are read as
+            # controlled by index `anue_unc` with values `corr` and `uncorr`
+            # respectively.
             load_graph(
-                name = "reactor_anue.spectrum_uncertainty",
-                filenames = path_arrays / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
-                x = "enu_centers",
-                y = "uncertainty",
-                merge_x = True,
-                replicate_outputs = combinations["anue_unc.isotope"],
+                name="reactor_anue.spectrum_uncertainty",
+                filenames=path_arrays
+                / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
+                x="enu_centers",
+                y="uncertainty",
+                merge_x=True,
+                replicate_outputs=combinations["anue_unc.isotope"],
             )
 
+            # Create a set of parameters ηᵢₖ using a convenience method
+            # `make_y_parameters_for_x`. For each isotope for each point of neutrino
+            # energy of correction parametrization create a variable parameter
+            # `reactor_anue.spectrum_uncertainty.uncorr.{isotope}.unc_scale_{index}`
+            # with central value 0 and uncertainty 1. Labels will reflect the value of
+            # energy. The last point may be disabled with `disable_last_one` in case the
+            # constant interpolation is used.
+            #
+            # A `hide_nodes` options is used to mark all of the nodes except the leading
+            # and trailing ones to be hidden when plotting the graph as the bulk of
+            # nodes overload the graph too much.
             for isotope in index["isotope"]:
                 make_y_parameters_for_x(
-                        outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers"),
-                        namefmt = "unc_scale_{:03d}",
-                        format = ("value", "sigma_absolute"),
-                        state = "variable",
-                        key = f"reactor_anue.spectrum_uncertainty.uncorr.{isotope}",
-                        values = (0.0, 1.0),
-                        labels = f"Edge {{i:02d}} ({{value:.2f}} MeV) uncorrelated {index_names[isotope]} spectrum correction",
-                        disable_last_one = False, # True for the constant interpolation, last edge is unused
-                        hide_nodes = True
-                        )
-
-            load_parameters(
-                    path = "reactor_anue.spectrum_uncertainty",
+                    outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers"),
+                    namefmt="unc_scale_{:03d}",
                     format=("value", "sigma_absolute"),
                     state="variable",
-                    parameters={
-                        "corr": (0.0, 1.0)
-                        },
-                    labels={
-                        "corr": "Correlated ν̅ spectrum shape correction"
-                        },
-                    joint_nuisance = False
-                    )
+                    key=f"reactor_anue.spectrum_uncertainty.uncorr.{isotope}",
+                    values=(0.0, 1.0),
+                    labels=f"Edge {{i:02d}} ({{value:.2f}} MeV) uncorrelated {index_names[isotope]} spectrum correction",
+                    disable_last_one=False,  # True for the constant interpolation, last edge is unused
+                    hide_nodes=True,
+                )
 
-            Concatenation.replicate(
-                    parameters("constrained.reactor_anue.spectrum_uncertainty.uncorr"),
-                    name = "reactor_anue.spectrum_uncertainty.scale.uncorr",
-                    replicate_outputs = index["isotope"]
-                    )
-
-            Product.replicate(
-                    outputs("reactor_anue.spectrum_uncertainty.scale.uncorr"),
-                    outputs("reactor_anue.spectrum_uncertainty.uncertainty.uncorr"),
-                    name = "reactor_anue.spectrum_uncertainty.correction.uncorr",
-                    replicate_outputs = index["isotope"]
-                    )
-
-            Product.replicate(
-                    parameters.get_value("constrained.reactor_anue.spectrum_uncertainty.corr"),
-                    outputs("reactor_anue.spectrum_uncertainty.uncertainty.corr"),
-                    name = "reactor_anue.spectrum_uncertainty.correction.corr",
-                    replicate_outputs = index["isotope"]
-                    )
-
-            single_unity = Array("single_unity", [1.0], dtype="d", mark="1", label="Array of 1 element =1")
-            Sum.replicate(
-                    outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
-                    single_unity,
-                    name = "reactor_anue.spectrum_uncertainty.correction.uncorr_factor",
-                    replicate_outputs = index["isotope"]
-                    )
-            Sum.replicate(
-                    outputs("reactor_anue.spectrum_uncertainty.correction.corr"),
-                    single_unity,
-                    name = "reactor_anue.spectrum_uncertainty.correction.corr_factor",
-                    replicate_outputs = index["isotope"]
-                    )
-
-            Product.replicate(
-                    outputs("reactor_anue.spectrum_uncertainty.correction.uncorr_factor"),
-                    outputs("reactor_anue.spectrum_uncertainty.correction.corr_factor"),
-                    name = "reactor_anue.spectrum_uncertainty.correction.full",
-                    replicate_outputs = index["isotope"]
-                    )
-
-            Interpolator.replicate(
-                method = "linear",
-                names = {
-                    "indexer": "reactor_anue.spectrum_uncertainty.correction_index",
-                    "interpolator": "reactor_anue.spectrum_uncertainty.correction_interpolated"
-                    },
-                replicate_outputs=index["isotope"]
+            # Create a single nuisance parameter for the correlated uncertainty
+            # correction.
+            load_parameters(
+                path="reactor_anue.spectrum_uncertainty",
+                format=("value", "sigma_absolute"),
+                state="variable",
+                parameters={"corr": (0.0, 1.0)},
+                labels={"corr": "Correlated ν̅ spectrum shape correction"},
             )
-            outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers") >> inputs.get_value("reactor_anue.spectrum_uncertainty.correction_interpolated.xcoarse")
-            outputs("reactor_anue.spectrum_uncertainty.correction.full") >> inputs("reactor_anue.spectrum_uncertainty.correction_interpolated.ycoarse")
-            kinematic_integrator_enu >> inputs.get_value("reactor_anue.spectrum_uncertainty.correction_interpolated.xfine")
 
-            #
-            # Antineutrino spectrum with corrections
-            #
+            # Concatentate a set of variables into an array for each isotope. When the
+            # nuisance parameter is modified it also affects the corresponding array
+            # element and thus is propagated to the calculation.
+            Concatenation.replicate(
+                parameters("constrained.reactor_anue.spectrum_uncertainty.uncorr"),
+                name="reactor_anue.spectrum_uncertainty.scale.uncorr",
+                replicate_outputs=index["isotope"],
+            )
+
+            # For each isotope compute an element-wise product of array of nuisance
+            # parameters and corresponding uncorrelated uncertainty. The result is
+            # ηᵢₖσᵢₖ.
             Product.replicate(
-                    outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs.get_value("reactor_anue.spectrum_free_correction.interpolated"),
-                    outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"),
-                    name = "reactor_anue.part.neutrino_per_fission_per_MeV_main",
-                    replicate_outputs=index["isotope"],
-                    )
+                outputs("reactor_anue.spectrum_uncertainty.scale.uncorr"),
+                outputs("reactor_anue.spectrum_uncertainty.uncertainty.uncorr"),
+                name="reactor_anue.spectrum_uncertainty.correction.uncorr",
+                replicate_outputs=index["isotope"],
+            )
 
+            # For each isotope compute an elementwise product of nuisance parameter and
+            # corresponding correlated uncertainty. The result is ζΣᵢₖ.
             Product.replicate(
-                    outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs("reactor_nonequilibrium_anue.correction_interpolated"),
-                    name = "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
-                    allow_skip_inputs = True,
-                    skippable_inputs_should_contain = ("U238",),
-                    replicate_outputs=index["isotope_neq"],
-                    )
+                parameters.get_value(
+                    "constrained.reactor_anue.spectrum_uncertainty.corr"
+                ),
+                outputs("reactor_anue.spectrum_uncertainty.uncertainty.corr"),
+                name="reactor_anue.spectrum_uncertainty.correction.corr",
+                replicate_outputs=index["isotope"],
+            )
 
+            # Now we need to compute 1+ηᵢₖσᵢₖ  and 1+ζΣᵢₖ. For this we create an array
+            # with 1.
+            single_unity = Array(
+                "single_unity",
+                [1.0],
+                dtype="d",
+                mark="1",
+                label="Array of 1 element =1",
+            )
+            # Add it to uncorrelated correction...
+            Sum.replicate(
+                outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
+                single_unity,
+                name="reactor_anue.spectrum_uncertainty.correction.uncorr_factor",
+                replicate_outputs=index["isotope"],
+            )
+            # And to correlated correction...
+            Sum.replicate(
+                outputs("reactor_anue.spectrum_uncertainty.correction.corr"),
+                single_unity,
+                name="reactor_anue.spectrum_uncertainty.correction.corr_factor",
+                replicate_outputs=index["isotope"],
+            )
+            # Multiply results together.
+            Product.replicate(
+                outputs("reactor_anue.spectrum_uncertainty.correction.uncorr_factor"),
+                outputs("reactor_anue.spectrum_uncertainty.correction.corr_factor"),
+                name="reactor_anue.spectrum_uncertainty.correction.full",
+                replicate_outputs=index["isotope"],
+            )
+
+            # Interpolate the result on to the integration points similarly to how it is
+            # done in the previous cases.
+            Interpolator.replicate(
+                method="linear",
+                names={
+                    "indexer": "reactor_anue.spectrum_uncertainty.correction_index",
+                    "interpolator": "reactor_anue.spectrum_uncertainty.correction_interpolated",
+                },
+                replicate_outputs=index["isotope"],
+            )
+            outputs.get_value(
+                "reactor_anue.spectrum_uncertainty.enu_centers"
+            ) >> inputs.get_value(
+                "reactor_anue.spectrum_uncertainty.correction_interpolated.xcoarse"
+            )
+            outputs("reactor_anue.spectrum_uncertainty.correction.full") >> inputs(
+                "reactor_anue.spectrum_uncertainty.correction_interpolated.ycoarse"
+            )
+            kinematic_integrator_enu >> inputs.get_value(
+                "reactor_anue.spectrum_uncertainty.correction_interpolated.xfine"
+            )
+
+            # Finally apply all the corrections 1, 3 and 4 to the antineutrino spectra.
+            # The SNF will be treated later.
+            # The free average antineutrino spectrum correction (3.) and constrained
+            # corrections to antineutrino spectra from each isotopes (4.) are multiplied
+            # to the nominal antineutrino spectrum.
+            Product.replicate(
+                outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                outputs.get_value("reactor_anue.spectrum_free_correction.interpolated"),
+                outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"),
+                name="reactor_anue.part.neutrino_per_fission_per_MeV_main",
+                replicate_outputs=index["isotope"],
+            )
+
+            # The NEQ correction (2.) is applied to the nominal antineutrino spectra as
+            # well and is not affected by the free and constrained spectra distortions.
+            # As long as ²³⁸U spectrum has no NEQ correction we use a truncated index
+            # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
+            Product.replicate(
+                outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                outputs("reactor_nonequilibrium_anue.correction_interpolated"),
+                name="reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=("U238",),
+                replicate_outputs=index["isotope_neq"],
+            )
+
+            # fmt: off
             #
             # Livetime
             #
