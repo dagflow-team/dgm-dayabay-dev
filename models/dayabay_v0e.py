@@ -1106,7 +1106,7 @@ class model_dayabay_v0e:
             #         load ROOT files by default. If `$ROOTSYS` is defined, then ROOT is
             #         used directly.
             # - tsv: different arrays are kept in distinct files. Therefore for the tsv
-            #        some logic is implemeted to find the files. Given 'filename.tsv'
+            #        some logic is implemented to find the files. Given 'filename.tsv'
             #        and 'key', the following files are checked:
             #        + filename.tsv/key.tsv
             #        + filename.tsv/filename_key.tsv
@@ -1114,9 +1114,12 @@ class model_dayabay_v0e:
             #        + filename.tsv/key.tsv.bz2
             #        + filename.tsv/filename_key.tsv.bz2
             #        + filename_key.tsv.bz2
-            #        The graph is expected to be writtein in 2 columns: X, Y.
+            #        The graph is expected to be written in 2 columns: X, Y.
+            # A complementary method `load_graph_data` with same signature loads the
+            # data, but keeps it as numpy arrays in the storage and does not create
+            # nodes, so the user can modify the data before feeding it into the graph.
             #
-            # The appropriate loader is choosen based on extension. The objects are
+            # The appropriate loader is chosen based on extension. The objects are
             # loaded and stored in the "reactor_anue.neutrino_per_fission_per_MeV_input"
             # location. As `merge_x` flag is specified, only on X array is stored with
             # no index. A dedicated check is performed to ensure the graphs have
@@ -1590,7 +1593,7 @@ class model_dayabay_v0e:
                 replicate_outputs=index["isotope"],
             )
 
-            # The NEQ correction (2.) is applied to the nominal antineutrino spectra as
+            # The NEQ correction (1.) is applied to the nominal antineutrino spectra as
             # well and is not affected by the free and constrained spectra distortions.
             # As long as ²³⁸U spectrum has no NEQ correction we use a truncated index
             # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
@@ -1602,84 +1605,146 @@ class model_dayabay_v0e:
                 skippable_inputs_should_contain=("U238",),
                 replicate_outputs=index["isotope_neq"],
             )
+            # The application of SNF (2.) and further usage of the antineutrino flux
+            # will happen later. At this point it is time to load the necessary data to
+            # calculate the expected number of neutrino interactions.
 
-            # fmt: off
+            # In the following we read time dependent detector and reactor performance
+            # data. For detectors the data is daily. It includes:
+            # - Detector live time in seconds.
+            # - Efficiency, related to muon veto and multiplicity cut.
+            # - Rate of accidental events in inverse seconds.
+            # For reactors the data is ~monthly (TODO: specify). It includes:
+            # - Average thermal power, relative to the nominal value.
+            # - Average fission fractions for each isotope.
             #
-            # Livetime
+            # A function `load_record_data` to load table data, which in general works
+            # similarly to `load_graph` and `load_graph_data`. The function reads
+            # tabular data from the input file and stores its columns as array in the
+            # `storage["data"]`. It support the same formats:
+            # - hdf5/npz: reads numpy record array.
+            # - root: reads TTree.
+            # - tsv: reads text file with columns.
             #
+            # Here we read the input file. The data is read from the file based on
+            # detector name, passed via `replicate_output` argument. Note, a function
+            # `name_function` may be provided to generate key to read based on index
+            # value. The columns, which should be stored are passed via the `columns`
+            # argument. The default key order is
+            # `[column_name, index1_value, index2_value, ...]`. The data provided
+            # includes:
+            # - day - number of day since start of data taking, 0-based.
+            # - ndet - number of active detectors (6, 8, or 7).
+            # - livetime, eff, rate_acc - daily detector data according to the
+            #                             description above.
+            # - efflivetime - effective livetime = livetime*eff.
             load_record_data(
-                name = "daily_data.detector_all",
-                filenames = path_arrays/f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
-                replicate_outputs = index["detector"],
-                columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
-                skip = inactive_detectors
+                name="daily_data.detector_all",
+                filenames=path_arrays
+                / f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
+                replicate_outputs=index["detector"],
+                columns=("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
+                skip=inactive_detectors,
             )
+            # The data of each detector is stored for the whole period of data taking.
+            # For this particular analysis the data should be split into arrays for each
+            # particular period. This is done by the `refine_detector_data` function,
+            # which reads columns and splits them based on `ndet` value. The function
+            # processes `days` and columns, specified in the `columns` argument.
+            # The data is read from "daily_data.detector_all" and stored in
+            # "daily_data.detector".
             refine_detector_data(
                 data("daily_data.detector_all"),
                 data.child("daily_data.detector"),
-                detectors = index["detector"],
-                skip = inactive_detectors,
-                columns = ("livetime", "eff", "efflivetime", "rate_acc"),
+                detectors=index["detector"],
+                skip=inactive_detectors,
+                columns=("livetime", "eff", "efflivetime", "rate_acc"),
             )
 
+            # The reactor data is stored and read in a similar way and contains the
+            # following columns:
+            # - period - number of period for which data is presented, 0-based.
+            # - day - number of the first day of the period relative to the start of the
+            #         data taking, 0-based.
+            # - ndays - length of the period in days.
+            # - power - average thermal power, relative to nominal.
+            # - u235, u238, pu239, pu241 - fission fractions of corresponding isotope.
             if "reactor-28days" in self._future:
                 logger.warning("Future: use merged reactor data, period: 28 days")
                 load_record_data(
-                    name = "daily_data.reactor_all",
-                    filenames = path_arrays/f"reactor_power_28days.{self.source_type}",
-                    replicate_outputs = index["reactor"],
-                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_28days.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
                 )
-                assert "reactor-35days" not in self._future, "Mutually exclusive options"
+                assert (
+                    "reactor-35days" not in self._future
+                ), "Mutually exclusive options"
             elif "reactor-35days" in self._future:
                 logger.warning("Future: use merged reactor data, period: 35 days")
                 load_record_data(
-                    name = "daily_data.reactor_all",
-                    filenames = path_arrays/f"reactor_power_35days.{self.source_type}",
-                    replicate_outputs = index["reactor"],
-                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_35days.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
                 )
             else:
                 load_record_data(
-                    name = "daily_data.reactor_all",
-                    filenames = path_arrays/f"reactor_thermal_power_weekly.{self.source_type}",
-                    replicate_outputs = index["reactor"],
-                    columns = ("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays
+                    / f"reactor_thermal_power_weekly.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
                 )
+            # Reactor data is then converted from monthly (TODO: specify) to daily (no
+            # interpolation) and split them into data taking periods. The data is read
+            # from "daily_data.reactor_all" and stored in "daily_data.reactor".
             refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.child("daily_data.reactor"),
-                reactors = index["reactor"],
-                isotopes = index["isotope"],
+                reactors=index["reactor"],
+                isotopes=index["isotope"],
             )
 
+            # The detector and reactor data have different minimal period, therefore the
+            # arrays are not matching. With the following procedure we produce matching
+            # arrays for detector properties and reactor data based on the `day`. The
+            # procedure also checks that the data ranges are consistent.
             sync_reactor_detector_data(
-                    data("daily_data.reactor"),
-                    data("daily_data.detector"),
-                    )
+                data("daily_data.reactor"),
+                data("daily_data.detector"),
+            )
+
+            # Finally for convenience we change the nesting order making the data taking
+            # period the innermost index. This does not affect matching the indices,
+            # however is more convenient for plotting.
             data["daily_data.reactor.power"] = remap_items(
-                    data.get_dict("daily_data.reactor.power"),
-                    reorder_indices=[
-                        ["period", "reactor"],
-                        ["reactor", "period"]
-                        ]
-                    )
+                data.get_dict("daily_data.reactor.power"),
+                reorder_indices=[["period", "reactor"], ["reactor", "period"]],
+            )
             data["daily_data.reactor.fission_fraction"] = remap_items(
-                    data.get_dict("daily_data.reactor.fission_fraction"),
-                    reorder_indices=[
-                        ["period", "reactor", "isotope"],
-                        ["reactor", "isotope", "period"]
-                        ]
-                    )
+                data.get_dict("daily_data.reactor.fission_fraction"),
+                reorder_indices=[
+                    ["period", "reactor", "isotope"],
+                    ["reactor", "isotope", "period"],
+                ],
+            )
 
             Array.from_storage(
                 "daily_data.detector.days",
                 storage("data"),
-                remove_used_arrays = True,
-                dtype = "i"
+                remove_used_arrays=True,
+                dtype="i",
             )
-            outputs["daily_data.days"] = outputs.pop("daily_data.detector.days", delete_parents=True)
+            outputs["daily_data.days"] = outputs.pop(
+                "daily_data.detector.days", delete_parents=True
+            )
 
+            # HERE
+            # fmt: off
             Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
