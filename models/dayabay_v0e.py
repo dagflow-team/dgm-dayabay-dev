@@ -1723,14 +1723,17 @@ class model_dayabay_v0e:
             # however is more convenient for plotting.
             data["daily_data.reactor.power"] = remap_items(
                 data.get_dict("daily_data.reactor.power"),
-                reorder_indices=[["period", "reactor"], ["reactor", "period"]],
+                reorder_indices={
+                    "from": ["period", "reactor"],
+                    "to": ["reactor", "period"],
+                },
             )
             data["daily_data.reactor.fission_fraction"] = remap_items(
                 data.get_dict("daily_data.reactor.fission_fraction"),
-                reorder_indices=[
-                    ["period", "reactor", "isotope"],
-                    ["reactor", "isotope", "period"],
-                ],
+                reorder_indices={
+                    "from": ["period", "reactor", "isotope"],
+                    "to": ["reactor", "isotope", "period"],
+                },
             )
 
             Array.from_storage(
@@ -2164,10 +2167,7 @@ class model_dayabay_v0e:
             remap_items(
                 parameters("all.detector.detector_relative"),
                 outputs.child("detector.parameters_relative"),
-                reorder_indices=[
-                    ["detector", "parameters"],
-                    ["parameters", "detector"],
-                ],
+                reorder_indices={ "from": ["detector", "parameters"], "to": ["parameters", "detector"], },
             )
 
             # Interpolate Evis(Edep)
@@ -2466,10 +2466,7 @@ class model_dayabay_v0e:
                     )
             outputs["summary.periods.ibd_candidates"] = remap_items(
                     outputs.get_dict("summary.periods.ibd_candidates"),
-                    reorder_indices=[
-                        ["detector", "period"],
-                        ["period", "detector"]
-                        ]
+                    reorder_indices={ "from": ["detector", "period"], "to": ["period", "detector"] }
                     )
 
             Sum.replicate(
@@ -2519,10 +2516,7 @@ class model_dayabay_v0e:
             remap_items(
                     outputs("bkg.count"),
                     outputs.child("summary.periods.bkg_count"),
-                    reorder_indices=[
-                        ["bkg", "detector", "period"],
-                        ["bkg", "period", "detector"],
-                    ],
+                    reorder_indices={ "from": ["bkg", "detector", "period"], "to": ["bkg", "period", "detector"] },
                     )
 
             Division.replicate(
