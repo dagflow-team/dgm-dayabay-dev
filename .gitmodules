@@ -10,3 +10,6 @@
 [submodule "dagflow-statistics"]
 	path = submodules/dagflow-statistics
 	url = https://git.jinr.ru/dag-computing/dagflow-statistics.git
+[submodule "dictwrapper"]
+	path = submodules/dictwrapper
+	url = https://git.jinr.ru/dag-computing/dictwrapper.py.git
