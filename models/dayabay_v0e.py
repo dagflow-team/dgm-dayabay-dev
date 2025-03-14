@@ -1736,310 +1736,382 @@ class model_dayabay_v0e:
                 },
             )
 
+            # After the data is split into arrays and synchronized we create array nodes
+            # for each input using `Array.from_storage` class method.
+            # `remove_used_arrays` instructs the constructor to remove the data from
+            # storage after node is created in order not to keep duplicated data. We
+            # specifically set the data type to ensure the model does not depend on the
+            # datatype of the input.
+            #
+            # The following arrays are created:
+            # - days — an array of day numbers. A dedicated array for each period is
+            # stored.
+            # - detector data for each detector and period:
+            #   - livetime
+            #   - eff
+            #   - efflivetime
+            #   - rate_acc
+            # - reactor data for each reactor and period:
+            #   - power
+            #   - fission_fraction
             Array.from_storage(
                 "daily_data.detector.days",
                 storage("data"),
                 remove_used_arrays=True,
                 dtype="i",
             )
+
+            # For convenience the array with days is moved one level up the structure.
             outputs["daily_data.days"] = outputs.pop(
                 "daily_data.detector.days", delete_parents=True
             )
 
-            # HERE
-            # fmt: off
             Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
-                remove_used_arrays = True,
-                dtype = "d"
+                remove_used_arrays=True,
+                dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
                 storage("data"),
-                remove_used_arrays = True,
-                dtype = "d"
+                remove_used_arrays=True,
+                dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
                 storage("data"),
-                remove_used_arrays = True,
-                dtype = "d"
+                remove_used_arrays=True,
+                dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.rate_acc",
                 storage("data"),
-                remove_used_arrays = True,
-                dtype = "d"
+                remove_used_arrays=True,
+                dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.reactor.power",
                 storage("data"),
-                remove_used_arrays = True,
-                dtype = "d"
+                remove_used_arrays=True,
+                dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
                 storage("data"),
-                remove_used_arrays = True,
-                dtype = "d"
+                remove_used_arrays=True,
+                dtype="d",
             )
             del storage["data.daily_data"]
 
-            #
-            # Neutrino rate
-            #
-            Product.replicate(
-                    parameters("all.reactor.nominal_thermal_power"),
-                    parameters.get_value("all.conversion.reactorPowerConversion"),
-                    name = "reactor.thermal_power_nominal_MeVs",
-                    replicate_outputs = index["reactor"]
-                    )
+            # At this point we have the information to compute the the antineutrino
+            # flux.
+            # todo
+            # - nominal thermal power [MeV/s], fit-dependent
+            # - nominal thermal power [MeV/s], fit-independent (central values)
+            # - fission fraction, corrected based on nuisance parameters [fraction]
+            # - average energy per fission
+            # -
 
+            # Thermal power [MeV/s] for each reactor is defined as multiplication of
+            # parameters `nominal_thermal_power` [GW] for each reactor and conversion
+            # constant. While storages may be accessed with `[]` we explicitly use
+            # `get_dict` and `get_value` methods to indicate whether we expect a single
+            # object or a nested storage.
             Product.replicate(
-                    parameters("central.reactor.nominal_thermal_power"),
-                    parameters.get_value("all.conversion.reactorPowerConversion"),
-                    name = "reactor.thermal_power_nominal_MeVs_central",
-                    replicate_outputs = index["reactor"]
-                    )
+                parameters.get_dict("all.reactor.nominal_thermal_power"),
+                parameters.get_value("all.conversion.reactorPowerConversion"),
+                name="reactor.thermal_power_nominal_MeVs",
+                replicate_outputs=index["reactor"],
+            )
 
-            # Time dependent, fit dependent (non-nominal) for reactor core
+            # We repeat the same procedure for the central value. While the previous
+            # "thermal_power_nominal_MeVs" depends on the minimization parameters
+            # "all.reactor.nominal_thermal_power", for the following product we use
+            # "central.reactor.nominal_thermal_power", which do not depend on them.
             Product.replicate(
-                    parameters("all.reactor.fission_fraction_scale"),
-                    outputs("daily_data.reactor.fission_fraction"),
-                    name = "daily_data.reactor.fission_fraction_scaled",
-                    replicate_outputs=combinations["reactor.isotope.period"],
-                    )
+                parameters.get_dict("central.reactor.nominal_thermal_power"),
+                parameters.get_value("all.conversion.reactorPowerConversion"),
+                name="reactor.thermal_power_nominal_MeVs_central",
+                replicate_outputs=index["reactor"],
+            )
 
+            # Apply the variable scale (nuisance) to the fiction fractions. Fission
+            # fractions are time dependent and the scale is applied to each day. The
+            # result is an array for each reactor, isotope, period triplet.
             Product.replicate(
-                    parameters("all.reactor.energy_per_fission"),
-                    outputs("daily_data.reactor.fission_fraction_scaled"),
-                    name = "reactor.energy_per_fission_weighted_MeV",
-                    replicate_outputs=combinations["reactor.isotope.period"],
-                    )
+                parameters.get_dict("all.reactor.fission_fraction_scale"),
+                outputs.get_dict("daily_data.reactor.fission_fraction"),
+                name="daily_data.reactor.fission_fraction_scaled",
+                replicate_outputs=combinations["reactor.isotope.period"],
+            )
+
+            # Using daily fission fractions compute weighted energy per fission in each
+            # isotope in each reactor during each period. This is an intermediate step
+            # to obtain average energy per fission in each reactor.
+            Product.replicate(
+                parameters.get_dict("all.reactor.energy_per_fission"),
+                outputs.get_dict("daily_data.reactor.fission_fraction_scaled"),
+                name="reactor.energy_per_fission_weighted_MeV",
+                replicate_outputs=combinations["reactor.isotope.period"],
+            )
+
+            # Sum weighted energy per fission within each reactor (isotope index
+            # removed) to compute average energy per fission in each reactor during each
+            # period.
+            Sum.replicate(
+                outputs.get_dict("reactor.energy_per_fission_weighted_MeV"),
+                name="reactor.energy_per_fission_average_MeV",
+                replicate_outputs=combinations["reactor.period"],
+            )
+
+            # Compute daily contribution of each isotope to reactor's thermal power by
+            # multiplying fission fractions, nominal thermal power [MeV/s] and fractional
+            # thermal power.
+            Product.replicate(
+                outputs.get_dict("daily_data.reactor.power"),
+                outputs.get_dict("daily_data.reactor.fission_fraction_scaled"),
+                outputs.get_dict("reactor.thermal_power_nominal_MeVs"),
+                name="reactor.thermal_power_isotope_MeV_per_second",
+                replicate_outputs=combinations["reactor.isotope.period"],
+            )
+
+            # Compute number of fissions per second related to each isotope in each
+            # reactor and each period: divide partial thermal power by average energy
+            # per fission.
+            Division.replicate(
+                outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second"),
+                outputs.get_dict("reactor.energy_per_fission_average_MeV"),
+                name="reactor.fissions_per_second",
+                replicate_outputs=combinations["reactor.isotope.period"],
+            )
+
+            # In the few following operations repeat the calculation of fissions per
+            # second for SNF. This time we use fixed average fission fractions. The SNF
+            # is defined as a fraction of nominal antineutrino spectrum from reactor.
+            # Therefore the isotope index is used.
+            Product.replicate(
+                parameters.get_dict("central.reactor.energy_per_fission"),
+                parameters.get_dict("all.reactor.fission_fraction_snf"),
+                name="reactor.energy_per_fission_snf_weighted_MeV",
+                replicate_outputs=index["isotope"],
+            )
 
             Sum.replicate(
-                    outputs("reactor.energy_per_fission_weighted_MeV"),
-                    name = "reactor.energy_per_fission_average_MeV",
-                    replicate_outputs=combinations["reactor.period"],
-                    )
+                outputs.get_dict("reactor.energy_per_fission_snf_weighted_MeV"),
+                name="reactor.energy_per_fission_snf_average_MeV",
+            )
 
+            # For SNF contribution use central values for the thermal power.
             Product.replicate(
-                    outputs("daily_data.reactor.power"),
-                    outputs("daily_data.reactor.fission_fraction_scaled"),
-                    outputs("reactor.thermal_power_nominal_MeVs"),
-                    name = "reactor.thermal_power_isotope_MeV_per_second",
-                    replicate_outputs=combinations["reactor.isotope.period"],
-                    )
+                parameters.get_dict("all.reactor.fission_fraction_snf"),
+                outputs.get_dict("reactor.thermal_power_nominal_MeVs_central"),
+                name="reactor.thermal_power_snf_isotope_MeV_per_second",
+                replicate_outputs=combinations["reactor.isotope"],
+            )
 
+            # Compute fissions per second for SNF calculation.
             Division.replicate(
-                    outputs("reactor.thermal_power_isotope_MeV_per_second"),
-                    outputs("reactor.energy_per_fission_average_MeV"),
-                    name = "reactor.fissions_per_second",
-                    replicate_outputs=combinations["reactor.isotope.period"],
-                    )
+                outputs.get_dict("reactor.thermal_power_snf_isotope_MeV_per_second"),
+                outputs.get_value("reactor.energy_per_fission_snf_average_MeV"),
+                name="reactor.fissions_per_second_snf",
+                replicate_outputs=combinations["reactor.isotope"],
+            )
 
-            # Nominal, time and reactor independent power and fission fractions for SNF
-            # NOTE: central values are used for energy_per_fission
+            # Now we need to incorporate the knowledge on the detector operation.
+            # Compute the number of fissions as seen from each detector: multiply
+            # fissions per second [#/s] by detector livetime [s]. This is done on a
+            # daily basis. The result is for each isotope in each reactor seen at
+            # each detector during each period.
+            #
+            # Not all detectors are available during all the periods. Still
+            # corresponding combination of indices may arise during iteration. Therefore
+            # we provide a list of indices, which should not trigger an exception.
             Product.replicate(
-                    parameters("central.reactor.energy_per_fission"),
-                    parameters("all.reactor.fission_fraction_snf"),
-                    name = "reactor.energy_per_fission_snf_weighted_MeV",
-                    replicate_outputs=index["isotope"],
-                    )
+                outputs.get_dict("reactor.fissions_per_second"),
+                outputs.get_dict("daily_data.detector.efflivetime"),
+                name="reactor_detector.nfissions_daily",
+                replicate_outputs=combinations["reactor.isotope.detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=inactive_detectors,
+            )
 
-            Sum.replicate(
-                    outputs("reactor.energy_per_fission_snf_weighted_MeV"),
-                    name = "reactor.energy_per_fission_snf_average_MeV",
-                    )
-
-            # NOTE: central values are used for the thermal power
-            Product.replicate(
-                    parameters("all.reactor.fission_fraction_snf"),
-                    outputs("reactor.thermal_power_nominal_MeVs_central"),
-                    name = "reactor.thermal_power_snf_isotope_MeV_per_second",
-                    replicate_outputs=combinations["reactor.isotope"],
-                    )
-
-            Division.replicate(
-                    outputs("reactor.thermal_power_snf_isotope_MeV_per_second"),
-                    outputs.get_value("reactor.energy_per_fission_snf_average_MeV"),
-                    name = "reactor.fissions_per_second_snf",
-                    replicate_outputs=combinations["reactor.isotope"],
-                    )
-
-            # Effective number of fissions seen in Detector from Reactor from Isotope during Period
-            Product.replicate(
-                    outputs("reactor.fissions_per_second"),
-                    outputs("daily_data.detector.efflivetime"),
-                    name = "reactor_detector.nfissions_daily",
-                    replicate_outputs=combinations["reactor.isotope.detector.period"],
-                    allow_skip_inputs = True,
-                    skippable_inputs_should_contain = inactive_detectors
-                    )
-
-            # Total effective number of fissions from a Reactor seen in the Detector during Period
+            # Sum up each array of daily data to obtain number of fissions as seen by
+            # each detector from each isotope from each reactor during each period.
+            # ArraySum operation is unable to combine different arrays and produces an
+            # output for each input. Therefore there is no need to provide
+            # `replicate_outputs` argument this time.
             ArraySum.replicate(
-                    outputs("reactor_detector.nfissions_daily"),
-                    name = "reactor_detector.nfissions",
-                    )
+                outputs.get_dict("reactor_detector.nfissions_daily"),
+                name="reactor_detector.nfissions",
+            )
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
             InverseSquareLaw.replicate(
                 name="reactor_detector.baseline_factor_per_cm2",
                 scale="m_to_cm",
-                replicate_outputs=combinations["reactor.detector"]
+                replicate_outputs=combinations["reactor.detector"],
             )
-            parameters("constant.baseline") >> inputs("reactor_detector.baseline_factor_per_cm2")
+            parameters("constant.baseline") >> inputs(
+                "reactor_detector.baseline_factor_per_cm2"
+            )
 
+            # HERE
+            # fmt: off
             # Number of protons per detector
             Product.replicate(
-                    parameters.get_value("all.detector.nprotons_nominal_ad"),
-                    parameters("all.detector.nprotons_correction"),
-                    name = "detector.nprotons",
-                    replicate_outputs = index["detector"]
+                parameters.get_value("all.detector.nprotons_nominal_ad"),
+                parameters("all.detector.nprotons_correction"),
+                name="detector.nprotons",
+                replicate_outputs=index["detector"],
             )
 
             # Number of fissions × N protons × ε / (4πL²)  (main)
             Product.replicate(
-                    outputs("reactor_detector.nfissions"),
-                    outputs("detector.nprotons"),
-                    outputs("reactor_detector.baseline_factor_per_cm2"),
-                    parameters.get_value("all.detector.efficiency"),
-                    name = "reactor_detector.nfissions_nprotons_per_cm2",
-                    replicate_outputs=combinations["reactor.isotope.detector.period"],
-                    )
+                outputs("reactor_detector.nfissions"),
+                outputs("detector.nprotons"),
+                outputs("reactor_detector.baseline_factor_per_cm2"),
+                parameters.get_value("all.detector.efficiency"),
+                name="reactor_detector.nfissions_nprotons_per_cm2",
+                replicate_outputs=combinations["reactor.isotope.detector.period"],
+            )
 
             Product.replicate(
-                    outputs("reactor_detector.nfissions_nprotons_per_cm2"),
-                    parameters("all.reactor.nonequilibrium_scale"),
-                    parameters.get_value("all.reactor.neq_factor"),
-                    name = "reactor_detector.nfissions_nprotons_per_cm2_neq",
-                    replicate_outputs=combinations["reactor.isotope.detector.period"],
-                    )
+                outputs("reactor_detector.nfissions_nprotons_per_cm2"),
+                parameters("all.reactor.nonequilibrium_scale"),
+                parameters.get_value("all.reactor.neq_factor"),
+                name="reactor_detector.nfissions_nprotons_per_cm2_neq",
+                replicate_outputs=combinations["reactor.isotope.detector.period"],
+            )
 
             # Detector live time
             ArraySum.replicate(
-                    outputs("daily_data.detector.livetime"),
-                    name = "detector.livetime",
-                    )
+                outputs("daily_data.detector.livetime"),
+                name="detector.livetime",
+            )
 
             ArraySum.replicate(
-                    outputs("daily_data.detector.efflivetime"),
-                    name = "detector.efflivetime",
-                    )
+                outputs("daily_data.detector.efflivetime"),
+                name="detector.efflivetime",
+            )
 
             Product.replicate(
-                    outputs("detector.efflivetime"),
-                    parameters.get_value("constant.conversion.seconds_in_day_inverse"),
-                    name="detector.efflivetime_days",
-                    replicate_outputs=combinations["detector.period"],
-                    allow_skip_inputs=True,
-                    skippable_inputs_should_contain=inactive_detectors,
-                    )
+                outputs("detector.efflivetime"),
+                parameters.get_value("constant.conversion.seconds_in_day_inverse"),
+                name="detector.efflivetime_days",
+                replicate_outputs=combinations["detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=inactive_detectors,
+            )
 
             # Number of accidentals
-            Product.replicate( # TODO: doc
-                    outputs("daily_data.detector.efflivetime"),
-                    outputs("daily_data.detector.rate_acc"),
-                    name="daily_data.detector.num_acc_s_day",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+            Product.replicate(  # TODO: doc
+                outputs("daily_data.detector.efflivetime"),
+                outputs("daily_data.detector.rate_acc"),
+                name="daily_data.detector.num_acc_s_day",
+                replicate_outputs=combinations["detector.period"],
+            )
 
             ArraySum.replicate(
-                    outputs("daily_data.detector.num_acc_s_day"),
-                    name="bkg.count_acc_fixed_s_day",
-                    )
+                outputs("daily_data.detector.num_acc_s_day"),
+                name="bkg.count_acc_fixed_s_day",
+            )
 
             Product.replicate(
-                    outputs("bkg.count_acc_fixed_s_day"),
-                    parameters["constant.conversion.seconds_in_day_inverse"],
-                    name="bkg.count_fixed.acc",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                outputs("bkg.count_acc_fixed_s_day"),
+                parameters["constant.conversion.seconds_in_day_inverse"],
+                name="bkg.count_fixed.acc",
+                replicate_outputs=combinations["detector.period"],
+            )
 
             # Effective live time × N protons × ε / (4πL²)  (SNF)
             Product.replicate(
-                    outputs("detector.efflivetime"),
-                    outputs("detector.nprotons"),
-                    outputs("reactor_detector.baseline_factor_per_cm2"),
-                    parameters("all.reactor.snf_scale"),
-                    parameters.get_value("all.reactor.snf_factor"),
-                    parameters.get_value("all.detector.efficiency"),
-                    name = "reactor_detector.livetime_nprotons_per_cm2_snf",
-                    replicate_outputs=combinations["reactor.detector.period"],
-                    allow_skip_inputs = True,
-                    skippable_inputs_should_contain = inactive_detectors
-                    )
+                outputs("detector.efflivetime"),
+                outputs("detector.nprotons"),
+                outputs("reactor_detector.baseline_factor_per_cm2"),
+                parameters("all.reactor.snf_scale"),
+                parameters.get_value("all.reactor.snf_factor"),
+                parameters.get_value("all.detector.efficiency"),
+                name="reactor_detector.livetime_nprotons_per_cm2_snf",
+                replicate_outputs=combinations["reactor.detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=inactive_detectors,
+            )
 
             #
             # Average SNF Spectrum
             #
             Product.replicate(
-                    outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs("reactor.fissions_per_second_snf"),
-                    name = "snf_anue.neutrino_per_second_isotope",
-                    replicate_outputs=combinations["reactor.isotope"],
-                    )
+                outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                outputs("reactor.fissions_per_second_snf"),
+                name="snf_anue.neutrino_per_second_isotope",
+                replicate_outputs=combinations["reactor.isotope"],
+            )
 
             Sum.replicate(
-                    outputs("snf_anue.neutrino_per_second_isotope"),
-                    name = "snf_anue.neutrino_per_second",
-                    replicate_outputs=index["reactor"],
-                    )
+                outputs("snf_anue.neutrino_per_second_isotope"),
+                name="snf_anue.neutrino_per_second",
+                replicate_outputs=index["reactor"],
+            )
 
             Product.replicate(
-                    outputs("snf_anue.neutrino_per_second"),
-                    outputs("snf_anue.correction_interpolated"),
-                    name = "snf_anue.neutrino_per_second_snf",
-                    replicate_outputs = index["reactor"]
-                    )
+                outputs("snf_anue.neutrino_per_second"),
+                outputs("snf_anue.correction_interpolated"),
+                name="snf_anue.neutrino_per_second_snf",
+                replicate_outputs=index["reactor"],
+            )
 
             #
             # Integrand: flux × oscillation probability × cross section
             # [Nν·cm²/fission/proton]
             #
             Product.replicate(
-                    outputs.get_value("kinematics.ibd.crosssection"),
-                    outputs.get_value("kinematics.ibd.jacobian"),
-                    name="kinematics.ibd.crosssection_jacobian",
+                outputs.get_value("kinematics.ibd.crosssection"),
+                outputs.get_value("kinematics.ibd.jacobian"),
+                name="kinematics.ibd.crosssection_jacobian",
             )
 
             Product.replicate(
-                    outputs.get_value("kinematics.ibd.crosssection_jacobian"),
-                    outputs("oscprob"),
-                    name="kinematics.ibd.crosssection_jacobian_oscillations",
-                    replicate_outputs=combinations["reactor.detector"]
+                outputs.get_value("kinematics.ibd.crosssection_jacobian"),
+                outputs("oscprob"),
+                name="kinematics.ibd.crosssection_jacobian_oscillations",
+                replicate_outputs=combinations["reactor.detector"],
             )
 
             Product.replicate(
-                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
-                    outputs("reactor_anue.part.neutrino_per_fission_per_MeV_main"),
-                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
-                    replicate_outputs=combinations["reactor.isotope.detector"]
+                outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
+                outputs("reactor_anue.part.neutrino_per_fission_per_MeV_main"),
+                name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
+                replicate_outputs=combinations["reactor.isotope.detector"],
             )
 
             Product.replicate(
-                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
-                    outputs("reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"),
-                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
-                    replicate_outputs=combinations["reactor.isotope_neq.detector"]
+                outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
+                outputs("reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"),
+                name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
+                replicate_outputs=combinations["reactor.isotope_neq.detector"],
             )
 
             Product.replicate(
-                    outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
-                    outputs("snf_anue.neutrino_per_second_snf"),
-                    name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
-                    replicate_outputs=combinations["reactor.detector"]
+                outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
+                outputs("snf_anue.neutrino_per_second_snf"),
+                name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
+                replicate_outputs=combinations["reactor.detector"],
             )
-            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main") >> inputs("kinematics.integral.nu_main")
-            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq") >> inputs("kinematics.integral.nu_neq")
-            outputs("kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf") >> inputs("kinematics.integral.nu_snf")
+            outputs(
+                "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main"
+            ) >> inputs("kinematics.integral.nu_main")
+            outputs(
+                "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq"
+            ) >> inputs("kinematics.integral.nu_neq")
+            outputs(
+                "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf"
+            ) >> inputs("kinematics.integral.nu_snf")
 
             #
             # Multiply by the scaling factors:
@@ -2048,106 +2120,116 @@ class model_dayabay_v0e:
             #  - nu_snf:                               effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
             #
             Product.replicate(
-                    outputs("kinematics.integral.nu_main"),
-                    outputs("reactor_detector.nfissions_nprotons_per_cm2"),
-                    name = "eventscount.parts.nu_main",
-                    replicate_outputs = combinations["reactor.isotope.detector.period"]
-                    )
+                outputs("kinematics.integral.nu_main"),
+                outputs("reactor_detector.nfissions_nprotons_per_cm2"),
+                name="eventscount.parts.nu_main",
+                replicate_outputs=combinations["reactor.isotope.detector.period"],
+            )
 
             Product.replicate(
-                    outputs("kinematics.integral.nu_neq"),
-                    outputs("reactor_detector.nfissions_nprotons_per_cm2_neq"),
-                    name = "eventscount.parts.nu_neq",
-                    replicate_outputs = combinations["reactor.isotope_neq.detector.period"],
-                    allow_skip_inputs = True,
-                    skippable_inputs_should_contain = ("U238",)
-                    )
+                outputs("kinematics.integral.nu_neq"),
+                outputs("reactor_detector.nfissions_nprotons_per_cm2_neq"),
+                name="eventscount.parts.nu_neq",
+                replicate_outputs=combinations["reactor.isotope_neq.detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=("U238",),
+            )
 
             Product.replicate(
-                    outputs("kinematics.integral.nu_snf"),
-                    outputs("reactor_detector.livetime_nprotons_per_cm2_snf"),
-                    name = "eventscount.parts.nu_snf",
-                    replicate_outputs = combinations["reactor.detector.period"]
-                    )
+                outputs("kinematics.integral.nu_snf"),
+                outputs("reactor_detector.livetime_nprotons_per_cm2_snf"),
+                name="eventscount.parts.nu_snf",
+                replicate_outputs=combinations["reactor.detector.period"],
+            )
 
             Sum.replicate(
                 outputs("eventscount.parts"),
                 name="eventscount.raw",
-                replicate_outputs=combinations["detector.period"]
+                replicate_outputs=combinations["detector.period"],
             )
 
             #
             # Detector effects
             #
-            if self.dataset!="b":
+            if self.dataset != "b":
                 load_array(
-                    name = "detector.iav",
-                    filenames = path_arrays/f"detector_IAV_matrix_P14A_LS.{self.source_type}",
-                    replicate_outputs = ("matrix_raw",),
-                    name_function = {"matrix_raw": "iav_matrix"},
-                    array_kwargs = {
-                        'edges': (edges_energy_escint, edges_energy_edep)
-                        }
+                    name="detector.iav",
+                    filenames=path_arrays
+                    / f"detector_IAV_matrix_P14A_LS.{self.source_type}",
+                    replicate_outputs=("matrix_raw",),
+                    name_function={"matrix_raw": "iav_matrix"},
+                    array_kwargs={"edges": (edges_energy_escint, edges_energy_edep)},
                 )
             else:
                 logger.warning("Dataset B: use alternative IAV matrix")
                 load_array(
-                    name = "detector.iav",
-                    filenames = path_arrays/f"detector_IAV_matrix_P12.{self.source_type}",
-                    replicate_outputs = ("matrix_raw",),
-                    name_function = {"matrix_raw": "iav_matrix"},
-                    array_kwargs = {
-                        'edges': (edges_energy_escint, edges_energy_edep)
-                        }
+                    name="detector.iav",
+                    filenames=path_arrays
+                    / f"detector_IAV_matrix_P12.{self.source_type}",
+                    replicate_outputs=("matrix_raw",),
+                    name_function={"matrix_raw": "iav_matrix"},
+                    array_kwargs={"edges": (edges_energy_escint, edges_energy_edep)},
                 )
 
-            RenormalizeDiag.replicate(mode="offdiag", name="detector.iav.matrix_rescaled", replicate_outputs=index["detector"])
-            parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
-            outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
+            RenormalizeDiag.replicate(
+                mode="offdiag",
+                name="detector.iav.matrix_rescaled",
+                replicate_outputs=index["detector"],
+            )
+            parameters("all.detector.iav_offdiag_scale_factor") >> inputs(
+                "detector.iav.matrix_rescaled.scale"
+            )
+            outputs.get_value("detector.iav.matrix_raw") >> inputs(
+                "detector.iav.matrix_rescaled.matrix"
+            )
 
-            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(
+                name="eventscount.iav",
+                replicate_outputs=combinations["detector.period"],
+            )
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
             load_graph_data(
-                name = "detector.lsnl.curves",
-                x = "edep",
-                y = "evis_parts",
-                merge_x = True,
-                filenames = path_arrays/f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
-                replicate_outputs = index["lsnl"],
+                name="detector.lsnl.curves",
+                x="edep",
+                y="evis_parts",
+                merge_x=True,
+                filenames=path_arrays
+                / f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
+                replicate_outputs=index["lsnl"],
             )
 
             # Refine LSNL curves: interpolate with smaller step
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
-                edepname = 'edep',
-                nominalname = 'evis_parts.nominal',
-                refine_times = 4,
-                newmin = 0.5,
-                newmax = 12.1
+                edepname="edep",
+                nominalname="evis_parts.nominal",
+                refine_times=4,
+                newmin=0.5,
+                newmax=12.1,
             )
 
             Array.from_storage(
                 "detector.lsnl.curves",
                 storage("data"),
-                meshname = "edep",
-                remove_used_arrays = True
+                meshname="edep",
+                remove_used_arrays=True,
             )
 
             Product.replicate(
                 outputs("detector.lsnl.curves.evis_parts"),
                 parameters("constrained.detector.lsnl_scale_a"),
-                name = "detector.lsnl.curves.evis_parts_scaled",
-                allow_skip_inputs = True,
-                skippable_inputs_should_contain = ("nominal",),
-                replicate_outputs=index["lsnl_nuisance"]
+                name="detector.lsnl.curves.evis_parts_scaled",
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=("nominal",),
+                replicate_outputs=index["lsnl_nuisance"],
             )
 
             Sum.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_parts.nominal"),
                 outputs("detector.lsnl.curves.evis_parts_scaled"),
-                name="detector.lsnl.curves.evis_coarse"
+                name="detector.lsnl.curves.evis_coarse",
             )
 
             #
@@ -2156,38 +2238,51 @@ class model_dayabay_v0e:
             # - Introduced to achieve stable minimization
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
             Monotonize.replicate(
-                    name="detector.lsnl.curves.evis_coarse_monotonous",
-                    index_fraction = 0.5,
-                    gradient = 1.0,
-                    with_x = True
-                    )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.x")
-            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.y")
+                name="detector.lsnl.curves.evis_coarse_monotonous",
+                index_fraction=0.5,
+                gradient=1.0,
+                with_x=True,
+            )
+            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value(
+                "detector.lsnl.curves.evis_coarse_monotonous.x"
+            )
+            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value(
+                "detector.lsnl.curves.evis_coarse_monotonous.y"
+            )
 
             remap_items(
                 parameters("all.detector.detector_relative"),
                 outputs.child("detector.parameters_relative"),
-                reorder_indices={ "from": ["detector", "parameters"], "to": ["parameters", "detector"], },
+                reorder_indices={
+                    "from": ["detector", "parameters"],
+                    "to": ["parameters", "detector"],
+                },
             )
 
             # Interpolate Evis(Edep)
             Interpolator.replicate(
-                method = "linear",
-                names = {
+                method="linear",
+                names={
                     "indexer": "detector.lsnl.indexer_fwd",
                     "interpolator": "detector.lsnl.interpolated_fwd",
-                    },
+                },
             )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.interpolated_fwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous") >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
-            edges_energy_edep >> inputs.get_value("detector.lsnl.interpolated_fwd.xfine")
+            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value(
+                "detector.lsnl.interpolated_fwd.xcoarse"
+            )
+            outputs.get_value(
+                "detector.lsnl.curves.evis_coarse_monotonous"
+            ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+            edges_energy_edep >> inputs.get_value(
+                "detector.lsnl.interpolated_fwd.xfine"
+            )
 
             # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
             Product.replicate(
                 outputs.get_value("detector.lsnl.interpolated_fwd"),
                 outputs("detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis",
-                replicate_outputs = index["detector"]
+                replicate_outputs=index["detector"],
             )
 
             # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
@@ -2195,68 +2290,101 @@ class model_dayabay_v0e:
                 outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
                 outputs("detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
-                replicate_outputs = index["detector"]
+                replicate_outputs=index["detector"],
             )
 
             # Interpolate Edep(Evis[detector])
             Interpolator.replicate(
-                method = "linear",
-                names = {
+                method="linear",
+                names={
                     "indexer": "detector.lsnl.indexer_bwd",
                     "interpolator": "detector.lsnl.interpolated_bwd",
-                    },
-                replicate_xcoarse = True,
-                replicate_outputs = index["detector"]
+                },
+                replicate_xcoarse=True,
+                replicate_outputs=index["detector"],
             )
-            outputs.get_dict("detector.lsnl.curves.evis_coarse_monotonous_scaled") >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.edep")  >> inputs.get_dict("detector.lsnl.interpolated_bwd.ycoarse")
-            edges_energy_evis.outputs[0] >> inputs.get_dict("detector.lsnl.interpolated_bwd.xfine")
+            outputs.get_dict(
+                "detector.lsnl.curves.evis_coarse_monotonous_scaled"
+            ) >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
+            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_dict(
+                "detector.lsnl.interpolated_bwd.ycoarse"
+            )
+            edges_energy_evis.outputs[0] >> inputs.get_dict(
+                "detector.lsnl.interpolated_bwd.xfine"
+            )
 
             # Build LSNL matrix
-            AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
+            AxisDistortionMatrix.replicate(
+                name="detector.lsnl.matrix", replicate_outputs=index["detector"]
+            )
             edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
-            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
-            outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModifiedBackwards")
-            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
+            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
+                "detector.lsnl.matrix.EdgesModified"
+            )
+            outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict(
+                "detector.lsnl.matrix.EdgesModifiedBackwards"
+            )
+            VectorMatrixProduct.replicate(
+                name="eventscount.evis",
+                replicate_outputs=combinations["detector.period"],
+            )
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             EnergyResolution.replicate(path="detector.eres")
-            nodes.get_value("detector.eres.sigma_rel") << parameters("constrained.detector.eres")
-            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
-            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.e_edges")
+            nodes.get_value("detector.eres.sigma_rel") << parameters(
+                "constrained.detector.eres"
+            )
+            outputs.get_value("edges.energy_evis") >> inputs.get_value(
+                "detector.eres.matrix"
+            )
+            outputs.get_value("edges.energy_evis") >> inputs.get_value(
+                "detector.eres.e_edges"
+            )
 
-            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"])
-            outputs.get_value("detector.eres.matrix") >> inputs("eventscount.erec.matrix")
+            VectorMatrixProduct.replicate(
+                name="eventscount.erec",
+                replicate_outputs=combinations["detector.period"],
+            )
+            outputs.get_value("detector.eres.matrix") >> inputs(
+                "eventscount.erec.matrix"
+            )
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
             Product.replicate(
                 parameters.get_value("all.detector.global_normalization"),
                 outputs("detector.parameters_relative.efficiency_factor"),
-                name = "detector.normalization",
+                name="detector.normalization",
                 replicate_outputs=index["detector"],
             )
 
             Product.replicate(
                 outputs("detector.normalization"),
                 outputs("eventscount.erec"),
-                name = "eventscount.fine.ibd_normalized",
+                name="eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
             )
 
             Sum.replicate(
                 outputs("eventscount.fine.ibd_normalized"),
-                name = "eventscount.fine.ibd_normalized_detector",
+                name="eventscount.fine.ibd_normalized_detector",
                 replicate_outputs=combinations["detector"],
             )
 
             Rebin.replicate(
-                names={"matrix": "detector.rebin.matrix_ibd", "product": "eventscount.final.ibd"},
+                names={
+                    "matrix": "detector.rebin.matrix_ibd",
+                    "product": "eventscount.final.ibd",
+                },
                 replicate_outputs=combinations["detector.period"],
             )
             edges_energy_erec >> inputs.get_value("detector.rebin.matrix_ibd.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin.matrix_ibd.edges_new")
-            outputs("eventscount.fine.ibd_normalized") >> inputs("eventscount.final.ibd")
+            edges_energy_final >> inputs.get_value(
+                "detector.rebin.matrix_ibd.edges_new"
+            )
+            outputs("eventscount.fine.ibd_normalized") >> inputs(
+                "eventscount.final.ibd"
+            )
 
             #
             # Backgrounds
@@ -2267,100 +2395,108 @@ class model_dayabay_v0e:
                 "fastn": "fastNeutron",
                 "amc": "amCSource",
                 "alphan": "carbonAlpha",
-                "muon": "muonRelated"
+                "muon": "muonRelated",
             }
             load_hist(
-                name = "bkg",
-                x = "erec",
-                y = "spectrum_shape",
-                merge_x = True,
-                normalize = True,
-                filenames = path_arrays/f"{dataset_path}/{dataset_path}_bkg_spectra_{{}}.{self.source_type}",
-                replicate_files = index["period"],
-                replicate_outputs = combinations["bkg.detector"],
-                skip = inactive_combinations,
-                key_order = (
+                name="bkg",
+                x="erec",
+                y="spectrum_shape",
+                merge_x=True,
+                normalize=True,
+                filenames=path_arrays
+                / f"{dataset_path}/{dataset_path}_bkg_spectra_{{}}.{self.source_type}",
+                replicate_files=index["period"],
+                replicate_outputs=combinations["bkg.detector"],
+                skip=inactive_combinations,
+                key_order=(
                     ("period", "bkg", "detector"),
                     ("bkg", "detector", "period"),
                 ),
-                name_function = lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}"
+                name_function=lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}",
             )
 
             # TODO: labels
             Product.replicate(
-                    parameters("all.bkg.rate"),
-                    outputs("detector.efflivetime_days"),
-                    name = "bkg.count_fixed",
-                    replicate_outputs=combinations["bkg_stable.detector.period"]
-                    )
+                parameters("all.bkg.rate"),
+                outputs("detector.efflivetime_days"),
+                name="bkg.count_fixed",
+                replicate_outputs=combinations["bkg_stable.detector.period"],
+            )
 
             # TODO: labels
             Product.replicate(
-                    parameters("all.bkg.rate_scale.acc"),
-                    outputs("bkg.count_fixed.acc"),
-                    name = "bkg.count.acc",
-                    replicate_outputs=combinations["detector.period"]
-                    )
+                parameters("all.bkg.rate_scale.acc"),
+                outputs("bkg.count_fixed.acc"),
+                name="bkg.count.acc",
+                replicate_outputs=combinations["detector.period"],
+            )
 
             remap_items(
-                    parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                    outputs.child("bkg.uncertainty_scale"),
-                    rename_indices = site_arrangement,
-                    skip_indices_target = inactive_detectors,
-                    )
+                parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
+                outputs.child("bkg.uncertainty_scale"),
+                rename_indices=site_arrangement,
+                skip_indices_target=inactive_detectors,
+            )
 
             # TODO: labels
             ProductShiftedScaled.replicate(
-                    outputs("bkg.count_fixed"),
-                    parameters("sigma.bkg.rate"),
-                    outputs.get_dict("bkg.uncertainty_scale"),
-                    name = "bkg.count",
-                    shift=1.0,
-                    replicate_outputs=combinations["bkg_site_correlated.detector.period"],
-                    allow_skip_inputs = True,
-                    skippable_inputs_should_contain = combinations["bkg_not_site_correlated.detector.period"]
-                    )
+                outputs("bkg.count_fixed"),
+                parameters("sigma.bkg.rate"),
+                outputs.get_dict("bkg.uncertainty_scale"),
+                name="bkg.count",
+                shift=1.0,
+                replicate_outputs=combinations["bkg_site_correlated.detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=combinations[
+                    "bkg_not_site_correlated.detector.period"
+                ],
+            )
 
             # TODO: labels
             ProductShiftedScaled.replicate(
-                    outputs("bkg.count_fixed.amc"),
-                    parameters("sigma.bkg.rate.amc"),
-                    parameters["all.bkg.uncertainty_scale.amc"],
-                    name = "bkg.count.amc",
-                    shift=1.0,
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                outputs("bkg.count_fixed.amc"),
+                parameters("sigma.bkg.rate.amc"),
+                parameters["all.bkg.uncertainty_scale.amc"],
+                name="bkg.count.amc",
+                shift=1.0,
+                replicate_outputs=combinations["detector.period"],
+            )
 
             outputs["bkg.count.alphan"] = outputs.get_dict("bkg.count_fixed.alphan")
 
             # TODO: labels
             Product.replicate(
-                    outputs("bkg.count"),
-                    outputs("bkg.spectrum_shape"),
-                    name="bkg.spectrum",
-                    replicate_outputs=combinations["bkg.detector.period"],
-                    )
+                outputs("bkg.count"),
+                outputs("bkg.spectrum_shape"),
+                name="bkg.spectrum",
+                replicate_outputs=combinations["bkg.detector.period"],
+            )
 
             Sum.replicate(
-                    outputs("bkg.spectrum"),
-                    name="eventscount.fine.bkg",
-                    replicate_outputs=combinations["detector.period"],
-                    )
+                outputs("bkg.spectrum"),
+                name="eventscount.fine.bkg",
+                replicate_outputs=combinations["detector.period"],
+            )
 
             Sum.replicate(
-                    outputs("eventscount.fine.ibd_normalized"),
-                    outputs("eventscount.fine.bkg"),
-                    name="eventscount.fine.total",
-                    replicate_outputs=combinations["detector.period"],
-                    check_edges_contents=True,
-                    )
+                outputs("eventscount.fine.ibd_normalized"),
+                outputs("eventscount.fine.bkg"),
+                name="eventscount.fine.total",
+                replicate_outputs=combinations["detector.period"],
+                check_edges_contents=True,
+            )
 
             Rebin.replicate(
-                    names={"matrix": "detector.rebin.matrix_bkg", "product": "eventscount.final.bkg"},
-                    replicate_outputs=combinations["detector.period"],
+                names={
+                    "matrix": "detector.rebin.matrix_bkg",
+                    "product": "eventscount.final.bkg",
+                },
+                replicate_outputs=combinations["detector.period"],
             )
             edges_energy_erec >> inputs.get_value("detector.rebin.matrix_bkg.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin.matrix_bkg.edges_new")
+            edges_energy_final >> inputs.get_value(
+                "detector.rebin.matrix_bkg.edges_new"
+            )
             outputs("eventscount.fine.bkg") >> inputs("eventscount.final.bkg")
 
             Sum.replicate(
@@ -2383,26 +2519,38 @@ class model_dayabay_v0e:
 
             Concatenation.replicate(
                 outputs("eventscount.final.detector"),
-                name="eventscount.final.concatenated.detector"
+                name="eventscount.final.concatenated.detector",
             )
 
-            outputs["eventscount.final.concatenated.selected"] = outputs[f"eventscount.final.concatenated.{self.concatenation_mode}"]
+            outputs["eventscount.final.concatenated.selected"] = outputs[
+                f"eventscount.final.concatenated.{self.concatenation_mode}"
+            ]
 
             #
             # Covariance matrices
             #
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
-            for name, parameters_source in self.systematic_uncertainties_groups().items():
-                self._covariance_matrix.add_covariance_for(name, parameters_nuisance_normalized[parameters_source])
+            for (
+                name,
+                parameters_source,
+            ) in self.systematic_uncertainties_groups().items():
+                self._covariance_matrix.add_covariance_for(
+                    name, parameters_nuisance_normalized[parameters_source]
+                )
             self._covariance_matrix.add_covariance_sum()
 
-            outputs.get_value("eventscount.final.concatenated.selected") >> self._covariance_matrix
+            (
+                outputs.get_value("eventscount.final.concatenated.selected")
+                >> self._covariance_matrix
+            )
 
             npars_cov = self._covariance_matrix.get_parameters_count()
-            list_parameters_nuisance_normalized = list(parameters_nuisance_normalized.walkvalues())
+            list_parameters_nuisance_normalized = list(
+                parameters_nuisance_normalized.walkvalues()
+            )
             npars_nuisance = len(list_parameters_nuisance_normalized)
-            if npars_cov!=npars_nuisance:
+            if npars_cov != npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
             parinp_mc = ParArrayInput(
@@ -2418,7 +2566,8 @@ class model_dayabay_v0e:
                 x="erec",
                 y="fine",
                 merge_x=True,
-                filenames=path_arrays/f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
+                filenames=path_arrays
+                / f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
@@ -2426,11 +2575,18 @@ class model_dayabay_v0e:
             )
 
             Rebin.replicate(
-                names={"matrix": "detector.rebin_matrix.real", "product": "data.real.final.detector_period"},
+                names={
+                    "matrix": "detector.rebin_matrix.real",
+                    "product": "data.real.final.detector_period",
+                },
                 replicate_outputs=combinations["detector.period"],
             )
-            edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real.edges_old")
-            edges_energy_final >> inputs.get_value("detector.rebin_matrix.real.edges_new")
+            edges_energy_erec >> inputs.get_value(
+                "detector.rebin_matrix.real.edges_old"
+            )
+            edges_energy_final >> inputs.get_value(
+                "detector.rebin_matrix.real.edges_new"
+            )
             outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
 
             Concatenation.replicate(
@@ -2446,153 +2602,166 @@ class model_dayabay_v0e:
 
             Concatenation.replicate(
                 outputs["data.real.final.detector"],
-                name="data.real.concatenated.detector"
+                name="data.real.concatenated.detector",
             )
 
-            outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
+            outputs["data.real.concatenated.selected"] = outputs[
+                f"data.real.concatenated.{self.concatenation_mode}"
+            ]
 
             #
             # Summary
             # Collect some summary data for output tables
             #
             ArraySum.replicate(
-                    outputs("data.real.final.detector"),
-                    name = "summary.total.ibd_candidates",
-                    )
+                outputs("data.real.final.detector"),
+                name="summary.total.ibd_candidates",
+            )
 
             ArraySum.replicate(
-                    outputs("data.real.final.detector_period"),
-                    name = "summary.periods.ibd_candidates",
-                    )
+                outputs("data.real.final.detector_period"),
+                name="summary.periods.ibd_candidates",
+            )
             outputs["summary.periods.ibd_candidates"] = remap_items(
-                    outputs.get_dict("summary.periods.ibd_candidates"),
-                    reorder_indices={ "from": ["detector", "period"], "to": ["period", "detector"] }
-                    )
+                outputs.get_dict("summary.periods.ibd_candidates"),
+                reorder_indices={
+                    "from": ["detector", "period"],
+                    "to": ["period", "detector"],
+                },
+            )
 
             Sum.replicate(
-                    outputs("detector.livetime"),
-                    name = "summary.total.livetime",
-                    replicate_outputs=index["detector"]
-                    )
+                outputs("detector.livetime"),
+                name="summary.total.livetime",
+                replicate_outputs=index["detector"],
+            )
 
             Sum.replicate(
-                    outputs("detector.livetime"),
-                    name = "summary.periods.livetime",
-                    replicate_outputs=combinations["period.detector"]
-                    )
+                outputs("detector.livetime"),
+                name="summary.periods.livetime",
+                replicate_outputs=combinations["period.detector"],
+            )
 
             Sum.replicate(
-                    outputs("detector.efflivetime"),
-                    name = "summary.total.efflivetime",
-                    replicate_outputs=index["detector"]
-                    )
+                outputs("detector.efflivetime"),
+                name="summary.total.efflivetime",
+                replicate_outputs=index["detector"],
+            )
 
             Sum.replicate(
-                    outputs("detector.efflivetime"),
-                    name = "summary.periods.efflivetime",
-                    replicate_outputs=combinations["period.detector"]
-                    )
+                outputs("detector.efflivetime"),
+                name="summary.periods.efflivetime",
+                replicate_outputs=combinations["period.detector"],
+            )
 
             Division.replicate(
-                    outputs("summary.total.efflivetime"),
-                    outputs("summary.total.livetime"),
-                    name = "summary.total.eff",
-                    replicate_outputs=index["detector"]
-                    )
+                outputs("summary.total.efflivetime"),
+                outputs("summary.total.livetime"),
+                name="summary.total.eff",
+                replicate_outputs=index["detector"],
+            )
 
             Division.replicate(
-                    outputs("summary.periods.efflivetime"),
-                    outputs("summary.periods.livetime"),
-                    name = "summary.periods.eff",
-                    replicate_outputs=combinations["period.detector"]
-                    )
+                outputs("summary.periods.efflivetime"),
+                outputs("summary.periods.livetime"),
+                name="summary.periods.eff",
+                replicate_outputs=combinations["period.detector"],
+            )
 
             Sum.replicate(
-                    outputs("bkg.count"),
-                    name = "summary.total.bkg_count",
-                    replicate_outputs=combinations["bkg.detector"],
-                    )
+                outputs("bkg.count"),
+                name="summary.total.bkg_count",
+                replicate_outputs=combinations["bkg.detector"],
+            )
 
             remap_items(
-                    outputs("bkg.count"),
-                    outputs.child("summary.periods.bkg_count"),
-                    reorder_indices={ "from": ["bkg", "detector", "period"], "to": ["bkg", "period", "detector"] },
-                    )
+                outputs("bkg.count"),
+                outputs.child("summary.periods.bkg_count"),
+                reorder_indices={
+                    "from": ["bkg", "detector", "period"],
+                    "to": ["bkg", "period", "detector"],
+                },
+            )
 
             Division.replicate(
-                    outputs("summary.total.bkg_count"),
-                    outputs("summary.total.efflivetime"),
-                    name = "summary.total.bkg_rate_s",
-                    replicate_outputs=combinations["bkg.detector"]
-                    )
+                outputs("summary.total.bkg_count"),
+                outputs("summary.total.efflivetime"),
+                name="summary.total.bkg_rate_s",
+                replicate_outputs=combinations["bkg.detector"],
+            )
 
             Division.replicate(
-                    outputs("summary.periods.bkg_count"),
-                    outputs("summary.periods.efflivetime"),
-                    name = "summary.periods.bkg_rate_s",
-                    replicate_outputs=combinations["bkg.period.detector"]
-                    )
+                outputs("summary.periods.bkg_count"),
+                outputs("summary.periods.efflivetime"),
+                name="summary.periods.bkg_rate_s",
+                replicate_outputs=combinations["bkg.period.detector"],
+            )
 
             Product.replicate(
-                    outputs("summary.total.bkg_rate_s"),
-                    parameters["constant.conversion.seconds_in_day"],
-                    name = "summary.total.bkg_rate",
-                    replicate_outputs=combinations["bkg.detector"]
-                    )
+                outputs("summary.total.bkg_rate_s"),
+                parameters["constant.conversion.seconds_in_day"],
+                name="summary.total.bkg_rate",
+                replicate_outputs=combinations["bkg.detector"],
+            )
 
             Product.replicate(
-                    outputs("summary.periods.bkg_rate_s"),
-                    parameters["constant.conversion.seconds_in_day"],
-                    name = "summary.periods.bkg_rate",
-                    replicate_outputs=combinations["bkg.period.detector"]
-                    )
+                outputs("summary.periods.bkg_rate_s"),
+                parameters["constant.conversion.seconds_in_day"],
+                name="summary.periods.bkg_rate",
+                replicate_outputs=combinations["bkg.period.detector"],
+            )
 
             if self.dataset == "a":
                 Sum.replicate(
-                        outputs("summary.total.bkg_rate.fastn"),
-                        outputs("summary.total.bkg_rate.muonx"),
-                        name = "summary.total.bkg_rate_fastn_muonx",
-                        replicate_outputs=index["detector"]
-                        )
+                    outputs("summary.total.bkg_rate.fastn"),
+                    outputs("summary.total.bkg_rate.muonx"),
+                    name="summary.total.bkg_rate_fastn_muonx",
+                    replicate_outputs=index["detector"],
+                )
 
                 Sum.replicate(
-                        outputs("summary.periods.bkg_rate.fastn"),
-                        outputs("summary.periods.bkg_rate.muonx"),
-                        name = "summary.periods.bkg_rate_fastn_muonx",
-                        replicate_outputs=combinations["period.detector"]
-                        )
+                    outputs("summary.periods.bkg_rate.fastn"),
+                    outputs("summary.periods.bkg_rate.muonx"),
+                    name="summary.periods.bkg_rate_fastn_muonx",
+                    replicate_outputs=combinations["period.detector"],
+                )
 
             Sum.replicate(
-                    outputs("summary.total.bkg_rate"),
-                    name = "summary.total.bkg_rate_total",
-                    replicate_outputs=index["detector"]
-                    )
+                outputs("summary.total.bkg_rate"),
+                name="summary.total.bkg_rate_total",
+                replicate_outputs=index["detector"],
+            )
 
             Sum.replicate(
-                    outputs("summary.periods.bkg_rate"),
-                    name = "summary.periods.bkg_rate_total",
-                    replicate_outputs=combinations["period.detector"]
-                    )
-
+                outputs("summary.periods.bkg_rate"),
+                name="summary.periods.bkg_rate_total",
+                replicate_outputs=combinations["period.detector"],
+            )
 
             #
             # Statistic
             #
             # Create Nuisance parameters
-            Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
+            Sum.replicate(
+                outputs("statistic.nuisance.parts"), name="statistic.nuisance.all"
+            )
 
             MonteCarlo.replicate(
                 name="data.pseudo.self",
                 mode=self.monte_carlo_mode,
                 generator=self._random_generator,
             )
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("data.pseudo.self.data")
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("data.pseudo.self.data")
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
             Proxy.replicate(
                 name="data.proxy",
             )
-            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
+            outputs.get_value("data.pseudo.self") >> inputs.get_value(
+                "data.proxy.input"
+            )
             outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
 
             MonteCarlo.replicate(
@@ -2600,8 +2769,12 @@ class model_dayabay_v0e:
                 mode="asimov",
                 generator=self._random_generator,
             )
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("covariance.data.fixed.data")
-            self._frozen_nodes["covariance_data_fixed"] = (nodes.get_value("covariance.data.fixed"),)
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("covariance.data.fixed.data")
+            self._frozen_nodes["covariance_data_fixed"] = (
+                nodes.get_value("covariance.data.fixed"),
+            )
 
             MonteCarlo.replicate(
                 name="mc.parameters.toymc",
@@ -2613,80 +2786,150 @@ class model_dayabay_v0e:
             nodes["mc.parameters.inputs"] = parinp_mc
 
             Cholesky.replicate(name="cholesky.stat.variable")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("cholesky.stat.variable")
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("cholesky.stat.variable")
 
             Cholesky.replicate(name="cholesky.stat.fixed")
-            outputs.get_value("covariance.data.fixed") >> inputs.get_value("cholesky.stat.fixed")
+            outputs.get_value("covariance.data.fixed") >> inputs.get_value(
+                "cholesky.stat.fixed"
+            )
 
             Cholesky.replicate(name="cholesky.stat.data.fixed")
-            outputs.get_value("data.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "cholesky.stat.data.fixed"
+            )
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
-            outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
+            outputs.get_value("covariance.data.fixed") >> nodes.get_value(
+                "covariance.covmat_full_p.stat_fixed"
+            )
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value(
+                "covariance.covmat_full_p.stat_fixed"
+            )
 
             Cholesky.replicate(name="cholesky.covmat_full_p.stat_fixed")
-            outputs.get_value("covariance.covmat_full_p.stat_fixed") >> inputs.get_value("cholesky.covmat_full_p.stat_fixed")
+            outputs.get_value(
+                "covariance.covmat_full_p.stat_fixed"
+            ) >> inputs.get_value("cholesky.covmat_full_p.stat_fixed")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_variable")
-            outputs.get_value("eventscount.final.concatenated.selected") >> nodes.get_value("covariance.covmat_full_p.stat_variable")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value(
+                "covariance.covmat_full_p.stat_variable"
+            )
 
             Cholesky.replicate(name="cholesky.covmat_full_p.stat_variable")
-            outputs.get_value("covariance.covmat_full_p.stat_variable") >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
+            outputs.get_value(
+                "covariance.covmat_full_p.stat_variable"
+            ) >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
-            outputs.get_value("data.proxy") >> nodes.get_value("covariance.covmat_full_n")
-            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("data.proxy") >> nodes.get_value(
+                "covariance.covmat_full_n"
+            )
+            outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value(
+                "covariance.covmat_full_n"
+            )
 
             Cholesky.replicate(name="cholesky.covmat_full_n")
-            outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
+            outputs.get_value("covariance.covmat_full_n") >> inputs.get_value(
+                "cholesky.covmat_full_n"
+            )
 
             # (1) chi-squared Pearson stat (fixed Pearson errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
-            outputs.get_value("cholesky.stat.fixed") >> inputs.get_value("statistic.stat.chi2p_iterative.errors")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
+            outputs.get_value("cholesky.stat.fixed") >> inputs.get_value(
+                "statistic.stat.chi2p_iterative.errors"
+            )
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.stat.chi2p_iterative.data"
+            )
 
             # (2-2) chi-squared Neyman stat
             Chi2.replicate(name="statistic.stat.chi2n")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2n.theory")
-            outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value("statistic.stat.chi2n.errors")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.stat.chi2n.theory")
+            outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value(
+                "statistic.stat.chi2n.errors"
+            )
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.stat.chi2n.data"
+            )
 
             # (2-1)
             Chi2.replicate(name="statistic.stat.chi2p")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
-            outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.stat.chi2p.theory")
+            outputs.get_value("cholesky.stat.variable") >> inputs.get_value(
+                "statistic.stat.chi2p.errors"
+            )
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.stat.chi2p.data"
+            )
 
             # (5) chi-squared Pearson syst (fixed Pearson errors)
             Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
-            outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.errors")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.full.chi2p_covmat_fixed.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
+            outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value(
+                "statistic.full.chi2p_covmat_fixed.errors"
+            )
 
             # (2-3) chi-squared Neyman syst
             Chi2.replicate(name="statistic.full.chi2n_covmat")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
-            outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.full.chi2n_covmat.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.full.chi2n_covmat.theory")
+            outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value(
+                "statistic.full.chi2n_covmat.errors"
+            )
 
             # (2-4) Pearson variable stat errors
             Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
-            outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.full.chi2p_covmat_variable.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
+            outputs.get_value(
+                "cholesky.covmat_full_p.stat_variable"
+            ) >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
             CNPStat.replicate(name="statistic.staterr.cnp")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.staterr.cnp.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.staterr.cnp.theory")
 
             # (3) chi-squared CNP stat
             Chi2.replicate(name="statistic.stat.chi2cnp")
-            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
-            outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2cnp.theory")
-            outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.stat.chi2cnp.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.stat.chi2cnp.theory")
+            outputs.get_value("statistic.staterr.cnp") >> inputs.get_value(
+                "statistic.stat.chi2cnp.errors"
+            )
 
             # (2) chi-squared Pearson stat + pull (fixed Pearson errors)
             Sum.replicate(
@@ -2702,7 +2945,9 @@ class model_dayabay_v0e:
             )
 
             LogProdDiag.replicate(name="statistic.log_prod_diag")
-            outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.log_prod_diag")
+            outputs.get_value(
+                "cholesky.covmat_full_p.stat_variable"
+            ) >> inputs.get_value("statistic.log_prod_diag")
 
             # (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
             Sum.replicate(
