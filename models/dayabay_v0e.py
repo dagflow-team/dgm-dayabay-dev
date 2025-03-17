@@ -1083,14 +1083,14 @@ class model_dayabay_v0e:
             #
             # Provide a conversion constant to convert the argument of sin²(...Δm²L/E)
             # from chosen units to natural ones.
-            parameters.get_value("all.conversion.oscprobArgConversion") >> inputs(
-                "oscprob.surprobArgConversion"
-            )
+            parameters.get_value(
+                "all.conversion.oscprobArgConversion"
+            ) >> inputs.get_dict("oscprob.surprobArgConversion")
             # Also connect free, constrained and constant oscillation parameters to each
             # instance of the oscillation probability.
-            nodes.get_dict("oscprob") << parameters("free.oscprob")
-            nodes.get_dict("oscprob") << parameters("constrained.oscprob")
-            nodes.get_dict("oscprob") << parameters("constant.oscprob")
+            nodes.get_dict("oscprob") << parameters.get_dict("free.oscprob")
+            nodes.get_dict("oscprob") << parameters.get_dict("constrained.oscprob")
+            nodes.get_dict("oscprob") << parameters.get_dict("constant.oscprob")
 
             # The third component is the antineutrino spectrum as dN/dE per fission. We
             # start from loading the reference antineutrino spectrum (Huber-Mueller)
@@ -1175,7 +1175,9 @@ class model_dayabay_v0e:
             )
             # Connect the input antineutrino spectra as coarse Y inputs of the
             # interpolator. This is performed for each of the 4 isotopes.
-            outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs(
+            outputs.get_dict(
+                "reactor_anue.neutrino_per_fission_per_MeV_input.spec"
+            ) >> inputs.get_dict(
                 "reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse"
             )
             # The interpolators are using the same target mesh for all the same target
@@ -1257,9 +1259,11 @@ class model_dayabay_v0e:
             ) >> inputs.get_value(
                 "reactor_nonequilibrium_anue.correction_interpolated.xcoarse"
             )
-            outputs(
+            outputs.get_dict(
                 "reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction"
-            ) >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
+            ) >> inputs.get_dict(
+                "reactor_nonequilibrium_anue.correction_interpolated.ycoarse"
+            )
             kinematic_integrator_enu >> inputs.get_value(
                 "reactor_nonequilibrium_anue.correction_interpolated.xfine"
             )
@@ -1289,9 +1293,9 @@ class model_dayabay_v0e:
             outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value(
                 "snf_anue.correction_interpolated.xcoarse"
             )
-            outputs("snf_anue.correction_input.snf_correction") >> inputs(
-                "snf_anue.correction_interpolated.ycoarse"
-            )
+            outputs.get_dict(
+                "snf_anue.correction_input.snf_correction"
+            ) >> inputs.get_dict("snf_anue.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs.get_value(
                 "snf_anue.correction_interpolated.xfine"
             )
@@ -1343,7 +1347,7 @@ class model_dayabay_v0e:
             # concatenation will be updated lazily as the minimizer modifies the
             # parameters.
             Concatenation.replicate(
-                parameters("all.neutrino_per_fission_factor"),
+                parameters.get_dict("all.neutrino_per_fission_factor"),
                 name="reactor_anue.spectrum_free_correction.input",
             )
             # For convenience purposes let us assign `spec_model_edges` as X axis for
@@ -1501,7 +1505,9 @@ class model_dayabay_v0e:
             # nuisance parameter is modified it also affects the corresponding array
             # element and thus is propagated to the calculation.
             Concatenation.replicate(
-                parameters("constrained.reactor_anue.spectrum_uncertainty.uncorr"),
+                parameters.get_dict(
+                    "constrained.reactor_anue.spectrum_uncertainty.uncorr"
+                ),
                 name="reactor_anue.spectrum_uncertainty.scale.uncorr",
                 replicate_outputs=index["isotope"],
             )
@@ -1510,8 +1516,10 @@ class model_dayabay_v0e:
             # parameters and corresponding uncorrelated uncertainty. The result is
             # ηᵢₖσᵢₖ.
             Product.replicate(
-                outputs("reactor_anue.spectrum_uncertainty.scale.uncorr"),
-                outputs("reactor_anue.spectrum_uncertainty.uncertainty.uncorr"),
+                outputs.get_dict("reactor_anue.spectrum_uncertainty.scale.uncorr"),
+                outputs.get_dict(
+                    "reactor_anue.spectrum_uncertainty.uncertainty.uncorr"
+                ),
                 name="reactor_anue.spectrum_uncertainty.correction.uncorr",
                 replicate_outputs=index["isotope"],
             )
@@ -1522,7 +1530,7 @@ class model_dayabay_v0e:
                 parameters.get_value(
                     "constrained.reactor_anue.spectrum_uncertainty.corr"
                 ),
-                outputs("reactor_anue.spectrum_uncertainty.uncertainty.corr"),
+                outputs.get_dict("reactor_anue.spectrum_uncertainty.uncertainty.corr"),
                 name="reactor_anue.spectrum_uncertainty.correction.corr",
                 replicate_outputs=index["isotope"],
             )
@@ -1538,22 +1546,26 @@ class model_dayabay_v0e:
             )
             # Add it to uncorrelated correction...
             Sum.replicate(
-                outputs("reactor_anue.spectrum_uncertainty.correction.uncorr"),
+                outputs.get_dict("reactor_anue.spectrum_uncertainty.correction.uncorr"),
                 single_unity,
                 name="reactor_anue.spectrum_uncertainty.correction.uncorr_factor",
                 replicate_outputs=index["isotope"],
             )
             # And to correlated correction...
             Sum.replicate(
-                outputs("reactor_anue.spectrum_uncertainty.correction.corr"),
+                outputs.get_dict("reactor_anue.spectrum_uncertainty.correction.corr"),
                 single_unity,
                 name="reactor_anue.spectrum_uncertainty.correction.corr_factor",
                 replicate_outputs=index["isotope"],
             )
             # Multiply results together.
             Product.replicate(
-                outputs("reactor_anue.spectrum_uncertainty.correction.uncorr_factor"),
-                outputs("reactor_anue.spectrum_uncertainty.correction.corr_factor"),
+                outputs.get_dict(
+                    "reactor_anue.spectrum_uncertainty.correction.uncorr_factor"
+                ),
+                outputs.get_dict(
+                    "reactor_anue.spectrum_uncertainty.correction.corr_factor"
+                ),
                 name="reactor_anue.spectrum_uncertainty.correction.full",
                 replicate_outputs=index["isotope"],
             )
@@ -1573,7 +1585,9 @@ class model_dayabay_v0e:
             ) >> inputs.get_value(
                 "reactor_anue.spectrum_uncertainty.correction_interpolated.xcoarse"
             )
-            outputs("reactor_anue.spectrum_uncertainty.correction.full") >> inputs(
+            outputs.get_dict(
+                "reactor_anue.spectrum_uncertainty.correction.full"
+            ) >> inputs.get_dict(
                 "reactor_anue.spectrum_uncertainty.correction_interpolated.ycoarse"
             )
             kinematic_integrator_enu >> inputs.get_value(
@@ -1586,9 +1600,11 @@ class model_dayabay_v0e:
             # corrections to antineutrino spectra from each isotopes (4.) are multiplied
             # to the nominal antineutrino spectrum.
             Product.replicate(
-                outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                 outputs.get_value("reactor_anue.spectrum_free_correction.interpolated"),
-                outputs("reactor_anue.spectrum_uncertainty.correction_interpolated"),
+                outputs.get_dict(
+                    "reactor_anue.spectrum_uncertainty.correction_interpolated"
+                ),
                 name="reactor_anue.part.neutrino_per_fission_per_MeV_main",
                 replicate_outputs=index["isotope"],
             )
@@ -1598,8 +1614,8 @@ class model_dayabay_v0e:
             # As long as ²³⁸U spectrum has no NEQ correction we use a truncated index
             # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
             Product.replicate(
-                outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs("reactor_nonequilibrium_anue.correction_interpolated"),
+                outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                outputs.get_dict("reactor_nonequilibrium_anue.correction_interpolated"),
                 name="reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=("U238",),
@@ -1951,85 +1967,63 @@ class model_dayabay_v0e:
                 name="reactor_detector.nfissions",
             )
 
-            # Baseline factor from Reactor to Detector: 1/(4πL²)
+            # Based on the distances compute baseline factors (1/[4πL²]) for
+            # reactor-detector combinations using `InverseSquareLaw` node. A scale
+            # factor is applied internally to convert meters to centimeters to make
+            # factor consistent with cross section [cm⁻²].
             InverseSquareLaw.replicate(
                 name="reactor_detector.baseline_factor_per_cm2",
                 scale="m_to_cm",
                 replicate_outputs=combinations["reactor.detector"],
             )
-            parameters("constant.baseline") >> inputs(
+            # The baselines are passed to the corresponding inputs.
+            parameters.get_dict("constant.baseline") >> inputs.get_dict(
                 "reactor_detector.baseline_factor_per_cm2"
             )
 
-            # HERE
-            # fmt: off
-            # Number of protons per detector
+            # Apply fit related correction for each detector to common nominal number of
+            # target protons.
             Product.replicate(
                 parameters.get_value("all.detector.nprotons_nominal_ad"),
-                parameters("all.detector.nprotons_correction"),
+                parameters.get_dict("all.detector.nprotons_correction"),
                 name="detector.nprotons",
                 replicate_outputs=index["detector"],
             )
 
-            # Number of fissions × N protons × ε / (4πL²)  (main)
+            # Now we can combine total number of fissions (producing neutrinos) in each
+            # reactor from each isotope, number of target protons in each detector,
+            # corresponding baseline factor and efficiency:
+            # - Number of fissions × N protons × ε / (4πL²) (main)
+            # The result bears four indices: reactor, isotope, detector and period.
             Product.replicate(
-                outputs("reactor_detector.nfissions"),
-                outputs("detector.nprotons"),
-                outputs("reactor_detector.baseline_factor_per_cm2"),
+                outputs.get_dict("reactor_detector.nfissions"),
+                outputs.get_dict("detector.nprotons"),
+                outputs.get_dict("reactor_detector.baseline_factor_per_cm2"),
                 parameters.get_value("all.detector.efficiency"),
                 name="reactor_detector.nfissions_nprotons_per_cm2",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
 
+            # A parallel branch will be used for NEQ correction, with previous value
+            # multiplied by `neq_factor=1` (simple switch) and fit defined
+            # `nonequilibrium_scale`.
             Product.replicate(
-                outputs("reactor_detector.nfissions_nprotons_per_cm2"),
-                parameters("all.reactor.nonequilibrium_scale"),
+                outputs.get_dict("reactor_detector.nfissions_nprotons_per_cm2"),
+                parameters.get_dict("all.reactor.nonequilibrium_scale"),
                 parameters.get_value("all.reactor.neq_factor"),
                 name="reactor_detector.nfissions_nprotons_per_cm2_neq",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
 
-            # Detector live time
+            # HERE: move up
             ArraySum.replicate(
-                outputs("daily_data.detector.livetime"),
-                name="detector.livetime",
-            )
-
-            ArraySum.replicate(
-                outputs("daily_data.detector.efflivetime"),
+                outputs.get_dict("daily_data.detector.efflivetime"),
                 name="detector.efflivetime",
             )
 
-            Product.replicate(
-                outputs("detector.efflivetime"),
-                parameters.get_value("constant.conversion.seconds_in_day_inverse"),
-                name="detector.efflivetime_days",
-                replicate_outputs=combinations["detector.period"],
-                allow_skip_inputs=True,
-                skippable_inputs_should_contain=inactive_detectors,
-            )
-
-            # Number of accidentals
-            Product.replicate(  # TODO: doc
-                outputs("daily_data.detector.efflivetime"),
-                outputs("daily_data.detector.rate_acc"),
-                name="daily_data.detector.num_acc_s_day",
-                replicate_outputs=combinations["detector.period"],
-            )
-
-            ArraySum.replicate(
-                outputs("daily_data.detector.num_acc_s_day"),
-                name="bkg.count_acc_fixed_s_day",
-            )
-
-            Product.replicate(
-                outputs("bkg.count_acc_fixed_s_day"),
-                parameters["constant.conversion.seconds_in_day_inverse"],
-                name="bkg.count_fixed.acc",
-                replicate_outputs=combinations["detector.period"],
-            )
-
-            # Effective live time × N protons × ε / (4πL²)  (SNF)
+            # Compute similar value for SNF. Note, that it should be also multiplied by
+            # effective livetime:
+            # - Effective live time × N protons × ε / (4πL²)  (SNF)
             Product.replicate(
                 outputs("detector.efflivetime"),
                 outputs("detector.nprotons"),
@@ -2041,6 +2035,53 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.detector.period"],
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
+            )
+
+            # The three quantities, calculated above will be used to produce
+            # antineutrino spectrum from nuclear reactors:
+            # - main — raw antineutrino flux based on the input spectra.
+            # - neq — extra antineutrino flux due to NEQ correction to input spectra.
+            # - snf - extra antineutrino flux from SNF, assumed to be located at the
+            #         same position as reactors.
+            # Later the relevant numbers will be organized in storage with keys
+            # `nu_main`, `nu_neq` and `nu_snf`, which represent the `anue_source` index.
+
+            # TODO: move accidentals later
+            # Detector live time
+            ArraySum.replicate(
+                outputs.get_dict("daily_data.detector.livetime"),
+                name="detector.livetime",
+            )
+
+            Product.replicate(
+                outputs.get_dict("detector.efflivetime"),
+                parameters.get_value("constant.conversion.seconds_in_day_inverse"),
+                name="detector.efflivetime_days",
+                replicate_outputs=combinations["detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=inactive_detectors,
+            )
+            # HERE
+            # fmt: off
+
+            # Number of accidentals
+            Product.replicate(  # TODO: doc
+                outputs.get_dict("daily_data.detector.efflivetime"),
+                outputs.get_dict("daily_data.detector.rate_acc"),
+                name="daily_data.detector.num_acc_s_day",
+                replicate_outputs=combinations["detector.period"],
+            )
+
+            ArraySum.replicate(
+                outputs.get_dict("daily_data.detector.num_acc_s_day"),
+                name="bkg.count_acc_fixed_s_day",
+            )
+
+            Product.replicate(
+                outputs.get_dict("bkg.count_acc_fixed_s_day"),
+                parameters["constant.conversion.seconds_in_day_inverse"],
+                name="bkg.count_fixed.acc",
+                replicate_outputs=combinations["detector.period"],
             )
 
             #
