@@ -123,7 +123,8 @@ def main(args: Namespace) -> None:
             axs[1].set_ylim(-0.25, npars - 0.75)
             plt.tight_layout()
             plt.subplots_adjust(hspace=0)
-            plt.savefig(args.output_plot_pars)
+            if args.output_plot_pars:
+                plt.savefig(args.output_plot_pars)
 
     if args.output_plot_corrmat and fit["covariance"] is not None:
         covariance = fit["covariance"]
@@ -154,32 +155,41 @@ def main(args: Namespace) -> None:
         with open(args.compare_input, "r") as f:
             compare_fit = yaml_load(f)
         plt.errorbar(
-            compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"],
-            xerr=compare_fit["SinSq2Theta13"]["error"], yerr=compare_fit["DeltaMSq32"]["error"],
-            label="SYSU",
-        )
-        plt.errorbar(
             fit["xdict"]["SinSq2Theta13"], fit["xdict"]["DeltaMSq32"],
             xerr=fit["errorsdict"]["SinSq2Theta13"], yerr=fit["errorsdict"]["DeltaMSq32"],
             label="dag-flow",
         )
+        plt.errorbar(
+            compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"],
+            xerr=compare_fit["SinSq2Theta13"]["error"], yerr=compare_fit["DeltaMSq32"]["error"],
+            label="dataset",
+        )
         plt.xlabel(r"$\sin^22\theta_{13}$")
         plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
+        plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
         plt.legend()
         plt.tight_layout()
+        if args.output_plot_fit:
+            plt.savefig(args.output_plot_fit)
+        print(args.chi2)
         for name, par_values in compare_fit.items():
+            if name not in fit["xdict"].keys():
+                continue
             fit_value = fit["xdict"][name]
             fit_error = fit["errorsdict"][name]
             value = par_values["value"]
             error = par_values["error"]
             print(f"{name:>22}:")
-            print(f"{'SYSU':>22}: value={value:1.5e}, error={error:1.5e}")
-            print(f"{'JINR':>22}: value={fit_value:1.5e}, error={fit_error:1.5e}")
-            print(f"{' '*23} value_diff={(value - fit_value) / value*100:1.3f}%, error_diff={(error - fit_error) / error*100:1.3f}%")
-        plt.show()
+            print(f"{'dataset':>22}: value={value:1.5e}, error={error:1.5e}")
+            print(f"{'dag-flow':>22}: value={fit_value:1.5e}, error={fit_error:1.5e}")
+            print(f"{' '*23} value_diff={(fit_value / value - 1)*100:1.3f}%, error_diff={(fit_error / error - 1)*100:1.3f}%")
+            print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.3f}")
 
-    # plt.figure(figsize=(8, 5))
-    # plt.plot(storage)
+    plt.show()
+
+    if args.interactive:
+        from IPython import embed
+        embed()
 
 
 if __name__ == "__main__":
@@ -282,6 +292,10 @@ if __name__ == "__main__":
     outputs.add_argument(
         "--output-plot-corrmat",
         help="path to save plot of correlation matrix of fitted parameters",
+    )
+    outputs.add_argument(
+        "--output-plot-fit",
+        help="path to save full plot of fits",
     )
 
     args = parser.parse_args()
