@@ -1,3 +1,6 @@
+[submodule "dictwrapper"]
+	path = submodules/dictwrapper
+	url = https://git.jinr.ru/dag-computing/dictwrapper.py.git
 [submodule "dag-flow"]
 	path = submodules/dag-flow
 	url = https://git.jinr.ru/dag-computing/dag-flow.git

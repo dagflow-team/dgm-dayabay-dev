@@ -216,9 +216,9 @@ class model_dayabay_v0d:
         assert all(f in future_variants for f in self._future)
         if "all" in self._future:
             self._future = future_variants
-        for ft in _future_redundant:
-            with suppress(KeyError):
-                self._future.remove(ft)  # pyright: ignore [reportArgumentType]
+            for ft in _future_redundant:
+                with suppress(KeyError):
+                    self._future.remove(ft)  # pyright: ignore [reportArgumentType]
         for ft in self._future.copy():
             if not (extra := _future_included.get(ft)):
                 continue

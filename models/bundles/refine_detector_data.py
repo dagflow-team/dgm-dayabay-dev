@@ -13,6 +13,9 @@ def refine_detector_data(
     columns=("livetime", "eff", "efflivetime"),
     skip: Sequence[set[str]] | None = None,
 ) -> None:
+    """Read arrays with detector data for the whole data taking period, write detector
+    data for each period in separate array.
+    """
     target["days"] = (days_storage := {})
     for det in detectors:
         day = source["day", det]
