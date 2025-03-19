@@ -20,6 +20,9 @@ from dagflow.tools.logger import INFO, logger
 from dagflow.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
+# pyright: reportUnusedExpression=false
+
+
 if TYPE_CHECKING:
     from dagflow.core.meta_node import MetaNode
 
@@ -1778,6 +1781,7 @@ class model_dayabay_v0e:
             )
 
             # For convenience the array with days is moved one level up the structure.
+            # It may be used for both reactor and detector data.
             outputs["daily_data.days"] = outputs.pop(
                 "daily_data.detector.days", delete_parents=True
             )
@@ -1824,6 +1828,20 @@ class model_dayabay_v0e:
                 dtype="d",
             )
             del storage["data.daily_data"]
+
+            # Compute a total (effective) livetime for each detector.
+            # ArraySum operation does not to combine different array: and produces an
+            # output for each input. Therefore there is no need to provide
+            # `replicate_outputs` argument this time.
+            ArraySum.replicate(
+                outputs.get_dict("daily_data.detector.livetime"),
+                name="detector.livetime",
+            )
+
+            ArraySum.replicate(
+                outputs.get_dict("daily_data.detector.efflivetime"),
+                name="detector.efflivetime",
+            )
 
             # At this point we have the information to compute the the antineutrino
             # flux.
@@ -1923,7 +1941,7 @@ class model_dayabay_v0e:
                 name="reactor.energy_per_fission_snf_average_MeV",
             )
 
-            # For SNF contribution use central values for the thermal power.
+            # For SNF contribution use central values for the nominal thermal power.
             Product.replicate(
                 parameters.get_dict("all.reactor.fission_fraction_snf"),
                 outputs.get_dict("reactor.thermal_power_nominal_MeVs_central"),
@@ -1959,9 +1977,6 @@ class model_dayabay_v0e:
 
             # Sum up each array of daily data to obtain number of fissions as seen by
             # each detector from each isotope from each reactor during each period.
-            # ArraySum operation is unable to combine different arrays and produces an
-            # output for each input. Therefore there is no need to provide
-            # `replicate_outputs` argument this time.
             ArraySum.replicate(
                 outputs.get_dict("reactor_detector.nfissions_daily"),
                 name="reactor_detector.nfissions",
@@ -2015,26 +2030,40 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
 
-            # HERE: move up
-            ArraySum.replicate(
-                outputs.get_dict("daily_data.detector.efflivetime"),
-                name="detector.efflivetime",
-            )
-
-            # Compute similar value for SNF. Note, that it should be also multiplied by
+            # Compute similar values for SNF. Note, that it should be also multiplied by
             # effective livetime:
             # - Effective live time × N protons × ε / (4πL²)  (SNF)
             Product.replicate(
-                outputs("detector.efflivetime"),
-                outputs("detector.nprotons"),
-                outputs("reactor_detector.baseline_factor_per_cm2"),
-                parameters("all.reactor.snf_scale"),
+                outputs.get_dict("detector.efflivetime"),
+                outputs.get_dict("detector.nprotons"),
+                outputs.get_dict("reactor_detector.baseline_factor_per_cm2"),
+                parameters.get_dict("all.reactor.snf_scale"),
                 parameters.get_value("all.reactor.snf_factor"),
                 parameters.get_value("all.detector.efficiency"),
                 name="reactor_detector.livetime_nprotons_per_cm2_snf",
                 replicate_outputs=combinations["reactor.detector.period"],
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
+            )
+
+            Product.replicate(
+                outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                outputs.get_dict("reactor.fissions_per_second_snf"),
+                name="snf_anue.neutrino_per_second_isotope",
+                replicate_outputs=combinations["reactor.isotope"],
+            )
+
+            Sum.replicate(
+                outputs.get_dict("snf_anue.neutrino_per_second_isotope"),
+                name="snf_anue.neutrino_per_second",
+                replicate_outputs=index["reactor"],
+            )
+
+            Product.replicate(
+                outputs.get_dict("snf_anue.neutrino_per_second"),
+                outputs.get_dict("snf_anue.correction_interpolated"),
+                name="snf_anue.neutrino_per_second_snf",
+                replicate_outputs=index["reactor"],
             )
 
             # The three quantities, calculated above will be used to produce
@@ -2046,101 +2075,54 @@ class model_dayabay_v0e:
             # Later the relevant numbers will be organized in storage with keys
             # `nu_main`, `nu_neq` and `nu_snf`, which represent the `anue_source` index.
 
-            # TODO: move accidentals later
-            # Detector live time
-            ArraySum.replicate(
-                outputs.get_dict("daily_data.detector.livetime"),
-                name="detector.livetime",
-            )
+            # The following part is related to the calculation of a product of
+            # flux × oscillation probability × cross section [Nν·cm²/fission/proton]
+            # This functions will be further integrated into the bins of the histogram
+            # to build the expected observation.
 
-            Product.replicate(
-                outputs.get_dict("detector.efflivetime"),
-                parameters.get_value("constant.conversion.seconds_in_day_inverse"),
-                name="detector.efflivetime_days",
-                replicate_outputs=combinations["detector.period"],
-                allow_skip_inputs=True,
-                skippable_inputs_should_contain=inactive_detectors,
-            )
-            # HERE
-            # fmt: off
-
-            # Number of accidentals
-            Product.replicate(  # TODO: doc
-                outputs.get_dict("daily_data.detector.efflivetime"),
-                outputs.get_dict("daily_data.detector.rate_acc"),
-                name="daily_data.detector.num_acc_s_day",
-                replicate_outputs=combinations["detector.period"],
-            )
-
-            ArraySum.replicate(
-                outputs.get_dict("daily_data.detector.num_acc_s_day"),
-                name="bkg.count_acc_fixed_s_day",
-            )
-
-            Product.replicate(
-                outputs.get_dict("bkg.count_acc_fixed_s_day"),
-                parameters["constant.conversion.seconds_in_day_inverse"],
-                name="bkg.count_fixed.acc",
-                replicate_outputs=combinations["detector.period"],
-            )
-
-            #
-            # Average SNF Spectrum
-            #
-            Product.replicate(
-                outputs("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs("reactor.fissions_per_second_snf"),
-                name="snf_anue.neutrino_per_second_isotope",
-                replicate_outputs=combinations["reactor.isotope"],
-            )
-
-            Sum.replicate(
-                outputs("snf_anue.neutrino_per_second_isotope"),
-                name="snf_anue.neutrino_per_second",
-                replicate_outputs=index["reactor"],
-            )
-
-            Product.replicate(
-                outputs("snf_anue.neutrino_per_second"),
-                outputs("snf_anue.correction_interpolated"),
-                name="snf_anue.neutrino_per_second_snf",
-                replicate_outputs=index["reactor"],
-            )
-
-            #
-            # Integrand: flux × oscillation probability × cross section
-            # [Nν·cm²/fission/proton]
-            #
+            # The integration is done versus deposited positron energy (Edep) and thus
+            # requires an energy conversion jacobian (dEν/dEdep). As both the cross
+            # section and jacobian do not depend on any nuisance parameters directly,
+            # they are multiplied first.
             Product.replicate(
                 outputs.get_value("kinematics.ibd.crosssection"),
                 outputs.get_value("kinematics.ibd.jacobian"),
                 name="kinematics.ibd.crosssection_jacobian",
             )
 
+            # For each reactor-detector pair make a product of survival probability,
+            # cross section and jacobian.
             Product.replicate(
                 outputs.get_value("kinematics.ibd.crosssection_jacobian"),
-                outputs("oscprob"),
+                outputs.get_dict("oscprob"),
                 name="kinematics.ibd.crosssection_jacobian_oscillations",
                 replicate_outputs=combinations["reactor.detector"],
             )
 
+            # Finally, multiply it by the the antineutrino spectrum from each isotope.
+            # The result has three indices: isotope, reactor, detector.
             Product.replicate(
-                outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs("reactor_anue.part.neutrino_per_fission_per_MeV_main"),
+                outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
+                outputs.get_dict("reactor_anue.part.neutrino_per_fission_per_MeV_main"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
                 replicate_outputs=combinations["reactor.isotope.detector"],
             )
 
+            # Do the same the the antineutrino spectrum, related to the NEQ correction
+            # (applies to 3 isotopes out of 4).
             Product.replicate(
-                outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs("reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"),
+                outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
+                outputs.get_dict(
+                    "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"
+                ),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
                 replicate_outputs=combinations["reactor.isotope_neq.detector"],
             )
 
+            # And for SNF.
             Product.replicate(
-                outputs("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs("snf_anue.neutrino_per_second_snf"),
+                outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
+                outputs.get_dict("snf_anue.neutrino_per_second_snf"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
@@ -2154,6 +2136,10 @@ class model_dayabay_v0e:
                 "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf"
             ) >> inputs("kinematics.integral.nu_snf")
 
+
+            # HERE
+            # fmt: off
+
             #
             # Multiply by the scaling factors:
             #  - nu_main: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
@@ -2161,15 +2147,15 @@ class model_dayabay_v0e:
             #  - nu_snf:                               effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
             #
             Product.replicate(
-                outputs("kinematics.integral.nu_main"),
-                outputs("reactor_detector.nfissions_nprotons_per_cm2"),
+                outputs.get_dict("kinematics.integral.nu_main"),
+                outputs.get_dict("reactor_detector.nfissions_nprotons_per_cm2"),
                 name="eventscount.parts.nu_main",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
 
             Product.replicate(
-                outputs("kinematics.integral.nu_neq"),
-                outputs("reactor_detector.nfissions_nprotons_per_cm2_neq"),
+                outputs.get_dict("kinematics.integral.nu_neq"),
+                outputs.get_dict("reactor_detector.nfissions_nprotons_per_cm2_neq"),
                 name="eventscount.parts.nu_neq",
                 replicate_outputs=combinations["reactor.isotope_neq.detector.period"],
                 allow_skip_inputs=True,
@@ -2177,14 +2163,14 @@ class model_dayabay_v0e:
             )
 
             Product.replicate(
-                outputs("kinematics.integral.nu_snf"),
-                outputs("reactor_detector.livetime_nprotons_per_cm2_snf"),
+                outputs.get_dict("kinematics.integral.nu_snf"),
+                outputs.get_dict("reactor_detector.livetime_nprotons_per_cm2_snf"),
                 name="eventscount.parts.nu_snf",
                 replicate_outputs=combinations["reactor.detector.period"],
             )
 
             Sum.replicate(
-                outputs("eventscount.parts"),
+                outputs.get_dict("eventscount.parts"),
                 name="eventscount.raw",
                 replicate_outputs=combinations["detector.period"],
             )
@@ -2430,6 +2416,35 @@ class model_dayabay_v0e:
             #
             # Backgrounds
             #
+            Product.replicate(
+                outputs.get_dict("detector.efflivetime"),
+                parameters.get_value("constant.conversion.seconds_in_day_inverse"),
+                name="detector.efflivetime_days",
+                replicate_outputs=combinations["detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=inactive_detectors,
+            )
+
+            Product.replicate(  # TODO: doc
+                outputs.get_dict("daily_data.detector.efflivetime"),
+                outputs.get_dict("daily_data.detector.rate_acc"),
+                name="daily_data.detector.num_acc_s_day",
+                replicate_outputs=combinations["detector.period"],
+            )
+
+            ArraySum.replicate(
+                outputs.get_dict("daily_data.detector.num_acc_s_day"),
+                name="bkg.count_acc_fixed_s_day",
+            )
+
+            Product.replicate(
+                outputs.get_dict("bkg.count_acc_fixed_s_day"),
+                parameters.get_value("constant.conversion.seconds_in_day_inverse"),
+                name="bkg.count_fixed.acc",
+                replicate_outputs=combinations["detector.period"],
+            )
+
+
             bkg_names = {
                 "acc": "accidental",
                 "lihe": "lithium9",
@@ -2497,7 +2512,7 @@ class model_dayabay_v0e:
             ProductShiftedScaled.replicate(
                 outputs("bkg.count_fixed.amc"),
                 parameters("sigma.bkg.rate.amc"),
-                parameters["all.bkg.uncertainty_scale.amc"],
+                parameters.get_value("all.bkg.uncertainty_scale.amc"),
                 name="bkg.count.amc",
                 shift=1.0,
                 replicate_outputs=combinations["detector.period"],
@@ -2563,9 +2578,9 @@ class model_dayabay_v0e:
                 name="eventscount.final.concatenated.detector",
             )
 
-            outputs["eventscount.final.concatenated.selected"] = outputs[
+            outputs["eventscount.final.concatenated.selected"] = outputs.get_value(
                 f"eventscount.final.concatenated.{self.concatenation_mode}"
-            ]
+                )
 
             #
             # Covariance matrices
@@ -2628,7 +2643,7 @@ class model_dayabay_v0e:
             edges_energy_final >> inputs.get_value(
                 "detector.rebin_matrix.real.edges_new"
             )
-            outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
+            outputs["data.real.fine"] >> inputs.get_dict("data.real.final.detector_period")
 
             Concatenation.replicate(
                 outputs("data.real.final.detector_period"),
@@ -2642,13 +2657,13 @@ class model_dayabay_v0e:
             )
 
             Concatenation.replicate(
-                outputs["data.real.final.detector"],
+                outputs.get_dict("data.real.final.detector"),
                 name="data.real.concatenated.detector",
             )
 
-            outputs["data.real.concatenated.selected"] = outputs[
+            outputs["data.real.concatenated.selected"] = outputs.get_value(
                 f"data.real.concatenated.{self.concatenation_mode}"
-            ]
+                )
 
             #
             # Summary
