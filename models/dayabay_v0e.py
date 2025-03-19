@@ -28,7 +28,7 @@ FutureType = Literal[
     "reactor-35days",  # merge reactor data, each 5 weeks
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
 ]
-_future_redundant = ["reactor-35days"]
+_future_redundant = []
 _future_included = {}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -831,6 +831,7 @@ class model_dayabay_v0e:
             #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+            in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
             in_edges_costheta = [-1, 1]
 
             # Instantiate the storage nodes for bin edges. In what follows all the
@@ -1900,6 +1901,7 @@ class model_dayabay_v0e:
             Product.replicate(
                     outputs("kinematics.integral.nu_main"),
                     outputs("reactor_detector.nfissions_nprotons_per_cm2"),
+                    parameters.get_value("all.detector.global_normalization"),
                     name = "eventscount.parts.nu_main",
                     replicate_outputs = combinations["reactor.isotope.detector.period"]
                     )
@@ -1907,6 +1909,7 @@ class model_dayabay_v0e:
             Product.replicate(
                     outputs("kinematics.integral.nu_neq"),
                     outputs("reactor_detector.nfissions_nprotons_per_cm2_neq"),
+                    parameters.get_value("all.detector.global_normalization"),
                     name = "eventscount.parts.nu_neq",
                     replicate_outputs = combinations["reactor.isotope_neq.detector.period"],
                     allow_skip_inputs = True,
@@ -1916,6 +1919,7 @@ class model_dayabay_v0e:
             Product.replicate(
                     outputs("kinematics.integral.nu_snf"),
                     outputs("reactor_detector.livetime_nprotons_per_cm2_snf"),
+                    parameters.get_value("all.detector.global_normalization"),
                     name = "eventscount.parts.nu_snf",
                     replicate_outputs = combinations["reactor.detector.period"]
                     )
@@ -2084,7 +2088,7 @@ class model_dayabay_v0e:
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
             Product.replicate(
-                parameters.get_value("all.detector.global_normalization"),
+                # parameters.get_value("all.detector.global_normalization"),
                 outputs("detector.parameters_relative.efficiency_factor"),
                 name = "detector.normalization",
                 replicate_outputs=index["detector"],
@@ -2275,7 +2279,8 @@ class model_dayabay_v0e:
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
-                name_function=lambda _, idx: f"anue_{idx[1]}",
+                # name_function=lambda _, idx: f"anue_{idx[1]}",
+                name_function=lambda _, idx: f"eventscount_fine_observed_{idx[1]}_{idx[0]}",
             )
 
             Rebin.replicate(
