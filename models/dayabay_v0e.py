@@ -2127,20 +2127,19 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.detector"],
             )
 
-
+            # Main, NEQ and SNF contributions are now stored in nearby with inices
+            # `nu_main`, `nu_neq` and `nu_snf` and may be connected to the relevant
+            # inputs of the 2d integrators.
             outputs.get_dict(
                 "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part"
             ) >> inputs.get_dict("kinematics.integral")
 
-            # HERE
-            # fmt: off
-
-            #
-            # Multiply by the scaling factors:
-            #  - nu_main: fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d]
-            #  - nu_neq:  fissions_per_second[p,r,i] × effective live time[p,d] × N protons[d] × efficiency[d] × nonequilibrium scale[r,i] × neq_factor(=1)
-            #  - nu_snf:                               effective live time[p,d] × N protons[d] × efficiency[d] × SNF scale[r]              × snf_factor(=1)
-            #
+            # Multiply by the integrated functions by relevant scaling factors, which
+            # togather consist of:
+            #  - nu_main:   fissions_per_second[p,r,i] ×
+            #             × effective live time[p,d] ×
+            #             × N protons[d] ×
+            #             × efficiency[d]
             Product.replicate(
                 outputs.get_dict("kinematics.integral.nu_main"),
                 outputs.get_dict("reactor_detector.nfissions_nprotons_per_cm2"),
@@ -2148,6 +2147,14 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
 
+            #  - nu_neq:    fissions_per_second[p,r,i] ×
+            #             × effective live time[p,d] ×
+            #             × N protons[d] ×
+            #             × efficiency[d] ×
+            #             × nonequilibrium scale[r,i] ×
+            #             × neq_factor(=1)
+            # As NEQ is not applied to ²³⁸U, allow related inputs to be left
+            # unprocessed.
             Product.replicate(
                 outputs.get_dict("kinematics.integral.nu_neq"),
                 outputs.get_dict("reactor_detector.nfissions_nprotons_per_cm2_neq"),
@@ -2157,6 +2164,11 @@ class model_dayabay_v0e:
                 skippable_inputs_should_contain=("U238",),
             )
 
+            #  - nu_snf:    effective live time[p,d] ×
+            #             × N protons[d] ×
+            #             × efficiency[d] ×
+            #             × SNF scale[r] ×
+            #             × snf_factor(=1)
             Product.replicate(
                 outputs.get_dict("kinematics.integral.nu_snf"),
                 outputs.get_dict("reactor_detector.livetime_nprotons_per_cm2_snf"),
@@ -2164,11 +2176,17 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.detector.period"],
             )
 
+            # Finally sum togather the contributions from reactors and from antineutrino
+            # sources (main, NEQ, SNF) obtaining an expected spectrum in each detector
+            # during each period.
             Sum.replicate(
                 outputs.get_dict("eventscount.parts"),
                 name="eventscount.raw",
                 replicate_outputs=combinations["detector.period"],
             )
+
+            # HERE
+            # fmt: off
 
             #
             # Detector effects
