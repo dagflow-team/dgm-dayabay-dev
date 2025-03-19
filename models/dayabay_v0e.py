@@ -2225,6 +2225,7 @@ class model_dayabay_v0e:
 
             VectorMatrixProduct.replicate(
                 name="eventscount.iav",
+                mode = "column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
@@ -2366,6 +2367,7 @@ class model_dayabay_v0e:
             )
             VectorMatrixProduct.replicate(
                 name="eventscount.evis",
+                mode = "column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
@@ -2384,6 +2386,7 @@ class model_dayabay_v0e:
 
             VectorMatrixProduct.replicate(
                 name="eventscount.erec",
+                mode = "column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs.get_value("detector.eres.matrix") >> inputs(

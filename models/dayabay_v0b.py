@@ -1172,7 +1172,7 @@ class model_dayabay_v0b:
             outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
 
             from dagflow.lib.linalg import VectorMatrixProduct
-            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
@@ -1336,7 +1336,7 @@ class model_dayabay_v0b:
                 edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
                 outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix.EdgesModified")
 
-            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
@@ -1346,7 +1346,7 @@ class model_dayabay_v0b:
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.e_edges")
 
-            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"], mode="column")
             outputs.get_value("detector.eres.matrix") >> inputs("eventscount.erec.matrix")
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
