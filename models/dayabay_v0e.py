@@ -2126,16 +2126,11 @@ class model_dayabay_v0e:
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
-            outputs(
-                "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main"
-            ) >> inputs("kinematics.integral.nu_main")
-            outputs(
-                "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq"
-            ) >> inputs("kinematics.integral.nu_neq")
-            outputs(
-                "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf"
-            ) >> inputs("kinematics.integral.nu_snf")
 
+
+            outputs.get_dict(
+                "kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part"
+            ) >> inputs.get_dict("kinematics.integral")
 
             # HERE
             # fmt: off
