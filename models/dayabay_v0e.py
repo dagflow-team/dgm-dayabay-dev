@@ -2377,7 +2377,15 @@ class model_dayabay_v0e:
             # Now there is a storage for energy scale parameters
             # "detector.parameters_relative.energy_scale_factor".
 
-            # Interpolate Evis(Edep)
+            # In order to build the LSNL+energy scale conversion matrix a most precise
+            # way requires two branches of interpolations:
+            # - forward — modify Escint bin edges with energy scale conversion.
+            # - backward — modify Evis bin edges with inverse energy scale conversion.
+            # Interpolate Evis(Escint)
+
+            # Given the LSNL curves are pre-interpolated on a fine grid, use linear
+            # algorithm for both interpolations. We will use forced monotonous curves to
+            # ensure the interpolation is definite.
             Interpolator.replicate(
                 method="linear",
                 names={
@@ -2395,7 +2403,8 @@ class model_dayabay_v0e:
                 "detector.lsnl.interpolated_fwd.xfine"
             )
 
-            # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
+            # Apply uncorrelated between detectors energy scale for forward interpolated
+            # Evis[d]=s[d]·Evis(Escint).
             Product.replicate(
                 outputs.get_value("detector.lsnl.interpolated_fwd"),
                 outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
@@ -2403,7 +2412,8 @@ class model_dayabay_v0e:
                 replicate_outputs=index["detector"],
             )
 
-            # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
+            # In order to apply the energy scale for the backward interpolation, it
+            # should be applied to the coarse version before interpolation.
             Product.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
                 outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
@@ -2411,49 +2421,55 @@ class model_dayabay_v0e:
                 replicate_outputs=index["detector"],
             )
 
-            # Interpolate Edep(Evis[detector])
+            # Interpolate backward function Escint(Evis) for each detector.
+            # `replicate_xcoarse` boolean flag indicates that the coarse input X for the
+            # interpolation depends on the index.
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "detector.lsnl.indexer_bwd",
-                    "interpolator": "detector.lsnl.interpolated_bwd",
+                    "indexer": "detector.lsnl.indexer_bkwd",
+                    "interpolator": "detector.lsnl.interpolated_bkwd",
                 },
                 replicate_xcoarse=True,
                 replicate_outputs=index["detector"],
             )
             outputs.get_dict(
                 "detector.lsnl.curves.evis_coarse_monotonous_scaled"
-            ) >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
+            ) >> inputs.get_dict("detector.lsnl.interpolated_bkwd.xcoarse")
             outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
-                "detector.lsnl.interpolated_bwd.ycoarse"
+                "detector.lsnl.interpolated_bkwd.ycoarse"
             )
             edges_energy_evis.outputs[0] >> inputs.get_dict(
-                "detector.lsnl.interpolated_bwd.xfine"
+                "detector.lsnl.interpolated_bkwd.xfine"
             )
+
+            # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
+            # Escint edges, forward modified Escint edges and backward modified Evis
+            # edges to the relevant inputs.
+            AxisDistortionMatrix.replicate(
+                name="detector.lsnl.matrix", replicate_outputs=index["detector"]
+            )
+            edges_energy_escint.outputs[0] >> inputs(
+                "detector.lsnl.matrix.EdgesOriginal"
+            )
+            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
+                "detector.lsnl.matrix.EdgesModified"
+            )
+            outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
+                "detector.lsnl.matrix.EdgesModifiedBackwards"
+            )
+            VectorMatrixProduct.replicate(
+                name="eventscount.evis",
+                mode="column",
+                replicate_outputs=combinations["detector.period"],
+            )
+            outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
+            outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             # HERE get_value/get_dict
 
             # HERE
             # fmt: off
-
-            # Build LSNL matrix
-            AxisDistortionMatrix.replicate(
-                name="detector.lsnl.matrix", replicate_outputs=index["detector"]
-            )
-            edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
-            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
-                "detector.lsnl.matrix.EdgesModified"
-            )
-            outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict(
-                "detector.lsnl.matrix.EdgesModifiedBackwards"
-            )
-            VectorMatrixProduct.replicate(
-                name="eventscount.evis",
-                mode = "column",
-                replicate_outputs=combinations["detector.period"],
-            )
-            outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
-            outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             EnergyResolution.replicate(path="detector.eres")
             nodes.get_value("detector.eres.sigma_rel") << parameters(
