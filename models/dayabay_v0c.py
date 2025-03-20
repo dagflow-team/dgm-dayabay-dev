@@ -695,10 +695,10 @@ class model_dayabay_v0c:
             #   intermediate storage, populated with `load_graph_data` and
             #   `load_record_data` methods.
             # - `parameters` - already populated storage with parameters.
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
-            data = storage.child("data")
+            nodes = storage.create_child("nodes")
+            inputs = storage.create_child("inputs")
+            outputs = storage.create_child("outputs")
+            data = storage.create_child("data")
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
@@ -1239,7 +1239,7 @@ class model_dayabay_v0c:
             )
             refine_detector_data(
                 data("daily_data.detector_all"),
-                data.child("daily_data.detector"),
+                data.create_child("daily_data.detector"),
                 detectors = index["detector"]
             )
 
@@ -1252,7 +1252,7 @@ class model_dayabay_v0c:
             )
             split_refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data.child("daily_data.reactor"),
+                data.create_child("daily_data.reactor"),
                 reactors = index["reactor"],
                 isotopes = index["isotope"],
             )
@@ -1265,35 +1265,35 @@ class model_dayabay_v0c:
             Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.power",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
             del storage["data.daily_data"]
@@ -1607,7 +1607,7 @@ class model_dayabay_v0c:
                 "detector.lsnl.curves",
                 storage("data"),
                 meshname = "edep",
-                remove_used_arrays = True
+                remove_processed_arrays = True
             )
 
             Product.replicate(
@@ -1641,7 +1641,7 @@ class model_dayabay_v0c:
 
             remap_items(
                 parameters("all.detector.detector_relative"),
-                outputs.child("detector.parameters_relative"),
+                outputs.create_child("detector.parameters_relative"),
                 reorder_indices=[
                     ["detector", "parameters"],
                     ["parameters", "detector"],

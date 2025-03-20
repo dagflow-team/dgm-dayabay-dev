@@ -804,10 +804,10 @@ class model_dayabay_v0d:
             #   intermediate storage, populated with `load_graph_data` and
             #   `load_record_data` methods.
             # - `parameters` - already populated storage with parameters.
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
-            data = storage.child("data")
+            nodes = storage.create_child("nodes")
+            inputs = storage.create_child("inputs")
+            outputs = storage.create_child("outputs")
+            data = storage.create_child("data")
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
@@ -1513,7 +1513,7 @@ class model_dayabay_v0d:
                 )
                 refine_detector_data(
                     data("daily_data.detector_all"),
-                    data.child("daily_data.detector"),
+                    data.create_child("daily_data.detector"),
                     detectors = index["detector"],
                     skip = inactive_detectors,
                     columns = ("livetime", "eff", "efflivetime", "rate_acc"),
@@ -1529,7 +1529,7 @@ class model_dayabay_v0d:
                 )
                 refine_detector_data(
                     data("daily_data.detector_all"),
-                    data.child("daily_data.detector"),
+                    data.create_child("daily_data.detector"),
                     detectors = index["detector"],
                     columns = ("livetime", "eff", "efflivetime"),
                     skip = inactive_detectors
@@ -1561,7 +1561,7 @@ class model_dayabay_v0d:
                 )
             refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data.child("daily_data.reactor"),
+                data.create_child("daily_data.reactor"),
                 reactors = index["reactor"],
                 isotopes = index["isotope"],
             )
@@ -1588,7 +1588,7 @@ class model_dayabay_v0d:
             Array.from_storage(
                 "daily_data.detector.days",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "i"
             )
             outputs["daily_data.days"] = outputs.pop("daily_data.detector.days", delete_parents=True)
@@ -1596,21 +1596,21 @@ class model_dayabay_v0d:
             Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
@@ -1619,21 +1619,21 @@ class model_dayabay_v0d:
                 Array.from_storage(
                     "daily_data.detector.rate_acc",
                     storage("data"),
-                    remove_used_arrays = True,
+                    remove_processed_arrays = True,
                     dtype = "d"
                 )
 
             Array.from_storage(
                 "daily_data.reactor.power",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
             del storage["data.daily_data"]
@@ -2008,7 +2008,7 @@ class model_dayabay_v0d:
                 "detector.lsnl.curves",
                 storage("data"),
                 meshname = "edep",
-                remove_used_arrays = True
+                remove_processed_arrays = True
             )
 
             Product.replicate(
@@ -2042,7 +2042,7 @@ class model_dayabay_v0d:
 
             remap_items(
                 parameters("all.detector.detector_relative"),
-                outputs.child("detector.parameters_relative"),
+                outputs.create_child("detector.parameters_relative"),
                 reorder_indices=[
                     ["detector", "parameters"],
                     ["parameters", "detector"],
@@ -2225,7 +2225,7 @@ class model_dayabay_v0d:
 
                 remap_items(
                         parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                        outputs.child("bkg.uncertainty_scale"),
+                        outputs.create_child("bkg.uncertainty_scale"),
                         rename_indices = site_arrangement,
                         skip_indices_target = inactive_detectors,
                         )
@@ -2271,7 +2271,7 @@ class model_dayabay_v0d:
 
                 remap_items(
                         outputs("bkg.count"),
-                        outputs.child("summary.periods.bkg_count"),
+                        outputs.create_child("summary.periods.bkg_count"),
                         reorder_indices=[
                             ["bkg", "detector", "period"],
                             ["bkg", "period", "detector"],
