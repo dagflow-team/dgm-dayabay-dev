@@ -1192,7 +1192,7 @@ class model_dayabay_v0b:
                     refine_lsnl_data
                 refine_lsnl_data(
                     storage("data.detector.lsnl.curves"),
-                    edepname = 'edep',
+                    xname = 'edep',
                     nominalname = 'evis_parts.nominal',
                     refine_times = 4,
                     newmin = 0.5,
@@ -1204,7 +1204,7 @@ class model_dayabay_v0b:
                     cross_check_refine_lsnl_data
                 cross_check_refine_lsnl_data(
                     storage("data.detector.lsnl.curves"),
-                    edepname = 'edep',
+                    xname = 'edep',
                     nominalname = 'evis_parts.nominal',
                     newmin = 0.5,
                     newmax = 12.1

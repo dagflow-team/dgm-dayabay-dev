@@ -1112,7 +1112,7 @@ class model_dayabay_v0:
                 cross_check_refine_lsnl_data
             cross_check_refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
-                edepname = 'edep',
+                xname = 'edep',
                 nominalname = 'evis_parts.nominal',
                 newmin = 0.5,
                 newmax = 12.1

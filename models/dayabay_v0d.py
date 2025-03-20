@@ -1997,7 +1997,7 @@ class model_dayabay_v0d:
             # Refine LSNL curves: interpolate with smaller step
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
-                edepname = 'edep',
+                xname = 'edep',
                 nominalname = 'evis_parts.nominal',
                 refine_times = 4,
                 newmin = 0.5,
