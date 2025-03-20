@@ -827,12 +827,12 @@ class model_dayabay_v0e:
             #   intermediate storage, populated with `load_graph_data` and
             #   `load_record_data` methods.
             # - `parameters` - already populated storage with parameters.
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
-            data = storage.child("data")
-            parameters = storage("parameters")
-            parameters_nuisance_normalized = storage("parameters.normalized")
+            nodes = storage.create_child("nodes")
+            inputs = storage.create_child("inputs")
+            outputs = storage.create_child("outputs")
+            data = storage.create_child("data")
+            parameters = storage.get_dict("parameters")
+            parameters_nuisance_normalized = storage.get_dict("parameters.normalized")
 
             # In this section the actual parts of the calculation are created as nodes.
             # First of all the binning is defined for the histograms.
@@ -1027,8 +1027,8 @@ class model_dayabay_v0e:
             # used as `node << parameters_storage`. It will loop over all the inputs of
             # the node and find parameters of the same name in the right hand side
             # namespace. Missing parameters are skipped, extra parameters are ignored.
-            ibd << storage("parameters.constant.ibd")
-            ibd << storage("parameters.constant.ibd.csc")
+            ibd << storage.get_dict("parameters.constant.ibd")
+            ibd << storage.get_dict("parameters.constant.ibd.csc")
             # Connect the integration meshes for Edep and cosθ to the inputs of the
             # IBD node.
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
@@ -1674,7 +1674,7 @@ class model_dayabay_v0e:
             # "daily_data.detector".
             refine_detector_data(
                 data("daily_data.detector_all"),
-                data.child("daily_data.detector"),
+                data.create_child("daily_data.detector"),
                 detectors=index["detector"],
                 skip=inactive_detectors,
                 columns=("livetime", "eff", "efflivetime", "rate_acc"),
@@ -1723,7 +1723,7 @@ class model_dayabay_v0e:
             # from "daily_data.reactor_all" and stored in "daily_data.reactor".
             refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data.child("daily_data.reactor"),
+                data.create_child("daily_data.reactor"),
                 reactors=index["reactor"],
                 isotopes=index["isotope"],
             )
@@ -1757,7 +1757,7 @@ class model_dayabay_v0e:
 
             # After the data is split into arrays and synchronized we create array nodes
             # for each input using `Array.from_storage` class method.
-            # `remove_used_arrays` instructs the constructor to remove the data from
+            # `remove_processed_arrays` instructs the constructor to remove the data from
             # storage after node is created in order not to keep duplicated data. We
             # specifically set the data type to ensure the model does not depend on the
             # datatype of the input.
@@ -1775,8 +1775,8 @@ class model_dayabay_v0e:
             #   - fission_fraction
             Array.from_storage(
                 "daily_data.detector.days",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="i",
             )
 
@@ -1788,43 +1788,43 @@ class model_dayabay_v0e:
 
             Array.from_storage(
                 "daily_data.detector.livetime",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.rate_acc",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.reactor.power",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
             del storage["data.daily_data"]
@@ -2275,6 +2275,8 @@ class model_dayabay_v0e:
                 replicate_outputs=index["lsnl"],
             )
 
+            # HERE get_value/get_dict
+
             # Pre-process LSNL curves in the following order:
             # - convert relative curves to absolute ones
             # - interpolate with 4 times smaller step using `cubic` interpolation
@@ -2284,23 +2286,26 @@ class model_dayabay_v0e:
             # - compute (nominal-pullᵢ) difference curves to be used as corrections
             #
             # The new fine Edep will be stored to `edepname`. The argument `nominalname`
-            # selects the nominal curve.
+            # selects the nominal curve. The curves will be overwritten.
             refine_lsnl_data(
-                storage("data.detector.lsnl.curves"),
+                storage.get_dict("data.detector.lsnl.curves"),
                 edepname="edep",
                 nominalname="evis_parts.nominal",
                 refine_times=4,
                 newmin=0.5,
                 newmax=12.1,
             )
-            # HERE
-            # fmt: off
 
+            # Create (graph) arrays for the LSNL curves. A dedicated array for X axis,
+            # based on meshname="edep" will be created. Each curve will have a reference
+            # to the Edep node as its X axis.
+            # The processed arrays from `storage["data"]` will be removed with parent
+            # dictionaries.
             Array.from_storage(
                 "detector.lsnl.curves",
-                storage("data"),
+                storage.get_dict("data"),
                 meshname="edep",
-                remove_used_arrays=True,
+                remove_processed_arrays=True,
             )
 
             Product.replicate(
@@ -2317,6 +2322,8 @@ class model_dayabay_v0e:
                 outputs.get_dict("detector.lsnl.curves.evis_parts_scaled"),
                 name="detector.lsnl.curves.evis_coarse",
             )
+            # HERE
+            # fmt: off
 
             #
             # Force Evis(Edep) to grow monotonously
@@ -2337,8 +2344,8 @@ class model_dayabay_v0e:
             )
 
             remap_items(
-                parameters("all.detector.detector_relative"),
-                outputs.child("detector.parameters_relative"),
+                parameters.get_dict("all.detector.detector_relative"),
+                outputs.create_child("detector.parameters_relative"),
                 reorder_indices={
                     "from": ["detector", "parameters"],
                     "to": ["parameters", "detector"],
@@ -2366,7 +2373,7 @@ class model_dayabay_v0e:
             # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
             Product.replicate(
                 outputs.get_value("detector.lsnl.interpolated_fwd"),
-                outputs("detector.parameters_relative.energy_scale_factor"),
+                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs=index["detector"],
             )
@@ -2374,7 +2381,7 @@ class model_dayabay_v0e:
             # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
             Product.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
-                outputs("detector.parameters_relative.energy_scale_factor"),
+                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
                 replicate_outputs=index["detector"],
             )
@@ -2550,7 +2557,7 @@ class model_dayabay_v0e:
 
             remap_items(
                 parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                outputs.child("bkg.uncertainty_scale"),
+                outputs.create_child("bkg.uncertainty_scale"),
                 rename_indices=site_arrangement,
                 skip_indices_target=inactive_detectors,
             )
@@ -2793,7 +2800,7 @@ class model_dayabay_v0e:
 
             remap_items(
                 outputs("bkg.count"),
-                outputs.child("summary.periods.bkg_count"),
+                outputs.create_child("summary.periods.bkg_count"),
                 reorder_indices={
                     "from": ["bkg", "detector", "period"],
                     "to": ["bkg", "period", "detector"],
