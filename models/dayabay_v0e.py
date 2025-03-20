@@ -2268,9 +2268,12 @@ class model_dayabay_v0e:
             # The LSNL distortion matrix is created based on a relative energy scale
             # distortion curve and a few nuisance curves, loaded with `load_graph_data`
             # method. The graphs will be modified before the nodes are created.
+            #
+            # Within our definition LSNL converts the deposited within scintillator
+            # energy (Escint) into visible energy (Evis).
             load_graph_data(
                 name="detector.lsnl.curves",
-                x="edep",
+                x="escint",
                 y="evis_parts",
                 merge_x=True,
                 filenames=path_arrays
@@ -2286,11 +2289,11 @@ class model_dayabay_v0e:
             #   (`newmin` and `newmax`)
             # - compute (nominal-pullᵢ) difference curves to be used as corrections
             #
-            # The new fine Edep will be stored to `edepname`. The argument `nominalname`
+            # The new fine Escint will be stored to `xname`. The argument `nominalname`
             # selects the nominal curve. The curves will be overwritten.
             refine_lsnl_data(
                 storage.get_dict("data.detector.lsnl.curves"),
-                edepname="edep",
+                xname="escint",
                 nominalname="evis_parts.nominal",
                 refine_times=4,
                 newmin=0.5,
@@ -2298,14 +2301,14 @@ class model_dayabay_v0e:
             )
 
             # Create (graph) arrays for the LSNL curves. A dedicated array for X axis,
-            # based on meshname="edep" will be created. Each curve will have a reference
-            # to the Edep node as its X axis.
+            # based on meshname="escint" will be created. Each curve will have a
+            # reference to the Edep node as its X axis.
             # The processed arrays from `storage["data"]` will be removed with parent
             # dictionaries.
             Array.from_storage(
                 "detector.lsnl.curves",
                 storage.get_dict("data"),
-                meshname="edep",
+                meshname="escint",
                 remove_processed_arrays=True,
             )
 
@@ -2320,7 +2323,7 @@ class model_dayabay_v0e:
                 replicate_outputs=index["lsnl_nuisance"],
             )
 
-            # Sum the curves togather.
+            # Sum the curves together.
             Sum.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_parts.nominal"),
                 outputs.get_dict("detector.lsnl.curves.evis_parts_scaled"),
@@ -2347,8 +2350,8 @@ class model_dayabay_v0e:
                 gradient=1.0,
                 with_x=True,
             )
-            # Pass relevant Edep and Evis (absolute LSNL correction) to the inputs.
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value(
+            # Pass relevant Escint and Evis (absolute LSNL correction) to the inputs.
+            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
                 "detector.lsnl.curves.evis_coarse_monotonous.x"
             )
             outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value(
@@ -2382,13 +2385,13 @@ class model_dayabay_v0e:
                     "interpolator": "detector.lsnl.interpolated_fwd",
                 },
             )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value(
+            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
                 "detector.lsnl.interpolated_fwd.xcoarse"
             )
             outputs.get_value(
                 "detector.lsnl.curves.evis_coarse_monotonous"
             ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
-            edges_energy_edep >> inputs.get_value(
+            edges_energy_escint >> inputs.get_value(
                 "detector.lsnl.interpolated_fwd.xfine"
             )
 
@@ -2421,7 +2424,7 @@ class model_dayabay_v0e:
             outputs.get_dict(
                 "detector.lsnl.curves.evis_coarse_monotonous_scaled"
             ) >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_dict(
+            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
                 "detector.lsnl.interpolated_bwd.ycoarse"
             )
             edges_energy_evis.outputs[0] >> inputs.get_dict(
@@ -2437,7 +2440,7 @@ class model_dayabay_v0e:
             AxisDistortionMatrix.replicate(
                 name="detector.lsnl.matrix", replicate_outputs=index["detector"]
             )
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
                 "detector.lsnl.matrix.EdgesModified"
             )
