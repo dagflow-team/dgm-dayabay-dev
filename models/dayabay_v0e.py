@@ -268,7 +268,7 @@ class model_dayabay_v0e:
         #
         # Import necessary nodes and loaders
         #
-        from numpy import arange, concatenate, linspace, ones
+        from numpy import arange, concatenate, linspace
 
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
@@ -878,8 +878,8 @@ class model_dayabay_v0e:
             # For the fine binning we provide a few views, each of which is associated
             # to a distinct energy in the energy conversion process:
             # - Enu - neutrino energy.
-            # - Edep - deposited energy of a positron..
-            # - Escint - energy, converted to the scintillation.
+            # - Edep - deposited energy of a positron.
+            # - Escint - energy, converted to the scintillation light.
             # - Evis - visible energy: scintillation energy after non-linearity
             #   correction.
             # - Erec - reconstructed energy: after smearing.
@@ -2190,7 +2190,10 @@ class model_dayabay_v0e:
             # following order:
             # - IAV effect — Energy loss due to particle passage through the wall of
             # Inner Acrylic Vessel (IAV).
-            # - LSNL effect — non-linear energy scale distortion.
+            # - Energy scale distortion:
+            #   + LSNL effect — common non-linear energy scale distortion.
+            #   + relative energy scale — uncorrelated between detectors linear energy
+            #                             scale.
             # - Energy smearing due to finite energy resolution
             # - Rebinning to the final binning.
 
@@ -2275,8 +2278,6 @@ class model_dayabay_v0e:
                 replicate_outputs=index["lsnl"],
             )
 
-            # HERE get_value/get_dict
-
             # Pre-process LSNL curves in the following order:
             # - convert relative curves to absolute ones
             # - interpolate with 4 times smaller step using `cubic` interpolation
@@ -2308,6 +2309,8 @@ class model_dayabay_v0e:
                 remove_processed_arrays=True,
             )
 
+            # Multiply nuisance LSNL cruves by nuisance parameters (central=0). Allow to
+            # skip nominal curve.
             Product.replicate(
                 outputs.get_dict("detector.lsnl.curves.evis_parts"),
                 parameters.get_dict("constrained.detector.lsnl_scale_a"),
@@ -2317,25 +2320,34 @@ class model_dayabay_v0e:
                 replicate_outputs=index["lsnl_nuisance"],
             )
 
+            # Sum the curves togather.
             Sum.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_parts.nominal"),
                 outputs.get_dict("detector.lsnl.curves.evis_parts_scaled"),
                 name="detector.lsnl.curves.evis_coarse",
             )
-            # HERE
-            # fmt: off
 
+            # The algorithm to adjust a histogram based on distorted X axes is tuned for
+            # the monotonous (no extrema) absolute distortion curves. While it is true
+            # for the nominal curve and the cases of small distortions some parameter
+            # space with large distortions (≥5σ off) may introduce some minima. We
+            # protect the absolute LSNL curve by artificially forcing it to be
+            # monotonous. Since this is needed only for large distortions it is not
+            # expected to affect the results.
             #
-            # Force Evis(Edep) to grow monotonously
-            # - Required by matrix calculation algorithm
-            # - Introduced to achieve stable minimization
-            # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
+            # `Monotonize` node has the following options:
+            # - index_fraction — starting point. 0.5 means starting from the middle and
+            #   checking values outwards.
+            # - gradient — gradient to be enforced.
+            # - with_x — specifies whether X values would be also provided and used for
+            #   gradient calculation.
             Monotonize.replicate(
                 name="detector.lsnl.curves.evis_coarse_monotonous",
                 index_fraction=0.5,
                 gradient=1.0,
                 with_x=True,
             )
+            # Pass relevant Edep and Evis (absolute LSNL correction) to the inputs.
             outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value(
                 "detector.lsnl.curves.evis_coarse_monotonous.x"
             )
@@ -2343,6 +2355,14 @@ class model_dayabay_v0e:
                 "detector.lsnl.curves.evis_coarse_monotonous.y"
             )
 
+            # Uncorrelated between detector energy scale correction is applied together
+            # with LSNL with a single matrix. In order to do this the common LSNL curve
+            # will be multiplied by a factor for each detector.
+            #
+            # The relative energy scale parameters are partially correlated with
+            # relative efficiencies and thus are provided in pairs. Before using them,
+            # we need to first extract a map of energy scale parameters for each
+            # detector, which is done by `remap_items` function.
             remap_items(
                 parameters.get_dict("all.detector.detector_relative"),
                 outputs.create_child("detector.parameters_relative"),
@@ -2351,6 +2371,8 @@ class model_dayabay_v0e:
                     "to": ["parameters", "detector"],
                 },
             )
+            # Now there is a storage for energy scale parameters
+            # "detector.parameters_relative.energy_scale_factor".
 
             # Interpolate Evis(Edep)
             Interpolator.replicate(
@@ -2405,6 +2427,11 @@ class model_dayabay_v0e:
             edges_energy_evis.outputs[0] >> inputs.get_dict(
                 "detector.lsnl.interpolated_bwd.xfine"
             )
+
+            # HERE get_value/get_dict
+
+            # HERE
+            # fmt: off
 
             # Build LSNL matrix
             AxisDistortionMatrix.replicate(
@@ -2512,15 +2539,6 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["detector.period"],
             )
 
-
-            bkg_names = {
-                "acc": "accidental",
-                "lihe": "lithium9",
-                "fastn": "fastNeutron",
-                "amc": "amCSource",
-                "alphan": "carbonAlpha",
-                "muon": "muonRelated",
-            }
             load_hist(
                 name="bkg",
                 x="erec",
