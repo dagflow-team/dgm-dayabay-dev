@@ -2446,6 +2446,8 @@ class model_dayabay_v0e:
             # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
             # Escint edges, forward modified Escint edges and backward modified Evis
             # edges to the relevant inputs.
+            #
+            # TODO: target edges (to output_edges)
             AxisDistortionMatrix.replicate(
                 name="detector.lsnl.matrix", replicate_outputs=index["detector"]
             )
@@ -2458,39 +2460,71 @@ class model_dayabay_v0e:
             outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
                 "detector.lsnl.matrix.EdgesModifiedBackwards"
             )
+
+            # Finally as in the case with IAV apply distortions to the spectra for each
+            # detector and period.
             VectorMatrixProduct.replicate(
                 name="eventscount.evis",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
-            outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
-            outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
+            outputs.get_dict("detector.lsnl.matrix") >> inputs.get_dict(
+                "eventscount.evis.matrix"
+            )
+            # Use outputs after IAV correction to serve as inputs.
+            outputs.get_dict("eventscount.iav") >> inputs.get_dict(
+                "eventscount.evis.vector"
+            )
+
+            # The smearing due to finite energy resolution is also defined by three
+            # nodes:
+            # - σ-node — the node which computes the width of the resolution.
+            # - matrix node — the node, which creates a smearing matrix based on σ(E).
+            # - VectorMatrixProduct node — the one, which applies the smearing matrix.
+            #
+            # The first two nodes are managed via meta node EnergyResolution class.
+            # These kind of classes do create multiple nodes inside, interconnect them
+            # together and pass the inputs and outputs for external use.
+            # In this particular case the instance will manage have
+            # - EnergyResolutionSigmaRelABC to compute σ(E)/E = sqrt(a² + b²/E + c²/E²)
+            # - EnergyResolutionMatrixBC to compute the matrix based on smearing at Bin
+            #   Centers (BC)
+            # - BinCenter — tiny node to compute bin centers.
+            #
+            # TODO: target edges (to output_edges)
+            EnergyResolution.replicate(path="detector.eres")
+
+            # Pass energy resolution parameters a_nonuniform, b_stat, c_noise to the
+            # common σ-node.
+            nodes.get_value("detector.eres.sigma_rel") << parameters.get_dict(
+                "constrained.detector.eres"
+            )
+            # Pass bin edges for visible energy (input) to the matrix.
+            outputs.get_value("edges.energy_evis") >> inputs.get_value(
+                "detector.eres.matrix"
+            )
+
+            # Pass bin edges for visible energy (input) to the matrix.
+            outputs.get_value("edges.energy_evis") >> inputs.get_value(
+                "detector.eres.e_edges"
+            )
+
+            # Finally as before compute a product of a common energy resolution matrix
+            # and input spectrum (after LSNL) for each detector during period.
+            VectorMatrixProduct.replicate(
+                name="eventscount.erec",
+                mode="column",
+                replicate_outputs=combinations["detector.period"],
+            )
+            outputs.get_value("detector.eres.matrix") >> inputs.get_dict(
+                "eventscount.erec.matrix"
+            )
+            outputs.get_dict("eventscount.evis") >> inputs.get_dict("eventscount.erec.vector")
 
             # HERE get_value/get_dict
 
             # HERE
             # fmt: off
-
-            EnergyResolution.replicate(path="detector.eres")
-            nodes.get_value("detector.eres.sigma_rel") << parameters(
-                "constrained.detector.eres"
-            )
-            outputs.get_value("edges.energy_evis") >> inputs.get_value(
-                "detector.eres.matrix"
-            )
-            outputs.get_value("edges.energy_evis") >> inputs.get_value(
-                "detector.eres.e_edges"
-            )
-
-            VectorMatrixProduct.replicate(
-                name="eventscount.erec",
-                mode = "column",
-                replicate_outputs=combinations["detector.period"],
-            )
-            outputs.get_value("detector.eres.matrix") >> inputs(
-                "eventscount.erec.matrix"
-            )
-            outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
             Product.replicate(
                 parameters.get_value("all.detector.global_normalization"),
