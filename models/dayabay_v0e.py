@@ -2446,13 +2446,14 @@ class model_dayabay_v0e:
             # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
             # Escint edges, forward modified Escint edges and backward modified Evis
             # edges to the relevant inputs.
-            #
-            # TODO: target edges (to output_edges)
             AxisDistortionMatrix.replicate(
                 name="detector.lsnl.matrix", replicate_outputs=index["detector"]
             )
             edges_energy_escint.outputs[0] >> inputs(
                 "detector.lsnl.matrix.EdgesOriginal"
+            )
+            edges_energy_evis.outputs[0] >> inputs(
+                "detector.lsnl.matrix.EdgesTarget"
             )
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
                 "detector.lsnl.matrix.EdgesModified"
