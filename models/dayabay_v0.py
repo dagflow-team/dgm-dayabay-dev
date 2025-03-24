@@ -1193,7 +1193,8 @@ class model_dayabay_v0:
                 replicate_outputs=index["detector"],
                 min_value_modified=0.7001
             )
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
             outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix.EdgesModified")
 
             VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"], mode="column")

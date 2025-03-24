@@ -1304,7 +1304,8 @@ class model_dayabay_v0b:
                 # Build LSNL matrix
                 from dgf_detector import AxisDistortionMatrix
                 AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
-                edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+                edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+                edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
                 outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
                 outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModifiedBackwards")
             else:
@@ -1333,7 +1334,8 @@ class model_dayabay_v0b:
                     replicate_outputs=index["detector"],
                     min_value_modified=0.7001
                 )
-                edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+                edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+                edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
                 outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix.EdgesModified")
 
             VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"], mode="column")
