@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
-<<<<<<< HEAD
 from dagflow.logger import DEBUG as INFO4
 from dagflow.logger import INFO1, INFO2, INFO3
 from dagflow.logger import set_level
