@@ -462,8 +462,8 @@ detector:
         text: "IAV matrix with adjusted (fit) offdiagonal elements at {key}"
   lsnl:
     curves:
-      edep:
-        text: "LSNL input coarse deposited energy for Evis(Edep) [MeV]"
+      escint:
+        text: "LSNL input coarse deposited in scintillator energy for Evis(Escint) [MeV]"
       evis_parts:
         group:
           text: "Input coarse Evisᵢ(Edep) {key} curve for LSNL [MeV]"
@@ -484,10 +484,10 @@ detector:
       text: "Segment lookup for Evis(Edep)\\ninterpolation for LSNL correction"
     interpolated_fwd:
       text: "Interpolated Evis(Edep) for LSNL correction [MeV]"
-    indexer_bwd:
+    indexer_bkwd:
       group:
         text: "Segment lookup for Edep(Evis) for {key}\\ninverse interpolation for LSNL correction"
-    interpolated_bwd:
+    interpolated_bkwd:
       group:
         text: "Interpolated Edep(Evis) for LSNL correction for {key} [MeV]"
     matrix:

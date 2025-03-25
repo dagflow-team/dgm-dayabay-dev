@@ -268,7 +268,7 @@ class model_dayabay_v0e:
         #
         # Import necessary nodes and loaders
         #
-        from numpy import arange, concatenate, linspace, ones
+        from numpy import arange, concatenate, linspace
 
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
@@ -827,12 +827,12 @@ class model_dayabay_v0e:
             #   intermediate storage, populated with `load_graph_data` and
             #   `load_record_data` methods.
             # - `parameters` - already populated storage with parameters.
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
-            data = storage.child("data")
-            parameters = storage("parameters")
-            parameters_nuisance_normalized = storage("parameters.normalized")
+            nodes = storage.create_child("nodes")
+            inputs = storage.create_child("inputs")
+            outputs = storage.create_child("outputs")
+            data = storage.create_child("data")
+            parameters = storage.get_dict("parameters")
+            parameters_nuisance_normalized = storage.get_dict("parameters.normalized")
 
             # In this section the actual parts of the calculation are created as nodes.
             # First of all the binning is defined for the histograms.
@@ -879,8 +879,8 @@ class model_dayabay_v0e:
             # For the fine binning we provide a few views, each of which is associated
             # to a distinct energy in the energy conversion process:
             # - Enu - neutrino energy.
-            # - Edep - deposited energy of a positron..
-            # - Escint - energy, converted to the scintillation.
+            # - Edep - deposited energy of a positron.
+            # - Escint - energy, converted to the scintillation light.
             # - Evis - visible energy: scintillation energy after non-linearity
             #   correction.
             # - Erec - reconstructed energy: after smearing.
@@ -1028,8 +1028,8 @@ class model_dayabay_v0e:
             # used as `node << parameters_storage`. It will loop over all the inputs of
             # the node and find parameters of the same name in the right hand side
             # namespace. Missing parameters are skipped, extra parameters are ignored.
-            ibd << storage("parameters.constant.ibd")
-            ibd << storage("parameters.constant.ibd.csc")
+            ibd << storage.get_dict("parameters.constant.ibd")
+            ibd << storage.get_dict("parameters.constant.ibd.csc")
             # Connect the integration meshes for Edep and cosθ to the inputs of the
             # IBD node.
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
@@ -1675,7 +1675,7 @@ class model_dayabay_v0e:
             # "daily_data.detector".
             refine_detector_data(
                 data("daily_data.detector_all"),
-                data.child("daily_data.detector"),
+                data.create_child("daily_data.detector"),
                 detectors=index["detector"],
                 skip=inactive_detectors,
                 columns=("livetime", "eff", "efflivetime", "rate_acc"),
@@ -1724,7 +1724,7 @@ class model_dayabay_v0e:
             # from "daily_data.reactor_all" and stored in "daily_data.reactor".
             refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data.child("daily_data.reactor"),
+                data.create_child("daily_data.reactor"),
                 reactors=index["reactor"],
                 isotopes=index["isotope"],
             )
@@ -1758,7 +1758,7 @@ class model_dayabay_v0e:
 
             # After the data is split into arrays and synchronized we create array nodes
             # for each input using `Array.from_storage` class method.
-            # `remove_used_arrays` instructs the constructor to remove the data from
+            # `remove_processed_arrays` instructs the constructor to remove the data from
             # storage after node is created in order not to keep duplicated data. We
             # specifically set the data type to ensure the model does not depend on the
             # datatype of the input.
@@ -1776,8 +1776,8 @@ class model_dayabay_v0e:
             #   - fission_fraction
             Array.from_storage(
                 "daily_data.detector.days",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="i",
             )
 
@@ -1789,43 +1789,43 @@ class model_dayabay_v0e:
 
             Array.from_storage(
                 "daily_data.detector.livetime",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.detector.rate_acc",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.reactor.power",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
-                storage("data"),
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
                 dtype="d",
             )
             del storage["data.daily_data"]
@@ -2082,8 +2082,8 @@ class model_dayabay_v0e:
             # to build the expected observation.
 
             # The integration is done versus deposited positron energy (Edep) and thus
-            # requires an energy conversion jacobian (dEν/dEdep). As both the cross
-            # section and jacobian do not depend on any nuisance parameters directly,
+            # requires an energy conversion Jacobian (dEν/dEdep). As both the cross
+            # section and Jacobian do not depend on any nuisance parameters directly,
             # they are multiplied first.
             Product.replicate(
                 outputs.get_value("kinematics.ibd.crosssection"),
@@ -2100,7 +2100,7 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.detector"],
             )
 
-            # Finally, multiply it by the the antineutrino spectrum from each isotope.
+            # Finally, multiply it by the antineutrino spectrum from each isotope.
             # The result has three indices: isotope, reactor, detector.
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
@@ -2109,10 +2109,9 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.isotope.detector"],
             )
 
-            # Do the same the the antineutrino spectrum, related to the NEQ correction
+            # Do the same the antineutrino spectrum, related to the NEQ correction
             # (applies to 3 isotopes out of 4).
             Product.replicate(
-                parameters.get_value("all.detector.global_normalization"),
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
                 outputs.get_dict(
                     "reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"
@@ -2123,14 +2122,13 @@ class model_dayabay_v0e:
 
             # And for SNF.
             Product.replicate(
-                parameters.get_value("all.detector.global_normalization"),
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
                 outputs.get_dict("snf_anue.neutrino_per_second_snf"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
 
-            # Main, NEQ and SNF contributions are now stored in nearby with inices
+            # Main, NEQ and SNF contributions are now stored in nearby with indices
             # `nu_main`, `nu_neq` and `nu_snf` and may be connected to the relevant
             # inputs of the 2d integrators.
             outputs.get_dict(
@@ -2138,13 +2136,12 @@ class model_dayabay_v0e:
             ) >> inputs.get_dict("kinematics.integral")
 
             # Multiply by the integrated functions by relevant scaling factors, which
-            # togather consist of:
+            # together consist of:
             #  - nu_main:   fissions_per_second[p,r,i] ×
             #             × effective live time[p,d] ×
             #             × N protons[d] ×
             #             × efficiency[d]
             Product.replicate(
-                parameters.get_value("all.detector.global_normalization"),
                 outputs.get_dict("kinematics.integral.nu_main"),
                 outputs.get_dict("reactor_detector.nfissions_nprotons_per_cm2"),
                 name="eventscount.parts.nu_main",
@@ -2155,7 +2152,7 @@ class model_dayabay_v0e:
             #             × effective live time[p,d] ×
             #             × N protons[d] ×
             #             × efficiency[d] ×
-            #             × nonequilibrium scale[r,i] ×
+            #             × NEQ scale[r,i] ×
             #             × neq_factor(=1)
             # As NEQ is not applied to ²³⁸U, allow related inputs to be left
             # unprocessed.
@@ -2189,12 +2186,29 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["detector.period"],
             )
 
-            # HERE
-            # fmt: off
+            # At this points the IBD spectra at each detector are available assuming the
+            # ideal detector response. 4 transformations will be applied in the
+            # following order:
+            # - IAV effect — Energy loss due to particle passage through the wall of
+            # Inner Acrylic Vessel (IAV).
+            # - Energy scale distortion:
+            #   + LSNL effect — common non-linear energy scale distortion.
+            #   + relative energy scale — uncorrelated between detectors linear energy
+            #                             scale.
+            # - Energy smearing due to finite energy resolution
+            # - Rebinning to the final binning.
 
+            # Load the IAV matrix from the input file.
+            # The `load_array` method works in a similar way to `load_graph` and
+            # `load_record`. It expects the file (folder for tsv) to contain an array or
+            # a set of arrays. The `name_function` makes the method to read "iav_matrix"
+            # from file and store as "matrx_raw".
             #
-            # Detector effects
-            #
+            # An extra argument `edges` is passed to the constructor of an Array object
+            # setting edges. Due to this, it will check that the histogram the effect is
+            # applied to has consistent edges. It will also define the edges for the
+            # output histogram. The edges are used for automated plotting for X axis and
+            # its label.
             if self.dataset != "b":
                 load_array(
                     name="detector.iav",
@@ -2215,28 +2229,52 @@ class model_dayabay_v0e:
                     array_kwargs={"edges": (edges_energy_escint, edges_energy_edep)},
                 )
 
+            # The IAV distortion has an uncorrelated between detector uncertainty,
+            # introduced as a factor, which scales the off-diagonal elements of the IAV
+            # matrix.
             RenormalizeDiag.replicate(
                 mode="offdiag",
                 name="detector.iav.matrix_rescaled",
                 replicate_outputs=index["detector"],
             )
-            parameters("all.detector.iav_offdiag_scale_factor") >> inputs(
-                "detector.iav.matrix_rescaled.scale"
-            )
-            outputs.get_value("detector.iav.matrix_raw") >> inputs(
+            # An IAV distortion node has two inputs "scale" for the scale factor and
+            # "matrix" for the matrix itself.
+            # Match and connect 8 IAV scales to the appropriate inputs.
+            parameters.get_dict(
+                "all.detector.iav_offdiag_scale_factor"
+            ) >> inputs.get_dict("detector.iav.matrix_rescaled.scale")
+            # Connect a single IAV matrix to 8 rescaling nodes.
+            outputs.get_value("detector.iav.matrix_raw") >> inputs.get_dict(
                 "detector.iav.matrix_rescaled.matrix"
             )
 
+            # The correction is applied as matrix multiplication of smearing matrix over
+            # column for each detector during each period..
             VectorMatrixProduct.replicate(
                 name="eventscount.iav",
+                mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
-            outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
-            outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
+            # Match and connect rescaled IAV distortion matrix for each detector to the
+            # smearing node of each detector during each period.
+            outputs.get_dict("detector.iav.matrix_rescaled") >> inputs.get_dict(
+                "eventscount.iav.matrix"
+            )
+            # Match and connect IBD histogram each detector during each period to the
+            # relevant IAV smearing input.
+            outputs.get_dict("eventscount.raw") >> inputs.get_dict(
+                "eventscount.iav.vector"
+            )
 
+            # The LSNL distortion matrix is created based on a relative energy scale
+            # distortion curve and a few nuisance curves, loaded with `load_graph_data`
+            # method. The graphs will be modified before the nodes are created.
+            #
+            # Within our definition LSNL converts the deposited within scintillator
+            # energy (Escint) into visible energy (Evis).
             load_graph_data(
                 name="detector.lsnl.curves",
-                x="edep",
+                x="escint",
                 y="evis_parts",
                 merge_x=True,
                 filenames=path_arrays
@@ -2244,66 +2282,111 @@ class model_dayabay_v0e:
                 replicate_outputs=index["lsnl"],
             )
 
-            # Refine LSNL curves: interpolate with smaller step
+            # Pre-process LSNL curves in the following order:
+            # - convert relative curves to absolute ones
+            # - interpolate with 4 times smaller step using `cubic` interpolation
+            #   (`refine_times` argument)
+            # - extrapolate linearly absolute curves to an extended range
+            #   (`newmin` and `newmax`)
+            # - compute (nominal-pullᵢ) difference curves to be used as corrections
+            #
+            # The new fine Escint will be stored to `xname`. The argument `nominalname`
+            # selects the nominal curve. The curves will be overwritten.
             refine_lsnl_data(
-                storage("data.detector.lsnl.curves"),
-                edepname="edep",
+                storage.get_dict("data.detector.lsnl.curves"),
+                xname="escint",
                 nominalname="evis_parts.nominal",
                 refine_times=4,
                 newmin=0.5,
                 newmax=12.1,
             )
 
+            # Create (graph) arrays for the LSNL curves. A dedicated array for X axis,
+            # based on meshname="escint" will be created. Each curve will have a
+            # reference to the Edep node as its X axis.
+            # The processed arrays from `storage["data"]` will be removed with parent
+            # dictionaries.
             Array.from_storage(
                 "detector.lsnl.curves",
-                storage("data"),
-                meshname="edep",
-                remove_used_arrays=True,
+                storage.get_dict("data"),
+                meshname="escint",
+                remove_processed_arrays=True,
             )
 
+            # Multiply nuisance LSNL cruves by nuisance parameters (central=0). Allow to
+            # skip nominal curve.
             Product.replicate(
-                outputs("detector.lsnl.curves.evis_parts"),
-                parameters("constrained.detector.lsnl_scale_a"),
+                outputs.get_dict("detector.lsnl.curves.evis_parts"),
+                parameters.get_dict("constrained.detector.lsnl_scale_a"),
                 name="detector.lsnl.curves.evis_parts_scaled",
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=("nominal",),
                 replicate_outputs=index["lsnl_nuisance"],
             )
 
+            # Sum the curves together.
             Sum.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_parts.nominal"),
-                outputs("detector.lsnl.curves.evis_parts_scaled"),
+                outputs.get_dict("detector.lsnl.curves.evis_parts_scaled"),
                 name="detector.lsnl.curves.evis_coarse",
             )
 
+            # The algorithm to adjust a histogram based on distorted X axes is tuned for
+            # the monotonous (no extrema) absolute distortion curves. While it is true
+            # for the nominal curve and the cases of small distortions some parameter
+            # space with large distortions (≥5σ off) may introduce some minima. We
+            # protect the absolute LSNL curve by artificially forcing it to be
+            # monotonous. Since this is needed only for large distortions it is not
+            # expected to affect the results.
             #
-            # Force Evis(Edep) to grow monotonously
-            # - Required by matrix calculation algorithm
-            # - Introduced to achieve stable minimization
-            # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
+            # `Monotonize` node has the following options:
+            # - index_fraction — starting point. 0.5 means starting from the middle and
+            #   checking values outwards.
+            # - gradient — gradient to be enforced.
+            # - with_x — specifies whether X values would be also provided and used for
+            #   gradient calculation.
             Monotonize.replicate(
                 name="detector.lsnl.curves.evis_coarse_monotonous",
                 index_fraction=0.5,
                 gradient=1.0,
                 with_x=True,
             )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value(
+            # Pass relevant Escint and Evis (absolute LSNL correction) to the inputs.
+            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
                 "detector.lsnl.curves.evis_coarse_monotonous.x"
             )
             outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value(
                 "detector.lsnl.curves.evis_coarse_monotonous.y"
             )
 
+            # Uncorrelated between detector energy scale correction is applied together
+            # with LSNL with a single matrix. In order to do this the common LSNL curve
+            # will be multiplied by a factor for each detector.
+            #
+            # The relative energy scale parameters are partially correlated with
+            # relative efficiencies and thus are provided in pairs. Before using them,
+            # we need to first extract a map of energy scale parameters for each
+            # detector, which is done by `remap_items` function.
             remap_items(
-                parameters("all.detector.detector_relative"),
-                outputs.child("detector.parameters_relative"),
+                parameters.get_dict("all.detector.detector_relative"),
+                outputs.create_child("detector.parameters_relative"),
                 reorder_indices={
                     "from": ["detector", "parameters"],
                     "to": ["parameters", "detector"],
                 },
             )
+            # Now there is a storage for energy scale parameters
+            # "detector.parameters_relative.energy_scale_factor".
 
-            # Interpolate Evis(Edep)
+            # In order to build the LSNL+energy scale conversion matrix a most precise
+            # way requires two branches of interpolations:
+            # - forward — modify Escint bin edges with energy scale conversion.
+            # - backward — modify Evis bin edges with inverse energy scale conversion.
+            # Interpolate Evis(Escint)
+
+            # Given the LSNL curves are pre-interpolated on a fine grid, use linear
+            # algorithm for both interpolations. We will use forced monotonous curves to
+            # ensure the interpolation is definite.
             Interpolator.replicate(
                 method="linear",
                 names={
@@ -2311,89 +2394,142 @@ class model_dayabay_v0e:
                     "interpolator": "detector.lsnl.interpolated_fwd",
                 },
             )
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value(
+            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
                 "detector.lsnl.interpolated_fwd.xcoarse"
             )
             outputs.get_value(
                 "detector.lsnl.curves.evis_coarse_monotonous"
             ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
-            edges_energy_edep >> inputs.get_value(
+            edges_energy_escint >> inputs.get_value(
                 "detector.lsnl.interpolated_fwd.xfine"
             )
 
-            # Introduce uncorrelated between detectors energy scale for interpolated Evis[detector]=s[detector]*Evis(Edep)
+            # Apply uncorrelated between detectors energy scale for forward interpolated
+            # Evis[d]=s[d]·Evis(Escint).
             Product.replicate(
                 outputs.get_value("detector.lsnl.interpolated_fwd"),
-                outputs("detector.parameters_relative.energy_scale_factor"),
+                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis",
                 replicate_outputs=index["detector"],
             )
 
-            # Introduce uncorrelated between detectors energy scale for coarse Evis[detector]=s[detector]*Evis(Edep)
+            # In order to apply the energy scale for the backward interpolation, it
+            # should be applied to the coarse version before interpolation.
             Product.replicate(
                 outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
-                outputs("detector.parameters_relative.energy_scale_factor"),
+                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
                 name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
                 replicate_outputs=index["detector"],
             )
 
-            # Interpolate Edep(Evis[detector])
+            # Interpolate backward function Escint(Evis) for each detector.
+            # `replicate_xcoarse` boolean flag indicates that the coarse input X for the
+            # interpolation depends on the index.
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "detector.lsnl.indexer_bwd",
-                    "interpolator": "detector.lsnl.interpolated_bwd",
+                    "indexer": "detector.lsnl.indexer_bkwd",
+                    "interpolator": "detector.lsnl.interpolated_bkwd",
                 },
                 replicate_xcoarse=True,
                 replicate_outputs=index["detector"],
             )
             outputs.get_dict(
                 "detector.lsnl.curves.evis_coarse_monotonous_scaled"
-            ) >> inputs.get_dict("detector.lsnl.interpolated_bwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_dict(
-                "detector.lsnl.interpolated_bwd.ycoarse"
+            ) >> inputs.get_dict("detector.lsnl.interpolated_bkwd.xcoarse")
+            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
+                "detector.lsnl.interpolated_bkwd.ycoarse"
             )
             edges_energy_evis.outputs[0] >> inputs.get_dict(
-                "detector.lsnl.interpolated_bwd.xfine"
+                "detector.lsnl.interpolated_bkwd.xfine"
             )
 
-            # Build LSNL matrix
+            # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
+            # Escint edges, forward modified Escint edges and backward modified Evis
+            # edges to the relevant inputs.
             AxisDistortionMatrix.replicate(
                 name="detector.lsnl.matrix", replicate_outputs=index["detector"]
             )
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_escint.outputs[0] >> inputs(
+                "detector.lsnl.matrix.EdgesOriginal"
+            )
+            edges_energy_evis.outputs[0] >> inputs(
+                "detector.lsnl.matrix.EdgesTarget"
+            )
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
                 "detector.lsnl.matrix.EdgesModified"
             )
-            outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict(
+            outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
                 "detector.lsnl.matrix.EdgesModifiedBackwards"
             )
+
+            # Finally as in the case with IAV apply distortions to the spectra for each
+            # detector and period.
             VectorMatrixProduct.replicate(
                 name="eventscount.evis",
+                mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
-            outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
-            outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
+            outputs.get_dict("detector.lsnl.matrix") >> inputs.get_dict(
+                "eventscount.evis.matrix"
+            )
+            # Use outputs after IAV correction to serve as inputs.
+            outputs.get_dict("eventscount.iav") >> inputs.get_dict(
+                "eventscount.evis.vector"
+            )
 
+            # The smearing due to finite energy resolution is also defined by three
+            # nodes:
+            # - σ-node — the node which computes the width of the resolution.
+            # - matrix node — the node, which creates a smearing matrix based on σ(E).
+            # - VectorMatrixProduct node — the one, which applies the smearing matrix.
+            #
+            # The first two nodes are managed via meta node EnergyResolution class.
+            # These kind of classes do create multiple nodes inside, interconnect them
+            # together and pass the inputs and outputs for external use.
+            # In this particular case the instance will manage have
+            # - EnergyResolutionSigmaRelABC to compute σ(E)/E = sqrt(a² + b²/E + c²/E²)
+            # - EnergyResolutionMatrixBC to compute the matrix based on smearing at Bin
+            #   Centers (BC)
+            # - BinCenter — tiny node to compute bin centers.
+            #
+            # TODO: target edges (to output_edges)
             EnergyResolution.replicate(path="detector.eres")
-            nodes.get_value("detector.eres.sigma_rel") << parameters(
+
+            # Pass energy resolution parameters a_nonuniform, b_stat, c_noise to the
+            # common σ-node.
+            nodes.get_value("detector.eres.sigma_rel") << parameters.get_dict(
                 "constrained.detector.eres"
             )
-            outputs.get_value("edges.energy_evis") >> inputs.get_value(
-                "detector.eres.matrix"
-            )
+            # Pass bin edges for visible energy σ(E).
             outputs.get_value("edges.energy_evis") >> inputs.get_value(
                 "detector.eres.e_edges"
             )
+            # Pass bin edges for visible energy (input) to the matrix.
+            outputs.get_value("edges.energy_evis") >> inputs.get_value(
+                "detector.eres.matrix.e_edges"
+            )
+            # Pass bin edges for reconstructed energy (input) to the matrix.
+            outputs.get_value("edges.energy_erec") >> inputs.get_value(
+                "detector.eres.matrix.e_edges_out"
+            )
 
+            # Finally as before compute a product of a common energy resolution matrix
+            # and input spectrum (after LSNL) for each detector during period.
             VectorMatrixProduct.replicate(
                 name="eventscount.erec",
+                mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
-            outputs.get_value("detector.eres.matrix") >> inputs(
+            outputs.get_value("detector.eres.matrix") >> inputs.get_dict(
                 "eventscount.erec.matrix"
             )
-            outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
+            outputs.get_dict("eventscount.evis") >> inputs.get_dict("eventscount.erec.vector")
+
+            # HERE get_value/get_dict
+
+            # HERE
+            # fmt: off
 
             Product.replicate(
                 # parameters.get_value("all.detector.global_normalization"),
@@ -2461,15 +2597,6 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["detector.period"],
             )
 
-
-            bkg_names = {
-                "acc": "accidental",
-                "lihe": "lithium9",
-                "fastn": "fastNeutron",
-                "amc": "amCSource",
-                "alphan": "carbonAlpha",
-                "muon": "muonRelated",
-            }
             load_hist(
                 name="bkg",
                 x="erec",
@@ -2506,7 +2633,7 @@ class model_dayabay_v0e:
 
             remap_items(
                 parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                outputs.child("bkg.uncertainty_scale"),
+                outputs.create_child("bkg.uncertainty_scale"),
                 rename_indices=site_arrangement,
                 skip_indices_target=inactive_detectors,
             )
@@ -2750,7 +2877,7 @@ class model_dayabay_v0e:
 
             remap_items(
                 outputs("bkg.count"),
-                outputs.child("summary.periods.bkg_count"),
+                outputs.create_child("summary.periods.bkg_count"),
                 reorder_indices={
                     "from": ["bkg", "detector", "period"],
                     "to": ["bkg", "period", "detector"],

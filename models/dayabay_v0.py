@@ -306,10 +306,10 @@ class model_dayabay_v0:
                 },
             )
 
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
-            data = storage.child("data")
+            nodes = storage.create_child("nodes")
+            inputs = storage.create_child("inputs")
+            outputs = storage.create_child("outputs")
+            data = storage.create_child("data")
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
@@ -732,7 +732,7 @@ class model_dayabay_v0:
                 refine_detector_data
             refine_detector_data(
                 data("daily_data.detector_all"),
-                data.child("daily_data.detector"),
+                data.create_child("daily_data.detector"),
                 detectors = index["detector"]
             )
 
@@ -746,7 +746,7 @@ class model_dayabay_v0:
             from models.bundles.refine_reactor_data import split_refine_reactor_data
             split_refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data.child("daily_data.reactor"),
+                data.create_child("daily_data.reactor"),
                 reactors = index["reactor"],
                 isotopes = index["isotope"],
             )
@@ -761,35 +761,35 @@ class model_dayabay_v0:
             Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.power",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
             del storage["data.daily_data"]
@@ -1094,7 +1094,7 @@ class model_dayabay_v0:
             outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
 
             from dagflow.lib.linalg import VectorMatrixProduct
-            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
@@ -1112,7 +1112,7 @@ class model_dayabay_v0:
                 cross_check_refine_lsnl_data
             cross_check_refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
-                edepname = 'edep',
+                xname = 'edep',
                 nominalname = 'evis_parts.nominal',
                 newmin = 0.5,
                 newmax = 12.1
@@ -1122,7 +1122,7 @@ class model_dayabay_v0:
                 "detector.lsnl.curves",
                 storage("data"),
                 meshname = "edep",
-                remove_used_arrays = True
+                remove_processed_arrays = True
             )
 
             Product.replicate(
@@ -1158,7 +1158,7 @@ class model_dayabay_v0:
             from multikeydict.tools import remap_items
             remap_items(
                 parameters("all.detector.detector_relative"),
-                outputs.child("detector.parameters_relative"),
+                outputs.create_child("detector.parameters_relative"),
                 reorder_indices=[
                     ["detector", "parameters"],
                     ["parameters", "detector"],
@@ -1193,10 +1193,11 @@ class model_dayabay_v0:
                 replicate_outputs=index["detector"],
                 min_value_modified=0.7001
             )
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
             outputs("detector.lsnl.curves.evis") >> inputs("detector.lsnl.matrix.EdgesModified")
 
-            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
@@ -1206,7 +1207,7 @@ class model_dayabay_v0:
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.e_edges")
 
-            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"], mode="column")
             outputs.get_value("detector.eres.matrix") >> inputs("eventscount.erec.matrix")
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
@@ -1274,14 +1275,14 @@ class model_dayabay_v0:
             #         }
             # remap_items(
             #     parameters("all.bkg.rate.fastn"),
-            #     outputs.child("bkg.rate.fastn"),
+            #     outputs.create_child("bkg.rate.fastn"),
             #     rename_indices = ads_at_sites,
             #     skip_indices_target = self.inactive_detectors,
             #     fcn = lambda par: par.output
             # )
             # remap_items(
             #     parameters("all.bkg.rate.lihe"),
-            #     outputs.child("bkg.rate.lihe"),
+            #     outputs.create_child("bkg.rate.lihe"),
             #     rename_indices = ads_at_sites,
             #     skip_indices_target = self.inactive_detectors,
             #     fcn = lambda par: par.output
