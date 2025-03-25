@@ -1,6 +1,18 @@
 #!/usr/bin/env python
+"""
+Script for contour plot of best fit value
+
+Example of call:
+```
+./scripts/fit_dayabay_contour.py --version v0e \
+    --scan-par oscprob.SinSq2Theta13 0.07 0.1 31 \
+    --scan-par oscprob.DeltaMSq32 2.2e-3 2.8e-3 61 \
+    --chi2 full.chi2n_covmat
+```
+"""
 import itertools
 from argparse import Namespace
+from typing import Iterable
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -16,7 +28,7 @@ from scripts import update_dict_parameters
 
 set_level(INFO1)
 
-DATA_INDICES = {"asimov": 0, "data-a": 1}
+DATA_INDICES = {"asimov": 0, "dataset": 1}
 
 
 def convert_sigmas_to_chi2(df: int, sigmas: list[float] | NDArray) -> NDArray:
@@ -182,10 +194,8 @@ def main(args: Namespace) -> None:
         parameters_groups["constrained"].append("reactor_anue")
 
     stat_chi2 = statistic[f"{args.chi2}"]
-    minimization_parameters = {}
-    update_dict_parameters(
-        minimization_parameters, parameters_groups["free"], parameters_free
-    )
+    minimization_parameters: dict[str, GaussianParameter] = {}
+    update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
@@ -205,23 +215,21 @@ def main(args: Namespace) -> None:
     parameters, grid = cartesian_product(args.scan_par)
     grid_parameters = []
     for parameter in parameters:
-        parameter = minimization_parameters.pop(parameter)
-        grid_parameters.append(parameter)
+        grid_parameter = minimization_parameters.pop(parameter)
+        grid_parameters.append(grid_parameter)
 
     model.next_sample()
     scan_minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters)
-    chi2_map = []
-    for grid_values in grid:
+    chi2_map = np.zeros(grid.shape[0])
+    for idx, grid_values in enumerate(grid):
         push_parameters(grid_parameters, grid_values)
         fit = scan_minimizer.fit()
         scan_minimizer.push_initial_values()
-        chi2_map.append(fit["fun"])
-
-    chi2_map = np.array(chi2_map)
+        chi2_map[idx] = fit["fun"]
 
     fig, axes = plt.subplots(2, 2, gridspec_kw={"width_ratios": [3, 1], "height_ratios": [1, 3]})
     sinSqD13_profile, chi2_profile = get_profile_of_chi2(
-        grid[:, 1], grid[:, 0], chi2_map, best_fit_y, best_fit_fun,
+        grid[:, 1], grid[:, 0], chi2_map, best_fit_y, best_fit_fun
     )
 
     label = r"$\Delta\chi^2$"
@@ -259,14 +267,15 @@ def main(args: Namespace) -> None:
         plt.savefig(args.output_contour)
     plt.show()
 
+    if args.output_map:
+        np.save(args.output_map, np.stack((*grid.T, chi2_map), axis=1))
+
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
@@ -294,18 +303,16 @@ if __name__ == "__main__":
         "--data-mc-mode",
         default="asimov",
         choices=["asimov", "normal-stats", "poisson"],
-        help="type of data to be analyzed",
+        help="type of data of 0th output",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
         "--data",
         default="asimov",
-        choices=["asimov", "data-a"],
-        help="Choose data for fit",
+        choices=["asimov", "dataset"],
+        help="Choose data for fit: 0th and 1st output",
     )
     pars.add_argument(
         "--scan-par",
@@ -340,6 +347,10 @@ if __name__ == "__main__":
     outputs.add_argument(
         "--output-contour",
         help="path to save plot of contour plots",
+    )
+    outputs.add_argument(
+        "--output-map",
+        help="path to save data of contour plots",
     )
 
     args = parser.parse_args()
