@@ -37,9 +37,9 @@ def main(args: Namespace) -> None:
     graph_fit = models[1].graph
     graph_fit.open()
     graph_data.open()
-    storage_fit["nodes.data.proxy"].open()
+    storage_fit["nodes.data.proxy"].open(open_children=False)
     storage_data["outputs.data.proxy"] >> storage_fit["nodes.data.proxy"]
-    storage_fit["nodes.data.proxy"].close()
+    storage_fit["nodes.data.proxy"].close(close_children=False)
     storage_fit["nodes.data.proxy"].switch_input(2)
     graph_fit.close()
     graph_data.close()
