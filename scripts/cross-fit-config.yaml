@@ -1,0 +1,14 @@
+- version: v0e
+  source_type: root
+  spectrum_correction_mode: exponential
+  monte_carlo_mode: asimov
+  seed: 0
+  model_options:
+    dataset: b
+- version: v0e
+  source_type: root
+  spectrum_correction_mode: exponential
+  monte_carlo_mode: asimov
+  seed: 0
+  model_options:
+    dataset: b
