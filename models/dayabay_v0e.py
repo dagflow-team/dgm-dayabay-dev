@@ -2500,14 +2500,17 @@ class model_dayabay_v0e:
             nodes.get_value("detector.eres.sigma_rel") << parameters.get_dict(
                 "constrained.detector.eres"
             )
-            # Pass bin edges for visible energy (input) to the matrix.
-            outputs.get_value("edges.energy_evis") >> inputs.get_value(
-                "detector.eres.matrix"
-            )
-
-            # Pass bin edges for visible energy (input) to the matrix.
+            # Pass bin edges for visible energy σ(E).
             outputs.get_value("edges.energy_evis") >> inputs.get_value(
                 "detector.eres.e_edges"
+            )
+            # Pass bin edges for visible energy (input) to the matrix.
+            outputs.get_value("edges.energy_evis") >> inputs.get_value(
+                "detector.eres.matrix.e_edges"
+            )
+            # Pass bin edges for reconstructed energy (input) to the matrix.
+            outputs.get_value("edges.energy_erec") >> inputs.get_value(
+                "detector.eres.matrix.e_edges_out"
             )
 
             # Finally as before compute a product of a common energy resolution matrix
