@@ -88,7 +88,7 @@ if __name__ == "__main__":
     )
 
     model = parser.add_argument_group("model", "model related options")
-    model.add_argument("--config-path", help="Config file with model options as yaml list of dicts")
+    model.add_argument("--config-path", required=True, help="Config file with model options as yaml list of dicts")
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
