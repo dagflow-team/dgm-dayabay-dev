@@ -30,6 +30,7 @@ FutureType = Literal[
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
+    "anue-model-edges" # use more optimal antineutrino model segments
 ]
 _future_redundant = ["reactor-35days"]
 _future_included = {}
@@ -315,11 +316,21 @@ class model_dayabay_v0e:
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        antineutrino_model_edges = LoadPy(
-            path_parameters / "reactor_antineutrino_spectrum_edges.py",
-            variable="edges",
-            type=ndarray,
-        )
+        if "anue-model-edges" in self._future:
+            logger.warning(
+                "Use fine antineutrino spectrum model"
+            )
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges_fine.py",
+                variable="edges",
+                type=ndarray,
+            )
+        else:
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges.py",
+                variable="edges",
+                type=ndarray,
+            )
 
         # Provide some convenience substitutions for labels
         index_names = {
