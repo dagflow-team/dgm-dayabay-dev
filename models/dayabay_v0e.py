@@ -277,7 +277,14 @@ class model_dayabay_v0e:
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
-        from dagflow.lib.arithmetic import Division, Product, ProductShiftedScaled, Sum
+        from dagflow.lib.arithmetic import (
+            Difference,
+            Division,
+            Product,
+            ProductShiftedScaled,
+            Sum,
+        )
+        from dagflow.lib.axis import BinCenter
         from dagflow.lib.common import Array, Concatenation, Proxy, View
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
@@ -918,11 +925,34 @@ class model_dayabay_v0e:
             # While all these nodes refer to the same array, they will have different
             # labels, which is needed for making proper plots.
 
+            # TODO doc + labels
+            BinCenter.replicate(
+                edges_energy_edep,
+                name="centers.energy_edep",
+            )
+
             # Finally, create a node with segment edges for modelling the reactor
             # electron antineutrino spectra.
             Array.replicate(
                 name="reactor_anue.spectrum_free_correction.spec_model_edges",
                 array=antineutrino_model_edges,
+            )
+
+            # TODO doc + labels
+            Difference.replicate(
+                parameters.get_value("constant.ibd.NeutronMass"),
+                parameters.get_value("constant.ibd.ProtonMass"),
+                parameters.get_value("constant.ibd.ElectronMass"),
+                name="constant.Delta_Enu_Edep",
+            )
+
+            # TODO doc + labels
+            Difference.replicate(
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
+                outputs.get_value("constant.Delta_Enu_Edep"),
+                name="reactor_anue.spectrum_free_correction.spec_model_edges_edep_approx",
             )
 
             # Initialize the integration nodes. The product of reactor electron
