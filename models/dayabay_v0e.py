@@ -2515,7 +2515,8 @@ class model_dayabay_v0e:
             nodes.get_value("detector.eres.sigma_rel") << parameters.get_dict(
                 "constrained.detector.eres"
             )
-            # Pass bin edges for visible energy σ(E).
+            # Pass bin edges for visible energy σ(E) to compute bin centers to pass to
+            # the σ(E).
             outputs.get_value("edges.energy_evis") >> inputs.get_value(
                 "detector.eres.e_edges"
             )
@@ -2528,8 +2529,9 @@ class model_dayabay_v0e:
                 "detector.eres.matrix.e_edges_out"
             )
 
-            # Finally as before compute a product of a common energy resolution matrix
-            # and input spectrum (after LSNL) for each detector during period.
+            # Finally as on previous steps compute a product of a common energy
+            # resolution matrix and input spectrum (after LSNL) for each detector during
+            # period.
             VectorMatrixProduct.replicate(
                 name="eventscount.erec",
                 mode="column",
@@ -2542,31 +2544,36 @@ class model_dayabay_v0e:
                 "eventscount.erec.vector"
             )
 
-            # HERE get_value/get_dict
-
-            # HERE
-            # fmt: off
-
+            # Compute a product of global normalization and per-detector efficiency
+            # factor, to be used to scale the IBD spectrum.
             Product.replicate(
                 parameters.get_value("all.detector.global_normalization"),
-                outputs("detector.parameters_relative.efficiency_factor"),
+                outputs.get_dict("detector.parameters_relative.efficiency_factor"),
                 name="detector.normalization",
                 replicate_outputs=index["detector"],
             )
 
+            # Apply individual normalization (per detector) to each detectors prediction
+            # during each period.
             Product.replicate(
-                outputs("detector.normalization"),
-                outputs("eventscount.erec"),
+                outputs.get_dict("detector.normalization"),
+                outputs.get_dict("eventscount.erec"),
                 name="eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
             )
 
+            # Sum together the spectra of each detector from different periods.
+            # The corresponding outputs are to be used simply to provide the spectra for
+            # user for plotting/saving. They are not used further in the calculations.
             Sum.replicate(
-                outputs("eventscount.fine.ibd_normalized"),
+                outputs.get_dict("eventscount.fine.ibd_normalized"),
                 name="eventscount.fine.ibd_normalized_detector",
                 replicate_outputs=combinations["detector"],
             )
 
+            # Rebin the expected histograms for each detector during each period into
+            # final binning. It is done by MetaNode Rebin, which combine the computation
+            # of the rebin matrix and its application via VectorMatrixProduct.
             Rebin.replicate(
                 names={
                     "matrix": "detector.rebin.matrix_ibd",
@@ -2574,17 +2581,19 @@ class model_dayabay_v0e:
                 },
                 replicate_outputs=combinations["detector.period"],
             )
+            # Connect old (Erec) and new (final) energy edges.
             edges_energy_erec >> inputs.get_value("detector.rebin.matrix_ibd.edges_old")
             edges_energy_final >> inputs.get_value(
                 "detector.rebin.matrix_ibd.edges_new"
             )
-            outputs("eventscount.fine.ibd_normalized") >> inputs(
+            # Pass the fine-bin spectra into inputs.
+            outputs.get_dict("eventscount.fine.ibd_normalized") >> inputs.get_dict(
                 "eventscount.final.ibd"
             )
 
-            #
-            # Backgrounds
-            #
+            # The following block is related to the computation and application of the
+            # background spectra. The background rates are given per day, therefore
+            # first we need to convert the effective livetime in s⁻¹ to day⁻¹.
             Product.replicate(
                 outputs.get_dict("detector.efflivetime"),
                 parameters.get_value("constant.conversion.seconds_in_day_inverse"),
@@ -2593,6 +2602,10 @@ class model_dayabay_v0e:
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
             )
+            # HERE
+            # HERE get_value/get_dict
+            # fmt: off
+
 
             Product.replicate(  # TODO: doc
                 outputs.get_dict("daily_data.detector.efflivetime"),
