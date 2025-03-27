@@ -30,9 +30,10 @@ FutureType = Literal[
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
-    "anue-model-edges" # use more optimal antineutrino model segments
+    "anue-model-edges-140",  # use more optimal antineutrino model segments starting from 140 keV
+    "anue-model-edges-180",  # use more optimal antineutrino model segments starting from 180 keV
 ]
-_future_redundant = ["reactor-35days"]
+_future_redundant = ["reactor-35days", "anue-model-edges-140"]
 _future_included = {}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -316,12 +317,17 @@ class model_dayabay_v0e:
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        if "anue-model-edges" in self._future:
-            logger.warning(
-                "Use fine antineutrino spectrum model"
-            )
+        if "anue-model-edges-140" in self._future:
+            logger.warning("Use fine antineutrino spectrum model (140+ keV)")
             antineutrino_model_edges = LoadPy(
-                path_parameters / "reactor_antineutrino_spectrum_edges_fine.py",
+                path_parameters / "reactor_antineutrino_spectrum_edges_fine_140keV.py",
+                variable="edges",
+                type=ndarray,
+            )
+        elif "anue-model-edges-180" in self._future:
+            logger.warning("Use fine antineutrino spectrum model (180+ keV)")
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges_fine_180keV.py",
                 variable="edges",
                 type=ndarray,
             )
@@ -2463,9 +2469,7 @@ class model_dayabay_v0e:
             edges_energy_escint.outputs[0] >> inputs(
                 "detector.lsnl.matrix.EdgesOriginal"
             )
-            edges_energy_evis.outputs[0] >> inputs(
-                "detector.lsnl.matrix.EdgesTarget"
-            )
+            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
                 "detector.lsnl.matrix.EdgesModified"
             )
@@ -2534,7 +2538,9 @@ class model_dayabay_v0e:
             outputs.get_value("detector.eres.matrix") >> inputs.get_dict(
                 "eventscount.erec.matrix"
             )
-            outputs.get_dict("eventscount.evis") >> inputs.get_dict("eventscount.erec.vector")
+            outputs.get_dict("eventscount.evis") >> inputs.get_dict(
+                "eventscount.erec.vector"
+            )
 
             # HERE get_value/get_dict
 
