@@ -22,6 +22,8 @@ from multikeydict.nestedmkdict import NestedMKDict
 
 # pyright: reportUnusedExpression=false
 
+# TODO:
+# - oscprob → surprob or survival_probability
 
 if TYPE_CHECKING:
     from dagflow.core.meta_node import MetaNode
@@ -30,8 +32,10 @@ FutureType = Literal[
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
+    "anue-model-edges-140",  # use more optimal antineutrino model segments starting from 140 keV
+    "anue-model-edges-180",  # use more optimal antineutrino model segments starting from 180 keV
 ]
-_future_redundant = []
+_future_redundant = ["reactor-35days", "anue-model-edges-140"]
 _future_included = {}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -59,6 +63,12 @@ class model_dayabay_v0e:
     Purpose:
         - copy of model v0d with removed old options
 
+    Updates:
+        - add multiple options for antineutrino model edges
+        - add alternative method to apply antineutrino spectrum corrections
+            + original: apply to the antineutrino spectrum before the integration
+            + new: apply Edep spectrum after the integration
+
     Attributes
     ----------
     storage : NodeStorage
@@ -76,7 +86,7 @@ class model_dayabay_v0e:
         lists of all combinations of values of 1 and more indices,
         e.g. detector, detector/period, reator/isotope, reactor/isotope/period, etc.
 
-    spectrum_correction_mode : str, default="exponential"
+    spectrum_correction_interpolation_mode : str, default="exponential"
         mode of how the parameters of the free spectrum model
         are treated:
             - "exponential": pᵢ=0 by default, S(Eᵢ) is
@@ -85,6 +95,15 @@ class model_dayabay_v0e:
             - "linear": pᵢ=0 by default, S(Eᵢ) is multiplied by
               1+pᵢ the correction may be negative, but is always
               linear
+
+    spectrum_correction_location : str, default="before-integration"
+        place, where the spectrum correction is applied:
+            - "before-integration": the antineutrino spectrum of each isotope is
+              corrected, domain — neutrino energy.
+            - "after-integration": the expected spectrum of each detector during each
+              period is corrected (before detector effects), domain: deposited energy
+              (Edep). The conversion from Eν to Edep is done approximately by a constant
+              shift.
 
     concatenation_mode : str, default="detector_period"
         choses the observation to be analyzed:
@@ -134,7 +153,8 @@ class model_dayabay_v0e:
         "index",
         "combinations",
         "path_data",
-        "spectrum_correction_mode",
+        "spectrum_correction_interpolation_mode",
+        "spectrum_correction_location",
         "concatenation_mode",
         "monte_carlo_mode",
         "_source_type",
@@ -152,7 +172,8 @@ class model_dayabay_v0e:
     index: dict[str, tuple[str, ...]]
     combinations: dict[str, tuple[tuple[str, ...], ...]]
     path_data: Path
-    spectrum_correction_mode: Literal["linear", "exponential"]
+    spectrum_correction_interpolation_mode: Literal["linear", "exponential"]
+    spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
@@ -172,7 +193,12 @@ class model_dayabay_v0e:
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
-        spectrum_correction_mode: Literal["linear", "exponential"] = "exponential",
+        spectrum_correction_interpolation_mode: Literal[
+            "linear", "exponential"
+        ] = "exponential",
+        spectrum_correction_location: Literal[
+            "before-integration", "after-integration"
+        ] = "before-integration",
         seed: int = 0,
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
@@ -187,10 +213,10 @@ class model_dayabay_v0e:
               random seed to be passed to random generator for ToyMC
         override_indices : dict[str, Sequence[str]]
                            dictionary with indices to override self.index.
-                           may be used to reduce the number of detectors or reactors in the
-                           model
+                           may be used to reduce the number of detectors or reactors in
+                           the model
 
-        for the dscription of other parameters, see description of the class.
+        for the description of other parameters, see description of the class.
         """
         self._strict = strict
         self._close = close
@@ -202,7 +228,10 @@ class model_dayabay_v0e:
         self.path_data = Path("data/dayabay-v0e")
         self._source_type = source_type
         self._dataset = dataset
-        self.spectrum_correction_mode = spectrum_correction_mode
+        self.spectrum_correction_interpolation_mode = (
+            spectrum_correction_interpolation_mode
+        )
+        self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
         self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
@@ -211,7 +240,19 @@ class model_dayabay_v0e:
         logger.log(INFO, f"Source type: {self._source_type}")
         logger.log(INFO, f"Data path: {self.path_data!s}")
         logger.log(INFO, f"Concatenation mode: {self.concatenation_mode}")
-        logger.log(INFO, f"Spectrum correction mode: {self.spectrum_correction_mode}")
+        logger.log(
+            INFO,
+            f"Spectrum correction mode: {self.spectrum_correction_interpolation_mode}",
+        )
+        logger.log(
+            INFO,
+            f"Spectrum location: {self.spectrum_correction_location}",
+        )
+        assert self.spectrum_correction_interpolation_mode in {"linear", "exponential"}
+        assert self.spectrum_correction_location in {
+            "before-integration",
+            "after-integration",
+        }
 
         self._future = set(future)
         future_variants = set(get_args(FutureType))
@@ -273,7 +314,14 @@ class model_dayabay_v0e:
         from dagflow.bundles.load_hist import load_hist
         from dagflow.bundles.load_record import load_record_data
         from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
-        from dagflow.lib.arithmetic import Division, Product, ProductShiftedScaled, Sum
+        from dagflow.lib.arithmetic import (
+            Difference,
+            Division,
+            Product,
+            ProductShiftedScaled,
+            Sum,
+        )
+        from dagflow.lib.axis import BinCenter
         from dagflow.lib.common import Array, Concatenation, Proxy, View
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
@@ -315,11 +363,26 @@ class model_dayabay_v0e:
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        antineutrino_model_edges = LoadPy(
-            path_parameters / "reactor_antineutrino_spectrum_edges.py",
-            variable="edges",
-            type=ndarray,
-        )
+        if "anue-model-edges-140" in self._future:
+            logger.warning("Use fine antineutrino spectrum model (140+ keV)")
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges_fine_140keV.py",
+                variable="edges",
+                type=ndarray,
+            )
+        elif "anue-model-edges-180" in self._future:
+            logger.warning("Use fine antineutrino spectrum model (180+ keV)")
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges_fine_180keV.py",
+                variable="edges",
+                type=ndarray,
+            )
+        else:
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges.py",
+                variable="edges",
+                type=ndarray,
+            )
 
         # Provide some convenience substitutions for labels
         index_names = {
@@ -462,7 +525,7 @@ class model_dayabay_v0e:
             combinations[combname] = tuple(items)
 
         # Special treatment is needed for combinations of anue_source and isotope as
-        # nu_neq is related to only a fraction of isotops, while nu_snf does not index
+        # nu_neq is related to only a fraction of isotopes, while nu_snf does not index
         # isotopes at all
         combinations["anue_source.reactor.isotope.detector"] = (
             tuple(
@@ -533,7 +596,7 @@ class model_dayabay_v0e:
             # print(p.value)  # print the current value
             # p.value = 0.8   # set the value to 0.8 - affects the model
             # p.central = 0.7 # set the central value to 0.7 - affects the nuisance term
-            # p.normvalue = 1 # set the value to centra+1sigma
+            # p.normvalue = 1 # set the value to central+1sigma
             # ```
             #
             # The non-constrained parameter lacks `central`, `sigma`, `normvalue`, etc
@@ -603,7 +666,7 @@ class model_dayabay_v0e:
 
             # Load the conversion constants from metric to natural units:
             # - reactor thermal power
-            # - the argument of oscillation proabability
+            # - the argument of oscillation probability
             # `scipy.constants` are used to provide the numbers.
             # There are no constants, except maybe 1, 1/3 and π, defined within the
             # code. All the numbers are read based on the configuration files.
@@ -647,7 +710,7 @@ class model_dayabay_v0e:
 
             # Detector energy scale parameters:
             # - constrained correlated between detectors energy resolution parameters
-            # - constrained correlated between detectors Liquid Scnitillator
+            # - constrained correlated between detectors Liquid Scintillator
             #   Non-Linearity (LSNL) parameters
             # - constrained uncorrelated between detectors energy distortion related to
             #   Inner Acrylic Vessel
@@ -695,7 +758,7 @@ class model_dayabay_v0e:
             # - constrained nominal thermal power
             # - constrained mean energy release per fission
             # - constrained Non-EQuilibrium (NEQ) correction scale
-            # - cosntrained Spent Nuclear Fuel (SNF) scale
+            # - constrained Spent Nuclear Fuel (SNF) scale
             # - fixed values of the fission fractions for the SNF calculation
             load_parameters(
                 path="reactor",
@@ -900,11 +963,37 @@ class model_dayabay_v0e:
             # While all these nodes refer to the same array, they will have different
             # labels, which is needed for making proper plots.
 
+            # For deposited energy bins provide also bin centers, to be used for
+            # antineutrino spectrum correction (free).
+            BinCenter.replicate(
+                edges_energy_edep,
+                name="edges.centers.energy_edep",
+            )
+
             # Finally, create a node with segment edges for modelling the reactor
             # electron antineutrino spectra.
             Array.replicate(
                 name="reactor_anue.spectrum_free_correction.spec_model_edges",
                 array=antineutrino_model_edges,
+            )
+
+            # Introduce Δ=Eν-Edep=m(n)-m(p)-m(e) approximately connecting neutrino and
+            # deposited energy.
+            Difference.replicate(
+                parameters.get_value("constant.ibd.NeutronMass"),
+                parameters.get_value("constant.ibd.ProtonMass"),
+                parameters.get_value("constant.ibd.ElectronMass"),
+                name="constants.Delta_Enu_Edep",
+            )
+
+            # Convert antineutrino energy of the edges of antineutrino spectrum
+            # parametrization approximately to deposited energy.
+            Difference.replicate(
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
+                outputs.get_value("constants.Delta_Enu_Edep"),
+                name="reactor_anue.spectrum_free_correction_post.spec_model_edges_edep_approx",
             )
 
             # Initialize the integration nodes. The product of reactor electron
@@ -921,7 +1010,7 @@ class model_dayabay_v0e:
             # from a single number. The definition of bin edges is used in order to
             # specify the shape. `store=True` is set so the created nodes are added to
             # the storage.
-            # In partucular using order 5 for Edep and 3 for cosθ means 15=5×3 points
+            # In particular using order 5 for Edep and 3 for cosθ means 15=5×3 points
             # will be used to integrate each 2d bin.
             Array.from_value(
                 "kinematics.integration.orders_edep",
@@ -939,8 +1028,8 @@ class model_dayabay_v0e:
             # Instantiate integration nodes. The integration consist of a single
             # sampling node, which based on bin edges and integration orders provides
             # samples (meshes) of points to compute the integrable function on. In the
-            # case of 2d integrtion each mesh is 2d array, similar to one, produced by
-            # numpy.meshgred function. A dedicated integrator node, which does the
+            # case of 2d integration each mesh is 2d array, similar to one, produced by
+            # numpy.meshgrid function. A dedicated integrator node, which does the
             # actual integration, is created for each integrable function. In the
             # Daya Bay case the integrator part is replicated: an instance created for
             # each combination of "anue_source.reactor.isotope.detector" indices. Note,
@@ -1021,7 +1110,7 @@ class model_dayabay_v0e:
                 path="kinematics.ibd", input_energy="edep"
             )
             # IBD cross section depends on a set of parameters, including neutron
-            # liftime, proton and neutron masses, vector coupling constant, etc. The
+            # lifetime, proton and neutron masses, vector coupling constant, etc. The
             # values of these parameters were previously loaded and are located in the
             # 'parameters.constant.ibd' namespace. The IBD node(s) have an input for
             # each parameter. In order to connect the parameters the `<<` operator is
@@ -1045,7 +1134,7 @@ class model_dayabay_v0e:
             # Initialize survival probability for reactor electron antineutrinos. As it
             # is affected by the distance, we replicate it for each combination of
             # "reactor.detector" indices of count of 48. It is defined for energies in
-            # MeV, while the unit for distance may be choosen between "m" and "km".
+            # MeV, while the unit for distance may be chosen between "m" and "km".
             NueSurvivalProbability.replicate(
                 name="oscprob",
                 distance_unit="m",
@@ -1071,7 +1160,7 @@ class model_dayabay_v0e:
             # - ...
             # On one hand each node with its inputs and outputs may be accessed via
             # "nodes.oscprob.<reactor>.<detector>" address. On the other hand all the
-            # inputs, corresponding to the baselines and input energyies may be accessed
+            # inputs, corresponding to the baselines and input energies may be accessed
             # via "inputs.oscprob.L" and "inputs.oscprob.enu" respectively. It is then
             # under user control whether he wants to provide similar or different data
             # for them.
@@ -1082,7 +1171,7 @@ class model_dayabay_v0e:
             # The matching is done based on the index with order being ignored. Thus
             # baselines stored as "DB1.AD11" or "AD11.DB1" both may be connected to the
             # input "DB1.AD11". Moreover, if the left part has fewer indices, the
-            # connection will be broadcasted, e.g. "DB1" on the left will be connected
+            # connection will be broad casted, e.g. "DB1" on the left will be connected
             # to all the indices on the right, containing "DB1".
             #
             # Provide a conversion constant to convert the argument of sin²(...Δm²L/E)
@@ -1339,7 +1428,7 @@ class model_dayabay_v0e:
                 labels="Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction"
                 + (
                     " (exp)"
-                    if self.spectrum_correction_mode == "exponential"
+                    if self.spectrum_correction_interpolation_mode == "exponential"
                     else " (linear)"
                 ),
                 hide_nodes=True,
@@ -1366,7 +1455,7 @@ class model_dayabay_v0e:
 
             # Depending on chosen method, convert the parameters to the correction
             # on a scale.
-            if self.spectrum_correction_mode == "exponential":
+            if self.spectrum_correction_interpolation_mode == "exponential":
                 # Exponentiate the array of values. No `>>` is used as the array is
                 # passed as an argument and the connection is done internally.
                 Exp.replicate(
@@ -1374,7 +1463,7 @@ class model_dayabay_v0e:
                     name="reactor_anue.spectrum_free_correction.correction",
                 )
             else:
-                # Istead of exponent use linear `1+x` approach. First, ceate an array
+                # Instead of exponent use linear `1+x` approach. First, create an array
                 # with [1].
                 Array.from_value(
                     "reactor_anue.spectrum_free_correction.unity",
@@ -1426,6 +1515,29 @@ class model_dayabay_v0e:
             )
             kinematic_integrator_enu >> inputs.get_value(
                 "reactor_anue.spectrum_free_correction.interpolated.xfine"
+            )
+
+            # Alternative post-fit spectrum correction.
+            # TODO: doc
+            Interpolator.replicate(
+                method="exp",
+                names={
+                    "indexer": "reactor_anue.spectrum_free_correction_post.indexer",
+                    "interpolator": "reactor_anue.spectrum_free_correction_post.interpolated",
+                },
+            )
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction_post.spec_model_edges_edep_approx"
+            ) >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction_post.interpolated.xcoarse"
+            )
+            outputs.get_value(
+                "reactor_anue.spectrum_free_correction.correction"
+            ) >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction_post.interpolated.ycoarse"
+            )
+            outputs.get_value("edges.centers.energy_edep") >> inputs.get_value(
+                "reactor_anue.spectrum_free_correction_post.interpolated.xfine"
             )
 
             # Load the uncertainties, related to Huber+Mueller antineutrino spectrum
@@ -1505,7 +1617,7 @@ class model_dayabay_v0e:
                 labels={"corr": "Correlated ν̅ spectrum shape correction"},
             )
 
-            # Concatentate a set of variables into an array for each isotope. When the
+            # Concatenate a set of variables into an array for each isotope. When the
             # nuisance parameter is modified it also affects the corresponding array
             # element and thus is propagated to the calculation.
             Concatenation.replicate(
@@ -1528,7 +1640,7 @@ class model_dayabay_v0e:
                 replicate_outputs=index["isotope"],
             )
 
-            # For each isotope compute an elementwise product of nuisance parameter and
+            # For each isotope compute an element-wise product of nuisance parameter and
             # corresponding correlated uncertainty. The result is ζΣᵢₖ.
             Product.replicate(
                 parameters.get_value(
@@ -1603,15 +1715,31 @@ class model_dayabay_v0e:
             # The free average antineutrino spectrum correction (3.) and constrained
             # corrections to antineutrino spectra from each isotopes (4.) are multiplied
             # to the nominal antineutrino spectrum.
-            Product.replicate(
-                outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs.get_value("reactor_anue.spectrum_free_correction.interpolated"),
-                outputs.get_dict(
-                    "reactor_anue.spectrum_uncertainty.correction_interpolated"
-                ),
-                name="reactor_anue.part.neutrino_per_fission_per_MeV_main",
-                replicate_outputs=index["isotope"],
-            )
+            if self.spectrum_correction_location == "before-integration":
+                Product.replicate(
+                    outputs.get_dict(
+                        "reactor_anue.neutrino_per_fission_per_MeV_nominal"
+                    ),
+                    outputs.get_value(
+                        "reactor_anue.spectrum_free_correction.interpolated"
+                    ),
+                    outputs.get_dict(
+                        "reactor_anue.spectrum_uncertainty.correction_interpolated"
+                    ),
+                    name="reactor_anue.part.neutrino_per_fission_per_MeV_main",
+                    replicate_outputs=index["isotope"],
+                )
+            else:
+                Product.replicate(
+                    outputs.get_dict(
+                        "reactor_anue.neutrino_per_fission_per_MeV_nominal"
+                    ),
+                    outputs.get_dict(
+                        "reactor_anue.spectrum_uncertainty.correction_interpolated"
+                    ),
+                    name="reactor_anue.part.neutrino_per_fission_per_MeV_main",
+                    replicate_outputs=index["isotope"],
+                )
 
             # The NEQ correction (1.) is applied to the nominal antineutrino spectra as
             # well and is not affected by the free and constrained spectra distortions.
@@ -1844,14 +1972,13 @@ class model_dayabay_v0e:
                 name="detector.efflivetime",
             )
 
-            # At this point we have the information to compute the the antineutrino
+            # At this point we have the information to compute the antineutrino
             # flux.
-            # todo
+            # TODO
             # - nominal thermal power [MeV/s], fit-dependent
             # - nominal thermal power [MeV/s], fit-independent (central values)
             # - fission fraction, corrected based on nuisance parameters [fraction]
             # - average energy per fission
-            # -
 
             # Thermal power [MeV/s] for each reactor is defined as multiplication of
             # parameters `nominal_thermal_power` [GW] for each reactor and conversion
@@ -2092,7 +2219,7 @@ class model_dayabay_v0e:
             )
 
             # For each reactor-detector pair make a product of survival probability,
-            # cross section and jacobian.
+            # cross section and Jacobian.
             Product.replicate(
                 outputs.get_value("kinematics.ibd.crosssection_jacobian"),
                 outputs.get_dict("oscprob"),
@@ -2177,7 +2304,7 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["reactor.detector.period"],
             )
 
-            # Finally sum togather the contributions from reactors and from antineutrino
+            # Finally sum together the contributions from reactors and from antineutrino
             # sources (main, NEQ, SNF) obtaining an expected spectrum in each detector
             # during each period.
             Sum.replicate(
@@ -2185,6 +2312,17 @@ class model_dayabay_v0e:
                 name="eventscount.raw",
                 replicate_outputs=combinations["detector.period"],
             )
+
+            # TODO: doc
+            if self.spectrum_correction_location == "after-integration":
+                Product.replicate(
+                    outputs.get_dict("eventscount.raw"),
+                    outputs.get_value(
+                        "reactor_anue.spectrum_free_correction_post.interpolated"
+                    ),
+                    name="eventscount.raw_anue_spectrum_corrected",
+                    replicate_outputs=combinations["detector.period"],
+                )
 
             # At this points the IBD spectra at each detector are available assuming the
             # ideal detector response. 4 transformations will be applied in the
@@ -2262,9 +2400,14 @@ class model_dayabay_v0e:
             )
             # Match and connect IBD histogram each detector during each period to the
             # relevant IAV smearing input.
-            outputs.get_dict("eventscount.raw") >> inputs.get_dict(
-                "eventscount.iav.vector"
-            )
+            if self.spectrum_correction_location == "after-integration":
+                outputs.get_dict(
+                    "eventscount.raw_anue_spectrum_corrected"
+                ) >> inputs.get_dict("eventscount.iav.vector")
+            else:
+                outputs.get_dict("eventscount.raw") >> inputs.get_dict(
+                    "eventscount.iav.vector"
+                )
 
             # The LSNL distortion matrix is created based on a relative energy scale
             # distortion curve and a few nuisance curves, loaded with `load_graph_data`
@@ -2313,7 +2456,7 @@ class model_dayabay_v0e:
                 remove_processed_arrays=True,
             )
 
-            # Multiply nuisance LSNL cruves by nuisance parameters (central=0). Allow to
+            # Multiply nuisance LSNL curves by nuisance parameters (central=0). Allow to
             # skip nominal curve.
             Product.replicate(
                 outputs.get_dict("detector.lsnl.curves.evis_parts"),
@@ -2453,9 +2596,7 @@ class model_dayabay_v0e:
             edges_energy_escint.outputs[0] >> inputs(
                 "detector.lsnl.matrix.EdgesOriginal"
             )
-            edges_energy_evis.outputs[0] >> inputs(
-                "detector.lsnl.matrix.EdgesTarget"
-            )
+            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
                 "detector.lsnl.matrix.EdgesModified"
             )
@@ -2501,7 +2642,8 @@ class model_dayabay_v0e:
             nodes.get_value("detector.eres.sigma_rel") << parameters.get_dict(
                 "constrained.detector.eres"
             )
-            # Pass bin edges for visible energy σ(E).
+            # Pass bin edges for visible energy σ(E) to compute bin centers to pass to
+            # the σ(E).
             outputs.get_value("edges.energy_evis") >> inputs.get_value(
                 "detector.eres.e_edges"
             )
@@ -2514,8 +2656,9 @@ class model_dayabay_v0e:
                 "detector.eres.matrix.e_edges_out"
             )
 
-            # Finally as before compute a product of a common energy resolution matrix
-            # and input spectrum (after LSNL) for each detector during period.
+            # Finally as on previous steps compute a product of a common energy
+            # resolution matrix and input spectrum (after LSNL) for each detector during
+            # period.
             VectorMatrixProduct.replicate(
                 name="eventscount.erec",
                 mode="column",
@@ -2524,33 +2667,40 @@ class model_dayabay_v0e:
             outputs.get_value("detector.eres.matrix") >> inputs.get_dict(
                 "eventscount.erec.matrix"
             )
-            outputs.get_dict("eventscount.evis") >> inputs.get_dict("eventscount.erec.vector")
+            outputs.get_dict("eventscount.evis") >> inputs.get_dict(
+                "eventscount.erec.vector"
+            )
 
-            # HERE get_value/get_dict
-
-            # HERE
-            # fmt: off
-
+            # Compute a product of global normalization and per-detector efficiency
+            # factor, to be used to scale the IBD spectrum.
             Product.replicate(
-                # parameters.get_value("all.detector.global_normalization"),
-                outputs("detector.parameters_relative.efficiency_factor"),
+                parameters.get_value("all.detector.global_normalization"),
+                outputs.get_dict("detector.parameters_relative.efficiency_factor"),
                 name="detector.normalization",
                 replicate_outputs=index["detector"],
             )
 
+            # Apply individual normalization (per detector) to each detectors prediction
+            # during each period.
             Product.replicate(
-                outputs("detector.normalization"),
-                outputs("eventscount.erec"),
+                outputs.get_dict("detector.normalization"),
+                outputs.get_dict("eventscount.erec"),
                 name="eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
             )
 
+            # Sum together the spectra of each detector from different periods.
+            # The corresponding outputs are to be used simply to provide the spectra for
+            # user for plotting/saving. They are not used further in the calculations.
             Sum.replicate(
-                outputs("eventscount.fine.ibd_normalized"),
+                outputs.get_dict("eventscount.fine.ibd_normalized"),
                 name="eventscount.fine.ibd_normalized_detector",
                 replicate_outputs=combinations["detector"],
             )
 
+            # Rebin the expected histograms for each detector during each period into
+            # final binning. It is done by MetaNode Rebin, which combine the computation
+            # of the rebin matrix and its application via VectorMatrixProduct.
             Rebin.replicate(
                 names={
                     "matrix": "detector.rebin.matrix_ibd",
@@ -2558,17 +2708,19 @@ class model_dayabay_v0e:
                 },
                 replicate_outputs=combinations["detector.period"],
             )
+            # Connect old (Erec) and new (final) energy edges.
             edges_energy_erec >> inputs.get_value("detector.rebin.matrix_ibd.edges_old")
             edges_energy_final >> inputs.get_value(
                 "detector.rebin.matrix_ibd.edges_new"
             )
-            outputs("eventscount.fine.ibd_normalized") >> inputs(
+            # Pass the fine-bin spectra into inputs.
+            outputs.get_dict("eventscount.fine.ibd_normalized") >> inputs.get_dict(
                 "eventscount.final.ibd"
             )
 
-            #
-            # Backgrounds
-            #
+            # The following block is related to the computation and application of the
+            # background spectra. The background rates are given per day, therefore
+            # first we need to convert the effective livetime in s⁻¹ to day⁻¹.
             Product.replicate(
                 outputs.get_dict("detector.efflivetime"),
                 parameters.get_value("constant.conversion.seconds_in_day_inverse"),
@@ -2577,6 +2729,10 @@ class model_dayabay_v0e:
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
             )
+            # HERE
+            # HERE get_value/get_dict
+            # fmt: off
+
 
             Product.replicate(  # TODO: doc
                 outputs.get_dict("daily_data.detector.efflivetime"),

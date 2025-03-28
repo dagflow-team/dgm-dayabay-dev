@@ -22,6 +22,12 @@ edges:
     latex: "Deposited energy $E_{\\rm dep}$ bin edges [MeV]"
     axis: "$E_{\\rm dep}$ [MeV]"
     plotmethod: 'none'
+  centers:
+    energy_edep:
+      text: "Deposited energy (Edep) bin centers [MeV]"
+      latex: "Deposited energy $E_{\\rm dep}$ bin centers [MeV]"
+      axis: "$E_{\\rm dep}$ [MeV]"
+      plotmethod: 'none'
   energy_escint:
     text: "Deposited in scintillator energy (Escint) bin edges [MeV]"
     latex: "Deposited in scintillator energy $E_{\\rm scint}$ bin edges [MeV]"
@@ -36,6 +42,11 @@ edges:
     text: "Reconstructed energy (Erec) bin edges [MeV]"
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV]"
     axis: "$E_{\\rm rec}$ [MeV]"
+    plotmethod: 'none'
+constants:
+  Delta_Enu_Edep:
+    text: "Approximate difference Eν−Edep"
+    latex: "Approximate difference $E_{\\nu}-E_{\\rm dep}$"
     plotmethod: 'none'
 kinematics:
   integration:
@@ -347,6 +358,14 @@ reactor_anue:
       text: "Free correction weights for ν̅ spectrum shape\\ninterpolated"
     indexer:
       text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape"
+  spectrum_free_correction_post:
+    spec_model_edges_edep_approx:
+      text: "Approximate Edep(Eν) segment edges [MeV]\\nfor parametrization of reactor ν̅ spectrum shape (post integration mode)"
+      axis: '$E_{\nu}$ [MeV]'
+    interpolated:
+      text: "Free correction weights for ν̅ spectrum shape\\ninterpolated, applied at Edep after integration"
+    indexer:
+      text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape vs Edep"
   spectrum_uncertainty:
     enu_centers:
       text: "Eν segment centers [MeV]\\nfor parametrization of uncertainties of ν̅ spectrum shape"

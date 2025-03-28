@@ -1345,7 +1345,8 @@ class model_dayabay_v0b:
             from dgf_detector import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
             nodes.get_value("detector.eres.sigma_rel") << parameters("constrained.detector.eres")
-            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
+            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix.e_edges")
+            outputs.get_value("edges.energy_erec") >> inputs.get_value("detector.eres.matrix.e_edges_out")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.e_edges")
 
             VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"], mode="column")
