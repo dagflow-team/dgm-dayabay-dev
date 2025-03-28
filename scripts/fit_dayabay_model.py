@@ -7,6 +7,7 @@ from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_load
 from yaml import add_representer
 
+from dagflow.parameters import Parameter
 from dagflow.parameters import GaussianParameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
@@ -19,13 +20,21 @@ set_level(INFO1)
 DATA_INDICES = {"asimov": 0, "data": 1}
 
 
+plt.rcParams.update(
+    {
+        "xtick.minor.visible": True,
+        "ytick.minor.visible": True,
+        "axes.grid": True,
+    }
+)
+
 add_representer(
     np.ndarray,
     lambda representer, obj: representer.represent_str(np.array_repr(obj)),
 )
 
 
-def filter_fit(src: dict, keys_to_fiter: list[str]) -> dict:
+def filter_fit(src: dict, keys_to_fiter: list[str]) -> None:
     keys = list(src.keys())
     for key in keys:
         if key in keys_to_fiter:
@@ -35,13 +44,12 @@ def filter_fit(src: dict, keys_to_fiter: list[str]) -> dict:
             filter_fit(src[key], keys_to_fiter)
 
 
-def convert_numpy_to_lists(src: dict) -> dict:
+def convert_numpy_to_lists(src: dict) -> None:
     for key, value in src.items():
         if isinstance(value, np.ndarray):
             src[key] = value.tolist()
         elif isinstance(value, dict):
             convert_numpy_to_lists(value)
-
 
 
 def main(args: Namespace) -> None:
@@ -77,7 +85,7 @@ def main(args: Namespace) -> None:
         parameters_groups["constrained"].append("reactor_anue")
 
     stat_chi2 = statistic[f"{args.chi2}"]
-    minimization_parameters = {}
+    minimization_parameters: dict[str, GaussianParameter] = {}
     update_dict_parameters(
         minimization_parameters, parameters_groups["free"], parameters_free
     )
@@ -89,7 +97,7 @@ def main(args: Namespace) -> None:
     #     )
 
     model.next_sample(mc_parameters=False, mc_statistics=False)
-    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters)
+    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)})
 
     if args.interactive:
         from IPython import embed
@@ -151,9 +159,51 @@ def main(args: Namespace) -> None:
         with open(args.output_fit, "w") as f:
             yaml_dump(fit, f)
 
+    if args.output_plot_spectra:
+        edges = model.storage["outputs.edges.energy_final"].data
+        centers = (edges[1:] + edges[:-1]) / 2
+        xerrs = (edges[1:] - edges[:-1]) / 2
+        for key, data in model.storage["outputs.data.real.final.detector_period"].walkjoineditems():
+            data = data.data
+            obs = model.storage[f"outputs.eventscount.final.detector_period.{key}"].data
+            fig, axs = plt.subplots(3, 1, figsize=(7, 6), height_ratios=[2, 1, 1], sharex=True)
+            axs[0].step([edges[0], *edges], [0, *obs, 0], where="post", label="A: fit")
+            axs[0].errorbar(centers, data, xerr=xerrs, yerr=data**.5, linestyle="none", label="B: data")
+            axs[1].errorbar(centers, obs / data - 1, xerr=xerrs, yerr=(obs / data**2 + obs**2 / data**4 * data)**.5, linestyle="none")
+            axs[2].errorbar(centers, obs - data, xerr=xerrs, yerr=(data**.5 + obs**.5)**.5, linestyle="none")
+            axs[0].set_title(key)
+            axs[0].legend()
+            axs[2].set_xlabel("E, MeV")
+            axs[0].set_ylabel("Entries")
+            axs[1].yaxis.tick_right()
+            axs[1].yaxis.set_label_position("right")
+            axs[1].set_ylabel("A / B - 1")
+            axs[2].set_ylabel("A - B")
+            axs[0].minorticks_on()
+            plt.setp(axs[0].get_xticklabels(), visible=False)
+            plt.tight_layout()
+            plt.subplots_adjust(hspace=0.0)
+            plt.savefig(args.output_plot_spectra.format(key.replace(".", "-")))
+
+        if args.use_free_spec:
+            edges = model.storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
+            data = []
+            yerrs = []
+            for key in filter(lambda key: True if "spec" in key else False, fit["names"]):
+                data.append(fit["xdict"][key])
+                yerrs.append(fit["errorsdict"][key])
+            plt.figure()
+            plt.errorbar(edges, data, xerr=0.1, yerr=yerrs, linestyle="none")
+            plt.title(r"Spectral weights of $\overline{\nu}_{e}$ spectrum")
+            plt.xlabel("E, MeV")
+            plt.ylabel("value")
+            plt.tight_layout()
+            plt.savefig(args.output_plot_spectra.format("sw"))
+
     if args.compare_input:
         with open(args.compare_input, "r") as f:
             compare_fit = yaml_load(f)
+        plt.figure()
         plt.errorbar(
             fit["xdict"]["SinSq2Theta13"], fit["xdict"]["DeltaMSq32"],
             xerr=fit["errorsdict"]["SinSq2Theta13"], yerr=fit["errorsdict"]["DeltaMSq32"],
@@ -180,12 +230,12 @@ def main(args: Namespace) -> None:
             value = par_values["value"]
             error = par_values["error"]
             print(f"{name:>22}:")
-            print(f"{'dataset':>22}: value={value:1.5e}, error={error:1.5e}")
-            print(f"{'dag-flow':>22}: value={fit_value:1.5e}, error={fit_error:1.5e}")
-            print(f"{' '*23} value_diff={(fit_value / value - 1)*100:1.3f}%, error_diff={(fit_error / error - 1)*100:1.3f}%")
-            print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.3f}")
+            print(f"{'dataset':>22}: value={value:1.9e}, error={error:1.9e}")
+            print(f"{'dag-flow':>22}: value={fit_value:1.9e}, error={fit_error:1.9e}")
+            print(f"{' '*23} value_diff={(fit_value / value - 1)*100:1.7f}%, error_diff={(fit_error / error - 1)*100:1.7f}%")
+            print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
-    plt.show()
+    # plt.show()
 
     if args.interactive:
         from IPython import embed
@@ -292,6 +342,10 @@ if __name__ == "__main__":
     outputs.add_argument(
         "--output-plot-corrmat",
         help="path to save plot of correlation matrix of fitted parameters",
+    )
+    outputs.add_argument(
+        "--output-plot-spectra",
+        help="path to save full plot of fits",
     )
     outputs.add_argument(
         "--output-plot-fit",
