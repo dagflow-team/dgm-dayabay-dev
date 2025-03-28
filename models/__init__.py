@@ -2,6 +2,8 @@ from typing import Mapping
 
 from dagflow.tools.logger import logger
 
+from .dayabay_labels import LATEX_SYMBOLS
+
 from .dayabay_v0 import model_dayabay_v0
 from .dayabay_v0b import model_dayabay_v0b
 from .dayabay_v0c import model_dayabay_v0c
