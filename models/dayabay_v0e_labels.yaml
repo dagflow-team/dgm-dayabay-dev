@@ -334,8 +334,11 @@ reactor_anue:
     spec:
       group:
         text: "Input ν̅ spectrum for {key} [#ν/fission/MeV]"
+        latex: "Input $\\overline{{\\nu}}$ spectrum for {key}"
+        axis: "$S(E_{\\nu})$ [#$\\nu$/fission/MeV]"
     enu:
         text: "Input ν̅ spectrum neutrino energy (Eν) [MeV]"
+        latex: "Input $\\overline{\\nu}$ spectrum neutrino energy $E_{\\nu}$"
         axis: '$E_{\nu}$ [MeV]'
   part:
     neutrino_per_fission_per_MeV_main:
