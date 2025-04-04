@@ -79,7 +79,7 @@ def main(opts: Namespace) -> None:
     if opts.plot:
         folder, sources = opts.plot[0], opts.plot[1:]
         for source in sources:
-            storage(source).plot(folder=f"{folder}/{source.replace('.', '/')}")
+            storage["outputs"](source).plot(folder=f"{folder}/{source.replace('.', '/')}")
 
     if opts.pars_datax:
         storage["parameters.all"].to_datax_file(
