@@ -667,6 +667,8 @@ statistic:
       text: "Pearson's χ² with statistical uncertainties\\nfixed stat uncertainties"
     chi2n:
       text: "Neyman's χ² with statistical uncertainties"
+    poisson:
+      text: "Log Poisson Ratio (χ²)\\nstatistical uncertainties only"
   full:
     chi2cnp:
       text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\nnuisance terms"
@@ -684,6 +686,8 @@ statistic:
       text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties"
     chi2n_covmat:
       text: "Neyman's χ² with statistical and systematic uncertainties\\ncovariance matrix"
+    poisson:
+      text: "Log Poisson Ratio (χ²)\\nstatistical and systematic uncertainties"
   nuisance:
     all:
       text: "χ² nuisance term"

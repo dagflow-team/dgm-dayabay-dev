@@ -344,7 +344,7 @@ class model_dayabay_v0e:
             InverseSquareLaw,
             NueSurvivalProbability,
         )
-        from dgf_statistics import Chi2, CNPStat, MonteCarlo
+        from dgf_statistics import Chi2, CNPStat, LogPoissonRatio, MonteCarlo
         from models.bundles.refine_detector_data import refine_detector_data
         from models.bundles.refine_reactor_data import refine_reactor_data
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
@@ -3288,6 +3288,15 @@ class model_dayabay_v0e:
                 "statistic.stat.chi2cnp.errors"
             )
 
+            # Log Poisson Ratio
+            LogPoissonRatio.replicate(name="statistic.stat.poisson")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.stat.poisson.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.stat.poisson.theory")
+
             # (2) chi-squared Pearson stat + pull (fixed Pearson errors)
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2p_iterative"),
@@ -3370,6 +3379,13 @@ class model_dayabay_v0e:
             outputs.get_value(
                 "cholesky.covmat_full_cnp"
             ) >> inputs.get_value("statistic.full.chi2cnp_covmat_alt.errors")
+
+            # Log Poisson Ratio + pull
+            Sum.replicate(
+                outputs.get_value("statistic.stat.poisson"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.poisson",
+            )
             # fmt: on
 
         self._setup_labels()
