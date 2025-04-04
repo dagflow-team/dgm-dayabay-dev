@@ -171,7 +171,6 @@ def main(args: Namespace) -> None:
     model = load_model(
         args.version,
         source_type=args.source_type,
-        spectrum_correction_mode=args.spec,
         monte_carlo_mode=args.data_mc_mode,
         seed=args.seed,
     )
