@@ -13,7 +13,9 @@ add_representer(
 
 
 def update_dict_parameters(
-    dict_parameters: dict[str, GaussianParameter], groups: list[str], model_parameters: NodeStorage,
+    dict_parameters: dict[str, GaussianParameter],
+    groups: list[str],
+    model_parameters: NodeStorage,
 ) -> None:
     """Update dictionary of minimization parameters
 
@@ -31,7 +33,12 @@ def update_dict_parameters(
     None
     """
     for group in groups:
-        dict_parameters.update({".".join([group, *tuple_path]): parameter for tuple_path, parameter in model_parameters(group).walkitems()})
+        dict_parameters.update(
+            {
+                ".".join([group, *tuple_path]): parameter
+                for tuple_path, parameter in model_parameters(group).walkitems()
+            }
+        )
 
 
 def load_model_from_file(filename: str, node_name: str, name_pattern: str, groups: list[str]):
@@ -60,9 +67,11 @@ def load_model_from_file(filename: str, node_name: str, name_pattern: str, group
         y="fine",
         merge_x=True,
         filenames=filename,
-        replicate_outputs=list(product(["AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34"], groups)),
+        replicate_outputs=list(
+            product(["AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34"], groups)
+        ),
         skip=({"AD22", "6AD"}, {"AD34", "6AD"}, {"AD11", "7AD"}),
-        name_function=lambda _, idx: name_pattern.format(*idx)
+        name_function=lambda _, idx: name_pattern.format(*idx),
     )
     return comparison_storage["outputs"]
 
@@ -107,4 +116,3 @@ def convert_numpy_to_lists(src: dict) -> None:
             src[key] = value.tolist()
         elif isinstance(value, dict):
             convert_numpy_to_lists(value)
-

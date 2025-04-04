@@ -240,7 +240,11 @@ def main(args: Namespace) -> None:
     )
 
     dm32_profile, chi2_profile = get_profile_of_chi2(
-        grid[:, 0], grid[:, 1], chi2_map, best_fit_x, best_fit_fun,
+        grid[:, 0],
+        grid[:, 1],
+        chi2_map,
+        best_fit_x,
+        best_fit_fun,
     )
     prepare_axes(
         axes[1, 1],
@@ -252,9 +256,20 @@ def main(args: Namespace) -> None:
     ndof = len(parameters)
     levels = convert_sigmas_to_chi2(ndof, [0, 1, 2, 3])
     axes[1, 0].grid(linestyle="--")
-    axes[1, 0].tricontourf(grid[:, 0], grid[:, 1], chi2_map - best_fit_fun, levels=levels, cmap="GnBu")
+    axes[1, 0].tricontourf(
+        grid[:, 0], grid[:, 1], chi2_map - best_fit_fun, levels=levels, cmap="GnBu"
+    )
     bf_x_error, bf_y_error, *_ = best_fit_errors
-    axes[1, 0].errorbar(best_fit_x, best_fit_y, xerr=bf_x_error, yerr=bf_y_error, color="black", marker="o", markersize=3, capsize=3)
+    axes[1, 0].errorbar(
+        best_fit_x,
+        best_fit_y,
+        xerr=bf_x_error,
+        yerr=bf_y_error,
+        color="black",
+        marker="o",
+        markersize=3,
+        capsize=3,
+    )
 
     axes[1, 0].set_ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
     axes[1, 0].set_xlabel(r"$\sin^22\theta_{13}$")
@@ -324,10 +339,18 @@ if __name__ == "__main__":
         "--chi2",
         default="stat.chi2p",
         choices=[
-            "stat.chi2p_iterative", "stat.chi2n", "stat.chi2p", "stat.chi2cnp",
-            "stat.chi2p_unbiased", "full.chi2p_covmat_fixed", "full.chi2n_covmat",
-            "full.chi2p_covmat_variable", "full.chi2p_iterative", "full.chi2cnp",
-            "full.chi2p_unbiased", "full.chi2cnp_covmat",
+            "stat.chi2p_iterative",
+            "stat.chi2n",
+            "stat.chi2p",
+            "stat.chi2cnp",
+            "stat.chi2p_unbiased",
+            "full.chi2p_covmat_fixed",
+            "full.chi2n_covmat",
+            "full.chi2p_covmat_variable",
+            "full.chi2p_iterative",
+            "full.chi2cnp",
+            "full.chi2p_unbiased",
+            "full.chi2cnp_covmat",
         ],
         help="Choose chi-squared function for minimizer",
     )

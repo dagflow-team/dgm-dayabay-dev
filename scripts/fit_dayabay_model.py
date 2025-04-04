@@ -39,7 +39,7 @@ def main(args: Namespace) -> None:
         monte_carlo_mode=args.data_mc_mode,
         seed=args.seed,
         model_options=args.model_options,
-   )
+    )
 
     storage = model.storage
     storage["nodes.data.proxy"].switch_input(DATA_INDICES[args.data])
@@ -60,9 +60,7 @@ def main(args: Namespace) -> None:
 
     chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, GaussianParameter] = {}
-    update_dict_parameters(
-        minimization_parameters, parameters_groups["free"], parameters_free
-    )
+    update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
@@ -92,9 +90,23 @@ def main(args: Namespace) -> None:
             obs = model.storage[f"outputs.eventscount.final.detector_period.{key}"].data
             fig, axs = plt.subplots(3, 1, figsize=(7, 6), height_ratios=[2, 1, 1], sharex=True)
             axs[0].step([edges[0], *edges], [0, *obs, 0], where="post", label="A: fit")
-            axs[0].errorbar(centers, data, xerr=xerrs, yerr=data**.5, linestyle="none", label="B: data")
-            axs[1].errorbar(centers, obs / data - 1, xerr=xerrs, yerr=(obs / data**2 + obs**2 / data**4 * data)**.5, linestyle="none")
-            axs[2].errorbar(centers, obs - data, xerr=xerrs, yerr=(data**.5 + obs**.5)**.5, linestyle="none")
+            axs[0].errorbar(
+                centers, data, xerr=xerrs, yerr=data**0.5, linestyle="none", label="B: data"
+            )
+            axs[1].errorbar(
+                centers,
+                obs / data - 1,
+                xerr=xerrs,
+                yerr=(obs / data**2 + obs**2 / data**4 * data) ** 0.5,
+                linestyle="none",
+            )
+            axs[2].errorbar(
+                centers,
+                obs - data,
+                xerr=xerrs,
+                yerr=(data**0.5 + obs**0.5) ** 0.5,
+                linestyle="none",
+            )
             axs[0].set_title(key)
             axs[0].legend()
             axs[2].set_xlabel("E, MeV")
@@ -110,7 +122,9 @@ def main(args: Namespace) -> None:
             plt.savefig(args.output_plot_spectra.format(key.replace(".", "-")))
 
         if args.use_free_spec:
-            edges = model.storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
+            edges = model.storage[
+                "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
+            ].data
             data = []
             yerrs = []
             for key in filter(lambda key: True if "spec" in key else False, fit["names"]):
@@ -129,13 +143,17 @@ def main(args: Namespace) -> None:
             compare_fit = yaml_load(f)
         plt.figure()
         plt.errorbar(
-            compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"],
-            xerr=compare_fit["SinSq2Theta13"]["error"], yerr=compare_fit["DeltaMSq32"]["error"],
+            compare_fit["SinSq2Theta13"]["value"],
+            compare_fit["DeltaMSq32"]["value"],
+            xerr=compare_fit["SinSq2Theta13"]["error"],
+            yerr=compare_fit["DeltaMSq32"]["error"],
             label="dataset",
         )
         plt.errorbar(
-            fit["xdict"]["oscprob.SinSq2Theta13"], fit["xdict"]["oscprob.DeltaMSq32"],
-            xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"], yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
+            fit["xdict"]["oscprob.SinSq2Theta13"],
+            fit["xdict"]["oscprob.DeltaMSq32"],
+            xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
+            yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
             label="dag-flow",
         )
         plt.xlabel(r"$\sin^22\theta_{13}$")
@@ -158,13 +176,16 @@ def main(args: Namespace) -> None:
             print(f"{name:>22}:")
             print(f"{'dataset':>22}: value={value:1.9e}, error={error:1.9e}")
             print(f"{'dag-flow':>22}: value={fit_value:1.9e}, error={fit_error:1.9e}")
-            print(f"{' '*23} value_diff={(fit_value / value - 1)*100:1.7f}%, error_diff={(fit_error / error - 1)*100:1.7f}%")
+            print(
+                f"{' '*23} value_diff={(fit_value / value - 1)*100:1.7f}%, error_diff={(fit_error / error - 1)*100:1.7f}%"
+            )
             print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
     plt.show()
 
     if args.interactive:
         from IPython import embed
+
         embed()
 
 
@@ -172,9 +193,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
     parser.add_argument(
         "--interactive",
         action="store_true",
@@ -203,9 +222,7 @@ if __name__ == "__main__":
         choices=["asimov", "normal-stats", "poisson"],
         help="type of data to be analyzed",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
@@ -225,11 +242,18 @@ if __name__ == "__main__":
         "--chi2",
         default="stat.chi2p",
         choices=[
-            "stat.chi2p_iterative", "stat.chi2n", "stat.chi2p", "stat.chi2cnp",
-            "stat.chi2p_unbiased", "full.chi2p_covmat_fixed",
-            "full.chi2n_covmat", "full.chi2p_covmat_variable",
-            "full.chi2p_iterative", "full.chi2cnp",
-            "full.chi2p_unbiased", "full.chi2cnp_covmat",
+            "stat.chi2p_iterative",
+            "stat.chi2n",
+            "stat.chi2p",
+            "stat.chi2cnp",
+            "stat.chi2p_unbiased",
+            "full.chi2p_covmat_fixed",
+            "full.chi2n_covmat",
+            "full.chi2p_covmat_variable",
+            "full.chi2p_iterative",
+            "full.chi2cnp",
+            "full.chi2p_unbiased",
+            "full.chi2cnp_covmat",
         ],
         help="Choose chi-squared function for minimizer",
     )

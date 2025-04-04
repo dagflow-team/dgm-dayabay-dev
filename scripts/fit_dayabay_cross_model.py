@@ -73,7 +73,9 @@ def main(args: Namespace) -> None:
     update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
 
     models[0].next_sample(mc_parameters=False, mc_statistics=False)
-    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)})
+    minimizer = IMinuitMinimizer(
+        stat_chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)}
+    )
 
     print(len(minimization_parameters))
     fit = minimizer.fit()
@@ -81,6 +83,7 @@ def main(args: Namespace) -> None:
 
     if args.interactive:
         from IPython import embed
+
         embed()
 
     filter_fit(fit, ["summary"])
@@ -93,14 +96,30 @@ def main(args: Namespace) -> None:
         edges = storage_data["outputs.edges.energy_final"].data
         centers = (edges[1:] + edges[:-1]) / 2
         xerrs = (edges[1:] - edges[:-1]) / 2
-        for key, data in storage_data["outputs.eventscount.final.detector_period"].walkjoineditems():
+        for key, data in storage_data[
+            "outputs.eventscount.final.detector_period"
+        ].walkjoineditems():
             data = data.data
             obs = storage_fit[f"outputs.eventscount.final.detector_period.{key}"].data
             fig, axs = plt.subplots(3, 1, figsize=(7, 6), height_ratios=[2, 1, 1], sharex=True)
             axs[0].step([edges[0], *edges], [0, *obs, 0], where="post", label="A: fit")
-            axs[0].errorbar(centers, data, xerr=xerrs, yerr=data**.5, linestyle="none", label="B: data")
-            axs[1].errorbar(centers, obs / data - 1, xerr=xerrs, yerr=(obs / data**2 + obs**2 / data**4 * data)**.5, linestyle="none")
-            axs[2].errorbar(centers, obs - data, xerr=xerrs, yerr=(data**.5 + obs**.5)**.5, linestyle="none")
+            axs[0].errorbar(
+                centers, data, xerr=xerrs, yerr=data**0.5, linestyle="none", label="B: data"
+            )
+            axs[1].errorbar(
+                centers,
+                obs / data - 1,
+                xerr=xerrs,
+                yerr=(obs / data**2 + obs**2 / data**4 * data) ** 0.5,
+                linestyle="none",
+            )
+            axs[2].errorbar(
+                centers,
+                obs - data,
+                xerr=xerrs,
+                yerr=(data**0.5 + obs**0.5) ** 0.5,
+                linestyle="none",
+            )
             axs[0].set_title(key)
             axs[0].legend()
             axs[2].set_xlabel("E, MeV")
@@ -117,7 +136,9 @@ def main(args: Namespace) -> None:
             plt.savefig(args.output_plot_spectra.format(key.replace(".", "-")))
 
         if args.use_free_spec:
-            edges = model.storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
+            edges = model.storage[
+                "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
+            ].data
             data = []
             yerrs = []
             for key in filter(lambda key: True if "spec" in key else False, fit["names"]):
@@ -144,7 +165,9 @@ if __name__ == "__main__":
     )
 
     model = parser.add_argument_group("model", "model related options")
-    model.add_argument("--config-path", required=True, help="Config file with model options as yaml list of dicts")
+    model.add_argument(
+        "--config-path", required=True, help="Config file with model options as yaml list of dicts"
+    )
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
@@ -164,10 +187,18 @@ if __name__ == "__main__":
         "--chi2",
         default="stat.chi2p",
         choices=[
-            "stat.chi2p_iterative", "stat.chi2n", "stat.chi2p", "stat.chi2cnp",
-            "stat.chi2p_unbiased", "full.chi2p_covmat_fixed", "full.chi2n_covmat",
-            "full.chi2p_covmat_variable", "full.chi2p_iterative", "full.chi2cnp",
-            "full.chi2p_unbiased", "full.chi2cnp_covmat",
+            "stat.chi2p_iterative",
+            "stat.chi2n",
+            "stat.chi2p",
+            "stat.chi2cnp",
+            "stat.chi2p_unbiased",
+            "full.chi2p_covmat_fixed",
+            "full.chi2n_covmat",
+            "full.chi2p_covmat_variable",
+            "full.chi2p_iterative",
+            "full.chi2cnp",
+            "full.chi2p_unbiased",
+            "full.chi2cnp_covmat",
         ],
         help="Choose chi-squared function for minimizer",
     )
@@ -179,7 +210,9 @@ if __name__ == "__main__":
 
     output = parser.add_argument_group("output", "output related options")
     output.add_argument("--output-fit", help="path to save fit in yaml format")
-    output.add_argument("--output-plot-spectra", help="path with one placeholder to save spectra of each detector")
+    output.add_argument(
+        "--output-plot-spectra", help="path with one placeholder to save spectra of each detector"
+    )
 
     args = parser.parse_args()
 
