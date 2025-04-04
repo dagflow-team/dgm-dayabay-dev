@@ -323,7 +323,7 @@ bkg:
 oscprob:
   group:
     text: "ν̅(e) survival probability {key}"
-    latex: "$\\bar{{\\nu}}_e$ survival probability {key}"
+    latex: "$\\overline{{\\nu}}_e$ survival probability between {index[0]} and {index[1]}"
     axis: "$P_{{\\rm ee}}$"
     plotmethod: "slicesy"
 reactor_anue:
