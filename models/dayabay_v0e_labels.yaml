@@ -623,6 +623,8 @@ covariance:
       text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
   covmat_full_n:
     text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+  covmat_full_cnp:
+    text: "Full covariance matrix\\nstat+syst, CNP statistical uncertainties"
 cholesky:
   stat:
     variable:
@@ -639,10 +641,14 @@ cholesky:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
   covmat_full_n:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+  covmat_full_cnp:
+    text: "Cholesky decomposition of full covariance matrix\\nstat+syst, CNP statistical uncertainties"
 statistic:
   staterr:
     cnp:
       text: "CNP statistical uncertainty (variable)"
+    cnp_variance:
+      text: "CNP statistical variance (variable)"
   log_prod_diag:
     text: "2ln\\|V\\| unbiasing term for χ²"
   helper:
@@ -665,7 +671,9 @@ statistic:
     chi2cnp:
       text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\nnuisance terms"
     chi2cnp_covmat:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix"
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum χ²"
+    chi2cnp_covmat_alt:
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum variance"
     chi2p_unbiased:
       text: "Unbiased Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, nuisance terms"
     chi2p_covmat_fixed:

@@ -3181,6 +3181,7 @@ class model_dayabay_v0e:
                 "covariance.covmat_full_p.stat_variable"
             ) >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
 
+
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
             outputs.get_value("data.proxy") >> nodes.get_value(
                 "covariance.covmat_full_n"
@@ -3266,6 +3267,7 @@ class model_dayabay_v0e:
                 "cholesky.covmat_full_p.stat_variable"
             ) >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
+            # CNP stat error
             CNPStat.replicate(name="statistic.staterr.cnp")
             outputs.get_value("data.proxy") >> inputs.get_value(
                 "statistic.staterr.cnp.data"
@@ -3334,6 +3336,40 @@ class model_dayabay_v0e:
                 outputs.get_value("statistic.helper.neyman"),
                 name="statistic.full.chi2cnp_covmat",
             )
+
+            # CNP stat variance
+            CNPStat.replicate(name="statistic.staterr.cnp_variance", mode="variance")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.staterr.cnp_variance.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.staterr.cnp_variance.theory")
+
+            # CNP + covariance matrix (as in paper)
+            SumMatOrDiag.replicate(
+                    outputs.get_value("statistic.staterr.cnp_variance"),
+                    outputs.get_value("covariance.covmat_syst.sum"),
+                    name = "covariance.covmat_full_cnp"
+                    )
+
+            # CNP Cholesky
+            Cholesky.replicate(name="cholesky.covmat_full_cnp")
+            outputs.get_value(
+                "covariance.covmat_full_cnp"
+            ) >> inputs.get_value("cholesky.covmat_full_cnp")
+
+            # CNP covmat (as in paper)
+            Chi2.replicate(name="statistic.full.chi2cnp_covmat_alt")
+            outputs.get_value("data.proxy") >> inputs.get_value(
+                "statistic.full.chi2cnp_covmat_alt.data"
+            )
+            outputs.get_value(
+                "eventscount.final.concatenated.selected"
+            ) >> inputs.get_value("statistic.full.chi2cnp_covmat_alt.theory")
+            outputs.get_value(
+                "cholesky.covmat_full_cnp"
+            ) >> inputs.get_value("statistic.full.chi2cnp_covmat_alt.errors")
             # fmt: on
 
         self._setup_labels()
