@@ -61,7 +61,6 @@ def main(args: Namespace) -> None:
     model = load_model(
         args.version,
         source_type=args.source_type,
-        spectrum_correction_mode=args.spec,
         monte_carlo_mode=args.data_mc_mode,
         seed=args.seed,
         model_options=args.model_options,
@@ -97,7 +96,7 @@ def main(args: Namespace) -> None:
     #     )
 
     model.next_sample(mc_parameters=False, mc_statistics=False)
-    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)})
+    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters)
 
     if args.interactive:
         from IPython import embed
@@ -217,6 +216,8 @@ def main(args: Namespace) -> None:
         plt.xlabel(r"$\sin^22\theta_{13}$")
         plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
         plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
+        plt.xlim(0.082, 0.090)
+        plt.ylim(2.37e-3, 2.53e-3)
         plt.legend()
         plt.tight_layout()
         if args.output_plot_fit:
@@ -269,12 +270,6 @@ if __name__ == "__main__":
         choices=("tsv", "hdf5", "root", "npz"),
         default="npz",
         help="Data source type",
-    )
-    model.add_argument(
-        "--spec",
-        choices=("linear", "exponential"),
-        default="exponential",
-        help="antineutrino spectrum correction mode",
     )
     model.add_argument("--seed", default=0, type=int, help="seed of randomization")
     model.add_argument(
