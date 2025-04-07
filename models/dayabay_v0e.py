@@ -2927,8 +2927,8 @@ class model_dayabay_v0e:
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
-                # name_function=lambda _, idx: f"anue_{idx[1]}",
-                name_function=lambda _, idx: f"eventscount_fine_observed_{idx[1]}_{idx[0]}",
+                name_function=lambda _, idx: f"anue_{idx[1]}",
+                # name_function=lambda _, idx: f"eventscount_fine_observed_{idx[1]}_{idx[0]}",
             )
 
             Rebin.replicate(

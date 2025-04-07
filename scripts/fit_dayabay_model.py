@@ -199,27 +199,28 @@ def main(args: Namespace) -> None:
             plt.tight_layout()
             plt.savefig(args.output_plot_spectra.format("sw"))
 
+    plt.figure()
+    plt.errorbar(
+        fit["xdict"]["SinSq2Theta13"], fit["xdict"]["DeltaMSq32"],
+        xerr=fit["errorsdict"]["SinSq2Theta13"], yerr=fit["errorsdict"]["DeltaMSq32"],
+        label="dag-flow",
+    )
     if args.compare_input:
         with open(args.compare_input, "r") as f:
             compare_fit = yaml_load(f)
-        plt.figure()
-        plt.errorbar(
-            fit["xdict"]["SinSq2Theta13"], fit["xdict"]["DeltaMSq32"],
-            xerr=fit["errorsdict"]["SinSq2Theta13"], yerr=fit["errorsdict"]["DeltaMSq32"],
-            label="dag-flow",
-        )
         plt.errorbar(
             compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"],
             xerr=compare_fit["SinSq2Theta13"]["error"], yerr=compare_fit["DeltaMSq32"]["error"],
             label="dataset",
         )
-        plt.xlabel(r"$\sin^22\theta_{13}$")
-        plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
-        plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
-        plt.xlim(0.082, 0.090)
-        plt.ylim(2.37e-3, 2.53e-3)
-        plt.legend()
-        plt.tight_layout()
+    plt.xlabel(r"$\sin^22\theta_{13}$")
+    plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
+    plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
+    plt.xlim(0.082, 0.090)
+    plt.ylim(2.37e-3, 2.53e-3)
+    plt.legend()
+    plt.tight_layout()
+    if args.compare_input:
         if args.output_plot_fit:
             plt.savefig(args.output_plot_fit)
         print(args.chi2)
@@ -236,7 +237,7 @@ def main(args: Namespace) -> None:
             print(f"{' '*23} value_diff={(fit_value / value - 1)*100:1.7f}%, error_diff={(fit_error / error - 1)*100:1.7f}%")
             print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
-    # plt.show()
+    plt.show()
 
     if args.interactive:
         from IPython import embed
