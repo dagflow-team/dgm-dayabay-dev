@@ -37,7 +37,6 @@ def test_dayabay_v0_proxy_switch(model_version: str):
     # TODO: remove when the model is done
     if model_version in ("v0e", "latest"):
         return
-    model = load_model(model_version, close=True, strict=True, monte_carlo_mode="poisson")
 
     storage = model.storage
 
@@ -48,8 +47,8 @@ def test_dayabay_v0_proxy_switch(model_version: str):
 
     proxy_node.open()
     obs >> proxy_node
-    proxy_node.close(close_children=True)
-    proxy_node.switch_input(1)
+    proxy_node.close()
+    proxy_node.switch_input(-1)
     assert chi2.data == 0.0
 
 
