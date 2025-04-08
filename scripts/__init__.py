@@ -2,7 +2,7 @@ import numpy as np
 from yaml import add_representer
 from itertools import product
 from dagflow.bundles.load_hist import load_hist
-from dagflow.parameters import GaussianParameter
+from dagflow.parameters import Parameter
 from dagflow.core import NodeStorage
 
 
@@ -13,7 +13,7 @@ add_representer(
 
 
 def update_dict_parameters(
-    dict_parameters: dict[str, GaussianParameter],
+    dict_parameters: dict[str, Parameter],
     groups: list[str],
     model_parameters: NodeStorage,
 ) -> None:

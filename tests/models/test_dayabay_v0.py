@@ -34,8 +34,7 @@ def test_dayabay_v0(model_version: str):
 
 @mark.parametrize("model_version", available_models())
 def test_dayabay_v0_proxy_switch(model_version: str):
-    # TODO: remove when the model is done
-    if model_version in ("v0e", "latest"):
+    if model_version == "latest":
         return
     model = load_model(model_version, close=True, strict=True, monte_carlo_mode="poisson")
 

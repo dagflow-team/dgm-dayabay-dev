@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_load
 
-from dagflow.parameters import GaussianParameter, Parameter
+from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
@@ -15,7 +15,7 @@ from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
 
 set_level(INFO1)
 
-DATA_INDICES = {"asimov": 0, "data": 1}
+DATA_INDICES = {"model": 0, "loaded": 1}
 
 
 plt.rcParams.update(
@@ -36,8 +36,7 @@ def main(args: Namespace) -> None:
     model = load_model(
         args.version,
         source_type=args.source_type,
-        monte_carlo_mode=args.data_mc_mode,
-        seed=args.seed,
+        override_indices={},
         model_options=args.model_options,
     )
 
@@ -59,7 +58,7 @@ def main(args: Namespace) -> None:
         parameters_groups["constrained"].append("reactor_anue")
 
     chi2 = statistic[f"{args.chi2}"]
-    minimization_parameters: dict[str, GaussianParameter] = {}
+    minimization_parameters: dict[str, Parameter] = {}
     update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
     if "covmat" not in args.chi2:
         update_dict_parameters(
@@ -68,10 +67,6 @@ def main(args: Namespace) -> None:
             parameters_constrained,
         )
 
-    model.next_sample(mc_parameters=False, mc_statistics=False)
-    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters)
-
-    model.next_sample()
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters)
     fit = minimizer.fit()
     filter_fit(fit, ["summary"])
@@ -213,23 +208,16 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="npz",
+        default="hdf5",
         help="Data source type",
-    )
-    model.add_argument("--seed", default=0, type=int, help="seed of randomization")
-    model.add_argument(
-        "--data-mc-mode",
-        default="asimov",
-        choices=["asimov", "normal-stats", "poisson"],
-        help="type of data to be analyzed",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
         "--data",
-        default="asimov",
-        choices=["asimov", "data"],
+        default="model",
+        choices=["model", "loaded"],
         help="Choose data for fit",
     )
     pars.add_argument(
