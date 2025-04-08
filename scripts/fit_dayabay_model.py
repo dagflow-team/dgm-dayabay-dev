@@ -138,10 +138,17 @@ def main(args: Namespace) -> None:
             plt.tight_layout()
             plt.savefig(args.output_plot_spectra.format("sw"))
 
+    plt.figure()
+    plt.errorbar(
+        fit["xdict"]["oscprob.SinSq2Theta13"],
+        fit["xdict"]["oscprob.DeltaMSq32"],
+        xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
+        yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
+        label="dag-flow",
+    )
     if args.compare_input:
         with open(args.compare_input, "r") as f:
             compare_fit = yaml_load(f)
-        plt.figure()
         plt.errorbar(
             compare_fit["SinSq2Theta13"]["value"],
             compare_fit["DeltaMSq32"]["value"],
@@ -149,22 +156,16 @@ def main(args: Namespace) -> None:
             yerr=compare_fit["DeltaMSq32"]["error"],
             label="dataset",
         )
-        plt.errorbar(
-            fit["xdict"]["oscprob.SinSq2Theta13"],
-            fit["xdict"]["oscprob.DeltaMSq32"],
-            xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
-            yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
-            label="dag-flow",
-        )
-        plt.xlabel(r"$\sin^22\theta_{13}$")
-        plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
-        plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
-        plt.xlim(0.082, 0.090)
-        plt.ylim(2.37e-3, 2.53e-3)
-        plt.legend()
-        plt.tight_layout()
-        if args.output_plot_fit:
-            plt.savefig(args.output_plot_fit)
+    plt.xlabel(r"$\sin^22\theta_{13}$")
+    plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
+    plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
+    plt.xlim(0.082, 0.090)
+    plt.ylim(2.37e-3, 2.53e-3)
+    plt.legend()
+    plt.tight_layout()
+    if args.output_plot_fit:
+        plt.savefig(args.output_plot_fit)
+    if args.compare_input:
         print(args.chi2)
         for name, par_values in compare_fit.items():
             if name not in fit["xdict"].keys():
