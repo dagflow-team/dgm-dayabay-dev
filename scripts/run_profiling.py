@@ -1,38 +1,119 @@
 #!/usr/bin/env python
+
+from __future__ import annotations
+
 from argparse import Namespace
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
+from time import time
+from typing import TYPE_CHECKING
 
-# from dagflow.graph import Graph
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import INFO1, INFO2, INFO3, set_level
-# from dagflow.storage import NodeStorage
-from dagflow.tools.profiling import NodeProfiler, FrameworkProfiler, MemoryProfiler
+from dagflow.core import Graph, NodeStorage
+from dagflow.tools.logger import DEBUG as INFO4
+from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dagflow.tools.profiling import (
+    FitSimulationProfiler,
+    FrameworkProfiler,
+    MemoryProfiler,
+    NodeProfiler,
+)
+from dagflow.tools.save_records import save_records
 from models import available_models, load_model
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+
+set_level(INFO1)
+
+# type of nodes used for node profiler
+PROFILE_NODES = [
+    "Product",
+    "Cholesky",
+    "SumMatOrDiag",
+    "Sum",
+    "AxisDistortionMatrixLinearLegacy",
+    "RenormalizeDiag",
+    "NueSurvivalProbability",
+    "Integrator",
+    "Division",
+    "Interpolator",
+    "EnergyResolutionMatrixBC",
+    "RebinMatrix",
+    "VectorMatrixProduct",
+    "NormalizeCorrelatedVarsTwoWays",
+    "Concatenation",
+    "View",
+    "CNPStat",
+    "Monotonize",
+    "EnergyResolutionSigmaRelABC",
+    "ElSumSq",
+    "Chi2",
+    "LogProdDiag",
+]
 
 
 def profile(model, opts: Namespace):
-    nodes = model.graph._nodes
+    print("Running profiling!")
 
-    # capture current time and prepare output dir
-    cur_time = datetime.strftime(datetime.now(), "%Y%m%d_%H%M%S")
-    outpath = Path(opts.outpath) / opts.version
+    all_nodes = model.graph._nodes
+    selected_nodes = list(
+        filter(lambda x: type(x).__name__ in PROFILE_NODES, all_nodes)
+    )
+
+    outpath = Path(opts.outpath)  / "profiling" / opts.version
     outpath.mkdir(parents=True, exist_ok=True)
+    cur_time = datetime.strftime(datetime.now(), "%Y%m%d_%H%M%S")
 
-    n_profiling = NodeProfiler(nodes, n_runs=opts.np_runs)
-    n_profiling.estimate_target_nodes()
-    report = n_profiling.print_report()
-    report.to_csv(outpath / f'node_prof_{cur_time}.csv')
+    node_profiler = NodeProfiler(selected_nodes, n_runs=opts.node_prof_runs)
+    st = time()
+    node_profiler.estimate_target_nodes()
+    print(f"Node profiling took {time() - st:.2f} seconds.")
+    report = node_profiler.print_report(sort_by="%_of_total")
+    report.to_csv(outpath / f"node_{cur_time}.csv")
 
-    fw_profiling = FrameworkProfiler(nodes, n_runs=opts.fw_runs)
-    fw_profiling.estimate_framework_time()
-    report = fw_profiling.print_report()
-    report.to_csv(outpath / f'framewrok_prof_{cur_time}.csv')
+    framework_profiler = FrameworkProfiler(all_nodes, n_runs=opts.framework_runs)
+    st = time()
+    framework_profiler.estimate_framework_time()
+    print(f"Framework profiling took {time() - st:.2f} seconds.")
+    framework_profiler.print_report().to_csv(outpath / f"framework_{cur_time}.csv")
 
-    m_proifling = MemoryProfiler(nodes)
-    m_proifling.estimate_target_nodes()
-    report = m_proifling.print_report()
-    report.to_csv(outpath / f'memory_prof{cur_time}.csv')
+    memory_profiler = MemoryProfiler(all_nodes)
+    st = time()
+    memory_profiler.estimate_target_nodes()
+    print(f"Memory profiling took {time() - st:.2f} seconds.")
+    report = memory_profiler.print_report(sort_by="size_sum")
+    report.to_csv(outpath / f"memory_{cur_time}.csv")
+
+    # TODO: change the way of obtaning source/sinks
+    source, sinks = framework_profiler._sources, framework_profiler._sinks
+
+    fit_param_wise_profiler = FitSimulationProfiler(
+        mode="parameter-wise",
+        parameters=source,
+        endpoints=sinks,
+        n_runs=opts.fit_param_wise_runs,
+    )
+    st = time()
+    fit_param_wise_profiler.estimate_fit()
+    print(f"parameter-wise fit profiling took {time() - st:.2f} seconds.")
+    report = fit_param_wise_profiler.print_report()
+    report.to_csv(outpath / f"fit_param_wise_{cur_time}.csv")
+
+    fit_simultaneous_profiler = FitSimulationProfiler(
+        mode="simultaneous",
+        parameters=source,
+        endpoints=sinks,
+        n_runs=opts.fit_simultaneous_runs,
+    )
+    st = time()
+    fit_simultaneous_profiler.estimate_fit()
+    print(f"simultaneous fit profiling took {time() - st:.2f} seconds.")
+    report = fit_simultaneous_profiler.print_report()
+    report.to_csv(outpath / f"fit_simultaneous_{cur_time}.csv")
+
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
@@ -43,7 +124,7 @@ def main(opts: Namespace) -> None:
     model = load_model(
         opts.version,
         model_options=opts.model_options,
-        close=True,
+        close=opts.close,
         strict=opts.strict,
         source_type=opts.source_type,
         override_indices=override_indices,
@@ -52,6 +133,23 @@ def main(opts: Namespace) -> None:
 
     graph = model.graph
     storage = model.storage
+
+    if opts.interactive:
+        from IPython import embed
+
+        embed(colors="neutral")
+
+    if not graph.closed:
+        print("Nodes")
+        print(storage("nodes").to_table(truncate="auto"))
+        print("Outputs")
+        print(storage("outputs").to_table(truncate="auto"))
+        print("Not connected inputs")
+        print(storage("inputs").to_table(truncate="auto"))
+
+        if opts.graph_auto:
+            plot_graph(graph, storage, opts)
+        return
 
     if opts.print_all:
         print(storage.to_table(truncate="auto"))
@@ -62,7 +160,158 @@ def main(opts: Namespace) -> None:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate="auto"))
 
+    if opts.method:
+        method = getattr(model, opts.method)
+        assert method
+
+        method()
+
+    if opts.plot_all:
+        storage("outputs").plot(folder=opts.plot_all, minimal_data_size=10)
+
+    if opts.plot:
+        folder, sources = opts.plot[0], opts.plot[1:]
+        for source in sources:
+            storage["outputs"](source).plot(
+                folder=f"{folder}/{source.replace('.', '/')}", minimal_data_size=10
+            )
+
+    if opts.pars_datax:
+        storage["parameters.all"].to_datax_file(
+            f"output/dayabay_{opts.version}_pars_datax.tex"
+        )
+
+    if opts.pars_latex:
+        storage["parameters.all"].to_latex_file(
+            f"output/dayabay_{opts.version}_pars.tex"
+        )
+
+    if opts.pars_text:
+        storage["parameters.all"].to_text_file(
+            f"output/dayabay_{opts.version}_pars.txt"
+        )
+
+    if opts.summary:
+        save_summary(model, opts.summary)
+
+    if opts.graph_auto:
+        plot_graph(graph, storage, opts)
+
+    if opts.graphs:
+        mindepth = opts.mindepth or -2
+        maxdepth = opts.maxdepth or +1
+        accept_index = {
+            "reactor": [0],
+            "detector": [0, 1],
+            "isotope": [0],
+            "period": [1, 2],
+        }
+        storage["parameter_group.all"].savegraphs(
+            opts.graphs / "parameters",
+            mindepth=mindepth,
+            maxdepth=maxdepth,
+            keep_direction=True,
+            show="all",
+            accept_index=accept_index,
+            filter=accept_index,
+        )
+        with suppress(KeyError):
+            storage["parameters.sigma"].savegraphs(
+                opts.graphs / "parameters" / "sigma",
+                mindepth=mindepth,
+                maxdepth=maxdepth,
+                keep_direction=True,
+                show="all",
+                accept_index=accept_index,
+                filter=accept_index,
+            )
+        storage["nodes"].savegraphs(
+            opts.graphs,
+            mindepth=mindepth,
+            maxdepth=maxdepth,
+            keep_direction=True,
+            show="all",
+            accept_index=accept_index,
+            filter=accept_index,
+        )
+
+    if opts.graph_from_node:
+        from dagflow.plot.graphviz import GraphDot
+
+        nodepath, filepath = opts.graph_from_node
+        node = storage("nodes")[nodepath]
+        GraphDot.from_node(
+            node,
+            show="all",
+            mindepth=opts.mindepth,
+            maxdepth=opts.maxdepth,
+            keep_direction=True,
+        ).savegraph(filepath)
+
     profile(model, opts)
+
+
+def save_summary(model: Any, filenames: Sequence[str]):
+    data = {}
+    try:
+        for period in ["total", "6AD", "8AD", "7AD"]:
+            data[period] = model.make_summary_table(period=period)
+    except AttributeError:
+        return
+
+    save_records(
+        data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False}
+    )
+
+
+def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
+    from dagflow.plot.graphviz import GraphDot
+
+    GraphDot.from_graph(graph, show="all").savegraph(
+        f"output/dayabay_{opts.version}.dot"
+    )
+    GraphDot.from_graph(
+        graph,
+        show=["type", "mark", "label", "path"],
+        filter={
+            "reactor": [0],
+            "detector": [0, 1],
+            "isotope": [0],
+            "period": [0],
+            "background": [0],
+        },
+    ).savegraph(f"output/dayabay_{opts.version}_reduced.dot")
+    GraphDot.from_graph(
+        graph,
+        show="all",
+        filter={
+            "reactor": [0],
+            "detector": [0, 1],
+            "isotope": [0],
+            "period": [0],
+            "background": [0],
+        },
+    ).savegraph(f"output/dayabay_{opts.version}_reduced_full.dot")
+    GraphDot.from_node(
+        storage["nodes.statistic.nuisance.all"],
+        show="all",
+        mindepth=-1,
+        maxdepth=0,
+    ).savegraph(f"output/dayabay_{opts.version}_nuisance.dot")
+    GraphDot.from_output(
+        storage["outputs.statistic.stat.chi2p"],
+        show="all",
+        mindepth=-1,
+        filter={
+            "reactor": [0],
+            "detector": [0],
+            "isotope": [0],
+            "period": [0],
+            "background": [0],
+        },
+        maxdepth=0,
+    ).savegraph(f"output/dayabay_{opts.version}_stat.dot")
+
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -76,8 +325,24 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="tsv",
+        default="hdf5",
         help="Data source type",
+    )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Start IPython session",
+    )
+
+    plot = parser.add_argument_group("plot", "plotting related options")
+    plot.add_argument(
+        "--plot-all", help="plot all the nodes to the folder", metavar="folder"
+    )
+    plot.add_argument(
+        "--plot",
+        nargs="+",
+        help="plot the nodes in storages",
+        metavar=("folder", "storage"),
     )
 
     storage = parser.add_argument_group("storage", "storage related options")
@@ -85,8 +350,25 @@ if __name__ == "__main__":
     storage.add_argument(
         "-p", "--print", action="append", nargs="+", default=[], help="print all"
     )
+    storage.add_argument(
+        "--pars-datax", action="store_true", help="print parameters to latex (datax)"
+    )
+    storage.add_argument(
+        "--pars-latex", action="store_true", help="print latex tables with parameters"
+    )
+    storage.add_argument(
+        "--pars-text", action="store_true", help="print text tables with parameters"
+    )
+    storage.add_argument(
+        "--summary",
+        nargs="+",
+        help="print/save summary data",
+    )
 
     graph = parser.add_argument_group("graph", "graph related options")
+    graph.add_argument(
+        "--no-close", action="store_false", dest="close", help="Do not close the graph"
+    )
     graph.add_argument(
         "--no-strict", action="store_false", dest="strict", help="Disable strict mode"
     )
@@ -100,6 +382,21 @@ if __name__ == "__main__":
         metavar=("index", "value1"),
     )
 
+    dot = parser.add_argument_group("graphviz", "plotting graphs")
+    dot.add_argument(
+        "-g",
+        "--graph-from-node",
+        nargs=2,
+        help="plot the graph starting from the node",
+        metavar=("node", "file"),
+    )
+    dot.add_argument("--mindepth", "--md", type=int, help="minimal depth")
+    dot.add_argument("--maxdepth", "--Md", type=int, help="maximaldepth depth")
+    dot.add_argument(
+        "--graph-auto", "--ga", action="store_true", help="plot graphs auto"
+    )
+    dot.add_argument("--graphs", type=Path, help="save partial graphs from every node")
+
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
         "--version",
@@ -110,28 +407,51 @@ if __name__ == "__main__":
     model.add_argument(
         "--model-options", "--mo", default={}, help="Model options as yaml dict"
     )
+    model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
         "--par", nargs=2, action="append", default=[], help="set parameter value"
     )
 
-    profiling = parser.add_argument_group("profiling", "profiling options")
-    profiling.add_argument(
-        '--np-runs',
-        default=10_000,
-        dest='np_runs',
+    profiling_specs = parser.add_argument_group("profiling", "profiling options")
+    profiling_specs.add_argument(
+        "--np-runs",
+        default=20_000,
+        dest="node_prof_runs",
         type=int,
-        metavar='N',
-        help="number of runs of NodeProfiling for each node"
+        metavar="N",
+        help="number of runs of NodeProfiling for each node",
     )
-    profiling.add_argument(
-        '-o',
-        '--output-dir',
-        default='./output',
-        dest='outpath',
-        metavar='/PATH/TO/DIR',
-        help='output dir for profiling results '
+    profiling_specs.add_argument(
+        "--fw-runs",
+        default=10,
+        dest="framework_runs",
+        type=int,
+        metavar="N",
+        help="number of runs of NodeProfiling for each node",
+    )
+    profiling_specs.add_argument(
+        "-o",
+        "--output-dir",
+        default="./output",
+        dest="outpath",
+        metavar="/PATH/TO/DIR",
+        help="output dir for profiling results ",
+    )
+    profiling_specs.add_argument(
+        "--fit-param-wise-runs",
+        dest="fit_param_wise_runs",
+        default=1000,
+        type=int,
+        help="number of runs for parameter-wise fit simulation profiling",
+    )
+    profiling_specs.add_argument(
+        "--fit-simultaneous-runs",
+        dest="fit_simultaneous_runs",
+        default=1000,
+        type=int,
+        help="number of runs for simultaneous fit simulation profiling",
     )
 
     main(parser.parse_args())
