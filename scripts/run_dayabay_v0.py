@@ -73,13 +73,22 @@ def main(opts: Namespace) -> None:
 
         method()
 
+    overlay_priority = [model.index["isotope"], model.index["reactor"]]
     if opts.plot_all:
-        storage("outputs").plot(folder=opts.plot_all, minimal_data_size=10)
+        storage("outputs").plot(
+            folder=opts.plot_all,
+            minimal_data_size=10,
+            overlay_priority=overlay_priority,
+        )
 
     if opts.plot:
         folder, sources = opts.plot[0], opts.plot[1:]
         for source in sources:
-            storage["outputs"](source).plot(folder=f"{folder}/{source.replace('.', '/')}", minimal_data_size=10)
+            storage["outputs"](source).plot(
+                folder=f"{folder}/{source.replace('.', '/')}",
+                minimal_data_size=10,
+                overlay_priority=overlay_priority,
+            )
 
     if opts.pars_datax:
         storage["parameters.all"].to_datax_file(
@@ -162,7 +171,9 @@ def save_summary(model: Any, filenames: Sequence[str]):
     except AttributeError:
         return
 
-    save_records(data, filenames, tsv_allow_no_key=True, to_records_kwargs={'index': False})
+    save_records(
+        data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False}
+    )
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
