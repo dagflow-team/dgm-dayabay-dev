@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-from yaml import safe_load
 from argparse import Namespace
+
 from numpy import ndarray
+from yaml import safe_load
+from matplotlib import pyplot as plt
 
-from dagflow.logger import INFO1
-from dagflow.logger import INFO2
-from dagflow.logger import INFO3
-from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import set_level
 
+from dagflow.parameters import Parameter
+from dagflow.tools.logger import DEBUG as INFO4
+from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models.dayabay_v0 import model_dayabay_v0
-
+from scripts import update_dict_parameters
 
 set_level(INFO1)
 
@@ -42,8 +42,6 @@ def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
 
 
 def compare_gna(dagflow_fit: dict, gna_fit_filename: str) -> None:
-    from matplotlib import pyplot as plt
-
     with open(gna_fit_filename, "r") as f:
         gna_fits = safe_load(f)["fitresult"]
     for gna_fit in gna_fits.values():
@@ -94,60 +92,35 @@ def main(args: Namespace) -> None:
     model = model_dayabay_v0(
         source_type=args.source_type,
         spectrum_correction_mode=args.spec,
-        fission_fraction_normalized=args.fission_fraction_normalized,
         monte_carlo_mode=args.data_mc_mode,
         seed=args.seed,
     )
 
     storage = model.storage
-    parameters = storage("parameters.all")
-    statistic = storage("outputs.statistic")
+    parameters = storage["parameters"]
+    statistic = storage["outputs.statistic"]
 
     from yaml import safe_dump
+
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 
     chi2p_stat = statistic["stat.chi2p"]
-    chi2p_syst = statistic["full.chi2p"]
+    chi2p_syst = statistic["full.chi2cnp"]
 
     if args.full_fit:
-        minimization_pars = {
-            par_name: par
-            for par_name, par in parameters("oscprob").walkjoineditems()
-            if par_name != "nmo"
-        }
-        minimization_pars.update(dict(parameters["detector.eres"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["detector.lsnl_scale_a"].walkjoineditems()))
-        minimization_pars.update(
-            dict(parameters["detector.iav_offdiag_scale_factor"].walkjoineditems())
-        )
-        minimization_pars.update(dict(parameters["detector.detector_relative"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["reactor.energy_per_fission"].walkjoineditems()))
-        minimization_pars.update(
-            dict(parameters["reactor.nominal_thermal_power"].walkjoineditems())
-        )
-        minimization_pars.update(dict(parameters["reactor.snf_scale"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["reactor.nonequilibrium_scale"].walkjoineditems()))
-        minimization_pars.update(
-            dict(parameters["reactor.fission_fraction_scale"].walkjoineditems())
-        )
-        minimization_pars.update(dict(parameters["bkg"].walkjoineditems()))
-        minimization_pars.update(
-            {"detector.global_normalization": parameters["detector.global_normalization"]}
-        )
-        model.set_parameters({"detector.global_normalization": 1.0})
-        model.next_sample()
-        model.set_parameters({"detector.global_normalization": 1.0})
+        minimization_pars: dict[str, Parameter] = {}
+        update_dict_parameters(minimization_pars, ["oscprob", "detector"], parameters["free"])
+        update_dict_parameters(minimization_pars, ["oscprob", "detector", "reactor", "bkg"], parameters["constrained"])
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
-        fit = minimizer.fit()
-        print(fit)
+        dagflow_fit = minimizer.fit()
+        print(dagflow_fit)
         if args.full_fit_output:
             _simplify_fit_dict(dagflow_fit)
             dagflow_fit = dict(**dagflow_fit)
             with open(f"{args.full_fit_output}-{stat_type}.yaml", "w") as f:
                 safe_dump(dagflow_fit, f)
 
-    minimization_pars = [parameters[par_name] for par_name in args.min_par]
     minimizer_stat = IMinuitMinimizer(chi2p_stat, parameters=minimization_pars)
     minimizer_syst = IMinuitMinimizer(chi2p_syst, parameters=minimization_pars)
     for stat_type, filename in args.input:
@@ -175,12 +148,12 @@ def main(args: Namespace) -> None:
             profile_parameter not in minimization_pars
         ), "You can not minimize profiling parameter"
 
-        from numpy import linspace, savetxt, vstack
         from matplotlib import pyplot as plt
+        from numpy import linspace, savetxt, vstack
 
         profile_values = linspace(float(l_edge), float(r_edge), int(n_points))
-        chi2_stat_values = []
-        chi2_syst_values = []
+        chi2_stat_values: list[float] = []
+        chi2_syst_values: list[float] = []
         model.set_parameters({profile_parameter_str: profile_parameter.value})
         model.next_sample()
         model.set_parameters({profile_parameter_str: profile_parameter.value})

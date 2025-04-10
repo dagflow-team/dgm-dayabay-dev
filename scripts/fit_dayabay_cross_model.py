@@ -13,7 +13,7 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import load_model
-from scripts import update_dict_parameters, filter_fit, convert_numpy_to_lists
+from scripts import update_dict_parameters, filter_fit, convert_numpy_to_lists, plot_spectra_ratio_difference, plot_spectral_weights
 
 set_level(INFO1)
 
@@ -49,7 +49,7 @@ def main(args: Namespace) -> None:
     graph_fit = models[1].graph
     graph_fit.open()
     graph_data.open()
-    storage_fit["nodes.data.proxy"].open(open_children=False)
+    storage_fit["nodes.data.proxy"].open()
     storage_data["outputs.data.proxy"] >> storage_fit["nodes.data.proxy"]
     storage_fit["nodes.data.proxy"].close(close_children=False)
     storage_fit["nodes.data.proxy"].switch_input(2)
@@ -94,62 +94,17 @@ def main(args: Namespace) -> None:
 
     if args.output_plot_spectra:
         edges = storage_data["outputs.edges.energy_final"].data
-        centers = (edges[1:] + edges[:-1]) / 2
-        xerrs = (edges[1:] - edges[:-1]) / 2
-        for key, data in storage_data[
+        for obs_name, data in storage_data[
             "outputs.eventscount.final.detector_period"
         ].walkjoineditems():
-            data = data.data
-            obs = storage_fit[f"outputs.eventscount.final.detector_period.{key}"].data
-            fig, axs = plt.subplots(3, 1, figsize=(7, 6), height_ratios=[2, 1, 1], sharex=True)
-            axs[0].step([edges[0], *edges], [0, *obs, 0], where="post", label="A: fit")
-            axs[0].errorbar(
-                centers, data, xerr=xerrs, yerr=data**0.5, linestyle="none", label="B: data"
-            )
-            axs[1].errorbar(
-                centers,
-                obs / data - 1,
-                xerr=xerrs,
-                yerr=(obs / data**2 + obs**2 / data**4 * data) ** 0.5,
-                linestyle="none",
-            )
-            axs[2].errorbar(
-                centers,
-                obs - data,
-                xerr=xerrs,
-                yerr=(data**0.5 + obs**0.5) ** 0.5,
-                linestyle="none",
-            )
-            axs[0].set_title(key)
-            axs[0].legend()
-            axs[2].set_xlabel("E, MeV")
-            axs[0].set_ylabel("Entries")
-            axs[1].yaxis.tick_right()
-            axs[1].yaxis.set_label_position("right")
-            axs[1].set_ylabel("A / B - 1")
-            axs[2].set_ylabel("A - B")
-            axs[1].set_ylim(-1e-3, 1e-3)
-            axs[0].minorticks_on()
-            plt.setp(axs[0].get_xticklabels(), visible=False)
-            plt.tight_layout()
-            plt.subplots_adjust(hspace=0.0)
-            plt.savefig(args.output_plot_spectra.format(key.replace(".", "-")))
+            plot_spectra_ratio_difference(storage_fit[f"outputs.eventscount.final.detector_period.{obs_name}"].data, data.data, edges, obs_name)
+            plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
         if args.use_free_spec:
             edges = model.storage[
                 "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
             ].data
-            data = []
-            yerrs = []
-            for key in filter(lambda key: True if "spec" in key else False, fit["names"]):
-                data.append(fit["xdict"][key])
-                yerrs.append(fit["errorsdict"][key])
-            plt.figure()
-            plt.errorbar(edges, data, xerr=0.1, yerr=yerrs, linestyle="none")
-            plt.title(r"Spectral weights of $\overline{\nu}_{e}$ spectrum")
-            plt.xlabel("E, MeV")
-            plt.ylabel("value")
-            plt.tight_layout()
+            plot_spectral_weights(edges, fit)
             plt.savefig(args.output_plot_spectra.format("sw"))
 
 
