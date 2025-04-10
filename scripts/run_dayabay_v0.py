@@ -73,13 +73,19 @@ def main(opts: Namespace) -> None:
 
         method()
 
-    overlay_priority = [model.index["isotope"], model.index["reactor"]]
+    overlay_priority = [
+        model.index["isotope"],
+        model.index["reactor"],
+        model.index["bkg"],
+        model.index["detector"],
+    ]
     if opts.plot_all:
         storage("outputs").plot(
             folder=opts.plot_all,
             minimal_data_size=10,
             overlay_priority=overlay_priority,
-            latex_substitutions=latex_substitutions
+            latex_substitutions=latex_substitutions,
+            exact_substitutions=exact_substitutions,
         )
 
     if opts.plot:
@@ -89,7 +95,8 @@ def main(opts: Namespace) -> None:
                 folder=f"{folder}/{source.replace('.', '/')}",
                 minimal_data_size=10,
                 overlay_priority=overlay_priority,
-                latex_substitutions=latex_substitutions
+                latex_substitutions=latex_substitutions,
+                exact_substitutions=exact_substitutions,
             )
 
     if opts.pars_datax:
@@ -251,7 +258,7 @@ latex_substitutions = {
         "sin²2θ₁₂": r"$\sin^22\theta_{12}$",
         "¹³C(α,n)¹⁶O": r"$^{13}{\rm C}(α,n)^{16}{\rm O}$",
         "²⁴¹Am¹³C": r"$^{241}{\rm Am}^{13}{\rm C}$",
-        "⁹Li/⁸He": r"$^{8}{\rm He}/^{9}{\rm Li}$",
+        "⁹Li/⁸He": r"$^{9}{\rm Li}/^{8}{\rm He}$",
         "ν̅": r"$\overline{\nu}$",
         "ν": r"$\nu$",
         "δ": r"$\delta$",
@@ -266,6 +273,18 @@ latex_substitutions = {
         "⁻²": r"$^{-2}$",
         "²": r"$^2$",
         "ᵢ": r"$_i$",
+        }
+
+exact_substitutions = {
+        "U235": r'$^{235}$U',
+        "U238": r'$^{238}$U',
+        "Pu239": r'$^{239}$Pu',
+        "Pu241": r'$^{241}$Pu',
+        "acc": r"accidentals",
+        "lihe": r"$^{9}{\rm Li}/^{8}{\rm He}$",
+        "fastn": r"fast neutrons",
+        "alphan": r"$^{13}{\rm C}(α,n)^{16}{\rm O}$",
+        "amc": r"$^{241}{\rm Am}^{13}{\rm C}$",
         }
 
 if __name__ == "__main__":
