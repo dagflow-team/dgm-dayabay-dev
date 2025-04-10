@@ -146,29 +146,65 @@ daily_data:
         text: "Day since DAQ start {key}"
     eff:
       group:
-        text: "Daily detector efficiency {key}"
+        text: "Daily detector efficiency in {index[1]} during {index[0]}"
+        axis: '$\varepsilon$'
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
     efflivetime:
       group:
-        text: "Daily detector effective livetime {key} [s]"
+        text: "Daily detector effective livetime in {index[1]} during {index[0]}"
+        axis: "$T$"
+        unit: "s"
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
     livetime:
       group:
-        text: "Daily detector wall clock livetime {key} [s]"
+        text: "Daily detector wall clock livetime in {index[1]} during {index[0]}"
+        axis: "$T$"
+        unit: "s"
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
     rate_acc:
       group:
-        text: "Daily rate of accidental background events [#/day]"
+        text: "Daily rate of accidental background events"
+        axis: "$R$"
+        unit: "#/day"
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
     num_acc_s_day:
       group:
-        text: "Daily # of accidental background events × day/s [#]"
+        text: "Daily # of accidental background events × day/s"
+        axis: "$N$"
+        unit: "#"
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
   reactor:
     power:
       group:
-        text: "Daily fractional reactor power for {key}"
+        text: "Daily fractional reactor power for {index[0]} during {index[1]}"
+        axis: '$W_i/W_{{\rm tot}}$'
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
     fission_fraction:
       group:
-        text: "Daily fission fraction for {key}"
+        text: "Daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
+        axis: '$f_i$'
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
     fission_fraction_scaled:
       group:
-        text: "Corrected (fit) daily fission fraction for {key}"
+        text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
+        axis: '$f_i$'
+        xaxis: "Day"
+        plotoptions:
+          figure_kw: {figsize: [9.6, 4.8]}
 reactor:
   energy_per_fission_weighted_MeV:
     group:
@@ -210,7 +246,7 @@ reactor:
     text: "Average energy per fission for spent nuclear fuel"
     unit: "MeV/fission"
   fissions_per_second_snf:
-    group: 
+    group:
       text: "# of fissions per second for {key}\\nfor spent nuclear fuel"
       unit: "#fissions/s"
   thermal_power_snf_isotope_MeV_per_second:
@@ -280,89 +316,121 @@ eventscount:
         text: "# of IBD candidates in all detectors [#ν]\\nconcatenated"
 bkg:
   erec:
-    text: "Reconstructed energy (Erec) bin edges [MeV]\\nfor background events"
-    latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV] (for background events)"
-    axis: "$E_{\\rm rec}$ [MeV]"
+    text: "Reconstructed energy (Erec) bin edges\\nfor background events"
+    latex: "Reconstructed energy $E_{\\rm rec}$ bin edges (for background events)"
+    axis: "$E_{\\rm rec}$"
+    unit: "MeV"
     plotoptions: 'none'
   count_acc_fixed_s_day:
     group:
-      text: "# of accidental background events in {key} × day/s [#]"
+      text: "# of accidental background events in {key} × day/s"
+      unit: "#"
   count_fixed:
-    acc: 
+    acc:
       group:
-        text: "# of accidental background events in {index[0]} during period {index[1]} [#]\\nbefore nuisance"
-    alphan: 
+        text: "# of accidental background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        unit: "#"
+    alphan:
       group:
-        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during period {index[1]} [#]\\nbefore nuisance"
-    amc: 
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        unit: "#"
+    amc:
       group:
-        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during period {index[1]} [#]\\nbefore nuisance"
-    fastn: 
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        unit: "#"
+    fastn:
       group:
-        text: "# of fast neutron background events in {index[0]} during period {index[1]} [#]\\nbefore nuisance"
-    lihe: 
+        text: "# of fast neutron background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        unit: "#"
+    lihe:
       group:
-        text: "# of ⁹Li/⁸He background events in {index[0]} during period {index[1]} [#]\\nbefore nuisance"
-    muonx: 
+        text: "# of ⁹Li/⁸He background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        unit: "#"
+    muonx:
       group:
-        text: "# of μ decay background events in {index[0]} during period {index[1]} [#]\\nbefore nuisance"
+        text: "# of μ decay background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        unit: "#"
   count:
-    acc: 
+    acc:
       group:
-        text: "# of accidental background events in {index[0]} during period {index[1]} [#]"
-    alphan: 
+        text: "# of accidental background events in {index[0]} during period {index[1]}"
+        unit: "#"
+    alphan:
       group:
-        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during period {index[1]} [#]"
-    amc: 
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during period {index[1]}"
+        unit: "#"
+    amc:
       group:
-        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during period {index[1]} [#]"
-    fastn: 
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during period {index[1]}"
+        unit: "#"
+    fastn:
       group:
-        text: "# of fast neutron background events in {index[0]} during period {index[1]} [#]"
-    lihe: 
+        text: "# of fast neutron background events in {index[0]} during period {index[1]}"
+        unit: "#"
+    lihe:
       group:
-        text: "# of ⁹Li/⁸He background events in {index[0]} during period {index[1]} [#]"
-    muonx: 
+        text: "# of ⁹Li/⁸He background events in {index[0]} during period {index[1]}"
+        unit: "#"
+    muonx:
       group:
-        text: "# of μ decay background events in {index[0]} during period {index[1]} [#]"
+        text: "# of μ decay background events in {index[0]} during period {index[1]}"
+        unit: "#"
   spectrum:
-    acc: 
+    acc:
       group:
-        text: "# of accidental background events in {index[0]} during period {index[1]} [#]"
-    alphan: 
+        text: "# of accidental background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+    alphan:
       group:
-        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during period {index[1]} [#]"
-    amc: 
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+    amc:
       group:
-        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during period {index[1]} [#]"
-    fastn: 
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+    fastn:
       group:
-        text: "# of fast neutron background events in {index[0]} during period {index[1]} [#]"
-    lihe: 
+        text: "# of fast neutron background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+    lihe:
       group:
-        text: "# of ⁹Li/⁸He background events in {index[0]} during period {index[1]} [#]"
-    muonx: 
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+    muonx:
       group:
-        text: "# of μ decay background events in {index[0]} during period {index[1]} [#]"
+        text: "# of μ decay background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
   spectrum_shape:
-    acc: 
+    acc:
       group:
-        text: "Shape of spectrum of accidental background events in {key}"
-    alphan: 
+        text: "Spectrum shape of accidental background events\\nin {index[0]} during {index[1]}"
+        axis: "$S$"
+    alphan:
       group:
-        text: "Shape of spectrum of ¹³C(α,n)¹⁶O background events in {key}"
-    amc: 
+        text: "Spectrum shape of ¹³C(α,n)¹⁶O background events in {key}"
+        axis: "$S$"
+    amc:
       group:
-        text: "Shape of spectrum of ²⁴¹Am¹³C related background events in {key}"
-    fastn: 
+        text: "Spectrum shape of ²⁴¹Am¹³C related background events in {key}"
+        axis: "$S$"
+    fastn:
       group:
-        text: "Shape of spectrum of fast neutron background events in {key}"
-    lihe: 
+        text: "Spectrum shape of fast neutron background events in {key}"
+        axis: "$S$"
+    lihe:
       group:
-        text: "Shape of spectrum of ⁹Li/⁸He background events in {key}"
-    muonx: 
+        text: "Spectrum shape of ⁹Li/⁸He background events in {key}"
+        axis: "$S$"
+    muonx:
       group:
-        text: "Shape of spectrum of μ decay background events in {key}"
+        text: "Spectrum shape of μ decay background events in {key}"
+        axis: "$S$"
 oscprob:
   group:
     text: "ν̅(e) survival probability {key}"
@@ -486,7 +554,7 @@ reactor_anue:
 reactor_nonequilibrium_anue:
   correction_input:
     enu:
-      text: "Eν segment centers [MeV]\\nnon-equilibrium ν̅ spectrum shape correction"
+      text: "Eν segment centers\\nnon-equilibrium ν̅ spectrum shape correction"
       axis: '$E_{\nu}$ [MeV]'
     nonequilibrium_correction:
       group:
@@ -499,7 +567,7 @@ reactor_nonequilibrium_anue:
 snf_anue:
   correction_input:
     enu:
-      text: "Eν segment centers [MeV]\\nspent nuclear fuel ν̅ spectrum shape correction"
+      text: "Eν segment centers\\nspent nuclear fuel ν̅ spectrum shape correction"
       axis: '$E_{\nu}$ [MeV]'
     snf_correction:
       group:
@@ -521,7 +589,10 @@ snf_anue:
 reactor_detector:
   nfissions_daily:
     group:
-      text: "Daily observable # of fissions for {key} [#fissions]"
+      text: "Daily observable # of fissions at {index[2]} for {index[1]} in {index[0]} during {index[3]}"
+      axis: "$N$"
+      unit: "#fissions"
+      xaxis: "Day"
   nfissions:
     group:
       text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during period {index[3]} [#fissions]"
@@ -547,59 +618,100 @@ detector:
       text: "Detector normalization for {key}"
   livetime:
     group:
-      text: "Wall clock detector livetime {key} [s]"
+      text: "Wall clock detector livetime {key}"
+      unit: "s"
   efflivetime:
     group:
-      text: "Effective detector livetime {key} [s]"
+      text: "Effective detector livetime {key}"
+      unit: "s"
   efflivetime_days:
     group:
       text: "Effective detector livetime {key} [day]"
   iav:
     matrix_raw:
       text: "IAV matrix (MC)"
+      axis: "f"
+      plotoptions:
+        aspect: "equal"
+        mask_value: 0.0
     matrix_rescaled:
       group:
-        text: "IAV matrix with adjusted (fit) offdiagonal elements at {key}"
+        text: "IAV matrix for {key}\\nwith adjusted (fit) offdiagonal elements"
+        axis: "f"
+        plotoptions:
+          aspect: "equal"
+          mask_value: 0.0
   lsnl:
     curves:
       escint:
-        text: "LSNL input coarse deposited in scintillator energy for Evis(Escint) [MeV]"
+        text: "LSNL input coarse deposited in scintillator energy for Evis(Escint)"
+        axis: '$E_{\rm scint}$'
+        unit: "MeV"
+        plotoptions: "none"
       evis_parts:
         group:
-          text: "Input coarse Evisᵢ(Edep) {key} curve for LSNL [MeV]"
+          text: "Input coarse Evisᵢ(Escint) {key} curve for LSNL"
+          axis: '$E_{\rm vis}$'
+          unit: "MeV"
       evis_parts_scaled:
         group:
-          text: "Input coarse Evisᵢ(Edep) {key} curve for LSNL [MeV]\\nscaled (fit relative energy scale)"
+          text: "Input coarse Evisᵢ(Escint) {key} curve for LSNL"
+          axis: '$E_{\rm vis}$'
+          unit: "MeV"
       evis_coarse:
-        text: "Input coarse Evis(Edep) for LSNL [MeV]"
+        text: "Input coarse Evis(Escint) for LSNL"
+        axis: '$E_{\rm vis}$'
+        unit: "MeV"
       evis_coarse_monotonous:
-        text: "Input coarse LSNL Evis(Edep) [MeV]\\nensured to be monotonous"
+        text: "Input coarse LSNL Evis(Escint)\\nensured to be monotonous"
+        axis: '$E_{\rm vis}$'
+        unit: "MeV"
       evis_coarse_monotonous_scaled:
         group:
-          text: "Input coarse LSNL Evis(Edep) for {key} [MeV]\\nensured to be monotonous and scaled (fit relative energy scale)"
+          text: "Input coarse LSNL Evis(Escint) for {key}\\nensured to be monotonous and scaled (fit relative energy scale)"
+          axis: '$E_{\rm vis}$'
+          unit: "MeV"
       evis:
         group:
-          text: "Visible energy (LSNL×relative energy scale) for {key} [MeV]"
+          text: "Visible energy Evis (LSNL×relative energy scale) for {key}"
+          axis: '$E_{\rm vis}$'
+          unit: "MeV"
     indexer_fwd:
-      text: "Segment lookup for Evis(Edep)\\ninterpolation for LSNL correction"
+      text: "Segment lookup for Evis(Escint)\\ninterpolation for LSNL correction"
     interpolated_fwd:
-      text: "Interpolated Evis(Edep) for LSNL correction [MeV]"
+      text: "Interpolated Evis(Escint) for LSNL correction"
+      axis: '$E_{\rm vis}$'
+      unit: "MeV"
     indexer_bkwd:
       group:
-        text: "Segment lookup for Edep(Evis) for {key}\\ninverse interpolation for LSNL correction"
+        text: "Segment lookup for Escint(Evis) for {key}\\ninverse interpolation for LSNL correction"
     interpolated_bkwd:
       group:
-        text: "Interpolated Edep(Evis) for LSNL correction for {key} [MeV]"
+        text: "Interpolated Escint(Evis) for LSNL correction for {key}"
+        axis: '$E_{\rm scint}$'
+        unit: "MeV"
     matrix:
       group:
         text: "Energy scale correction matrix for {key}\\nLSNL×relative energy scale"
+        axis: "f"
+        plotoptions:
+          aspect: "equal"
+          mask_value: 0.0
+          plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
   eres:
     e_bincenter:
-      text: "Bin centers for visible energy (Evis) [MeV]"
+      text: "Visible energy (Evis) bin centers"
+      unit: "MeV"
+      plotoptions: "none"
     sigma_rel:
       text: "Relative energy resolution width σ(Evis)/Evis"
+      axis: '$\sigma_E(E_{\rm vis})/E_{\rm vis}$'
     matrix:
       text: "Energy resolution matrix"
+      axis: "f"
+      plotoptions:
+        aspect: "equal"
+        mask_value: 0.0
   rebin:
     matrix_ibd:
       text: "Rebinning matrix for IBD events"
@@ -607,123 +719,328 @@ detector:
       text: "Rebinning matrix for background events"
 mc:
   parameters:
-    toymc: 
+    toymc:
       text: "MC values for nuisance parameters (nomal unit)"
-    inputs: 
+    inputs:
       text: "Node to set nuisance parameters values"
 data:
   real:
     erec:
-      text: "Reconstructed energy (Erec) bin edges [MeV]\\nfor IBD events (real data)"
-      latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV] (for IBD events, real data)"
-      axis: "$E_{\\rm rec}$ [MeV]"
+      text: "Reconstructed energy (Erec) bin edges\\nfor IBD events (real data)"
+      latex: "Reconstructed energy $E_{\\rm rec}$ bin edges (for IBD events, real data)"
+      axis: "$E_{\\rm rec}$"
+      unit: "MeV"
     fine:
       group:
-        text: "Scaled (fit) # of IBD events at {index[0]} during period {index[1]} [#ν]\\nfine binning, real data"
+        text: "Scaled (fit) # of IBD candidate at {index[1]} during period {index[0]}\\nfine binning, real data"
+        axis: "Entries"
+        unit: "#"
     final:
       detector:
         group:
-          text: "# of IBD events at {index[0]} [#]\\nfinal binning, real data"
+          text: "# of IBD candidates at {index[0]}\\nfinal binning, real data"
+          axis: "Entries"
+          unit: "#"
       detector_period:
         group:
-          text: "# of IBD events at {index[0]} during period {index[1]} [#]\\nfinal binning, real data"
+          text: "# of IBD candidates at {index[0]} during period {index[1]}\\nfinal binning, real data"
+          axis: "Entries"
+          unit: "#"
     concatenated:
       detector:
-        text: "# of IBD candidates in all detectors and all periods [#ν]\\nconcatenated, real data"
+        text: "# of IBD candidates in all detectors and all periods\\nconcatenated, real data"
+        axis: "Entries"
+        unit: "#"
+        xaxis: "Bin energy/detector"
+        xunit: "#"
       detector_period:
-        text: "# of IBD candidates in all detectors [#ν]\\nconcatenated, real data"
+        text: "# of IBD candidates in all detectors\\nconcatenated, real data"
+        axis: "Entries"
+        unit: "#"
+        xaxis: "Bin energy/detector/period"
+        xunit: "#"
   proxy:
-    text: "Switcher of the data source for likelihood"
+    text: "Switchable of the data source for likelihood"
+    axis: "Entries"
+    unit: "#"
+    xaxis: "Bin energy/detector/period"
+    xunit: "#"
   pseudo:
     self:
       text: "Pseudo data (this model) node for likelihood"
+      axis: "Entries"
+      unit: "#"
+      xaxis: "Bin energy/detector/period"
+      xunit: "#"
 covariance:
   jacobians:
     oscprob:
       text: "Jacobian for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     eres:
       text: "Jacobian for energy resolution parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     lsnl:
       text: "Jacobian for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     iav:
       text: "Jacobian for Inner Acrylic Vessel (IAV) parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     detector_relative:
       text: "Jacobian for relative detector efficiency and energy scale parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     energy_per_fission:
       text: "Jacobian for average fission energy parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     nominal_thermal_power:
       text: "Jacobian for reactor thermal power parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     snf:
       text: "Jacobian for spent nuclear fuel parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     neq:
       text: "Jacobian for non-equilibrium correction parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     fission_fraction:
       text: "Jacobian for fission fraction parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     bkg_rate:
       text: "Jacobian for background rate parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     hm_corr:
       text: "Jacobian for correlated ν̅ spectrum parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
     hm_uncorr:
       text: "Jacobian for uncorrelated ν̅ spectrum parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
   covmat_syst:
     oscprob:
       text: "Systematic covariance matrix for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     eres:
       text: "Systematic covariance matrix for energy resolution parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     lsnl:
       text: "Systematic covariance matrix for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     iav:
       text: "Systematic covariance matrix for Inner Acrylic Vessel (IAV) parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     detector_relative:
       text: "Systematic covariance matrix for relative detector efficiency and energy scale parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     energy_per_fission:
       text: "Systematic covariance matrix for average fission energy parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     nominal_thermal_power:
       text: "Systematic covariance matrix for reactor thermal power parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     snf:
       text: "Systematic covariance matrix for spent nuclear fuel parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     neq:
       text: "Systematic covariance matrix for non-equilibrium correction parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     fission_fraction:
       text: "Systematic covariance matrix for fission fraction parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     bkg_rate:
       text: "Systematic covariance matrix for background rate parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     hm_corr:
       text: "Systematic covariance matrix for correlated ν̅ spectrum parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     hm_uncorr:
       text: "Systematic covariance matrix for uncorrelated ν̅ spectrum parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     sum:
       text: "Systematic covariance matrix"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
   data:
     fixed:
       text: "Statistical variance (fixed) for covariance matrix calculation"
   covmat_full_p:
     stat_fixed:
       text: "Full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     stat_variable:
       text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      axis: '$V_{\rm syst}$'
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
   covmat_full_n:
     text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    axis: '$V_{\rm syst}$'
+    plotoptions:
+      aspect: equal
+      mask_value: 0.0
   covmat_full_cnp:
     text: "Full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    axis: '$V_{\rm syst}$'
+    plotoptions:
+      aspect: equal
+      mask_value: 0.0
 cholesky:
   stat:
     variable:
       text: "Pearson's statistical uncertainty, variable"
+      axis: r"$\sigma$"
     fixed:
       text: "Pearson's statistical uncertainty, fixed"
+      axis: '$\sigma$'
     data:
       fixed:
         text: "Neyman's statistical uncertainty"
+        axis: '$\sigma$'
   covmat_full_p:
     stat_fixed:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      axis: "$L$"
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
     stat_variable:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      axis: "$L$"
+      plotoptions:
+        aspect: equal
+        mask_value: 0.0
   covmat_full_n:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    axis: "$L$"
+    plotoptions:
+      aspect: equal
+      mask_value: 0.0
   covmat_full_cnp:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    axis: "$L$"
+    plotoptions:
+      aspect: equal
+      mask_value: 0.0
 statistic:
   staterr:
     cnp:
@@ -835,10 +1152,12 @@ summary:
         text: "Total detector {index[0]} efficiency"
     efflivetime:
       group:
-        text: "Total detector {index[0]} effective livetime [s]"
+        text: "Total detector {index[0]} effective livetime"
+        unit: "s"
     livetime:
       group:
-        text: "Total detector {index[0]} wall clock livetime [s]"
+        text: "Total detector {index[0]} wall clock livetime"
+        unit: "s"
   periods:
     bkg_count:
       group:
@@ -854,8 +1173,10 @@ summary:
         text: "Total detector {index[1]} efficiency during period {index[0]}"
     efflivetime:
       group:
-        text: "Total detector {index[1]} effective livetime during period {index[0]} [s]"
+        text: "Total detector {index[1]} effective livetime during period {index[0]}"
+        unit: "s"
     livetime:
       group:
-        text: "Total detector {index[1]} wall clock livetime during period {index[0]} [s]"
+        text: "Total detector {index[1]} wall clock livetime during period {index[0]}"
+        unit: "s"
 
