@@ -4,72 +4,72 @@ edges:
     latex: "Positron angle $\\cos\\theta$"
     axis: "$\\cos\\theta$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_common:
     text: "Common energy (E) bin edges"
     axis: "$E$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_final:
     text: "Final reconstructed energy (Erec) bin edges"
     axis: "$E_{\\rm rec}$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_enu:
     text: "Neutrino energy (Eν) bin edges"
     latex: "Neutrino energy $E_{\\nu}$ bin edges"
     axis: "$E_{\\nu}$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_edep:
     text: "Deposited energy (Edep) bin edges"
     latex: "Deposited energy $E_{\\rm dep}$ bin edges"
     axis: "$E_{\\rm dep}$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
   centers:
     energy_edep:
       text: "Deposited energy (Edep) bin centers"
       latex: "Deposited energy $E_{\\rm dep}$ bin centers"
       axis: "$E_{\\rm dep}$"
       unit: "MeV"
-      plotmethod: 'none'
+      plotoptions: 'none'
   energy_escint:
     text: "Deposited in scintillator energy (Escint) bin edges"
     latex: "Deposited in scintillator energy $E_{\\rm scint}$ bin edges"
     axis: "$E_{\\rm scint}$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_evis:
     text: "Visible energy (Evis) bin edges"
     latex: "Visible energy $E_{\\rm vis}$ bin edges"
     axis: "$E_{\\rm vis}$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_erec:
     text: "Reconstructed energy (Erec) bin edges"
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges"
     axis: "$E_{\\rm rec}$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
 constants:
   Delta_Enu_Edep:
     text: "Approximate difference Eν−Edep"
     latex: "Approximate difference $E_{\\nu}-E_{\\rm dep}$"
     unit: "MeV"
-    plotmethod: 'none'
+    plotoptions: 'none'
 kinematics:
   integration:
     orders_edep:
       text: "Evis integration orders (precision)"
       latex: "$E_{\\rm vis}$ integration orders (precision)"
       axis: "order"
-      plotmethod: 'none'
+      plotoptions: 'none'
     orders_costheta:
       text: "cosθ integration orders (precision)"
       latex: "$\\cos\\theta$ integration orders (precision)"
       axis: "order"
-      plotmethod: 'none'
+      plotoptions: 'none'
   sampler:
     node:
       text: "dE, dcosθ integration sampler"
@@ -77,11 +77,11 @@ kinematics:
       text: "Deposinted energy integration mesh"
       axis: "$E_{\\rm dep}$"
       unit: "MeV"
-      plotmethod: 'none'
+      plotoptions: 'none'
     mesh_costheta:
       text: "cosθ integration mesh"
       axis: "$\\cos\\theta$"
-      plotmethod: 'none'
+      plotoptions: 'none'
   ibd:
     crosssection:
       text:  "IBD cross section σ(Eν,cosθ)"
@@ -283,7 +283,7 @@ bkg:
     text: "Reconstructed energy (Erec) bin edges [MeV]\\nfor background events"
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV] (for background events)"
     axis: "$E_{\\rm rec}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   count_acc_fixed_s_day:
     group:
       text: "# of accidental background events in {key} × day/s [#]"
@@ -368,7 +368,7 @@ oscprob:
     text: "ν̅(e) survival probability {key}"
     latex: "$\\overline{{\\nu}}_e$ survival probability between {index[0]} and {index[1]}"
     axis: "$P_{{\\rm ee}}$"
-    plotmethod: "slicesy"
+    plotoptions: "slicesy"
 reactor_anue:
   neutrino_per_fission_per_MeV_nominal:
     group:
@@ -376,7 +376,7 @@ reactor_anue:
       axis: "$S(E_{\\nu})$"
       unit: "#ν/fission/MeV"
       latexunit: '#$\overline{{\nu}}$/fission/MeV'
-      plotmethod: "slicesy"
+      plotoptions: "slicesy"
   neutrino_per_fission_per_MeV_input:
     spec:
       group:
@@ -397,14 +397,14 @@ reactor_anue:
         axis: "$S(E_{\\nu})$"
         unit: "#ν/fission/MeV"
         latexunit: '#$\overline{{\nu}}$/fission/MeV'
-        plotmethod: "slicesy"
+        plotoptions: "slicesy"
     neutrino_per_fission_per_MeV_neq_nominal:
       group:
         text: "Nominal ν̅ spectrum for non-equilibrium for {key}"
         axis: '$S(E_{\nu})$'
         unit: "#ν/fission/MeV"
         latexunit: '#$\overline{{\nu}}$/fission/MeV'
-        plotmethod: "slicesy"
+        plotoptions: "slicesy"
   spec_indexer:
     text: "Lookup segment index\\nfor interpolation of input ν̅ spectrum"
   spectrum_free_correction:
@@ -421,7 +421,7 @@ reactor_anue:
     interpolated:
       text: "Free correction weights for ν̅ spectrum shape\\ninterpolated"
       axis: "$n$"
-      plotmethod: "slicesy"
+      plotoptions: "slicesy"
     indexer:
       text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape"
   spectrum_free_correction_post:
@@ -447,7 +447,7 @@ reactor_anue:
       group:
         text: "Constrained correction factor for ν̅ spectrum shape of {key}\\ncorrelated × uncorrelated, fit, interpolated"
         axis: '$n$'
-        plotmethod: "slicesy"
+        plotoptions: "slicesy"
     uncertainty:
       corr:
         group:
@@ -731,7 +731,7 @@ statistic:
     cnp_variance:
       text: "CNP statistical variance (variable)"
   log_prod_diag:
-    text: "2ln\\|V\\| unbiasing term for χ²"
+    text: "2log\\|V\\| unbiasing term for χ²"
   helper:
     neyman:
       text: "Neyman's contribution to CNP χ²\\nstat+syst, covariance matrix"
