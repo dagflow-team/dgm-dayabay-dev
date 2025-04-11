@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
+from matplotlib import pyplot as plt
 from numpy import ndarray
 from yaml import safe_load
-from matplotlib import pyplot as plt
-
 
 from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
@@ -110,7 +109,9 @@ def main(args: Namespace) -> None:
     if args.full_fit:
         minimization_pars: dict[str, Parameter] = {}
         update_dict_parameters(minimization_pars, ["oscprob", "detector"], parameters["free"])
-        update_dict_parameters(minimization_pars, ["oscprob", "detector", "reactor", "bkg"], parameters["constrained"])
+        update_dict_parameters(
+            minimization_pars, ["oscprob", "detector", "reactor", "bkg"], parameters["constrained"]
+        )
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
         dagflow_fit = minimizer.fit()

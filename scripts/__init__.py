@@ -1,12 +1,13 @@
+from itertools import product
+
 import numpy as np
+from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 from yaml import add_representer
-from matplotlib import pyplot as plt
-from itertools import product
-from dagflow.bundles.load_hist import load_hist
-from dagflow.parameters import Parameter
-from dagflow.core import NodeStorage
 
+from dagflow.bundles.load_hist import load_hist
+from dagflow.core import NodeStorage
+from dagflow.parameters import Parameter
 
 add_representer(
     np.ndarray,
@@ -43,7 +44,9 @@ def update_dict_parameters(
         )
 
 
-def load_model_from_file(filename: str, node_name: str, name_pattern: str, groups: list[str]) -> NodeStorage:
+def load_model_from_file(
+    filename: str, node_name: str, name_pattern: str, groups: list[str]
+) -> NodeStorage:
     """Update dictionary of minimization parameters
 
     Parameters
@@ -164,10 +167,13 @@ def calculate_difference_error(data_a: NDArray | float, data_b: NDArray | float)
 
 
 def plot_spectra_ratio_difference(
-    data_a: NDArray, data_b: NDArray, edges: NDArray, title: str,
+    data_a: NDArray,
+    data_b: NDArray,
+    edges: NDArray,
+    title: str,
     ylim_ratio: tuple[float] | tuple = (),
 ) -> None:
-    r"""
+    """
 
     Parameters
     ----------
@@ -184,8 +190,7 @@ def plot_spectra_ratio_difference(
 
     Returns
     -------
-    NDArray
-        Error of difference
+    None
     """
     centers = (edges[1:] + edges[:-1]) / 2
     xerrs = (edges[1:] - edges[:-1]) / 2
@@ -225,6 +230,25 @@ def plot_spectra_ratio_difference(
 
 
 def plot_spectral_weights(edges, fit) -> None:
+    """
+
+    Parameters
+    ----------
+        data_a : NDArray
+            Observation of model
+        data_b : NDArray
+            (Pseudo-)data
+        edges : NDArray
+            Edges of bins where data_a and data_b are determined
+        title : str
+            Title for plot
+        ylim_ratio : tuple[float] | tuple[None]
+            Limits for y-axis of ratio plot
+
+    Returns
+    -------
+    None
+    """
     data = []
     yerrs = []
     for key in filter(lambda key: "spec" in key, fit["names"]):

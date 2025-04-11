@@ -1,19 +1,25 @@
 #!/usr/bin/env python
-import numpy as np
 from argparse import Namespace
 from typing import Any
 
+import numpy as np
 from matplotlib import pyplot as plt
 from yaml import add_representer
-from yaml import safe_load as yaml_load
 from yaml import safe_dump as yaml_dump
+from yaml import safe_load as yaml_load
 
 from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import load_model
-from scripts import update_dict_parameters, filter_fit, convert_numpy_to_lists, plot_spectra_ratio_difference, plot_spectral_weights
+from scripts import (
+    convert_numpy_to_lists,
+    filter_fit,
+    plot_spectra_ratio_difference,
+    plot_spectral_weights,
+    update_dict_parameters,
+)
 
 set_level(INFO1)
 
@@ -77,7 +83,6 @@ def main(args: Namespace) -> None:
         stat_chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)}
     )
 
-    print(len(minimization_parameters))
     fit = minimizer.fit()
     print(fit)
 
@@ -97,7 +102,12 @@ def main(args: Namespace) -> None:
         for obs_name, data in storage_data[
             "outputs.eventscount.final.detector_period"
         ].walkjoineditems():
-            plot_spectra_ratio_difference(storage_fit[f"outputs.eventscount.final.detector_period.{obs_name}"].data, data.data, edges, obs_name)
+            plot_spectra_ratio_difference(
+                storage_fit[f"outputs.eventscount.final.detector_period.{obs_name}"].data,
+                data.data,
+                edges,
+                obs_name,
+            )
             plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
         if args.use_free_spec:

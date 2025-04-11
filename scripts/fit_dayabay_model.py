@@ -11,7 +11,13 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import LATEX_SYMBOLS, available_models, load_model
-from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters, plot_spectra_ratio_difference, plot_spectral_weights
+from scripts import (
+    convert_numpy_to_lists,
+    filter_fit,
+    plot_spectra_ratio_difference,
+    plot_spectral_weights,
+    update_dict_parameters,
+)
 
 set_level(INFO1)
 
@@ -78,9 +84,15 @@ def main(args: Namespace) -> None:
 
     if args.output_plot_spectra:
         edges = model.storage["outputs.edges.energy_final"].data
-        for obs_name, data in model.storage["outputs.data.real.final.detector_period"].walkjoineditems():
+        for obs_name, data in model.storage[
+            "outputs.data.real.final.detector_period"
+        ].walkjoineditems():
             plot_spectra_ratio_difference(
-                model.storage[f"outputs.eventscount.final.detector_period.{obs_name}"].data, data.data, edges, obs_name)
+                model.storage[f"outputs.eventscount.final.detector_period.{obs_name}"].data,
+                data.data,
+                edges,
+                obs_name,
+            )
             plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
         if args.use_free_spec:
