@@ -1,10 +1,20 @@
 #!/usr/bin/env python
+"""
+Script for fit model to another copy model
+Models are loading from .yaml file
+
+Example of call:
+```
+./scripts/fit_dayabay_cross_model.py --config-path scripts/cross-fit-config.yaml \
+    --chi2 full.chi2n_covmat \
+    --output-plot-spectra "output/obs-{}.pdf" \
+    --output-fit output/fit.yaml
+```
+"""
 from argparse import Namespace
 from typing import Any
 
-import numpy as np
 from matplotlib import pyplot as plt
-from yaml import add_representer
 from yaml import safe_dump as yaml_dump
 from yaml import safe_load as yaml_load
 
@@ -34,6 +44,18 @@ plt.rcParams.update(
 
 
 def parse_config(config_path: str) -> list[dict[str, Any]]:
+    """Load yaml config as python dictionary
+
+    Parameters
+    __________
+    config_path : str
+        Path to file with model options for two models
+
+    Returns
+    _______
+    list[dict[str, Any]]
+        Two dictionaries with model options
+    """
     with open(config_path, "r") as f:
         return yaml_load(f)
 
@@ -77,6 +99,12 @@ def main(args: Namespace) -> None:
     stat_chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, Parameter] = {}
     update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
+    if "covmat" not in args.chi2:
+        update_dict_parameters(
+            minimization_parameters,
+            parameters_groups["constrained"],
+            parameters_constrained,
+        )
 
     models[0].next_sample(mc_parameters=False, mc_statistics=False)
     minimizer = IMinuitMinimizer(

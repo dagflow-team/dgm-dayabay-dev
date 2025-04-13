@@ -7,12 +7,13 @@ Example of call:
 ./scripts/fit_dayabay_contour.py --version v0e \
     --scan-par oscprob.SinSq2Theta13 0.07 0.1 31 \
     --scan-par oscprob.DeltaMSq32 2.2e-3 2.8e-3 61 \
-    --chi2 full.chi2n_covmat
+    --chi2 full.chi2n_covmat \
+    --output-contour output/contour.pdf \
+    --output-map output/contour.npz
 ```
 """
 import itertools
 from argparse import Namespace
-from typing import Iterable
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -28,7 +29,7 @@ from scripts import update_dict_parameters
 
 set_level(INFO1)
 
-DATA_INDICES = {"asimov": 0, "dataset": 1}
+DATA_INDICES = {"model": 0, "loaded": 1}
 
 
 def convert_sigmas_to_chi2(df: int, sigmas: list[float] | NDArray) -> NDArray:
@@ -171,8 +172,7 @@ def main(args: Namespace) -> None:
     model = load_model(
         args.version,
         source_type=args.source_type,
-        monte_carlo_mode=args.data_mc_mode,
-        seed=args.seed,
+        model_options=args.model_options,
     )
 
     model.storage["nodes.data.proxy"].switch_input(DATA_INDICES[args.data])
@@ -306,26 +306,13 @@ if __name__ == "__main__":
         default="npz",
         help="Data source type",
     )
-    model.add_argument(
-        "--spec",
-        choices=("linear", "exponential"),
-        default="exponential",
-        help="antineutrino spectrum correction mode",
-    )
-    model.add_argument("--seed", default=0, type=int, help="seed of randomization")
-    model.add_argument(
-        "--data-mc-mode",
-        default="asimov",
-        choices=["asimov", "normal-stats", "poisson"],
-        help="type of data of 0th output",
-    )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
         "--data",
-        default="asimov",
-        choices=["asimov", "dataset"],
+        default="model",
+        choices=DATA_INDICES.keys(),
         help="Choose data for fit: 0th and 1st output",
     )
     pars.add_argument(

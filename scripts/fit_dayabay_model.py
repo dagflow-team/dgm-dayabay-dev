@@ -1,7 +1,18 @@
 #!/usr/bin/env python
+"""
+Script for fit model to observed/model data
+
+Example of call:
+```
+./scripts/fit_dayabay_model.py --version v0e \
+    --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \
+    --chi2 full.chi2n_covmat \
+    --output-plot-spectra "output/obs-{}.pdf" \
+    --output-fit output/fit.yaml
+```
+"""
 from argparse import Namespace
 
-import numpy as np
 from matplotlib import pyplot as plt
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_load
@@ -10,7 +21,7 @@ from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
-from models import LATEX_SYMBOLS, available_models, load_model
+from models import available_models, load_model
 from scripts import (
     convert_numpy_to_lists,
     filter_fit,
@@ -42,7 +53,6 @@ def main(args: Namespace) -> None:
     model = load_model(
         args.version,
         source_type=args.source_type,
-        override_indices={},
         model_options=args.model_options,
     )
 
@@ -186,7 +196,7 @@ if __name__ == "__main__":
     pars.add_argument(
         "--data",
         default="model",
-        choices=["model", "loaded"],
+        choices=DATA_INDICES.keys(),
         help="Choose data for fit",
     )
     pars.add_argument(

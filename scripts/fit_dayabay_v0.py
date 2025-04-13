@@ -119,7 +119,7 @@ def main(args: Namespace) -> None:
         if args.full_fit_output:
             _simplify_fit_dict(dagflow_fit)
             dagflow_fit = dict(**dagflow_fit)
-            with open(f"{args.full_fit_output}-{stat_type}.yaml", "w") as f:
+            with open(f"{args.full_fit_output}-{args.full_fit}.yaml", "w") as f:
                 safe_dump(dagflow_fit, f)
 
     minimizer_stat = IMinuitMinimizer(chi2p_stat, parameters=minimization_pars)
