@@ -9,7 +9,7 @@ from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models.dayabay_v0 import model_dayabay_v0
-from scripts import update_dict_parameters
+from scripts import update_dict_parameters, filter_fit, convert_numpy_to_lists
 
 set_level(INFO1)
 
@@ -25,13 +25,6 @@ gna_parameters_to_dagflow = {
     "dayabay.pmns.DeltaMSq23": "oscprob.DeltaMSq32",
     "dayabay.pmns.SinSqDouble13": "oscprob.SinSq2Theta13",
 }
-
-
-def _simplify_fit_dict(data: dict[str, bool | float | ndarray]) -> None:
-    for key, value in data.items():
-        if isinstance(value, ndarray):
-            data[key] = value.tolist()
-    data.pop("summary")
 
 
 def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
@@ -117,8 +110,8 @@ def main(args: Namespace) -> None:
         dagflow_fit = minimizer.fit()
         print(dagflow_fit)
         if args.full_fit_output:
-            _simplify_fit_dict(dagflow_fit)
-            dagflow_fit = dict(**dagflow_fit)
+            filter_fit(dagflow_fit, ["summary"])
+            convert_numpy_to_lists(dagflow_fit)
             with open(f"{args.full_fit_output}-{args.full_fit}.yaml", "w") as f:
                 safe_dump(dagflow_fit, f)
 
@@ -136,7 +129,8 @@ def main(args: Namespace) -> None:
             compare_gna(dagflow_fit, filename)
             minimizer.push_initial_values()
             if args.fit_output:
-                _simplify_fit_dict(dagflow_fit)
+                filter_fit(dagflow_fit, ["summary"])
+                convert_numpy_to_lists(dagflow_fit)
                 dagflow_fit = dict(**dagflow_fit)
                 with open(f"{args.fit_output}-{stat_type}.yaml", "w") as f:
                     safe_dump(dagflow_fit, f)
