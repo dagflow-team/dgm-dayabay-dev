@@ -2,6 +2,8 @@ from typing import Mapping
 
 from dagflow.tools.logger import logger
 
+from .dayabay_labels import LATEX_SYMBOLS
+
 from .dayabay_v0 import model_dayabay_v0
 from .dayabay_v0b import model_dayabay_v0b
 from .dayabay_v0c import model_dayabay_v0c
@@ -15,7 +17,7 @@ _dayabay_models = {
     "v0d": model_dayabay_v0d,
     "v0e": model_dayabay_v0e,
 }
-_dayabay_models["recent"] = _dayabay_models["v0e"]
+_dayabay_models["latest"] = _dayabay_models["v0e"]
 
 _available_sources = ("tsv", "hdf5", "root", "npz")
 

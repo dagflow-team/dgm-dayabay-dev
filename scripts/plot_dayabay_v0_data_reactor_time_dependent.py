@@ -171,7 +171,7 @@ if __name__ == "__main__":
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
         "--version",
-        default="recent",
+        default="latest",
         choices=available_models(),
         help="model version",
     )
