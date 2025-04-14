@@ -634,6 +634,7 @@ detector:
       plotoptions:
         aspect: "equal"
         mask_value: 0.0
+        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
     matrix_rescaled:
       group:
         text: "IAV matrix for {key}\\nwith adjusted (fit) offdiagonal elements"
@@ -641,6 +642,7 @@ detector:
         plotoptions:
           aspect: "equal"
           mask_value: 0.0
+          plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
   lsnl:
     curves:
       escint:
@@ -712,11 +714,22 @@ detector:
       plotoptions:
         aspect: "equal"
         mask_value: 0.0
+        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
   rebin:
     matrix_ibd:
       text: "Rebinning matrix for IBD events"
+      axis: "f"
+      plotoptions:
+        aspect: "equal"
+        mask_value: 0.0
+        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
     matrix_bkg:
       text: "Rebinning matrix for background events"
+      axis: "f"
+      plotoptions:
+        aspect: "equal"
+        mask_value: 0.0
+        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
 mc:
   parameters:
     toymc:
