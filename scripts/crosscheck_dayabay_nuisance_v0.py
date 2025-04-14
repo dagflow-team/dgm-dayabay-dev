@@ -566,6 +566,8 @@ def iterate_mappings_till_key(
 
 
 from multikeydict.typing import KeyLike, properkey
+
+
 def get_orderless(storage: NestedMKDict | Any, key: KeyLike) -> Any:
     key = properkey(key)
     if not key:

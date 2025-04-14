@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-from yaml import safe_load
 from argparse import Namespace
-from numpy import ndarray
 
+from matplotlib import pyplot as plt
+from numpy import ndarray
+from yaml import safe_load
+
+from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-
 from models.dayabay_v0 import model_dayabay_v0
-
+from scripts import update_dict_parameters, filter_fit, convert_numpy_to_lists
 
 set_level(INFO1)
 
@@ -25,13 +27,6 @@ gna_parameters_to_dagflow = {
 }
 
 
-def _simplify_fit_dict(data: dict[str, bool | float | ndarray]) -> None:
-    for key, value in data.items():
-        if isinstance(value, ndarray):
-            data[key] = value.tolist()
-    data.pop("summary")
-
-
 def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
     dagflow_transformed = sorted([dagflow_parameters_to_gna[name] for name in dagflow_pars])
     gna_transformed = sorted(gna_pars)
@@ -39,12 +34,13 @@ def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
 
 
 def compare_gna(dagflow_fit: dict, gna_fit_filename: str) -> None:
-    from matplotlib import pyplot as plt
     with open(gna_fit_filename, "r") as f:
         gna_fits = safe_load(f)["fitresult"]
     for gna_fit in gna_fits.values():
         if _compare_parameters(gna_fit["names"], dagflow_fit["names"]):
-            print(f"ChiSquared:     {gna_fit['fun']:+1.3e}  {dagflow_fit['fun']:+1.3e}      {(gna_fit['fun'] - dagflow_fit['fun']) / gna_fit['fun']:+1.3e}")
+            print(
+                f"ChiSquared:     {gna_fit['fun']:+1.3e}  {dagflow_fit['fun']:+1.3e}      {(gna_fit['fun'] - dagflow_fit['fun']) / gna_fit['fun']:+1.3e}"
+            )
             for gna_par_name in gna_fit["names"]:
                 dagflow_par_name = gna_parameters_to_dagflow[gna_par_name]
                 gna_par_value = gna_fit["xdict"][gna_par_name]
@@ -52,11 +48,29 @@ def compare_gna(dagflow_fit: dict, gna_fit_filename: str) -> None:
                 dagflow_par_value = dagflow_fit["xdict"][dagflow_par_name]
                 dagflow_par_error = dagflow_fit["errorsdict"][dagflow_par_name]
                 print(gna_par_name)
-                print(f"Central:        {gna_par_value:+1.3e}  {dagflow_par_value:+1.3e}      {(gna_par_value - dagflow_par_value) / gna_par_value:+1.3e}")
-                print(f"Error:          {gna_par_error:+1.3e}  {dagflow_par_error:+1.3e}      {(gna_par_error - dagflow_par_error) / gna_par_error:+1.3e}")
+                print(
+                    f"Central:        {gna_par_value:+1.3e}  {dagflow_par_value:+1.3e}      {(gna_par_value - dagflow_par_value) / gna_par_value:+1.3e}"
+                )
+                print(
+                    f"Error:          {gna_par_error:+1.3e}  {dagflow_par_error:+1.3e}      {(gna_par_error - dagflow_par_error) / gna_par_error:+1.3e}"
+                )
                 fig, axs = plt.subplots(1, 1)
-                axs.errorbar(x=[gna_par_value], y=[0], xerr=[gna_par_error], fmt="o", markerfacecolor="none", label="GNA")
-                axs.errorbar(x=[dagflow_par_value], y=[1], xerr=[dagflow_par_error], fmt="X", markerfacecolor="none", label="dag-flow")
+                axs.errorbar(
+                    x=[gna_par_value],
+                    y=[0],
+                    xerr=[gna_par_error],
+                    fmt="o",
+                    markerfacecolor="none",
+                    label="GNA",
+                )
+                axs.errorbar(
+                    x=[dagflow_par_value],
+                    y=[1],
+                    xerr=[dagflow_par_error],
+                    fmt="X",
+                    markerfacecolor="none",
+                    label="dag-flow",
+                )
                 axs.set_xlabel("value")
                 axs.set_title(dagflow_par_name)
                 axs.legend()
@@ -75,41 +89,33 @@ def main(args: Namespace) -> None:
     )
 
     storage = model.storage
-    parameters = storage("parameters.all")
-    statistic = storage("outputs.statistic")
+    parameters = storage["parameters"]
+    statistic = storage["outputs.statistic"]
 
     from yaml import safe_dump
+
     from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
-    chi2p_stat = statistic["stat.chi2p_iterative"]
-    chi2p_syst = statistic["full.chi2p_iterative"]
+
+    chi2p_stat = statistic["stat.chi2p"]
+    chi2p_syst = statistic["full.chi2cnp"]
 
     if args.full_fit:
-        minimization_pars = {par_name: par for par_name, par in parameters("oscprob").walkjoineditems() if par_name != "nmo"}
-        minimization_pars.update(dict(parameters["detector.eres"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["detector.lsnl_scale_a"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["detector.iav_offdiag_scale_factor"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["detector.detector_relative"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["reactor.energy_per_fission"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["reactor.nominal_thermal_power"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["reactor.snf_scale"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["reactor.nonequilibrium_scale"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["reactor.fission_fraction_scale"].walkjoineditems()))
-        minimization_pars.update(dict(parameters["bkg"].walkjoineditems()))
-        minimization_pars.update({"detector.global_normalization": parameters["detector.global_normalization"]})
-        model.set_parameters({"detector.global_normalization": 1.})
-        model.next_sample()
-        model.set_parameters({"detector.global_normalization": 1.})
+        minimization_pars: dict[str, Parameter] = {}
+        update_dict_parameters(minimization_pars, ["oscprob", "detector"], parameters["free"])
+        update_dict_parameters(
+            minimization_pars, ["oscprob", "detector", "reactor", "bkg"], parameters["constrained"]
+        )
+
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
-        fit = minimizer.fit()
-        print(fit)
+        dagflow_fit = minimizer.fit()
+        print(dagflow_fit)
         if args.full_fit_output:
-            _simplify_fit_dict(dagflow_fit)
-            dagflow_fit = dict(**dagflow_fit)
-            with open(f"{args.full_fit_output}-{stat_type}.yaml", "w") as f:
+            filter_fit(dagflow_fit, ["summary"])
+            convert_numpy_to_lists(dagflow_fit)
+            with open(f"{args.full_fit_output}-{args.full_fit}.yaml", "w") as f:
                 safe_dump(dagflow_fit, f)
 
-    minimization_pars = [parameters[par_name] for par_name in args.min_par]
     minimizer_stat = IMinuitMinimizer(chi2p_stat, parameters=minimization_pars)
     minimizer_syst = IMinuitMinimizer(chi2p_syst, parameters=minimization_pars)
     for stat_type, filename in args.input:
@@ -124,7 +130,8 @@ def main(args: Namespace) -> None:
             compare_gna(dagflow_fit, filename)
             minimizer.push_initial_values()
             if args.fit_output:
-                _simplify_fit_dict(dagflow_fit)
+                filter_fit(dagflow_fit, ["summary"])
+                convert_numpy_to_lists(dagflow_fit)
                 dagflow_fit = dict(**dagflow_fit)
                 with open(f"{args.fit_output}-{stat_type}.yaml", "w") as f:
                     safe_dump(dagflow_fit, f)
@@ -133,18 +140,23 @@ def main(args: Namespace) -> None:
         profile_parameter_str, l_edge, r_edge, n_points = args.profile_par
         profile_parameter = parameters[profile_parameter_str]
 
-        assert profile_parameter not in minimization_pars, "You can not minimize profiling parameter"
+        assert (
+            profile_parameter not in minimization_pars
+        ), "You can not minimize profiling parameter"
 
-        from numpy import linspace, savetxt, vstack
         from matplotlib import pyplot as plt
+        from numpy import linspace, savetxt, vstack
+
         profile_values = linspace(float(l_edge), float(r_edge), int(n_points))
-        chi2_stat_values = []
-        chi2_syst_values = []
+        chi2_stat_values: list[float] = []
+        chi2_syst_values: list[float] = []
         model.set_parameters({profile_parameter_str: profile_parameter.value})
         model.next_sample()
         model.set_parameters({profile_parameter_str: profile_parameter.value})
         for value in profile_values:
-            for chi2_values, minimizer in zip([chi2_stat_values, chi2_syst_values], [minimizer_stat, minimizer_syst]):
+            for chi2_values, minimizer in zip(
+                [chi2_stat_values, chi2_syst_values], [minimizer_stat, minimizer_syst]
+            ):
                 profile_parameter.value = value
                 fit = minimizer.fit()
                 chi2_values.append(fit["fun"])
@@ -159,75 +171,103 @@ def main(args: Namespace) -> None:
         plt.tight_layout()
         if args.profile_output:
             plt.savefig(f"{args.profile_output}.png")
-        
-            savetxt(f"{args.profile_output}.txt", vstack((profile_values, chi2_stat_values, chi2_syst_values)).T, header="parameter\tchi2stat\tchi2syst")
+
+            savetxt(
+                f"{args.profile_output}.txt",
+                vstack((profile_values, chi2_stat_values, chi2_syst_values)).T,
+                header="parameter\tchi2stat\tchi2syst",
+            )
 
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
 
     input = parser.add_argument_group("input", "input related options")
     input.add_argument(
-        "--input", nargs=2, action="append", metavar=("STAT_TYPE", "FILENAME"),
-        default=[], help="input file with fit to compare to",
+        "--input",
+        nargs=2,
+        action="append",
+        metavar=("STAT_TYPE", "FILENAME"),
+        default=[],
+        help="input file with fit to compare to",
     )
     input.add_argument(
-        "--input-profile", action="append",
-        default=[], help="input file with profile to compare to",
+        "--input-profile",
+        action="append",
+        default=[],
+        help="input file with profile to compare to",
     )
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
-        "-s", "--source-type", "--source",
-        choices=("tsv", "hdf5", "root", "npz"), default="npz",
+        "-s",
+        "--source-type",
+        "--source",
+        choices=("tsv", "hdf5", "root", "npz"),
+        default="npz",
         help="Data source type",
     )
     model.add_argument(
-        "--spec", choices=("linear", "exponential"), default="exponential",
+        "--spec",
+        choices=("linear", "exponential"),
+        default="exponential",
         help="antineutrino spectrum correction mode",
     )
     model.add_argument(
-        "--fission-fraction-normalized", action="store_true",
+        "--fission-fraction-normalized",
+        action="store_true",
         help="fission fraction correction",
     )
     model.add_argument("--seed", default=0, type=int, help="seed of randomization")
     model.add_argument(
-        "--data-mc-mode", default="asimov",
+        "--data-mc-mode",
+        default="asimov",
         choices=["asimov", "normal-stats", "poisson"],
         help="type of data to be analyzed",
     )
 
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value",
+        "--par",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set parameter value",
     )
     pars.add_argument(
-        "--min-par", nargs="*", default=[], help="choose minimization parameters",
+        "--min-par",
+        nargs="*",
+        default=[],
+        help="choose minimization parameters",
     )
     pars.add_argument(
-        "--profile-par", nargs=4,
+        "--profile-par",
+        nargs=4,
         metavar=("PARAMETER", "LEFT_EDGE", "RIGHT_EDGE", "N_POINTS"),
         help="choose profiling parameters",
     )
     pars.add_argument(
-        "--full-fit", default=None, choices=["stat", "syst"],
+        "--full-fit",
+        default=None,
+        choices=["stat", "syst"],
         help="Fit model with all parameters",
     )
 
     outputs = parser.add_argument_group("outputs", "set outputs")
     outputs.add_argument(
-        "--fit-output", help="path to save fit, without extension",
+        "--fit-output",
+        help="path to save fit, without extension",
     )
     outputs.add_argument(
-        "--full-fit-output", help="path to save full fit, without extension",
+        "--full-fit-output",
+        help="path to save full fit, without extension",
     )
     outputs.add_argument(
-        "--profile-output", help="path to save plot and data, without extension",
+        "--profile-output",
+        help="path to save plot and data, without extension",
     )
 
     args = parser.parse_args()

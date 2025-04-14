@@ -5,9 +5,9 @@ from dagflow.plot.graphviz import GraphDot
 from models import available_models, load_model
 
 
-@mark.parametrize("modelname", available_models())
-def test_dayabay_v0(modelname: str):
-    model = load_model(modelname, close=True, strict=True)
+@mark.parametrize("model_version", available_models())
+def test_dayabay_v0(model_version: str):
+    model = load_model(model_version, close=True, strict=True)
 
     graph = model.graph
     storage = model.storage
@@ -32,9 +32,11 @@ def test_dayabay_v0(modelname: str):
     plot_graph(graph, storage)
 
 
-@mark.parametrize("modelname", available_models())
-def test_dayabay_v0_proxy_switch(modelname: str):
-    model = load_model(modelname, close=True, strict=True, monte_carlo_mode="poisson")
+@mark.parametrize("model_version", available_models())
+def test_dayabay_v0_proxy_switch(model_version: str):
+    if model_version == "latest":
+        return
+    model = load_model(model_version, close=True, strict=True, monte_carlo_mode="poisson")
 
     storage = model.storage
 

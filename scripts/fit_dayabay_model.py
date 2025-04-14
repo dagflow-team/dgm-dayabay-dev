@@ -1,23 +1,38 @@
 #!/usr/bin/env python
+"""
+Script for fit model to observed/model data
+
+Example of call:
+```
+./scripts/fit_dayabay_model.py --version v0e \
+    --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \
+    --chi2 full.chi2n_covmat \
+    --output-plot-spectra "output/obs-{}.pdf" \
+    --output-fit output/fit.yaml
+```
+"""
 from argparse import Namespace
 
-import numpy as np
 from matplotlib import pyplot as plt
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_load
-from yaml import add_representer
 
 from dagflow.parameters import Parameter
-from dagflow.parameters import GaussianParameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
-from models import LATEX_SYMBOLS, available_models, load_model
-from scripts import update_dict_parameters
+from models import available_models, load_model
+from scripts import (
+    convert_numpy_to_lists,
+    filter_fit,
+    plot_spectra_ratio_difference,
+    plot_spectral_weights,
+    update_dict_parameters,
+)
 
 set_level(INFO1)
 
-DATA_INDICES = {"asimov": 0, "data": 1}
+DATA_INDICES = {"model": 0, "loaded": 1}
 
 
 plt.rcParams.update(
@@ -27,29 +42,6 @@ plt.rcParams.update(
         "axes.grid": True,
     }
 )
-
-add_representer(
-    np.ndarray,
-    lambda representer, obj: representer.represent_str(np.array_repr(obj)),
-)
-
-
-def filter_fit(src: dict, keys_to_fiter: list[str]) -> None:
-    keys = list(src.keys())
-    for key in keys:
-        if key in keys_to_fiter:
-            del src[key]
-            continue
-        if isinstance(src[key], dict):
-            filter_fit(src[key], keys_to_fiter)
-
-
-def convert_numpy_to_lists(src: dict) -> None:
-    for key, value in src.items():
-        if isinstance(value, np.ndarray):
-            src[key] = value.tolist()
-        elif isinstance(value, dict):
-            convert_numpy_to_lists(value)
 
 
 def main(args: Namespace) -> None:
@@ -61,10 +53,8 @@ def main(args: Namespace) -> None:
     model = load_model(
         args.version,
         source_type=args.source_type,
-        monte_carlo_mode=args.data_mc_mode,
-        seed=args.seed,
         model_options=args.model_options,
-   )
+    )
 
     storage = model.storage
     storage["nodes.data.proxy"].switch_input(DATA_INDICES[args.data])
@@ -83,134 +73,61 @@ def main(args: Namespace) -> None:
     if args.use_hm_unc_pull_terms:
         parameters_groups["constrained"].append("reactor_anue")
 
-    stat_chi2 = statistic[f"{args.chi2}"]
-    minimization_parameters: dict[str, GaussianParameter] = {}
-    update_dict_parameters(
-        minimization_parameters, parameters_groups["free"], parameters_free
-    )
-    # if "covmat" not in args.chi2:
-    #     update_dict_parameters(
-    #         minimization_parameters,
-    #         parameters_groups["constrained"],
-    #         parameters_constrained,
-    #     )
+    chi2 = statistic[f"{args.chi2}"]
+    minimization_parameters: dict[str, Parameter] = {}
+    update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
+    if "covmat" not in args.chi2:
+        update_dict_parameters(
+            minimization_parameters,
+            parameters_groups["constrained"],
+            parameters_constrained,
+        )
 
-    model.next_sample(mc_parameters=False, mc_statistics=False)
-    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters)
-
-    if args.interactive:
-        from IPython import embed
-        embed()
-
-    print(len(minimization_parameters))
+    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters)
     fit = minimizer.fit()
-    print(fit)
-
-    if args.output_plot_pars:
-        values = []
-        errors = []
-        labels = []
-        for i, (parname, par) in enumerate(minimization_parameters.items()):
-            if isinstance(par, GaussianParameter):
-                values.append((fit["xdict"][parname] - par.central) / par.sigma)
-                errors.append(abs(fit["errorsdict"][parname] / par.sigma))
-                labels.append(LATEX_SYMBOLS[parname])
-        npars = len(values)
-        if npars:
-            fig, axs = plt.subplots(
-                2, 1, figsize=(5, 0.225 * npars),
-                gridspec_kw={"height_ratios": [1, npars / 5]},
-            )
-            for i in range(0, 4):
-                axs[1].vlines([-i, i], -1, npars + 1, linestyle="--", color=f"black", alpha=0.25)
-            axs[0].hist(values, np.linspace(-3.25, 3.25, 2 * int(npars**0.5)))
-            axs[1].scatter(values, labels)
-            for ax in axs:
-                ax.set_xlim(-3.25, 3.25)
-            axs[1].set_ylim(-0.25, npars - 0.75)
-            plt.tight_layout()
-            plt.subplots_adjust(hspace=0)
-            if args.output_plot_pars:
-                plt.savefig(args.output_plot_pars)
-
-    if args.output_plot_corrmat and fit["covariance"] is not None:
-        covariance = fit["covariance"]
-        npars = len(covariance)
-        diag = np.diagonal(covariance) ** 0.5
-        correlation = covariance / np.outer(diag, diag)
-        if npars < 20:
-            fig, ax = plt.subplots(1, 1)
-        else:
-            fig, ax = plt.subplots(1, 1, figsize=(0.225 * npars, 0.185 * npars))
-        cs = ax.matshow(correlation, vmin=-1, vmax=1, cmap="RdBu")
-        clb = plt.colorbar(cs, ax=ax)
-        clb.set_ticks([-1, -0.5, -0.25, 0, 0.25, 0.5, 1])
-        clb.set_ticklabels([-1, -0.5, -0.25, 0, 0.25, 0.5, 1], fontsize=npars / 4)
-        tick_labels = [LATEX_SYMBOLS[parname] for parname in fit["names"]]
-        ax.set_xticks(np.arange(npars), tick_labels, fontsize=8, rotation=90)
-        ax.set_yticks(np.arange(npars), tick_labels, fontsize=8, rotation=0)
-        plt.tight_layout()
-        plt.savefig(args.output_plot_corrmat)
-
     filter_fit(fit, ["summary"])
+    print(fit)
     convert_numpy_to_lists(fit)
     if args.output_fit:
-        with open(args.output_fit, "w") as f:
+        with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
 
     if args.output_plot_spectra:
         edges = model.storage["outputs.edges.energy_final"].data
-        centers = (edges[1:] + edges[:-1]) / 2
-        xerrs = (edges[1:] - edges[:-1]) / 2
-        for key, data in model.storage["outputs.data.real.final.detector_period"].walkjoineditems():
-            data = data.data
-            obs = model.storage[f"outputs.eventscount.final.detector_period.{key}"].data
-            fig, axs = plt.subplots(3, 1, figsize=(7, 6), height_ratios=[2, 1, 1], sharex=True)
-            axs[0].step([edges[0], *edges], [0, *obs, 0], where="post", label="A: fit")
-            axs[0].errorbar(centers, data, xerr=xerrs, yerr=data**.5, linestyle="none", label="B: data")
-            axs[1].errorbar(centers, obs / data - 1, xerr=xerrs, yerr=(obs / data**2 + obs**2 / data**4 * data)**.5, linestyle="none")
-            axs[2].errorbar(centers, obs - data, xerr=xerrs, yerr=(data**.5 + obs**.5)**.5, linestyle="none")
-            axs[0].set_title(key)
-            axs[0].legend()
-            axs[2].set_xlabel("E, MeV")
-            axs[0].set_ylabel("Entries")
-            axs[1].yaxis.tick_right()
-            axs[1].yaxis.set_label_position("right")
-            axs[1].set_ylabel("A / B - 1")
-            axs[2].set_ylabel("A - B")
-            axs[0].minorticks_on()
-            plt.setp(axs[0].get_xticklabels(), visible=False)
-            plt.tight_layout()
-            plt.subplots_adjust(hspace=0.0)
-            plt.savefig(args.output_plot_spectra.format(key.replace(".", "-")))
+        for obs_name, data in model.storage[
+            "outputs.data.real.final.detector_period"
+        ].walkjoineditems():
+            plot_spectra_ratio_difference(
+                model.storage[f"outputs.eventscount.final.detector_period.{obs_name}"].data,
+                data.data,
+                edges,
+                obs_name,
+            )
+            plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
         if args.use_free_spec:
-            edges = model.storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
-            data = []
-            yerrs = []
-            for key in filter(lambda key: True if "spec" in key else False, fit["names"]):
-                data.append(fit["xdict"][key])
-                yerrs.append(fit["errorsdict"][key])
-            plt.figure()
-            plt.errorbar(edges, data, xerr=0.1, yerr=yerrs, linestyle="none")
-            plt.title(r"Spectral weights of $\overline{\nu}_{e}$ spectrum")
-            plt.xlabel("E, MeV")
-            plt.ylabel("value")
-            plt.tight_layout()
+            edges = model.storage[
+                "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
+            ].data
+            plot_spectral_weights(edges, fit)
             plt.savefig(args.output_plot_spectra.format("sw"))
 
     plt.figure()
     plt.errorbar(
-        fit["xdict"]["SinSq2Theta13"], fit["xdict"]["DeltaMSq32"],
-        xerr=fit["errorsdict"]["SinSq2Theta13"], yerr=fit["errorsdict"]["DeltaMSq32"],
+        fit["xdict"]["oscprob.SinSq2Theta13"],
+        fit["xdict"]["oscprob.DeltaMSq32"],
+        xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
+        yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
         label="dag-flow",
     )
     if args.compare_input:
         with open(args.compare_input, "r") as f:
             compare_fit = yaml_load(f)
         plt.errorbar(
-            compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"],
-            xerr=compare_fit["SinSq2Theta13"]["error"], yerr=compare_fit["DeltaMSq32"]["error"],
+            compare_fit["SinSq2Theta13"]["value"],
+            compare_fit["DeltaMSq32"]["value"],
+            xerr=compare_fit["SinSq2Theta13"]["error"],
+            yerr=compare_fit["DeltaMSq32"]["error"],
             label="dataset",
         )
     plt.xlabel(r"$\sin^22\theta_{13}$")
@@ -220,9 +137,9 @@ def main(args: Namespace) -> None:
     plt.ylim(2.37e-3, 2.53e-3)
     plt.legend()
     plt.tight_layout()
+    if args.output_plot_fit:
+        plt.savefig(args.output_plot_fit)
     if args.compare_input:
-        if args.output_plot_fit:
-            plt.savefig(args.output_plot_fit)
         print(args.chi2)
         for name, par_values in compare_fit.items():
             if name not in fit["xdict"].keys():
@@ -234,7 +151,9 @@ def main(args: Namespace) -> None:
             print(f"{name:>22}:")
             print(f"{'dataset':>22}: value={value:1.9e}, error={error:1.9e}")
             print(f"{'dag-flow':>22}: value={fit_value:1.9e}, error={fit_error:1.9e}")
-            print(f"{' '*23} value_diff={(fit_value / value - 1)*100:1.7f}%, error_diff={(fit_error / error - 1)*100:1.7f}%")
+            print(
+                f"{' '*23} value_diff={(fit_value / value - 1)*100:1.7f}%, error_diff={(fit_error / error - 1)*100:1.7f}%"
+            )
             print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
     plt.show()
@@ -248,8 +167,11 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
     parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
+        "--interactive",
+        action="store_true",
+        help="Start IPython session",
     )
     parser.add_argument(
         "--interactive",
@@ -269,25 +191,16 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="npz",
+        default="hdf5",
         help="Data source type",
     )
-    model.add_argument("--seed", default=0, type=int, help="seed of randomization")
-    model.add_argument(
-        "--data-mc-mode",
-        default="asimov",
-        choices=["asimov", "normal-stats", "poisson"],
-        help="type of data to be analyzed",
-    )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("fit", "Set fit procedure")
     pars.add_argument(
         "--data",
-        default="asimov",
-        choices=["asimov", "data"],
+        default="model",
+        choices=DATA_INDICES.keys(),
         help="Choose data for fit",
     )
     pars.add_argument(
@@ -301,11 +214,18 @@ if __name__ == "__main__":
         "--chi2",
         default="stat.chi2p",
         choices=[
-            "stat.chi2p_iterative", "stat.chi2n", "stat.chi2p", "stat.chi2cnp",
-            "stat.chi2p_unbiased", "full.chi2p_covmat_fixed",
-            "full.chi2n_covmat", "full.chi2p_covmat_variable",
-            "full.chi2p_iterative", "full.chi2cnp",
-            "full.chi2p_unbiased", "full.chi2cnp_covmat",
+            "stat.chi2p_iterative",
+            "stat.chi2n",
+            "stat.chi2p",
+            "stat.chi2cnp",
+            "stat.chi2p_unbiased",
+            "full.chi2p_covmat_fixed",
+            "full.chi2n_covmat",
+            "full.chi2p_covmat_variable",
+            "full.chi2p_iterative",
+            "full.chi2cnp",
+            "full.chi2p_unbiased",
+            "full.chi2cnp_covmat",
         ],
         help="Choose chi-squared function for minimizer",
     )
