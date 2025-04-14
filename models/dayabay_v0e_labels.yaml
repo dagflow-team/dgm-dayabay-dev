@@ -90,55 +90,93 @@ kinematics:
       axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$"
       unit: "cm⁻²/proton"
       latexunit: "cm$^{-2}$"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
     enu:
       text: "Eν mesh\\nfor integration"
       latex: "$E_{\\nu}$ mesh"
       axis: "$E_{\\nu}$"
       unit: "MeV"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
     jacobian:
       text: "dEν/dEdep Jacobian"
       axis: "$dE_{\\nu}/dE_{\\rm dep}$"
       latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
     crosssection_jacobian:
       text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)"
+      axis: "$\\sigma(E_{\\nu}, \\cos\\theta)\\times dE_{\\nu}/dE_{\\rm dep}$"
       unit: "cm⁻²/proton"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
     crosssection_jacobian_oscillations:
       group:
         text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key}"
+        axis: '$P(E_{\nu}) \times \sigma(E_{\nu}, \cos\theta)\times dE_{\nu}/dE_{\rm dep}$'
         unit: "cm⁻²/proton"
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
   neutrino_cm2_per_MeV_per_fission_per_proton:
     part:
       nu_main:
         group:
-          text: "Partial differential IBD rate for reator (main) for {key}"
+          text: "Partial differential IBD rate (main)\\nfrom {index[1]} in {index[0]} at {index[2]}"
+          axis: "IBD rate"
           unit: "#ν·cm²/MeV/fission/proton"
+          plotoptions: 
+            method: "slicesy"
+            mask_value: 0.0
       nu_neq:
         group:
-          text: "Partial differential IBD rate for reactor (non-equilibrium) for {key}"
+          text: "Partial differential IBD rate from non-equilibrium\\nfrom {index[1]} in {index[0]} at {index[2]}"
+          axis: "IBD rate"
           unit: "#ν·cm²/MeV/fission/proton"
+          plotoptions: 
+            method: "slicesy"
+            mask_value: 0.0
       nu_snf:
         group:
-          text: "Partial differential IBD rate for spent nuclear fuel for {key}"
+          text: "Partial differential IBD rate from spent nuclear fuel\\nfrom {index[0]} at {index[1]}"
+          axis: "IBD rate"
           unit: "#ν·cm²/MeV/s/proton"
+          plotoptions: 
+            method: "slicesy"
+            mask_value: 0.0
   integral:
     nu_main:
       group:
-        text: "Partial integrated rate of IBD events from reactor (main) for {key}\\nintegrated"
+        text: "Partial integrated rate of IBD events (main)\\nfrom {index[1]} in {index[0]} at {index[2]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/fission/proton"
         latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
     nu_neq:
       group:
-        text: "Partial integrated rate of IBD events from reactor (non-equilibrium) for {key}\\nintegrated"
+        text: "Partial integrated rate of IBD events from non-equilibrium\\nfrom {index[1]} in {index[0]} at {index[2]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/fission/proton"
         latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
     nu_snf:
       group:
-        text: "Partial integrated rate of IBD events from spent nuclear fuel for {key}\\nintegrated"
+        text: "Partial integrated rate of IBD events from spent nuclear fuel\\nfrom {index[0]} at {index[1]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/s/proton"
         latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/s/proton'
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
 daily_data:
   detector:
     days:
@@ -761,7 +799,7 @@ detector:
 mc:
   parameters:
     toymc:
-      text: "MC values for nuisance parameters (nomal unit)"
+      text: "MC values for nuisance parameters, nomal unit"
     inputs:
       text: "Node to set nuisance parameters values"
 data:
