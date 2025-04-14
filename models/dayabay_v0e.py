@@ -3136,6 +3136,8 @@ class model_dayabay_v0e:
                 mode="normal-unit",
                 shape=(npars_nuisance,),
                 generator=self._random_generator,
+                tainted=False,
+                frozen=True
             )
             outputs.get_value("mc.parameters.toymc") >> parinp_mc
             nodes["mc.parameters.inputs"] = parinp_mc
