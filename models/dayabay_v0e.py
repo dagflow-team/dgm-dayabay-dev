@@ -2911,6 +2911,7 @@ class model_dayabay_v0e:
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,
+                tainted=False
             )
 
             #
