@@ -2308,18 +2308,18 @@ class model_dayabay_v0e:
             # during each period.
             Sum.replicate(
                 outputs.get_dict("eventscount.parts"),
-                name="eventscount.raw",
+                name="eventscount.stages.raw",
                 replicate_outputs=combinations["detector.period"],
             )
 
             # TODO: doc
             if self.spectrum_correction_location == "after-integration":
                 Product.replicate(
-                    outputs.get_dict("eventscount.raw"),
+                    outputs.get_dict("eventscount.stages.raw"),
                     outputs.get_value(
                         "reactor_anue.spectrum_free_correction_post.interpolated"
                     ),
-                    name="eventscount.raw_anue_spectrum_corrected",
+                    name="eventscount.stages.raw_anue_spectrum_corrected",
                     replicate_outputs=combinations["detector.period"],
                 )
 
@@ -2388,24 +2388,24 @@ class model_dayabay_v0e:
             # The correction is applied as matrix multiplication of smearing matrix over
             # column for each detector during each period..
             VectorMatrixProduct.replicate(
-                name="eventscount.iav",
+                name="eventscount.stages.iav",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             # Match and connect rescaled IAV distortion matrix for each detector to the
             # smearing node of each detector during each period.
             outputs.get_dict("detector.iav.matrix_rescaled") >> inputs.get_dict(
-                "eventscount.iav.matrix"
+                "eventscount.stages.iav.matrix"
             )
             # Match and connect IBD histogram each detector during each period to the
             # relevant IAV smearing input.
             if self.spectrum_correction_location == "after-integration":
                 outputs.get_dict(
-                    "eventscount.raw_anue_spectrum_corrected"
-                ) >> inputs.get_dict("eventscount.iav.vector")
+                    "eventscount.stages.raw_anue_spectrum_corrected"
+                ) >> inputs.get_dict("eventscount.stages.iav.vector")
             else:
-                outputs.get_dict("eventscount.raw") >> inputs.get_dict(
-                    "eventscount.iav.vector"
+                outputs.get_dict("eventscount.stages.raw") >> inputs.get_dict(
+                    "eventscount.stages.iav.vector"
                 )
 
             # The LSNL distortion matrix is created based on a relative energy scale
@@ -2606,16 +2606,16 @@ class model_dayabay_v0e:
             # Finally as in the case with IAV apply distortions to the spectra for each
             # detector and period.
             VectorMatrixProduct.replicate(
-                name="eventscount.evis",
+                name="eventscount.stages.evis",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs.get_dict("detector.lsnl.matrix") >> inputs.get_dict(
-                "eventscount.evis.matrix"
+                "eventscount.stages.evis.matrix"
             )
             # Use outputs after IAV correction to serve as inputs.
-            outputs.get_dict("eventscount.iav") >> inputs.get_dict(
-                "eventscount.evis.vector"
+            outputs.get_dict("eventscount.stages.iav") >> inputs.get_dict(
+                "eventscount.stages.evis.vector"
             )
 
             # The smearing due to finite energy resolution is also defined by three
@@ -2659,15 +2659,15 @@ class model_dayabay_v0e:
             # resolution matrix and input spectrum (after LSNL) for each detector during
             # period.
             VectorMatrixProduct.replicate(
-                name="eventscount.erec",
+                name="eventscount.stages.erec",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs.get_value("detector.eres.matrix") >> inputs.get_dict(
-                "eventscount.erec.matrix"
+                "eventscount.stages.erec.matrix"
             )
-            outputs.get_dict("eventscount.evis") >> inputs.get_dict(
-                "eventscount.erec.vector"
+            outputs.get_dict("eventscount.stages.evis") >> inputs.get_dict(
+                "eventscount.stages.erec.vector"
             )
 
             # Compute a product of global normalization and per-detector efficiency
@@ -2683,7 +2683,7 @@ class model_dayabay_v0e:
             # during each period.
             Product.replicate(
                 outputs.get_dict("detector.normalization"),
-                outputs.get_dict("eventscount.erec"),
+                outputs.get_dict("eventscount.stages.erec"),
                 name="eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
             )

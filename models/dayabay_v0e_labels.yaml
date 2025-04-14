@@ -214,7 +214,7 @@ reactor:
       unit: "MeV/fission"
   energy_per_fission_average_MeV:
     group:
-      text: "Average energy per fission in {index[0]} during period {index[1]}"
+      text: "Average energy per fission in {index[0]} during {index[1]}"
       axis: '$\overline{{e}}$'
       xaxis: "Day"
       unit: "MeV/fission"
@@ -228,13 +228,13 @@ reactor:
       unit: "MeV/s"
   thermal_power_isotope_MeV_per_second:
     group:
-      text: "Fractional thermal power for {index[1]} in {index[0]} during period {index[2]}"
+      text: "Fractional thermal power for {index[1]} in {index[0]} during {index[2]}"
       axis: '$W_i/W_{{\rm tot}}$'
       xaxis: "Day"
       unit: "MeV/s"
   fissions_per_second:
     group:
-      text: "Fissions per second of {index[1]} in {index[0]} during period {index[2]}"
+      text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
       axis: "$R$"
       xaxis: "Day"
       unit: "#fissions/s"
@@ -270,30 +270,31 @@ eventscount:
         text: "Partial # of IBD events from {index[0]} in {index[1]} during {index[2]}\\nfrom spent nuclear fuel"
         axis: "IBD events"
         unit: "#ν"
-  raw:
-    group:
-      text: "# of IBD events in {index[0]} during {index[1]}\\nbefore detector effects"
-      axis: "IBD events"
-      unit: "#ν"
-  iav:
-    group:
-      text: "# of IBD events (IAV) in {index[0]} during {index[1]}"
-      axis: "IBD events"
-      unit: "#ν"
-  evis:
-    group:
-      text: "# of IBD events (IAV, LSNL) in {index[0]} during {index[1]}"
-      axis: "IBD events"
-      unit: "#ν"
-  erec:
-    group:
-      text: "# of IBD events (IAV, LSNL, Erec) in {index[0]} during {index[1]}"
-      axis: "IBD events"
-      unit: "#ν"
+  stages:
+    raw:
+      group:
+        text: "# of IBD events in {index[0]} during {index[1]}\\nbefore detector effects"
+        axis: "IBD events"
+        unit: "#ν"
+    iav:
+      group:
+        text: "# of IBD events (IAV) in {index[0]} during {index[1]}"
+        axis: "IBD events"
+        unit: "#ν"
+    evis:
+      group:
+        text: "# of IBD events (IAV, LSNL) in {index[0]} during {index[1]}"
+        axis: "IBD events"
+        unit: "#ν"
+    erec:
+      group:
+        text: "# of IBD events (IAV, LSNL, REC) in {index[0]} during {index[1]}"
+        axis: "IBD events"
+        unit: "#ν"
   fine:
     ibd_normalized:
       group:
-        text: "Scaled (fit) # of IBD events at {index[0]} during period {index[1]}\\nfine binning, global normalization and relative efficiency applied"
+        text: "Scaled (fit) # of IBD events at {index[0]} during {index[1]}\\nfine binning, global normalization and relative efficiency applied"
         axis: "IBD events"
         unit: "#ν"
     ibd_normalized_detector:
@@ -303,28 +304,44 @@ eventscount:
         unit: "#ν"
     bkg:
       group:
-        text: "Total # of background events at {index[0]} during period {index[1]} [#]\\nfine binning"
+        text: "Total # of background events at {index[0]} during {index[1]}\\nfine binning"
+        axis: "Background events"
+        unit: "#"
     total:
       group:
-        text: "# of IBD candidates at {index[0]} during period {index[1]} [#]\\nfine binning"
+        text: "# of IBD candidates at {index[0]} during {index[1]}\\nfine binning"
+        axis: "Events"
+        unit: "#"
   final:
     ibd:
       group:
-        text: "# of IBD events at {index[0]} during period {index[1]} [#]\\nfinal binning, global normalization and relative efficiency applied"
+        text: "# of IBD events at {index[0]} during {index[1]}\\nfinal binning, global normalization and relative efficiency applied"
+        axis: "IBD events"
+        unit: "#ν"
     bkg:
       group:
-        text: "Total # of background events at {index[0]} during period {index[1]} [#]\\nfinal binning"
+        text: "Total # of background events at {index[0]} during {index[1]}\\nfinal binning"
+        axis: "Background events"
+        unit: "#"
     detector_period:
       group:
-        text: "# of IBD candidates at {index[0]} during period {index[1]} [#ν]\\nfinal binning"
+        text: "# of IBD candidates at {index[0]} during {index[1]}\\nfinal binning"
+        axis: "Events"
+        unit: "#"
     detector:
       group:
-        text: "# of IBD candidates at {index[0]} [#ν]\\nfinal binning"
+        text: "# of IBD candidates at {index[0]}\\nfinal binning"
+        axis: "Events"
+        unit: "#"
     concatenated:
       detector_period:
-        text: "# of IBD candidates in all detectors and all periods [#ν]\\nconcatenated"
+        text: "# of IBD candidates in all detectors and all periods\\nconcatenated"
+        axis: "IBD candidates"
+        unit: "#"
       detector:
-        text: "# of IBD candidates in all detectors [#ν]\\nconcatenated"
+        text: "# of IBD candidates in all detectors\\nconcatenated"
+        axis: "IBD candidates"
+        unit: "#"
 bkg:
   erec:
     text: "Reconstructed energy (Erec) bin edges\\nfor background events"
@@ -339,52 +356,52 @@ bkg:
   count_fixed:
     acc:
       group:
-        text: "# of accidental background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        text: "# of accidental background events in {index[0]} during {index[1]}\\nbefore nuisance"
         unit: "#"
     alphan:
       group:
-        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]}\\nbefore nuisance"
         unit: "#"
     amc:
       group:
-        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]}\\nbefore nuisance"
         unit: "#"
     fastn:
       group:
-        text: "# of fast neutron background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        text: "# of fast neutron background events in {index[0]} during {index[1]}\\nbefore nuisance"
         unit: "#"
     lihe:
       group:
-        text: "# of ⁹Li/⁸He background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}\\nbefore nuisance"
         unit: "#"
     muonx:
       group:
-        text: "# of μ decay background events in {index[0]} during period {index[1]}\\nbefore nuisance"
+        text: "# of μ decay background events in {index[0]} during {index[1]}\\nbefore nuisance"
         unit: "#"
   count:
     acc:
       group:
-        text: "# of accidental background events in {index[0]} during period {index[1]}"
+        text: "# of accidental background events in {index[0]} during {index[1]}"
         unit: "#"
     alphan:
       group:
-        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during period {index[1]}"
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]}"
         unit: "#"
     amc:
       group:
-        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during period {index[1]}"
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]}"
         unit: "#"
     fastn:
       group:
-        text: "# of fast neutron background events in {index[0]} during period {index[1]}"
+        text: "# of fast neutron background events in {index[0]} during {index[1]}"
         unit: "#"
     lihe:
       group:
-        text: "# of ⁹Li/⁸He background events in {index[0]} during period {index[1]}"
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}"
         unit: "#"
     muonx:
       group:
-        text: "# of μ decay background events in {index[0]} during period {index[1]}"
+        text: "# of μ decay background events in {index[0]} during {index[1]}"
         unit: "#"
   spectrum:
     acc:
@@ -606,7 +623,7 @@ reactor_detector:
       xaxis: "Day"
   nfissions:
     group:
-      text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during period {index[3]} [#fissions]"
+      text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during {index[3]} [#fissions]"
   nfissions_nprotons_per_cm2:
     group:
       text: "#fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor main IBD flux"
@@ -756,7 +773,7 @@ data:
       unit: "MeV"
     fine:
       group:
-        text: "Scaled (fit) # of IBD candidate at {index[1]} during period {index[0]}\\nfine binning, real data"
+        text: "Scaled (fit) # of IBD candidate at {index[1]} during {index[0]}\\nfine binning, real data"
         axis: "Entries"
         unit: "#"
     final:
@@ -767,7 +784,7 @@ data:
           unit: "#"
       detector_period:
         group:
-          text: "# of IBD candidates at {index[0]} during period {index[1]}\\nfinal binning, real data"
+          text: "# of IBD candidates at {index[0]} during {index[1]}\\nfinal binning, real data"
           axis: "Entries"
           unit: "#"
     concatenated:
@@ -1185,22 +1202,22 @@ summary:
   periods:
     bkg_count:
       group:
-        text: "Total # of {index[0]} background events in {index[2]} during period {index[1]}"
+        text: "Total # of {index[0]} background events in {index[2]} during {index[1]}"
     bkg_rate_s:
       group:
-        text: "Total rate of {index[0]} background events in {index[2]} during period {index[1]}"
+        text: "Total rate of {index[0]} background events in {index[2]} during {index[1]}"
     bkg_rate:
       group:
-        text: "Total rate {index[0]} background events in {index[2]} during period {index[1]}"
+        text: "Total rate {index[0]} background events in {index[2]} during {index[1]}"
     eff:
       group:
-        text: "Total detector {index[1]} efficiency during period {index[0]}"
+        text: "Total detector {index[1]} efficiency during {index[0]}"
     efflivetime:
       group:
-        text: "Total detector {index[1]} effective livetime during period {index[0]}"
+        text: "Total detector {index[1]} effective livetime during {index[0]}"
         unit: "s"
     livetime:
       group:
-        text: "Total detector {index[1]} wall clock livetime during period {index[0]}"
+        text: "Total detector {index[1]} wall clock livetime during {index[0]}"
         unit: "s"
 
