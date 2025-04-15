@@ -3289,13 +3289,13 @@ class model_dayabay_v0e:
             )
 
             # Log Poisson Ratio
-            LogPoissonRatio.replicate(name="statistic.stat.poisson")
+            LogPoissonRatio.replicate(name="statistic.stat.chi2poisson")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.stat.poisson.data"
+                "statistic.stat.chi2poisson.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.stat.poisson.theory")
+            ) >> inputs.get_value("statistic.stat.chi2poisson.theory")
 
             # (2) chi-squared Pearson stat + pull (fixed Pearson errors)
             Sum.replicate(
@@ -3382,9 +3382,9 @@ class model_dayabay_v0e:
 
             # Log Poisson Ratio + pull
             Sum.replicate(
-                outputs.get_value("statistic.stat.poisson"),
+                outputs.get_value("statistic.stat.chi2poisson"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.poisson",
+                name="statistic.full.chi2poisson",
             )
             # fmt: on
 
