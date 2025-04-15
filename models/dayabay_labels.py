@@ -76,7 +76,7 @@ for detector in DETECTORS:
             (f"rate.amc.{period}.{detector}", f"r^{{AmC}}_{{{detector}, {period}}}"),
             (
                 f"rate.fastn.{period}.{detector}",
-                f"r^{{\\mathrm{{fast}}\ n}}_{{{detector}, {period}}}",
+                f"r^{{\\mathrm{{fast}}\\ n}}_{{{detector}, {period}}}",
             ),
             (
                 f"rate.lihe.{period}.{detector}",
