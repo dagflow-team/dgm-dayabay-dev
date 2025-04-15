@@ -617,68 +617,68 @@ reactor_anue:
         group:
           text: "Constrained correction factor to ν̅ spectrum shape for {key}\\ncorrelated×uncorrelated, fit, at input Eν"
           axis: '$n$'
-reactor_nonequilibrium_anue:
-  correction_input:
-    enu:
-      text: "Eν segment centers\\nnon-equilibrium ν̅ spectrum shape correction"
-      axis: '$E_{\nu}$'
-      unit: "MeV"
-    nonequilibrium_correction:
+  nonequilibrium_anue:
+    correction_input:
+      enu:
+        text: "Eν segment centers\\nnon-equilibrium ν̅ spectrum shape correction"
+        axis: '$E_{\nu}$'
+        unit: "MeV"
+      nonequilibrium_correction:
+        group:
+          text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction\\nat input Eν"
+          axis: "Non-equilibrium correction"
+    correction_indexer:
+      text: "Lookup segment index\\nfor interpolation of NEQ ν̅ spectrum shape correction"
+    correction_interpolated:
       group:
-        text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction\\nat input Eν"
+        text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction (interpolated)"
         axis: "Non-equilibrium correction"
-  correction_indexer:
-    text: "Lookup segment index\\nfor interpolation of NEQ ν̅ spectrum shape correction"
-  correction_interpolated:
-    group:
-      text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction (interpolated)"
-      axis: "Non-equilibrium correction"
-      plotoptions: 
-        method: "slicesy"
-        mask_value: 0.0
-snf_anue:
-  correction_input:
-    enu:
-      text: "Eν segment centers\\nspent nuclear fuel ν̅ spectrum shape correction"
-      axis: '$E_{\nu}$'
-      unit: "MeV"
-    snf_correction:
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
+  snf_anue:
+    correction_input:
+      enu:
+        text: "Eν segment centers\\nspent nuclear fuel ν̅ spectrum shape correction"
+        axis: '$E_{\nu}$'
+        unit: "MeV"
+      snf_correction:
+        group:
+          text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\nat input Eν"
+          axis: "SNF correction"
+    correction_indexer:
+      text: "Lookup segment index\\nfor interpolation of SNF ν̅ spectrum shape correction"
+    correction_interpolated:
       group:
-        text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\nat input Eν"
+        text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key} (interpolated)"
         axis: "SNF correction"
-  correction_indexer:
-    text: "Lookup segment index\\nfor interpolation of SNF ν̅ spectrum shape correction"
-  correction_interpolated:
-    group:
-      text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key} (interpolated)"
-      axis: "SNF correction"
-      plotoptions: 
-        method: "slicesy"
-        mask_value: 0.0
-  neutrino_per_second_isotope:
-    group:
-      text: "Partial rate of ν̅ from {index[1]} of {index[0]}, for spent nuclear fuel"
-      axis: "ν̅ rate" 
-      unit: "#ν/s/MeV"
-      plotoptions: 
-        method: "slicesy"
-        mask_value: 0.0
-  neutrino_per_second:
-    group:
-      text: "Rate of ν̅ from {key}, for spent nuclear fuel"
-      axis: "SNF ν̅ rate" 
-      unit: "#ν/s/MeV"
-      plotoptions: 
-        method: "slicesy"
-        mask_value: 0.0
-  neutrino_per_second_snf:
-    group:
-      text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
-      axis: "SNF ν̅ rate" 
-      unit: "#ν/s/MeV"
-      plotoptions: 
-        method: "slicesy"
-        mask_value: 0.0
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
+    neutrino_per_second_isotope:
+      group:
+        text: "Partial rate of ν̅ from {index[1]} of {index[0]}, for spent nuclear fuel"
+        axis: "ν̅ rate" 
+        unit: "#ν/s/MeV"
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
+    neutrino_per_second:
+      group:
+        text: "Rate of ν̅ from {key}, for spent nuclear fuel"
+        axis: "SNF ν̅ rate" 
+        unit: "#ν/s/MeV"
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
+    neutrino_per_second_snf:
+      group:
+        text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
+        axis: "SNF ν̅ rate" 
+        unit: "#ν/s/MeV"
+        plotoptions: 
+          method: "slicesy"
+          mask_value: 0.0
 reactor_detector:
   nfissions_daily:
     group:

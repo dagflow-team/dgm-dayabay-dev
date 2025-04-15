@@ -1323,7 +1323,7 @@ class model_dayabay_v0e:
             # corresponding NEQ (1.) corrections to 3 out of 4 isotopes. The correction
             # C should be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
             load_graph(
-                name="reactor_nonequilibrium_anue.correction_input",
+                name="reactor_anue.nonequilibrium_anue.correction_input",
                 x="enu",
                 y="nonequilibrium_correction",
                 merge_x=True,
@@ -1337,8 +1337,8 @@ class model_dayabay_v0e:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "reactor_nonequilibrium_anue.correction_indexer",
-                    "interpolator": "reactor_nonequilibrium_anue.correction_interpolated",
+                    "indexer": "reactor_anue.nonequilibrium_anue.correction_indexer",
+                    "interpolator": "reactor_anue.nonequilibrium_anue.correction_interpolated",
                 },
                 replicate_outputs=index["isotope_neq"],
                 underflow="constant",
@@ -1347,17 +1347,17 @@ class model_dayabay_v0e:
             # Similarly to the case of antineutrino spectrum connect coarse X, a few
             # coarse Y and target mesh to the interpolator nodes.
             outputs.get_value(
-                "reactor_nonequilibrium_anue.correction_input.enu"
+                "reactor_anue.nonequilibrium_anue.correction_input.enu"
             ) >> inputs.get_value(
-                "reactor_nonequilibrium_anue.correction_interpolated.xcoarse"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction"
+                "reactor_anue.nonequilibrium_anue.correction_input.nonequilibrium_correction"
             ) >> inputs.get_dict(
-                "reactor_nonequilibrium_anue.correction_interpolated.ycoarse"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.ycoarse"
             )
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_nonequilibrium_anue.correction_interpolated.xfine"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.xfine"
             )
 
             # Now load the SNF (2.) correction. The SNF correction is different from NEQ
@@ -1365,7 +1365,7 @@ class model_dayabay_v0e:
             # use reactor index for it. Aside from index the loading and interpolation
             # procedure is similar to that of NEQ correction.
             load_graph(
-                name="snf_anue.correction_input",
+                name="reactor_anue.snf_anue.correction_input",
                 x="enu",
                 y="snf_correction",
                 merge_x=True,
@@ -1375,21 +1375,21 @@ class model_dayabay_v0e:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "snf_anue.correction_indexer",
-                    "interpolator": "snf_anue.correction_interpolated",
+                    "indexer": "reactor_anue.snf_anue.correction_indexer",
+                    "interpolator": "reactor_anue.snf_anue.correction_interpolated",
                 },
                 replicate_outputs=index["reactor"],
                 underflow="constant",
                 overflow="constant",
             )
-            outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value(
-                "snf_anue.correction_interpolated.xcoarse"
+            outputs.get_value("reactor_anue.snf_anue.correction_input.enu") >> inputs.get_value(
+                "reactor_anue.snf_anue.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "snf_anue.correction_input.snf_correction"
-            ) >> inputs.get_dict("snf_anue.correction_interpolated.ycoarse")
+                "reactor_anue.snf_anue.correction_input.snf_correction"
+            ) >> inputs.get_dict("reactor_anue.snf_anue.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs.get_value(
-                "snf_anue.correction_interpolated.xfine"
+                "reactor_anue.snf_anue.correction_interpolated.xfine"
             )
 
             # Finally create the parametrization of the correction to the shape of
@@ -1746,7 +1746,7 @@ class model_dayabay_v0e:
             # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
             Product.replicate(
                 outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs.get_dict("reactor_nonequilibrium_anue.correction_interpolated"),
+                outputs.get_dict("reactor_anue.nonequilibrium_anue.correction_interpolated"),
                 name="reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=("U238",),
@@ -2176,20 +2176,20 @@ class model_dayabay_v0e:
             Product.replicate(
                 outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                 outputs.get_dict("reactor.fissions_per_second_snf"),
-                name="snf_anue.neutrino_per_second_isotope",
+                name="reactor_anue.snf_anue.neutrino_per_second_isotope",
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
             Sum.replicate(
-                outputs.get_dict("snf_anue.neutrino_per_second_isotope"),
-                name="snf_anue.neutrino_per_second",
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_isotope"),
+                name="reactor_anue.snf_anue.neutrino_per_second",
                 replicate_outputs=index["reactor"],
             )
 
             Product.replicate(
-                outputs.get_dict("snf_anue.neutrino_per_second"),
-                outputs.get_dict("snf_anue.correction_interpolated"),
-                name="snf_anue.neutrino_per_second_snf",
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second"),
+                outputs.get_dict("reactor_anue.snf_anue.correction_interpolated"),
+                name="reactor_anue.snf_anue.neutrino_per_second_snf",
                 replicate_outputs=index["reactor"],
             )
 
@@ -2249,7 +2249,7 @@ class model_dayabay_v0e:
             # And for SNF.
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs.get_dict("snf_anue.neutrino_per_second_snf"),
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_snf"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
