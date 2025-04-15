@@ -14,7 +14,7 @@ tests:
     - source venv/bin/activate
     - git lfs install --skip-repo
     - git submodule sync
-    - git submodule update --init --recursive --depth=1 -- submodules/dag-flow
+    - git submodule update --init --depth=1 -- submodules/dag-flow
     - git submodule update --init --depth=1 -- submodules/dagflow-reactornueosc submodules/dagflow-detector submodules/dagflow-statistics submodules/dictwrapper
     - git clone --branch $DATA_BRANCH --depth=1 https://gitlab-ci-token:${CI_JOB_TOKEN}@git.jinr.ru/dag-computing/dayabay-data-all.git data
     - python3 -m pip install $(find . -name requirements.txt -type f -printf "-r %p\n")
