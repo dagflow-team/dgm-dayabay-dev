@@ -621,37 +621,64 @@ reactor_nonequilibrium_anue:
   correction_input:
     enu:
       text: "Eν segment centers\\nnon-equilibrium ν̅ spectrum shape correction"
-      axis: '$E_{\nu}$ [MeV]'
+      axis: '$E_{\nu}$'
+      unit: "MeV"
     nonequilibrium_correction:
       group:
-        text: "Correction to ν̅ spectrum due to non-equilibrium correction to {key}\\nat input Eν"
+        text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction\\nat input Eν"
+        axis: "Non-equilibrium correction"
   correction_indexer:
     text: "Lookup segment index\\nfor interpolation of NEQ ν̅ spectrum shape correction"
   correction_interpolated:
     group:
-      text: "Correction to ν̅ spectrum due to non-equilibrium correction to {key}\\ninterpolated"
+      text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction (interpolated)"
+      axis: "Non-equilibrium correction"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
 snf_anue:
   correction_input:
     enu:
       text: "Eν segment centers\\nspent nuclear fuel ν̅ spectrum shape correction"
-      axis: '$E_{\nu}$ [MeV]'
+      axis: '$E_{\nu}$'
+      unit: "MeV"
     snf_correction:
       group:
         text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\nat input Eν"
+        axis: "SNF correction"
   correction_indexer:
     text: "Lookup segment index\\nfor interpolation of SNF ν̅ spectrum shape correction"
   correction_interpolated:
     group:
-      text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\ninterpolated"
+      text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key} (interpolated)"
+      axis: "SNF correction"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
   neutrino_per_second_isotope:
     group:
-      text: "Partial rate of ν̅ from for {key} [#ν/s/MeV]\\nfor spent nuclear fuel "
+      text: "Partial rate of ν̅ from {index[1]} of {index[0]}, for spent nuclear fuel"
+      axis: "ν̅ rate" 
+      unit: "#ν/s/MeV"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
   neutrino_per_second:
     group:
-      text: "Rate of ν̅ for {key} [#ν/s/MeV]\\nfor spent nuclear fuel"
+      text: "Rate of ν̅ from {key}, for spent nuclear fuel"
+      axis: "SNF ν̅ rate" 
+      unit: "#ν/s/MeV"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
   neutrino_per_second_snf:
     group:
-      text: "Rate of ν̅ from spent nuclear fuel for {key} [#ν/s/MeV]\\n interpolated"
+      text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
+      axis: "SNF ν̅ rate" 
+      unit: "#ν/s/MeV"
+      plotoptions: 
+        method: "slicesy"
+        mask_value: 0.0
 reactor_detector:
   nfissions_daily:
     group:
@@ -800,6 +827,7 @@ mc:
   parameters:
     toymc:
       text: "MC values for nuisance parameters, nomal unit"
+      axis: '$\eta_ji$'
     inputs:
       text: "Node to set nuisance parameters values"
 data:
@@ -1124,8 +1152,12 @@ statistic:
   staterr:
     cnp:
       text: "CNP statistical uncertainty (variable)"
+      axis: '$\sigma_{\rm CNP}$'
+      unit: "#"
     cnp_variance:
       text: "CNP statistical variance (variable)"
+      axis: '$\sigma^2_{\rm CNP}$'
+      unit: "#²"
   log_prod_diag:
     text: "2log\\|V\\| unbiasing term for χ²"
   helper:
