@@ -1086,6 +1086,8 @@ covariance:
   data:
     fixed:
       text: "Statistical variance (fixed) for covariance matrix calculation"
+      axis: '$\sigma^2$'
+      unit: '#²'
   covmat_full_p:
     stat_fixed:
       text: "Full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
@@ -1115,14 +1117,17 @@ cholesky:
   stat:
     variable:
       text: "Pearson's statistical uncertainty, variable"
-      axis: r"$\sigma$"
+      axis: '$\sigma$'
+      unit: '#'
     fixed:
       text: "Pearson's statistical uncertainty, fixed"
       axis: '$\sigma$'
+      unit: '#'
     data:
       fixed:
         text: "Neyman's statistical uncertainty"
         axis: '$\sigma$'
+        unit: '#'
   covmat_full_p:
     stat_fixed:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
@@ -1160,11 +1165,6 @@ statistic:
       unit: "#²"
   log_prod_diag:
     text: "2log\\|V\\| unbiasing term for χ²"
-  helper:
-    neyman:
-      text: "Neyman's contribution to CNP χ²\\nstat+syst, covariance matrix"
-    pearson:
-      text: "Pearson's contribution to CNP χ²\\nstat+syst, covariance matrix"
   stat:
     chi2cnp:
       text: "Combined Neyman-Pearson's χ² with statistical uncertainties"
