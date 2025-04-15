@@ -22,6 +22,12 @@ edges:
     latex: "Deposited energy $E_{\\rm dep}$ bin edges [MeV]"
     axis: "$E_{\\rm dep}$ [MeV]"
     plotmethod: 'none'
+  centers:
+    energy_edep:
+      text: "Deposited energy (Edep) bin centers [MeV]"
+      latex: "Deposited energy $E_{\\rm dep}$ bin centers [MeV]"
+      axis: "$E_{\\rm dep}$ [MeV]"
+      plotmethod: 'none'
   energy_escint:
     text: "Deposited in scintillator energy (Escint) bin edges [MeV]"
     latex: "Deposited in scintillator energy $E_{\\rm scint}$ bin edges [MeV]"
@@ -36,6 +42,11 @@ edges:
     text: "Reconstructed energy (Erec) bin edges [MeV]"
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV]"
     axis: "$E_{\\rm rec}$ [MeV]"
+    plotmethod: 'none'
+constants:
+  Delta_Enu_Edep:
+    text: "Approximate difference Eν−Edep"
+    latex: "Approximate difference $E_{\\nu}-E_{\\rm dep}$"
     plotmethod: 'none'
 kinematics:
   integration:
@@ -290,22 +301,6 @@ bkg:
     muonx: 
       group:
         text: "# of μ decay background events in {index[0]} during {index[1]} [#]"
-  spectrum_per_day:
-    acc: 
-      group:
-        text: "Rate of accidental background events in {key} [#/day]"
-    alphan: 
-      group:
-        text: "Rate of ¹³C(α,n)¹⁶O background events in {key} [#/day]"
-    amc: 
-      group:
-        text: "Rate of ²⁴¹Am¹³C related background events in {key} [#/day]"
-    fastn: 
-      group:
-        text: "Rate of fast neutron background events in {key} [#/day]"
-    lihe: 
-      group:
-        text: "Rate of ⁹Li/⁸He background events in {key} [#/day]"
   spectrum_shape:
     acc: 
       group:
@@ -328,7 +323,7 @@ bkg:
 oscprob:
   group:
     text: "ν̅(e) survival probability {key}"
-    latex: "$\\bar{{\\nu}}_e$ survival probability {key}"
+    latex: "$\\overline{{\\nu}}_e$ survival probability between {index[0]} and {index[1]}"
     axis: "$P_{{\\rm ee}}$"
     plotmethod: "slicesy"
 reactor_anue:
@@ -339,8 +334,11 @@ reactor_anue:
     spec:
       group:
         text: "Input ν̅ spectrum for {key} [#ν/fission/MeV]"
+        latex: "Input $\\overline{{\\nu}}$ spectrum for {key}"
+        axis: "$S(E_{\\nu})$ [#$\\nu$/fission/MeV]"
     enu:
         text: "Input ν̅ spectrum neutrino energy (Eν) [MeV]"
+        latex: "Input $\\overline{\\nu}$ spectrum neutrino energy $E_{\\nu}$"
         axis: '$E_{\nu}$ [MeV]'
   part:
     neutrino_per_fission_per_MeV_main:
@@ -363,6 +361,14 @@ reactor_anue:
       text: "Free correction weights for ν̅ spectrum shape\\ninterpolated"
     indexer:
       text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape"
+  spectrum_free_correction_post:
+    spec_model_edges_edep_approx:
+      text: "Approximate Edep(Eν) segment edges [MeV]\\nfor parametrization of reactor ν̅ spectrum shape (post integration mode)"
+      axis: '$E_{\nu}$ [MeV]'
+    interpolated:
+      text: "Free correction weights for ν̅ spectrum shape\\ninterpolated, applied at Edep after integration"
+    indexer:
+      text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape vs Edep"
   spectrum_uncertainty:
     enu_centers:
       text: "Eν segment centers [MeV]\\nfor parametrization of uncertainties of ν̅ spectrum shape"
@@ -478,8 +484,8 @@ detector:
         text: "IAV matrix with adjusted (fit) offdiagonal elements at {key}"
   lsnl:
     curves:
-      edep:
-        text: "LSNL input coarse deposited energy for Evis(Edep) [MeV]"
+      escint:
+        text: "LSNL input coarse deposited in scintillator energy for Evis(Escint) [MeV]"
       evis_parts:
         group:
           text: "Input coarse Evisᵢ(Edep) {key} curve for LSNL [MeV]"
@@ -500,10 +506,10 @@ detector:
       text: "Segment lookup for Evis(Edep)\\ninterpolation for LSNL correction"
     interpolated_fwd:
       text: "Interpolated Evis(Edep) for LSNL correction [MeV]"
-    indexer_bwd:
+    indexer_bkwd:
       group:
         text: "Segment lookup for Edep(Evis) for {key}\\ninverse interpolation for LSNL correction"
-    interpolated_bwd:
+    interpolated_bkwd:
       group:
         text: "Interpolated Edep(Evis) for LSNL correction for {key} [MeV]"
     matrix:
@@ -620,6 +626,8 @@ covariance:
       text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
   covmat_full_n:
     text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+  covmat_full_cnp:
+    text: "Full covariance matrix\\nstat+syst, CNP statistical uncertainties"
 cholesky:
   stat:
     variable:
@@ -636,10 +644,14 @@ cholesky:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
   covmat_full_n:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+  covmat_full_cnp:
+    text: "Cholesky decomposition of full covariance matrix\\nstat+syst, CNP statistical uncertainties"
 statistic:
   staterr:
     cnp:
       text: "CNP statistical uncertainty (variable)"
+    cnp_variance:
+      text: "CNP statistical variance (variable)"
   log_prod_diag:
     text: "2ln\\|V\\| unbiasing term for χ²"
   helper:
@@ -658,11 +670,15 @@ statistic:
       text: "Pearson's χ² with statistical uncertainties\\nfixed stat uncertainties"
     chi2n:
       text: "Neyman's χ² with statistical uncertainties"
+    chi2poisson:
+      text: "Log Poisson Ratio (χ²)\\nstatistical uncertainties only"
   full:
     chi2cnp:
       text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\nnuisance terms"
     chi2cnp_covmat:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix"
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum χ²"
+    chi2cnp_covmat_alt:
+      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum variance"
     chi2p_unbiased:
       text: "Unbiased Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, nuisance terms"
     chi2p_covmat_fixed:
@@ -673,6 +689,8 @@ statistic:
       text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties"
     chi2n_covmat:
       text: "Neyman's χ² with statistical and systematic uncertainties\\ncovariance matrix"
+    chi2poisson:
+      text: "Log Poisson Ratio (χ²)\\nstatistical and systematic uncertainties"
   nuisance:
     all:
       text: "χ² nuisance term"
@@ -708,16 +726,8 @@ statistic:
         text: "χ² nuisance term for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
       bkg:
         rate:
-          acc:
-            text: "χ² nuisance term for parameters for background rate\\naccidentals"
           alphan:
             text: "χ² nuisance term for parameters for background rate\\n¹³C(α,n)¹⁶O"
-          amc:
-            text: "χ² nuisance term for parameters for background rate\\n²⁴¹Am¹³C"
-          fastn:
-            text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
-          lihe:
-            text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
         rate_scale:
           acc:
             text: "χ² nuisance term for parameters for background rate\\naccidentals"

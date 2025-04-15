@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
+from contextlib import suppress
 from itertools import product
 from os.path import relpath
 from pathlib import Path
@@ -26,12 +27,15 @@ FutureType = Literal[
     "all",  # enable all the options
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
-    "data-a",  # use dataset A
-    "bkg-order",  # use optimized background order (included in data-a)
+    "dataset-a",  # use dataset A
+    "dataset-b",  # use dataset B
+    "asimov",
+    "bkg-order",  # use optimized background order (included in dataset-a/dataset-b)
 ]
 _future_redundant = ["all", "reactor-35days"]
 _future_included = {
-    "data-a": ("bkg-order",),
+    "dataset-a": ("bkg-order",),
+    "dataset-b": ("bkg-order",),
 }
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -62,6 +66,8 @@ class model_dayabay_v0d:
         - introduce dataset A:
             - livetimes, efficiencies, accidentals rates
             - muon decay background
+        - introduce dataset B:
+            - livetimes, efficiencies, accidentals rates
         - proper correlations between background rate parameters
 
     Attributes
@@ -211,11 +217,12 @@ class model_dayabay_v0d:
         if "all" in self._future:
             self._future = future_variants
             for ft in _future_redundant:
-                self._future.remove(ft)  # pyright: ignore [reportArgumentType]
-            for ft in self._future:
-                if not (extra := _future_included.get(ft)):
-                    continue
-                self._future.update(extra)  # pyright: ignore [reportArgumentType]
+                with suppress(KeyError):
+                    self._future.remove(ft)  # pyright: ignore [reportArgumentType]
+        for ft in self._future.copy():
+            if not (extra := _future_included.get(ft)):
+                continue
+            self._future.update(extra)  # pyright: ignore [reportArgumentType]
         if self._future:
             logger.info(f"Future options: {', '.join(self._future)}")
         self._frozen_nodes = {}
@@ -287,6 +294,14 @@ class model_dayabay_v0d:
 
         path_parameters = path_data / "parameters"
         path_arrays = path_data / self.source_type
+
+        # Provide variable for chosen dataset
+        dataset = "asimov"
+        if "dataset-a" in self._future or "dataset-b" in self._future:
+            dataset = next(iter({"asimov", "dataset-a", "dataset-b"}.intersection(set(self._future)))).replace("-", "_")
+        if dataset.endswith("a") or dataset.endswith("b"):
+            dataset_path = "dayabay_" + dataset
+            dataset_label = dataset[-1].upper()
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
@@ -369,11 +384,13 @@ class model_dayabay_v0d:
                 f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
             ),
         }
-        if "data-a" in self._future:
+
+        if dataset == "dataset_a":
             logger.warning("Future: initialize muonx background")
             index["bkg"] = index["bkg"] + ("muonx",)
             index["bkg_stable"] = index["bkg_stable"] + ("muonx",)
             index["bkg_site_correlated"] = index["bkg_site_correlated"] + ("muonx",)
+
         # Define isotope names in lower case
         index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
@@ -699,8 +716,8 @@ class model_dayabay_v0d:
             # Finally the constrained background rates are loaded. They include the
             # rates and uncertainties for 5 sources of background events for 6-8
             # detectors during 3 periods of data taking.
-            if "data-a" in self._future:
-                logger.warning("Future: load data A background rates")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: load data {dataset_label} background rates")
                 load_parameters(
                     path="bkg.rate_scale",
                     load=path_parameters / "bkg_rate_scale_acc.yaml",
@@ -708,11 +725,11 @@ class model_dayabay_v0d:
                 )
                 load_parameters(
                     path="bkg.rate",
-                    load=path_parameters / "bkg_rates_uncorrelated_dataset_a.yaml",
+                    load=path_parameters / f"bkg_rates_uncorrelated_{dataset}.yaml",
                 )
                 load_parameters(
                     path="bkg.rate",
-                    load=path_parameters / "bkg_rates_correlated_dataset_a.yaml",
+                    load=path_parameters / f"bkg_rates_correlated_{dataset}.yaml",
                     sigma_visible=True,
                 )
                 load_parameters(
@@ -721,7 +738,7 @@ class model_dayabay_v0d:
                 )
                 load_parameters(
                     path="bkg.uncertainty_scale_by_site",
-                    load=path_parameters / "bkg_rate_uncertainty_scale_site_dataset_a.yaml",
+                    load=path_parameters / f"bkg_rate_uncertainty_scale_site_{dataset}.yaml",
                     replicate=combinations["site.period"],
                     ignore_keys=inactive_backgrounds,
                 )
@@ -787,10 +804,10 @@ class model_dayabay_v0d:
             #   intermediate storage, populated with `load_graph_data` and
             #   `load_record_data` methods.
             # - `parameters` - already populated storage with parameters.
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
-            data = storage.child("data")
+            nodes = storage.create_child("nodes")
+            inputs = storage.create_child("inputs")
+            outputs = storage.create_child("outputs")
+            data = storage.create_child("data")
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
@@ -1485,18 +1502,18 @@ class model_dayabay_v0d:
             #
             # Livetime
             #
-            if "data-a" in self._future:
-                logger.warning("Future: load daily data A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: load daily data {dataset_label}")
                 load_record_data(
                     name = "daily_data.detector_all",
-                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_daily_detector_data.{self.source_type}",
+                    filenames = path_arrays/f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
                     replicate_outputs = index["detector"],
                     columns = ("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
                     skip = inactive_detectors
                 )
                 refine_detector_data(
                     data("daily_data.detector_all"),
-                    data.child("daily_data.detector"),
+                    data.create_child("daily_data.detector"),
                     detectors = index["detector"],
                     skip = inactive_detectors,
                     columns = ("livetime", "eff", "efflivetime", "rate_acc"),
@@ -1512,7 +1529,7 @@ class model_dayabay_v0d:
                 )
                 refine_detector_data(
                     data("daily_data.detector_all"),
-                    data.child("daily_data.detector"),
+                    data.create_child("daily_data.detector"),
                     detectors = index["detector"],
                     columns = ("livetime", "eff", "efflivetime"),
                     skip = inactive_detectors
@@ -1544,7 +1561,7 @@ class model_dayabay_v0d:
                 )
             refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data.child("daily_data.reactor"),
+                data.create_child("daily_data.reactor"),
                 reactors = index["reactor"],
                 isotopes = index["isotope"],
             )
@@ -1553,48 +1570,70 @@ class model_dayabay_v0d:
                     data("daily_data.reactor"),
                     data("daily_data.detector"),
                     )
+            data["daily_data.reactor.power"] = remap_items(
+                    data.get_dict("daily_data.reactor.power"),
+                    reorder_indices=[
+                        ["period", "reactor"],
+                        ["reactor", "period"]
+                        ]
+                    )
+            data["daily_data.reactor.fission_fraction"] = remap_items(
+                    data.get_dict("daily_data.reactor.fission_fraction"),
+                    reorder_indices=[
+                        ["period", "reactor", "isotope"],
+                        ["reactor", "isotope", "period"]
+                        ]
+                    )
+
+            Array.from_storage(
+                "daily_data.detector.days",
+                storage("data"),
+                remove_processed_arrays = True,
+                dtype = "i"
+            )
+            outputs["daily_data.days"] = outputs.pop("daily_data.detector.days", delete_parents=True)
 
             Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
-            if "data-a" in self._future:
-                logger.warning("Future: create daily accidentals A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: create daily accidentals {dataset_label}")
                 Array.from_storage(
                     "daily_data.detector.rate_acc",
                     storage("data"),
-                    remove_used_arrays = True,
+                    remove_processed_arrays = True,
                     dtype = "d"
                 )
 
             Array.from_storage(
                 "daily_data.reactor.power",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
             del storage["data.daily_data"]
@@ -1791,8 +1830,8 @@ class model_dayabay_v0d:
                     )
 
             # Number of accidentals
-            if "data-a" in self._future:
-                logger.warning("Future: calculate number of accidentals A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: calculate number of accidentals {dataset_label}")
                 Product.replicate( # TODO: doc, label
                         outputs("daily_data.detector.efflivetime"),
                         outputs("daily_data.detector.rate_acc"),
@@ -1942,7 +1981,7 @@ class model_dayabay_v0d:
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
             outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
 
-            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
@@ -1958,7 +1997,7 @@ class model_dayabay_v0d:
             # Refine LSNL curves: interpolate with smaller step
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
-                edepname = 'edep',
+                xname = 'edep',
                 nominalname = 'evis_parts.nominal',
                 refine_times = 4,
                 newmin = 0.5,
@@ -1969,7 +2008,7 @@ class model_dayabay_v0d:
                 "detector.lsnl.curves",
                 storage("data"),
                 meshname = "edep",
-                remove_used_arrays = True
+                remove_processed_arrays = True
             )
 
             Product.replicate(
@@ -2003,7 +2042,7 @@ class model_dayabay_v0d:
 
             remap_items(
                 parameters("all.detector.detector_relative"),
-                outputs.child("detector.parameters_relative"),
+                outputs.create_child("detector.parameters_relative"),
                 reorder_indices=[
                     ["detector", "parameters"],
                     ["parameters", "detector"],
@@ -2054,19 +2093,21 @@ class model_dayabay_v0d:
 
             # Build LSNL matrix
             AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
             outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModifiedBackwards")
-            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             EnergyResolution.replicate(path="detector.eres")
             nodes.get_value("detector.eres.sigma_rel") << parameters("constrained.detector.eres")
-            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
+            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix.e_edges")
+            outputs.get_value("edges.energy_erec") >> inputs.get_value("detector.eres.matrix.e_edges_out")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.e_edges")
 
-            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"], mode="column")
             outputs.get_value("detector.eres.matrix") >> inputs("eventscount.erec.matrix")
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
@@ -2101,8 +2142,8 @@ class model_dayabay_v0d:
             #
             # Backgrounds
             #
-            if "data-a" in self._future:
-                logger.warning("Future: use bakckgrounds from dataset A")
+            if dataset in ("dataset_a", "dataset_b"):
+                logger.warning(f"Future: use bakckgrounds from dataset {dataset_label}")
                 bkg_names = {
                     "acc": "accidental",
                     "lihe": "lithium9",
@@ -2117,7 +2158,7 @@ class model_dayabay_v0d:
                     y = "spectrum_shape",
                     merge_x = True,
                     normalize = True,
-                    filenames = path_arrays/f"dayabay_dataset_a/dayabay_a_bkg_spectra_{{}}.{self.source_type}",
+                    filenames = path_arrays/f"{dataset_path}/{dataset_path}_bkg_spectra_{{}}.{self.source_type}",
                     replicate_files = index["period"],
                     replicate_outputs = combinations["bkg.detector"],
                     skip = inactive_combinations,
@@ -2154,7 +2195,7 @@ class model_dayabay_v0d:
                     name_function = lambda _, idx: f"DYB_{bkg_names[idx[0]]}_expected_spectrum_EH{idx[-2][-2]}_AD{idx[-2][-1]}"
                 )
 
-            if "data-a" in self._future:
+            if dataset in ("dataset_a", "dataset_b"):
                 pass
             else:
                 # TODO:
@@ -2186,7 +2227,7 @@ class model_dayabay_v0d:
 
                 remap_items(
                         parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                        outputs.child("bkg.uncertainty_scale"),
+                        outputs.create_child("bkg.uncertainty_scale"),
                         rename_indices = site_arrangement,
                         skip_indices_target = inactive_detectors,
                         )
@@ -2232,7 +2273,7 @@ class model_dayabay_v0d:
 
                 remap_items(
                         outputs("bkg.count"),
-                        outputs.child("summary.periods.bkg_count"),
+                        outputs.create_child("summary.periods.bkg_count"),
                         reorder_indices=[
                             ["bkg", "detector", "period"],
                             ["bkg", "period", "detector"],
@@ -2267,19 +2308,20 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["bkg.period.detector"]
                         )
 
-                Sum.replicate(
-                        outputs("summary.total.bkg_rate.fastn"),
-                        outputs("summary.total.bkg_rate.muonx"),
-                        name = "summary.total.bkg_rate_fastn_muonx",
-                        replicate_outputs=index["detector"]
-                        )
+                if dataset == "dataset_a":
+                    Sum.replicate(
+                            outputs("summary.total.bkg_rate.fastn"),
+                            outputs("summary.total.bkg_rate.muonx"),
+                            name = "summary.total.bkg_rate_fastn_muonx",
+                            replicate_outputs=index["detector"]
+                            )
 
-                Sum.replicate(
-                        outputs("summary.periods.bkg_rate.fastn"),
-                        outputs("summary.periods.bkg_rate.muonx"),
-                        name = "summary.periods.bkg_rate_fastn_muonx",
-                        replicate_outputs=combinations["period.detector"]
-                        )
+                    Sum.replicate(
+                            outputs("summary.periods.bkg_rate.fastn"),
+                            outputs("summary.periods.bkg_rate.muonx"),
+                            name = "summary.periods.bkg_rate_fastn_muonx",
+                            replicate_outputs=combinations["period.detector"]
+                            )
 
                 Sum.replicate(
                         outputs("summary.total.bkg_rate"),
@@ -2293,7 +2335,7 @@ class model_dayabay_v0d:
                         replicate_outputs=combinations["period.detector"]
                         )
             else:
-                assert "data-a" not in self._future
+                assert dataset == "asimov"
                 Product.replicate(
                         parameters("all.bkg.rate.acc"),
                         outputs("bkg.spectrum_shape.acc"),
@@ -2415,6 +2457,45 @@ class model_dayabay_v0d:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
+            if dataset != "asimov":
+                load_hist(
+                    name="data.real",
+                    x="erec",
+                    y="fine",
+                    merge_x=True,
+                    filenames=path_arrays/f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
+                    replicate_files=index["period"],
+                    replicate_outputs=combinations["detector"],
+                    skip=inactive_combinations,
+                    name_function=lambda _, idx: f"anue_{idx[1]}"
+                )
+
+                Rebin.replicate(
+                    names={"matrix": "detector.rebin_matrix.real", "product": "data.real.final.detector_period"},
+                    replicate_outputs=combinations["detector.period"],
+                )
+                edges_energy_erec >> inputs.get_value("detector.rebin_matrix.real.edges_old")
+                edges_energy_final >> inputs.get_value("detector.rebin_matrix.real.edges_new")
+                outputs["data.real.fine"] >> inputs["data.real.final.detector_period"]
+
+                Concatenation.replicate(
+                    outputs("data.real.final.detector_period"),
+                    name="data.real.concatenated.detector_period",
+                )
+
+                Sum.replicate(
+                    outputs("data.real.final.detector_period"),
+                    name="data.real.final.detector",
+                    replicate_outputs=index["detector"],
+                )
+
+                Concatenation.replicate(
+                    outputs["data.real.final.detector"],
+                    name="data.real.concatenated.detector"
+                )
+
+                outputs["data.real.concatenated.selected"] = outputs[f"data.real.concatenated.{self.concatenation_mode}"]
+
             MonteCarlo.replicate(
                 name="data.pseudo.self",
                 mode=self.monte_carlo_mode,
@@ -2424,9 +2505,11 @@ class model_dayabay_v0d:
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
             Proxy.replicate(
-                name="data.pseudo.proxy",
+                name="data.proxy",
             )
-            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.pseudo.proxy.input")
+            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
+            if dataset in ("dataset_a", "dataset_b"):
+                outputs.get_value("data.real.concatenated.selected") >> nodes["data.proxy"]
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
@@ -2452,7 +2535,7 @@ class model_dayabay_v0d:
             outputs.get_value("covariance.data.fixed") >> inputs.get_value("cholesky.stat.fixed")
 
             Cholesky.replicate(name="cholesky.stat.data.fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
+            outputs.get_value("data.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
@@ -2469,56 +2552,55 @@ class model_dayabay_v0d:
             outputs.get_value("covariance.covmat_full_p.stat_variable") >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
-            outputs.get_value("data.pseudo.proxy") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("data.proxy") >> nodes.get_value("covariance.covmat_full_n")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
 
             Cholesky.replicate(name="cholesky.covmat_full_n")
             outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
-
             # (1) chi-squared Pearson stat (fixed Pearson errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
             outputs.get_value("cholesky.stat.fixed") >> inputs.get_value("statistic.stat.chi2p_iterative.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
 
             # (2-2) chi-squared Neyman stat
             Chi2.replicate(name="statistic.stat.chi2n")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2n.theory")
             outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value("statistic.stat.chi2n.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
 
             # (2-1)
             Chi2.replicate(name="statistic.stat.chi2p")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
             outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
 
             # (5) chi-squared Pearson syst (fixed Pearson errors)
             Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.errors")
 
             # (2-3) chi-squared Neyman syst
             Chi2.replicate(name="statistic.full.chi2n_covmat")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
             outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
 
             # (2-4) Pearson variable stat errors
             Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
             CNPStat.replicate(name="statistic.staterr.cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
 
             # (3) chi-squared CNP stat
             Chi2.replicate(name="statistic.stat.chi2cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2cnp.theory")
             outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
 
@@ -2682,6 +2764,7 @@ class model_dayabay_v0d:
             "statistic.nuisance.parts.bkg.rate.lihe",
             "statistic.nuisance.parts.bkg.rate.fastn",
             "statistic.nuisance.parts.bkg.rate.muonx",
+            "data.real",
             # past
             "daily_data.detector.rate_acc",
             "daily_data.detector.rate_acc_s_day",
@@ -2746,6 +2829,11 @@ class model_dayabay_v0d:
                 df.loc[i, k] = value
                 df.loc[i, "name"] = key
         df[df.isna()] = 0.0
+
+        df.set_index("name", inplace=True)
+        df.loc["daq_time_day"]/=60.*60.*24.
+        df.reset_index(inplace=True)
+
         df = df.astype({"name": "S"})
 
         return df

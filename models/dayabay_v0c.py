@@ -695,10 +695,10 @@ class model_dayabay_v0c:
             #   intermediate storage, populated with `load_graph_data` and
             #   `load_record_data` methods.
             # - `parameters` - already populated storage with parameters.
-            nodes = storage.child("nodes")
-            inputs = storage.child("inputs")
-            outputs = storage.child("outputs")
-            data = storage.child("data")
+            nodes = storage.create_child("nodes")
+            inputs = storage.create_child("inputs")
+            outputs = storage.create_child("outputs")
+            data = storage.create_child("data")
             parameters = storage("parameters")
             parameters_nuisance_normalized = storage("parameters.normalized")
 
@@ -1239,7 +1239,7 @@ class model_dayabay_v0c:
             )
             refine_detector_data(
                 data("daily_data.detector_all"),
-                data.child("daily_data.detector"),
+                data.create_child("daily_data.detector"),
                 detectors = index["detector"]
             )
 
@@ -1248,11 +1248,11 @@ class model_dayabay_v0c:
                 filenames = path_arrays/f"weekly_power_fulldata_release_v2.{self.source_type}",
                 replicate_outputs = ("core_data",),
                 columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
-                key_order = (("week", "core_data"), ("week",))
+                output_key_order = (("week", "core_data"), ("week",))
             )
             split_refine_reactor_data(
                 data("daily_data.reactor_all"),
-                data.child("daily_data.reactor"),
+                data.create_child("daily_data.reactor"),
                 reactors = index["reactor"],
                 isotopes = index["isotope"],
             )
@@ -1265,35 +1265,35 @@ class model_dayabay_v0c:
             Array.from_storage(
                 "daily_data.detector.livetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.eff",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.detector.efflivetime",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.power",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
                 storage("data"),
-                remove_used_arrays = True,
+                remove_processed_arrays = True,
                 dtype = "d"
             )
             del storage["data.daily_data"]
@@ -1580,7 +1580,7 @@ class model_dayabay_v0c:
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
             outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
 
-            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
 
@@ -1596,7 +1596,7 @@ class model_dayabay_v0c:
             # Refine LSNL curves: interpolate with smaller step
             refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
-                edepname = 'edep',
+                xname = 'edep',
                 nominalname = 'evis_parts.nominal',
                 refine_times = 4,
                 newmin = 0.5,
@@ -1607,7 +1607,7 @@ class model_dayabay_v0c:
                 "detector.lsnl.curves",
                 storage("data"),
                 meshname = "edep",
-                remove_used_arrays = True
+                remove_processed_arrays = True
             )
 
             Product.replicate(
@@ -1641,7 +1641,7 @@ class model_dayabay_v0c:
 
             remap_items(
                 parameters("all.detector.detector_relative"),
-                outputs.child("detector.parameters_relative"),
+                outputs.create_child("detector.parameters_relative"),
                 reorder_indices=[
                     ["detector", "parameters"],
                     ["parameters", "detector"],
@@ -1692,19 +1692,21 @@ class model_dayabay_v0c:
 
             # Build LSNL matrix
             AxisDistortionMatrix.replicate(name="detector.lsnl.matrix", replicate_outputs=index["detector"])
-            edges_energy_edep.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_escint.outputs[0] >> inputs("detector.lsnl.matrix.EdgesOriginal")
+            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
             outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModified")
             outputs.get_dict("detector.lsnl.interpolated_bwd") >> inputs.get_dict("detector.lsnl.matrix.EdgesModifiedBackwards")
-            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.evis", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
             EnergyResolution.replicate(path="detector.eres")
             nodes.get_value("detector.eres.sigma_rel") << parameters("constrained.detector.eres")
-            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix")
+            outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix.e_edges")
+            outputs.get_value("edges.energy_erec") >> inputs.get_value("detector.eres.matrix.e_edges_out")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.e_edges")
 
-            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"])
+            VectorMatrixProduct.replicate(name="eventscount.erec", replicate_outputs=combinations["detector.period"], mode="column")
             outputs.get_value("detector.eres.matrix") >> inputs("eventscount.erec.matrix")
             outputs("eventscount.evis") >> inputs("eventscount.erec.vector")
 
@@ -1899,9 +1901,9 @@ class model_dayabay_v0c:
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
             Proxy.replicate(
-                name="data.pseudo.proxy",
+                name="data.proxy",
             )
-            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.pseudo.proxy.input")
+            outputs.get_value("data.pseudo.self") >> inputs.get_value("data.proxy.input")
 
             MonteCarlo.replicate(
                 name="covariance.data.fixed",
@@ -1927,7 +1929,7 @@ class model_dayabay_v0c:
             outputs.get_value("covariance.data.fixed") >> inputs.get_value("cholesky.stat.fixed")
 
             Cholesky.replicate(name="cholesky.stat.data.fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
+            outputs.get_value("data.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
@@ -1944,7 +1946,7 @@ class model_dayabay_v0c:
             outputs.get_value("covariance.covmat_full_p.stat_variable") >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
-            outputs.get_value("data.pseudo.proxy") >> nodes.get_value("covariance.covmat_full_n")
+            outputs.get_value("data.proxy") >> nodes.get_value("covariance.covmat_full_n")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_n")
 
             Cholesky.replicate(name="cholesky.covmat_full_n")
@@ -1955,45 +1957,45 @@ class model_dayabay_v0c:
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p_iterative.theory")
             outputs.get_value("cholesky.stat.fixed") >> inputs.get_value("statistic.stat.chi2p_iterative.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p_iterative.data")
 
             # (2-2) chi-squared Neyman stat
             Chi2.replicate(name="statistic.stat.chi2n")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2n.theory")
             outputs.get_value("cholesky.stat.data.fixed") >> inputs.get_value("statistic.stat.chi2n.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2n.data")
 
             # (2-1)
             Chi2.replicate(name="statistic.stat.chi2p")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2p.theory")
             outputs.get_value("cholesky.stat.variable") >> inputs.get_value("statistic.stat.chi2p.errors")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2p.data")
 
             # (5) chi-squared Pearson syst (fixed Pearson errors)
             Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value("statistic.full.chi2p_covmat_fixed.errors")
 
             # (2-3) chi-squared Neyman syst
             Chi2.replicate(name="statistic.full.chi2n_covmat")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2n_covmat.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2n_covmat.theory")
             outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value("statistic.full.chi2n_covmat.errors")
 
             # (2-4) Pearson variable stat errors
             Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.full.chi2p_covmat_variable.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
             CNPStat.replicate(name="statistic.staterr.cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
 
             # (3) chi-squared CNP stat
             Chi2.replicate(name="statistic.stat.chi2cnp")
-            outputs.get_value("data.pseudo.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
+            outputs.get_value("data.proxy") >> inputs.get_value("statistic.stat.chi2cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.stat.chi2cnp.theory")
             outputs.get_value("statistic.staterr.cnp") >> inputs.get_value("statistic.stat.chi2cnp.errors")
 

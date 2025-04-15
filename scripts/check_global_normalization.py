@@ -1,16 +1,12 @@
 #!/usr/bin/env python
-import numpy as np
 from argparse import Namespace
+
+import numpy as np
 from matplotlib import pyplot as plt
 
-from dagflow.logger import INFO1
-from dagflow.logger import INFO2
-from dagflow.logger import INFO3
 from dagflow.logger import DEBUG as INFO4
-from dagflow.logger import set_level
-
+from dagflow.logger import INFO1, INFO2, INFO3, set_level
 from models.dayabay_v0 import model_dayabay_v0
-
 
 set_level(INFO1)
 

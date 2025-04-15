@@ -5,9 +5,9 @@ from dagflow.plot.graphviz import GraphDot
 from models import available_models, load_model
 
 
-@mark.parametrize("modelname", available_models())
-def test_dayabay_v0(modelname: str):
-    model = load_model(modelname, close=True, strict=True)
+@mark.parametrize("model_version", available_models())
+def test_dayabay_v0(model_version: str):
+    model = load_model(model_version, close=True, strict=True)
 
     graph = model.graph
     storage = model.storage
@@ -32,24 +32,23 @@ def test_dayabay_v0(modelname: str):
     plot_graph(graph, storage)
 
 
-@mark.parametrize("modelname", available_models())
-def test_dayabay_v0_proxy_switch(modelname: str):
-    # TODO: remove when the model is done
-    if modelname=="v0d":
+@mark.parametrize("model_version", available_models())
+def test_dayabay_v0_proxy_switch(model_version: str):
+    if model_version == "latest":
         return
-    model = load_model(modelname, close=True, strict=True, monte_carlo_mode="poisson")
+    model = load_model(model_version, close=True, strict=True, monte_carlo_mode="poisson")
 
     storage = model.storage
 
-    proxy_node = storage["nodes.data.pseudo.proxy"]
+    proxy_node = storage["nodes.data.proxy"]
     obs = storage.get_value("outputs.eventscount.final.concatenated.selected")
     chi2 = storage["outputs.statistic.stat.chi2p"]
     assert chi2.data != 0.0
 
     proxy_node.open()
     obs >> proxy_node
-    proxy_node.close(close_children=True)
-    proxy_node.switch_input(1)
+    proxy_node.close()
+    proxy_node.switch_input(-1)
     assert chi2.data == 0.0
 
 

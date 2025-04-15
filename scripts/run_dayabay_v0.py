@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -73,12 +74,12 @@ def main(opts: Namespace) -> None:
         method()
 
     if opts.plot_all:
-        storage("outputs").plot(folder=opts.plot_all)
+        storage("outputs").plot(folder=opts.plot_all, minimal_data_size=10)
 
     if opts.plot:
         folder, sources = opts.plot[0], opts.plot[1:]
         for source in sources:
-            storage(source).plot(folder=f"{folder}/{source.replace('.', '/')}")
+            storage["outputs"](source).plot(folder=f"{folder}/{source.replace('.', '/')}", minimal_data_size=10)
 
     if opts.pars_datax:
         storage["parameters.all"].to_datax_file(
@@ -161,7 +162,7 @@ def save_summary(model: Any, filenames: Sequence[str]):
     except AttributeError:
         return
 
-    save_records(data, filenames, tsv_allow_no_key=True)
+    save_records(data, filenames, tsv_allow_no_key=True, to_records_kwargs={'index': False})
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
