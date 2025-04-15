@@ -330,7 +330,7 @@ class model_dayabay_v0e:
         from dagflow.lib.normalization import RenormalizeDiag
         from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
-        from dagflow.lib.summation import ArraySum, SumMatOrDiag
+        from dagflow.lib.summation import ArraySum, SumMatOrDiag, WeightedSumArgs
         from dagflow.tools.schema import LoadPy
         from dgf_detector import (
             AxisDistortionMatrix,
@@ -855,24 +855,6 @@ class model_dayabay_v0e:
                 },
             )
 
-            # 1/3 and 2/3 needed to construct Combined Neyman-Pearson χ²
-            load_parameters(
-                format="value",
-                state="fixed",
-                parameters={
-                    "stats": {
-                        "pearson": 2 / 3,
-                        "neyman": 1 / 3,
-                    }
-                },
-                labels={
-                    "stats": {
-                        "pearson": "Coefficient for Pearson's part of CNP χ²",
-                        "neyman": "Coefficient for Neyman's part of CNP χ²",
-                    }
-                },
-            )
-
             # Provide a few variable for handy read/write access of the model objects,
             # including:
             # - `nodes` - nested dictionary with nodes. Node is an instantiated function
@@ -1382,12 +1364,16 @@ class model_dayabay_v0e:
                 underflow="constant",
                 overflow="constant",
             )
-            outputs.get_value("reactor_anue.snf_anue.correction_input.enu") >> inputs.get_value(
+            outputs.get_value(
+                "reactor_anue.snf_anue.correction_input.enu"
+            ) >> inputs.get_value(
                 "reactor_anue.snf_anue.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
                 "reactor_anue.snf_anue.correction_input.snf_correction"
-            ) >> inputs.get_dict("reactor_anue.snf_anue.correction_interpolated.ycoarse")
+            ) >> inputs.get_dict(
+                "reactor_anue.snf_anue.correction_interpolated.ycoarse"
+            )
             kinematic_integrator_enu >> inputs.get_value(
                 "reactor_anue.snf_anue.correction_interpolated.xfine"
             )
@@ -1746,7 +1732,9 @@ class model_dayabay_v0e:
             # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
             Product.replicate(
                 outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs.get_dict("reactor_anue.nonequilibrium_anue.correction_interpolated"),
+                outputs.get_dict(
+                    "reactor_anue.nonequilibrium_anue.correction_interpolated"
+                ),
                 name="reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=("U238",),
@@ -3332,21 +3320,12 @@ class model_dayabay_v0e:
                 name="statistic.full.chi2p_unbiased",
             )
 
-            Product.replicate(
-                parameters.get_value("all.stats.pearson"),
-                outputs.get_value("statistic.full.chi2p_covmat_variable"),
-                name="statistic.helper.pearson",
-            )
-            Product.replicate(
-                parameters.get_value("all.stats.neyman"),
-                outputs.get_value("statistic.full.chi2n_covmat"),
-                name="statistic.helper.neyman",
-            )
             # (2-4) CNP covmat
-            Sum.replicate(
-                outputs.get_value("statistic.helper.pearson"),
-                outputs.get_value("statistic.helper.neyman"),
+            WeightedSumArgs.replicate(
+                outputs.get_value("statistic.full.chi2p_covmat_variable"),
+                outputs.get_value("statistic.full.chi2n_covmat"),
                 name="statistic.full.chi2cnp_covmat",
+                weight=(2/3, 1/3),
             )
 
             # CNP stat variance

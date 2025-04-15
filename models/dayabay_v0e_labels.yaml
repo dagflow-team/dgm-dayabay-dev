@@ -1164,7 +1164,7 @@ statistic:
       axis: '$\sigma^2_{\rm CNP}$'
       unit: "#²"
   log_prod_diag:
-    text: "2log\\|V\\| unbiasing term for χ²"
+    text: "log\\|V\\| unbiasing term for χ²"
   stat:
     chi2cnp:
       text: "Combined Neyman-Pearson's χ² with statistical uncertainties"
