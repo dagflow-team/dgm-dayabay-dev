@@ -506,7 +506,7 @@ oscprob:
 reactor_anue:
   neutrino_per_fission_per_MeV_nominal:
     group:
-      text: "Nominal ν̅ spectrum for {key}\\ninterpolated"
+      text: "Nominal ν̅ spectrum for {key}, interpolated"
       axis: "$S(E_{\\nu})$"
       unit: "#ν/fission/MeV"
       latexunit: '#$\overline{{\nu}}$/fission/MeV'
