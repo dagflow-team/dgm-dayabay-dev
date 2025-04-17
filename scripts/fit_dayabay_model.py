@@ -173,11 +173,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Start IPython session",
     )
-    parser.add_argument(
-        "--interactive",
-        action="store_true",
-        help="Start IPython session",
-    )
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
@@ -219,6 +214,7 @@ if __name__ == "__main__":
             "stat.chi2p",
             "stat.chi2cnp",
             "stat.chi2p_unbiased",
+            "stat.chi2poisson",
             "full.chi2p_covmat_fixed",
             "full.chi2n_covmat",
             "full.chi2p_covmat_variable",
@@ -226,6 +222,8 @@ if __name__ == "__main__":
             "full.chi2cnp",
             "full.chi2p_unbiased",
             "full.chi2cnp_covmat",
+            "full.chi2cnp_covmat_alt",
+            "full.chi2poisson",
         ],
         help="Choose chi-squared function for minimizer",
     )
