@@ -235,6 +235,7 @@ def save_summary(model: Any, filenames: Sequence[str]):
 
 plt.rcParams.update(
     {
+        "axes.formatter.use_mathtext": True,
         "axes.grid": False,
         "xtick.minor.visible": True,
         "xtick.top": True,
