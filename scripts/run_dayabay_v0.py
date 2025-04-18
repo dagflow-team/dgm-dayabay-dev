@@ -7,6 +7,8 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from matplotlib import pyplot as plt
+
 from dagflow.core import Graph, NodeStorage
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
@@ -53,9 +55,6 @@ def main(opts: Namespace) -> None:
         print(storage("outputs").to_table(truncate="auto"))
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate="auto"))
-
-        if opts.graph_auto:
-            plot_graph(graph, storage, opts)
         return
 
     if opts.print_all:
@@ -73,13 +72,32 @@ def main(opts: Namespace) -> None:
 
         method()
 
-    if opts.plot_all:
-        storage("outputs").plot(folder=opts.plot_all, minimal_data_size=10)
+    plot_overlay_priority = [
+        model.index["isotope"],
+        model.index["reactor"],
+        model.index["bkg"],
+        model.index["detector"],
+        model.index["lsnl"],
+    ]
+    if opts.plots_all:
+        storage("outputs").plot(
+            folder=opts.plots_all,
+            minimal_data_size=10,
+            overlay_priority=plot_overlay_priority,
+            latex_substitutions=latex_substitutions,
+            exact_substitutions=exact_substitutions,
+        )
 
-    if opts.plot:
-        folder, sources = opts.plot[0], opts.plot[1:]
+    if opts.plots:
+        folder, sources = opts.plots[0], opts.plots[1:]
         for source in sources:
-            storage["outputs"](source).plot(folder=f"{folder}/{source.replace('.', '/')}", minimal_data_size=10)
+            storage["outputs"](source).plot(
+                folder=f"{folder}/{source.replace('.', '/')}",
+                minimal_data_size=10,
+                overlay_priority=plot_overlay_priority,
+                latex_substitutions=latex_substitutions,
+                exact_substitutions=exact_substitutions,
+            )
 
     if opts.pars_datax:
         storage["parameters.all"].to_datax_file(
@@ -99,60 +117,59 @@ def main(opts: Namespace) -> None:
     if opts.summary:
         save_summary(model, opts.summary)
 
-    if opts.graph_auto:
-        plot_graph(graph, storage, opts)
-
-    if opts.graphs:
-        mindepth = opts.mindepth or -2
-        maxdepth = opts.maxdepth or +1
-        accept_index = {
-            "reactor": [0],
-            "detector": [0, 1],
-            "isotope": [0],
-            "period": [1, 2],
-        }
+    graph_mindepth = opts.mindepth or -2
+    graph_maxdepth = opts.maxdepth or +1
+    graph_accept_index = {
+        "reactor": [0],
+        "detector": [0, 1],
+        "isotope": [0],
+        "period": [1, 2],
+    }
+    if opts.graphs_all:
+        path = Path(opts.graphs_all)
         storage["parameter_group.all"].savegraphs(
-            opts.graphs / "parameters",
-            mindepth=mindepth,
-            maxdepth=maxdepth,
+            path / "parameters",
+            mindepth=graph_mindepth,
+            maxdepth=graph_maxdepth,
             keep_direction=True,
             show="all",
-            accept_index=accept_index,
-            filter=accept_index,
+            accept_index=graph_accept_index,
+            filter=graph_accept_index,
         )
         with suppress(KeyError):
             storage["parameters.sigma"].savegraphs(
-                opts.graphs / "parameters" / "sigma",
-                mindepth=mindepth,
-                maxdepth=maxdepth,
+                path / "parameters" / "sigma",
+                mindepth=graph_mindepth,
+                maxdepth=graph_maxdepth,
                 keep_direction=True,
                 show="all",
-                accept_index=accept_index,
-                filter=accept_index,
+                accept_index=graph_accept_index,
+                filter=graph_accept_index,
             )
         storage["nodes"].savegraphs(
-            opts.graphs,
-            mindepth=mindepth,
-            maxdepth=maxdepth,
+            path,
+            mindepth=graph_mindepth,
+            maxdepth=graph_maxdepth,
             keep_direction=True,
             show="all",
-            accept_index=accept_index,
-            filter=accept_index,
+            accept_index=graph_accept_index,
+            filter=graph_accept_index,
         )
 
-    if opts.graph_from_node:
-        from dagflow.plot.graphviz import GraphDot
-
-        nodepath, filepath = opts.graph_from_node
-        node = storage("nodes")[nodepath]
-        GraphDot.from_node(
-            node,
-            show="all",
-            mindepth=opts.mindepth,
-            maxdepth=opts.maxdepth,
-            keep_direction=True,
-        ).savegraph(filepath)
-
+    if opts.graphs:
+        folder = Path(opts.graphs[0])
+        nodepaths = opts.graphs[1:]
+        for nodepath in nodepaths:
+            nodes = storage("nodes")[nodepath]
+            nodes.savegraphs(
+                f"{folder}/{nodepath.replace('.', '/')}",
+                mindepth=graph_mindepth,
+                maxdepth=graph_maxdepth,
+                keep_direction=True,
+                show="all",
+                accept_index=graph_accept_index,
+                filter=graph_accept_index,
+            )
 
 def save_summary(model: Any, filenames: Sequence[str]):
     data = {}
@@ -162,57 +179,126 @@ def save_summary(model: Any, filenames: Sequence[str]):
     except AttributeError:
         return
 
-    save_records(data, filenames, tsv_allow_no_key=True, to_records_kwargs={'index': False})
-
-
-def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
-    from dagflow.plot.graphviz import GraphDot
-
-    GraphDot.from_graph(graph, show="all").savegraph(
-        f"output/dayabay_{opts.version}.dot"
+    save_records(
+        data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False}
     )
-    GraphDot.from_graph(
-        graph,
-        show=["type", "mark", "label", "path"],
-        filter={
-            "reactor": [0],
-            "detector": [0, 1],
-            "isotope": [0],
-            "period": [0],
-            "background": [0],
-        },
-    ).savegraph(f"output/dayabay_{opts.version}_reduced.dot")
-    GraphDot.from_graph(
-        graph,
-        show="all",
-        filter={
-            "reactor": [0],
-            "detector": [0, 1],
-            "isotope": [0],
-            "period": [0],
-            "background": [0],
-        },
-    ).savegraph(f"output/dayabay_{opts.version}_reduced_full.dot")
-    GraphDot.from_node(
-        storage["nodes.statistic.nuisance.all"],
-        show="all",
-        mindepth=-1,
-        maxdepth=0,
-    ).savegraph(f"output/dayabay_{opts.version}_nuisance.dot")
-    GraphDot.from_output(
-        storage["outputs.statistic.stat.chi2p"],
-        show="all",
-        mindepth=-1,
-        filter={
-            "reactor": [0],
-            "detector": [0],
-            "isotope": [0],
-            "period": [0],
-            "background": [0],
-        },
-        maxdepth=0,
-    ).savegraph(f"output/dayabay_{opts.version}_stat.dot")
 
+
+# def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
+#     from dagflow.plot.graphviz import GraphDot
+
+#     GraphDot.from_graph(graph, show="all").savegraph(
+#         f"output/dayabay_{opts.version}.dot"
+#     )
+#     GraphDot.from_graph(
+#         graph,
+#         show=["type", "mark", "label", "path"],
+#         filter={
+#             "reactor": [0],
+#             "detector": [0, 1],
+#             "isotope": [0],
+#             "period": [0],
+#             "background": [0],
+#         },
+#     ).savegraph(f"output/dayabay_{opts.version}_reduced.dot")
+#     GraphDot.from_graph(
+#         graph,
+#         show="all",
+#         filter={
+#             "reactor": [0],
+#             "detector": [0, 1],
+#             "isotope": [0],
+#             "period": [0],
+#             "background": [0],
+#         },
+#     ).savegraph(f"output/dayabay_{opts.version}_reduced_full.dot")
+#     GraphDot.from_node(
+#         storage["nodes.statistic.nuisance.all"],
+#         show="all",
+#         mindepth=-1,
+#         maxdepth=0,
+#     ).savegraph(f"output/dayabay_{opts.version}_nuisance.dot")
+#     GraphDot.from_output(
+#         storage["outputs.statistic.stat.chi2p"],
+#         show="all",
+#         mindepth=-1,
+#         filter={
+#             "reactor": [0],
+#             "detector": [0],
+#             "isotope": [0],
+#             "period": [0],
+#             "background": [0],
+#         },
+#         maxdepth=0,
+#     ).savegraph(f"output/dayabay_{opts.version}_stat.dot")
+
+
+plt.rcParams.update(
+    {
+        "axes.formatter.use_mathtext": True,
+        "axes.grid": False,
+        "xtick.minor.visible": True,
+        "xtick.top": True,
+        "ytick.minor.visible": True,
+        "ytick.right": True,
+        "axes.formatter.limits": (-3, 4),
+        "figure.max_open_warning": 30,
+    }
+)
+
+latex_substitutions = {
+    " U235": r" $^{235}$U",
+    " U238": r" $^{238}$U",
+    " Pu239": r" $^{239}$Pu",
+    " Pu241": r" $^{241}$Pu",
+    "U235 ": r"$^{235}$U ",
+    "U238 ": r"$^{238}$U ",
+    "Pu239 ": r"$^{239}$Pu ",
+    "Pu241 ": r"$^{241}$Pu ",
+    "Eν": r"$E_{\nu}$",
+    "Edep": r"$E_{\rm dep}$",
+    "Evis": r"$E_{\rm vis}$",
+    "Escint": r"$E_{\rm scint}$",
+    "Erec": r"$E_{\rm rec}$",
+    "cosθ": r"$\cos\theta$",
+    "Δm²₃₁": r"$\Delta m²_{31}$",
+    "Δm²₃₂": r"$\Delta m²_{32}$",
+    "Δm²₂₁": r"$\Delta m²_{21}$",
+    "sin²2θ₁₃": r"$\sin^22\theta_{13}$",
+    "sin²2θ₁₂": r"$\sin^22\theta_{12}$",
+    "sin²θ₁₃": r"$\sin^2\theta_{13}$",
+    "sin²θ₁₂": r"$\sin^2\theta_{12}$",
+    "sin²2θ₁₂": r"$\sin^22\theta_{12}$",
+    "¹³C(α,n)¹⁶O": r"$^{13}{\rm C}(α,n)^{16}{\rm O}$",
+    "²⁴¹Am¹³C": r"$^{241}{\rm Am}^{13}{\rm C}$",
+    "⁹Li/⁸He": r"$^{9}{\rm Li}/^{8}{\rm He}$",
+    "ν̅": r"$\overline{\nu}$",
+    "ν": r"$\nu$",
+    "δ": r"$\delta$",
+    "γ": r"$\gamma$",
+    "μ": r"$\mu$",
+    "σ": r"$\sigma$",
+    "π": r"$\pi$",
+    "χ²": r"$χ^2$",
+    "·": r"$\cdot$",
+    "×": r"$\times$",
+    "⁻¹": r"$^{-1}$",
+    "⁻²": r"$^{-2}$",
+    "²": r"$^2$",
+    "ᵢ": r"$_i$",
+}
+
+exact_substitutions = {
+    "U235": r"$^{235}$U",
+    "U238": r"$^{238}$U",
+    "Pu239": r"$^{239}$Pu",
+    "Pu241": r"$^{241}$Pu",
+    "acc": r"accidentals",
+    "lihe": r"$^{9}{\rm Li}/^{8}{\rm He}$",
+    "fastn": r"fast neutrons",
+    "alphan": r"$^{13}{\rm C}(α,n)^{16}{\rm O}$",
+    "amc": r"$^{241}{\rm Am}^{13}{\rm C}$",
+}
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -237,10 +323,10 @@ if __name__ == "__main__":
 
     plot = parser.add_argument_group("plot", "plotting related options")
     plot.add_argument(
-        "--plot-all", help="plot all the nodes to the folder", metavar="folder"
+        "--plots-all", help="plot all the nodes to the folder", metavar="folder"
     )
     plot.add_argument(
-        "--plot",
+        "--plots",
         nargs="+",
         help="plot the nodes in storages",
         metavar=("folder", "storage"),
@@ -284,19 +370,22 @@ if __name__ == "__main__":
     )
 
     dot = parser.add_argument_group("graphviz", "plotting graphs")
-    dot.add_argument(
-        "-g",
-        "--graph-from-node",
-        nargs=2,
-        help="plot the graph starting from the node",
-        metavar=("node", "file"),
-    )
+    # dot.add_argument(
+    #     "-g",
+    #     "--graph-from-node",
+    #     nargs=2,
+    #     help="plot the graph starting from the node",
+    #     metavar=("node", "file"),
+    # )
     dot.add_argument("--mindepth", "--md", type=int, help="minimal depth")
     dot.add_argument("--maxdepth", "--Md", type=int, help="maximaldepth depth")
+    dot.add_argument("--graphs-all", help="plot graphs", metavar="folder")
     dot.add_argument(
-        "--graph-auto", "--ga", action="store_true", help="plot graphs auto"
+        "--graphs",
+        nargs="+",
+        help="save partial graphs from every node",
+        metavar=("folder", "storage"),
     )
-    dot.add_argument("--graphs", type=Path, help="save partial graphs from every node")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(

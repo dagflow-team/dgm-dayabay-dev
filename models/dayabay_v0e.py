@@ -330,7 +330,7 @@ class model_dayabay_v0e:
         from dagflow.lib.normalization import RenormalizeDiag
         from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
-        from dagflow.lib.summation import ArraySum, SumMatOrDiag
+        from dagflow.lib.summation import ArraySum, SumMatOrDiag, WeightedSumArgs
         from dagflow.tools.schema import LoadPy
         from dgf_detector import (
             AxisDistortionMatrix,
@@ -855,24 +855,6 @@ class model_dayabay_v0e:
                 },
             )
 
-            # 1/3 and 2/3 needed to construct Combined Neyman-Pearson χ²
-            load_parameters(
-                format="value",
-                state="fixed",
-                parameters={
-                    "stats": {
-                        "pearson": 2 / 3,
-                        "neyman": 1 / 3,
-                    }
-                },
-                labels={
-                    "stats": {
-                        "pearson": "Coefficient for Pearson's part of CNP χ²",
-                        "neyman": "Coefficient for Neyman's part of CNP χ²",
-                    }
-                },
-            )
-
             # Provide a few variable for handy read/write access of the model objects,
             # including:
             # - `nodes` - nested dictionary with nodes. Node is an instantiated function
@@ -1324,7 +1306,7 @@ class model_dayabay_v0e:
             # corresponding NEQ (1.) corrections to 3 out of 4 isotopes. The correction
             # C should be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
             load_graph(
-                name="reactor_nonequilibrium_anue.correction_input",
+                name="reactor_anue.nonequilibrium_anue.correction_input",
                 x="enu",
                 y="nonequilibrium_correction",
                 merge_x=True,
@@ -1338,8 +1320,8 @@ class model_dayabay_v0e:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "reactor_nonequilibrium_anue.correction_indexer",
-                    "interpolator": "reactor_nonequilibrium_anue.correction_interpolated",
+                    "indexer": "reactor_anue.nonequilibrium_anue.correction_indexer",
+                    "interpolator": "reactor_anue.nonequilibrium_anue.correction_interpolated",
                 },
                 replicate_outputs=index["isotope_neq"],
                 underflow="constant",
@@ -1348,17 +1330,17 @@ class model_dayabay_v0e:
             # Similarly to the case of antineutrino spectrum connect coarse X, a few
             # coarse Y and target mesh to the interpolator nodes.
             outputs.get_value(
-                "reactor_nonequilibrium_anue.correction_input.enu"
+                "reactor_anue.nonequilibrium_anue.correction_input.enu"
             ) >> inputs.get_value(
-                "reactor_nonequilibrium_anue.correction_interpolated.xcoarse"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction"
+                "reactor_anue.nonequilibrium_anue.correction_input.nonequilibrium_correction"
             ) >> inputs.get_dict(
-                "reactor_nonequilibrium_anue.correction_interpolated.ycoarse"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.ycoarse"
             )
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_nonequilibrium_anue.correction_interpolated.xfine"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.xfine"
             )
 
             # Now load the SNF (2.) correction. The SNF correction is different from NEQ
@@ -1366,7 +1348,7 @@ class model_dayabay_v0e:
             # use reactor index for it. Aside from index the loading and interpolation
             # procedure is similar to that of NEQ correction.
             load_graph(
-                name="snf_anue.correction_input",
+                name="reactor_anue.snf_anue.correction_input",
                 x="enu",
                 y="snf_correction",
                 merge_x=True,
@@ -1376,21 +1358,25 @@ class model_dayabay_v0e:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "snf_anue.correction_indexer",
-                    "interpolator": "snf_anue.correction_interpolated",
+                    "indexer": "reactor_anue.snf_anue.correction_indexer",
+                    "interpolator": "reactor_anue.snf_anue.correction_interpolated",
                 },
                 replicate_outputs=index["reactor"],
                 underflow="constant",
                 overflow="constant",
             )
-            outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value(
-                "snf_anue.correction_interpolated.xcoarse"
+            outputs.get_value(
+                "reactor_anue.snf_anue.correction_input.enu"
+            ) >> inputs.get_value(
+                "reactor_anue.snf_anue.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "snf_anue.correction_input.snf_correction"
-            ) >> inputs.get_dict("snf_anue.correction_interpolated.ycoarse")
+                "reactor_anue.snf_anue.correction_input.snf_correction"
+            ) >> inputs.get_dict(
+                "reactor_anue.snf_anue.correction_interpolated.ycoarse"
+            )
             kinematic_integrator_enu >> inputs.get_value(
-                "snf_anue.correction_interpolated.xfine"
+                "reactor_anue.snf_anue.correction_interpolated.xfine"
             )
 
             # Finally create the parametrization of the correction to the shape of
@@ -1747,7 +1733,9 @@ class model_dayabay_v0e:
             # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
             Product.replicate(
                 outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs.get_dict("reactor_nonequilibrium_anue.correction_interpolated"),
+                outputs.get_dict(
+                    "reactor_anue.nonequilibrium_anue.correction_interpolated"
+                ),
                 name="reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=("U238",),
@@ -2177,20 +2165,20 @@ class model_dayabay_v0e:
             Product.replicate(
                 outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                 outputs.get_dict("reactor.fissions_per_second_snf"),
-                name="snf_anue.neutrino_per_second_isotope",
+                name="reactor_anue.snf_anue.neutrino_per_second_isotope",
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
             Sum.replicate(
-                outputs.get_dict("snf_anue.neutrino_per_second_isotope"),
-                name="snf_anue.neutrino_per_second",
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_isotope"),
+                name="reactor_anue.snf_anue.neutrino_per_second",
                 replicate_outputs=index["reactor"],
             )
 
             Product.replicate(
-                outputs.get_dict("snf_anue.neutrino_per_second"),
-                outputs.get_dict("snf_anue.correction_interpolated"),
-                name="snf_anue.neutrino_per_second_snf",
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second"),
+                outputs.get_dict("reactor_anue.snf_anue.correction_interpolated"),
+                name="reactor_anue.snf_anue.neutrino_per_second_snf",
                 replicate_outputs=index["reactor"],
             )
 
@@ -2250,7 +2238,7 @@ class model_dayabay_v0e:
             # And for SNF.
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs.get_dict("snf_anue.neutrino_per_second_snf"),
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_snf"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
@@ -2309,18 +2297,18 @@ class model_dayabay_v0e:
             # during each period.
             Sum.replicate(
                 outputs.get_dict("eventscount.parts"),
-                name="eventscount.raw",
+                name="eventscount.stages.raw",
                 replicate_outputs=combinations["detector.period"],
             )
 
             # TODO: doc
             if self.spectrum_correction_location == "after-integration":
                 Product.replicate(
-                    outputs.get_dict("eventscount.raw"),
+                    outputs.get_dict("eventscount.stages.raw"),
                     outputs.get_value(
                         "reactor_anue.spectrum_free_correction_post.interpolated"
                     ),
-                    name="eventscount.raw_anue_spectrum_corrected",
+                    name="eventscount.stages.raw_anue_spectrum_corrected",
                     replicate_outputs=combinations["detector.period"],
                 )
 
@@ -2389,24 +2377,24 @@ class model_dayabay_v0e:
             # The correction is applied as matrix multiplication of smearing matrix over
             # column for each detector during each period..
             VectorMatrixProduct.replicate(
-                name="eventscount.iav",
+                name="eventscount.stages.iav",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             # Match and connect rescaled IAV distortion matrix for each detector to the
             # smearing node of each detector during each period.
             outputs.get_dict("detector.iav.matrix_rescaled") >> inputs.get_dict(
-                "eventscount.iav.matrix"
+                "eventscount.stages.iav.matrix"
             )
             # Match and connect IBD histogram each detector during each period to the
             # relevant IAV smearing input.
             if self.spectrum_correction_location == "after-integration":
                 outputs.get_dict(
-                    "eventscount.raw_anue_spectrum_corrected"
-                ) >> inputs.get_dict("eventscount.iav.vector")
+                    "eventscount.stages.raw_anue_spectrum_corrected"
+                ) >> inputs.get_dict("eventscount.stages.iav.vector")
             else:
-                outputs.get_dict("eventscount.raw") >> inputs.get_dict(
-                    "eventscount.iav.vector"
+                outputs.get_dict("eventscount.stages.raw") >> inputs.get_dict(
+                    "eventscount.stages.iav.vector"
                 )
 
             # The LSNL distortion matrix is created based on a relative energy scale
@@ -2607,16 +2595,16 @@ class model_dayabay_v0e:
             # Finally as in the case with IAV apply distortions to the spectra for each
             # detector and period.
             VectorMatrixProduct.replicate(
-                name="eventscount.evis",
+                name="eventscount.stages.evis",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs.get_dict("detector.lsnl.matrix") >> inputs.get_dict(
-                "eventscount.evis.matrix"
+                "eventscount.stages.evis.matrix"
             )
             # Use outputs after IAV correction to serve as inputs.
-            outputs.get_dict("eventscount.iav") >> inputs.get_dict(
-                "eventscount.evis.vector"
+            outputs.get_dict("eventscount.stages.iav") >> inputs.get_dict(
+                "eventscount.stages.evis.vector"
             )
 
             # The smearing due to finite energy resolution is also defined by three
@@ -2660,15 +2648,15 @@ class model_dayabay_v0e:
             # resolution matrix and input spectrum (after LSNL) for each detector during
             # period.
             VectorMatrixProduct.replicate(
-                name="eventscount.erec",
+                name="eventscount.stages.erec",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs.get_value("detector.eres.matrix") >> inputs.get_dict(
-                "eventscount.erec.matrix"
+                "eventscount.stages.erec.matrix"
             )
-            outputs.get_dict("eventscount.evis") >> inputs.get_dict(
-                "eventscount.erec.vector"
+            outputs.get_dict("eventscount.stages.evis") >> inputs.get_dict(
+                "eventscount.stages.erec.vector"
             )
 
             # Compute a product of global normalization and per-detector efficiency
@@ -2684,7 +2672,7 @@ class model_dayabay_v0e:
             # during each period.
             Product.replicate(
                 outputs.get_dict("detector.normalization"),
-                outputs.get_dict("eventscount.erec"),
+                outputs.get_dict("eventscount.stages.erec"),
                 name="eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
             )
@@ -2912,6 +2900,7 @@ class model_dayabay_v0e:
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,
+                tainted=False
             )
 
             #
@@ -3138,6 +3127,8 @@ class model_dayabay_v0e:
                 mode="normal-unit",
                 shape=(npars_nuisance,),
                 generator=self._random_generator,
+                tainted=False,
+                frozen=True
             )
             outputs.get_value("mc.parameters.toymc") >> parinp_mc
             nodes["mc.parameters.inputs"] = parinp_mc
@@ -3331,21 +3322,12 @@ class model_dayabay_v0e:
                 name="statistic.full.chi2p_unbiased",
             )
 
-            Product.replicate(
-                parameters.get_value("all.stats.pearson"),
-                outputs.get_value("statistic.full.chi2p_covmat_variable"),
-                name="statistic.helper.pearson",
-            )
-            Product.replicate(
-                parameters.get_value("all.stats.neyman"),
-                outputs.get_value("statistic.full.chi2n_covmat"),
-                name="statistic.helper.neyman",
-            )
             # (2-4) CNP covmat
-            Sum.replicate(
-                outputs.get_value("statistic.helper.pearson"),
-                outputs.get_value("statistic.helper.neyman"),
+            WeightedSumArgs.replicate(
+                outputs.get_value("statistic.full.chi2p_covmat_variable"),
+                outputs.get_value("statistic.full.chi2n_covmat"),
                 name="statistic.full.chi2cnp_covmat",
+                weight=(2/3, 1/3),
             )
 
             # CNP stat variance
@@ -3508,7 +3490,8 @@ class model_dayabay_v0e:
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
                     del unused_keys[i]
-                    may_ignore.remove(key_may_ignore)
+                    if key_may_ignore in may_ignore:
+                        may_ignore.remove(key_may_ignore)
 
         if may_ignore:
             raise RuntimeError(
