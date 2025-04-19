@@ -34,6 +34,7 @@ FutureType = Literal[
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
     "anue-model-edges-140",  # use more optimal antineutrino model segments starting from 140 keV
     "anue-model-edges-180",  # use more optimal antineutrino model segments starting from 180 keV
+    "anue-model-edges-300",  # use more optimal antineutrino model segments starting from 300 keV
 ]
 _future_redundant = ["reactor-35days", "anue-model-edges-140"]
 _future_included = {}
@@ -374,6 +375,13 @@ class model_dayabay_v0e:
             logger.warning("Use fine antineutrino spectrum model (180+ keV)")
             antineutrino_model_edges = LoadPy(
                 path_parameters / "reactor_antineutrino_spectrum_edges_fine_180keV.py",
+                variable="edges",
+                type=ndarray,
+            )
+        elif "anue-model-edges-300" in self._future:
+            logger.warning("Use fine antineutrino spectrum model (300+ keV)")
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges_300keV.py",
                 variable="edges",
                 type=ndarray,
             )
