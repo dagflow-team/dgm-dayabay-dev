@@ -33,6 +33,8 @@ from scripts import (
 
 set_level(INFO1)
 
+DATA_INDICES = {"model": 0, "loaded": 1}
+
 
 plt.rcParams.update(
     {
@@ -87,36 +89,29 @@ def main(args: Namespace) -> None:
     parameters_constrained = storage_fit("parameters.constrained")
     statistic = storage_fit("outputs.statistic")
 
-    parameters_groups = {
-        "free": ["oscprob"],
-        "constrained": ["oscprob", "reactor", "detector", "bkg"],
-    }
-    if args.use_free_spec:
-        parameters_groups["free"].append("neutrino_per_fission_factor")
-    else:
-        parameters_groups["free"].append("detector")
-
-    stat_chi2 = statistic[f"{args.chi2}"]
+    chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, Parameter] = {}
-    update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
+    update_dict_parameters(
+        minimization_parameters, args.free_parameters, parameters_free
+    )
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
-            parameters_groups["constrained"],
+            args.constrained_parameters,
             parameters_constrained,
         )
 
     models[0].next_sample(mc_parameters=False, mc_statistics=False)
     minimizer = IMinuitMinimizer(
-        stat_chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)}
+        chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)}
     )
 
     fit = minimizer.fit()
+    if "iterative" in args.chi2:
+        for _ in range(4):
+            model.next_sample(mc_parameters=False, mc_statistics=False)
+            fit = minimizer.fit()
     print(fit)
-
-    if args.interactive:
-        from IPython import embed
-        embed()
 
     filter_fit(fit, ["summary"])
     convert_numpy_to_lists(fit)
@@ -125,24 +120,58 @@ def main(args: Namespace) -> None:
             yaml_dump(fit, f)
 
     if args.output_plot_spectra:
-        edges = storage_data["outputs.edges.energy_final"].data
-        for obs_name, data in storage_data[
-            "outputs.eventscount.final.detector_period"
+        edges = model.storage["outputs.edges.energy_final"].data
+        for obs_name, data in model.storage[
+            f"outputs.eventscount.final.{args.compare_concatenation}"
         ].walkjoineditems():
             plot_spectra_ratio_difference(
-                storage_fit[f"outputs.eventscount.final.detector_period.{obs_name}"].data,
+                model.storage[f"outputs.eventscount.final.{args.compare_concatenation}.{obs_name}"].data,
                 data.data,
                 edges,
                 obs_name,
             )
             plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
-        if args.use_free_spec:
+        if "neutrino_per_fission_factor" in args.free_parameters:
             edges = model.storage[
                 "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
             ].data
             plot_spectral_weights(edges, fit)
             plt.savefig(args.output_plot_spectra.format("sw"))
+
+    plt.figure()
+    plt.errorbar(
+        fit["xdict"]["oscprob.SinSq2Theta13"],
+        fit["xdict"]["oscprob.DeltaMSq32"],
+        xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
+        yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
+        label="dag-flow",
+    )
+    if args.compare_input:
+        with open(args.compare_input, "r") as f:
+            compare_fit = yaml_load(f)
+        eb = plt.errorbar(
+            compare_fit["SinSq2Theta13"]["value"],
+            compare_fit["DeltaMSq32"]["value"],
+            xerr=compare_fit["SinSq2Theta13"]["error"],
+            yerr=compare_fit["DeltaMSq32"]["error"],
+            label="dataset",
+        )
+        eb[-1][0].set_linestyle("--")
+        eb[-1][1].set_linestyle("--")
+    plt.xlabel(r"$\sin^22\theta_{13}$")
+    plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
+    plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
+    plt.xlim(0.082, 0.089)
+    plt.ylim(2.38e-3, 2.50e-3)
+    plt.legend()
+    plt.tight_layout()
+    if args.output_plot_fit:
+        plt.savefig(args.output_plot_fit)
+
+    if args.interactive:
+        from IPython import embed
+        embed()
 
 
 if __name__ == "__main__":
@@ -161,21 +190,21 @@ if __name__ == "__main__":
         "--config-path", required=True, help="Config file with model options as yaml list of dicts"
     )
 
-    pars = parser.add_argument_group("fit", "Set fit procedure")
-    pars.add_argument(
+    fit_options = parser.add_argument_group("fit", "Set fit procedure")
+    fit_options.add_argument(
         "--data",
-        default="asimov",
-        choices=["asimov", "data"],
+        default="model",
+        choices=DATA_INDICES.keys(),
         help="Choose data for fit",
     )
-    pars.add_argument(
+    fit_options.add_argument(
         "--par",
         nargs=2,
         action="append",
         default=[],
         help="set parameter value",
     )
-    pars.add_argument(
+    fit_options.add_argument(
         "--chi2",
         default="stat.chi2p",
         choices=[
@@ -197,16 +226,51 @@ if __name__ == "__main__":
         ],
         help="Choose chi-squared function for minimizer",
     )
-    pars.add_argument(
-        "--use-free-spec",
-        action="store_true",
-        help="Add antineutrino spectrum parameters to minimizer",
+    fit_options.add_argument(
+        "--free-parameters",
+        default=[],
+        nargs="*",
+        help="Add free parameters to minimization process",
+    )
+    fit_options.add_argument(
+        "--constrained-parameters",
+        default=[],
+        nargs="*",
+        help="Add constrained parameters to minimization process",
     )
 
-    output = parser.add_argument_group("output", "output related options")
-    output.add_argument("--output-fit", help="path to save fit in yaml format")
-    output.add_argument(
-        "--output-plot-spectra", help="path with one placeholder to save spectra of each detector"
+    comparison = parser.add_argument_group("comparison", "Comparison options")
+    comparison.add_argument(
+        "--compare-concatenation",
+        choices=["detector", "detector_period"],
+        default="detector_period",
+        help="Choose concatenation mode for plotting observation",
+    )
+    comparison.add_argument(
+        "--compare-input",
+        help="path to file with wich compare",
+    )
+
+    outputs = parser.add_argument_group("output", "output related options")
+    outputs.add_argument(
+        "--output-fit",
+        help="path to save full fit, yaml format",
+    )
+    outputs.add_argument(
+        "--output-plot-pars",
+        help="path to save plot of normalized values",
+    )
+    outputs.add_argument(
+        "--output-plot-corrmat",
+        help="path to save plot of correlation matrix of fitted parameters",
+    )
+    outputs.add_argument(
+        "--output-plot-spectra",
+        help="path to save full plot of fits",
+    )
+    outputs.add_argument(
+        "--output-plot-fit",
+        help="path to save full plot of fits",
     )
 
     args = parser.parse_args()

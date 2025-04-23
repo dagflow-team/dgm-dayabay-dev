@@ -7,6 +7,8 @@ Example of call:
 ./scripts/fit_dayabay_model.py --version v0e \
     --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \
     --chi2 full.chi2n_covmat \
+    --free-parameters oscprob neutrino_per_fission_factor \
+    --constrained-parameters oscprob detector reactor bkg reactor_anue \
     --output-plot-spectra "output/obs-{}.pdf" \
     --output-fit output/fit.yaml
 ```
@@ -22,6 +24,8 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import available_models, load_model
+from models.dayabay_labels import LATEX_SYMBOLS
+from scripts.covmatrix_mc import calculate_correlation_matrix
 from scripts import (
     convert_numpy_to_lists,
     filter_fit,
@@ -62,29 +66,24 @@ def main(args: Namespace) -> None:
     parameters_constrained = storage("parameters.constrained")
     statistic = storage("outputs.statistic")
 
-    parameters_groups = {
-        "free": ["oscprob"],
-        "constrained": ["oscprob", "reactor", "detector", "bkg"],
-    }
-    if args.use_free_spec:
-        parameters_groups["free"].append("neutrino_per_fission_factor")
-    else:
-        parameters_groups["free"].append("detector")
-    if args.use_hm_unc_pull_terms:
-        parameters_groups["constrained"].append("reactor_anue")
-
     chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, Parameter] = {}
-    update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
+    update_dict_parameters(
+        minimization_parameters, args.free_parameters, parameters_free
+    )
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
-            parameters_groups["constrained"],
+            args.constrained_parameters,
             parameters_constrained,
         )
 
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters)
     fit = minimizer.fit()
+    if "iterative" in args.chi2:
+        for _ in range(4):
+            model.next_sample(mc_parameters=False, mc_statistics=False)
+            fit = minimizer.fit()
     filter_fit(fit, ["summary"])
     print(fit)
     convert_numpy_to_lists(fit)
@@ -92,20 +91,33 @@ def main(args: Namespace) -> None:
         with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
 
+    if args.output_plot_corrmat:
+        fig, axs = plt.subplots(1, 1, figsize=(6, 5), sharey=True)
+        cs = axs.matshow(calculate_correlation_matrix(fit["covariance"]), vmin=-1, vmax=1, cmap="RdBu_r")
+        plt.colorbar(cs, ax=axs)
+        labels = [LATEX_SYMBOLS[parameter] for parameter in fit["names"]]
+        axs.set_xticks(range(fit["npars"]), labels)
+        axs.tick_params(axis="x", rotation=90)
+        axs.set_yticks(range(fit["npars"]), labels)
+        axs.grid(False)
+        plt.tight_layout()
+        plt.savefig(args.output_plot_corrmat)
+
+
     if args.output_plot_spectra:
         edges = model.storage["outputs.edges.energy_final"].data
         for obs_name, data in model.storage[
-            "outputs.data.real.final.detector_period"
+            f"outputs.data.real.final.{args.compare_concatenation}"
         ].walkjoineditems():
             plot_spectra_ratio_difference(
-                model.storage[f"outputs.eventscount.final.detector_period.{obs_name}"].data,
+                model.storage[f"outputs.eventscount.final.{args.compare_concatenation}.{obs_name}"].data,
                 data.data,
                 edges,
                 obs_name,
             )
             plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
-        if args.use_free_spec:
+        if "neutrino_per_fission_factor" in args.free_parameters:
             edges = model.storage[
                 "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
             ].data
@@ -133,8 +145,8 @@ def main(args: Namespace) -> None:
     plt.xlabel(r"$\sin^22\theta_{13}$")
     plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
     plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
-    plt.xlim(0.082, 0.090)
-    plt.ylim(2.37e-3, 2.53e-3)
+    # plt.xlim(0.124, 0.131)
+    # plt.ylim(2.44e-3, 2.52e-3)
     plt.legend()
     plt.tight_layout()
     if args.output_plot_fit:
@@ -156,7 +168,7 @@ def main(args: Namespace) -> None:
             )
             print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
-    plt.show()
+    # plt.show()
 
     if args.interactive:
         from IPython import embed
@@ -191,21 +203,21 @@ if __name__ == "__main__":
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
-    pars = parser.add_argument_group("fit", "Set fit procedure")
-    pars.add_argument(
+    fit_options = parser.add_argument_group("fit", "Set fit procedure")
+    fit_options.add_argument(
         "--data",
         default="model",
         choices=DATA_INDICES.keys(),
         help="Choose data for fit",
     )
-    pars.add_argument(
+    fit_options.add_argument(
         "--par",
         nargs=2,
         action="append",
         default=[],
         help="set parameter value",
     )
-    pars.add_argument(
+    fit_options.add_argument(
         "--chi2",
         default="stat.chi2p",
         choices=[
@@ -227,18 +239,26 @@ if __name__ == "__main__":
         ],
         help="Choose chi-squared function for minimizer",
     )
-    pars.add_argument(
-        "--use-free-spec",
-        action="store_true",
-        help="Add antineutrino spectrum parameters to minimizer",
+    fit_options.add_argument(
+        "--free-parameters",
+        default=[],
+        nargs="*",
+        help="Add free parameters to minimization process",
     )
-    pars.add_argument(
-        "--use-hm-unc-pull-terms",
-        action="store_true",
-        help="Add uncertainties of antineutrino spectra (HM model) to minimizer",
+    fit_options.add_argument(
+        "--constrained-parameters",
+        default=[],
+        nargs="*",
+        help="Add constrained parameters to minimization process",
     )
 
     comparison = parser.add_argument_group("comparison", "Comparison options")
+    comparison.add_argument(
+        "--compare-concatenation",
+        choices=["detector", "detector_period"],
+        default="detector_period",
+        help="Choose concatenation mode for plotting observation",
+    )
     comparison.add_argument(
         "--compare-input",
         help="path to file with wich compare",
