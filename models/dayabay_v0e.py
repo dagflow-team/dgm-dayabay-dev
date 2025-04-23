@@ -36,7 +36,7 @@ FutureType = Literal[
     "anue-model-edges-180",  # use more optimal antineutrino model segments starting from 180 keV
     "anue-model-edges-300",  # use more optimal antineutrino model segments starting from 300 keV
 ]
-_future_redundant = ["reactor-35days", "anue-model-edges-140"]
+_future_redundant = ["anue-model-edges-140"]
 _future_included = {}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -2312,6 +2312,7 @@ class model_dayabay_v0e:
             # TODO: doc
             if self.spectrum_correction_location == "after-integration":
                 Product.replicate(
+                    # parameters.get_value("all.detector.global_normalization"),
                     outputs.get_dict("eventscount.stages.raw"),
                     outputs.get_value(
                         "reactor_anue.spectrum_free_correction_post.interpolated"
