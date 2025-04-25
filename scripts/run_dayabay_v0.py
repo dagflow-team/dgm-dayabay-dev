@@ -105,8 +105,11 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.pars_latex:
-        storage["parameters.all"].to_latex_file(
-            f"output/dayabay_{opts.version}_pars.tex"
+        storage["parameters.all"].to_latex_file(opts.pars_latex)
+
+    if opts.pars_latex_split:
+        storage["parameters.all"].to_latex_files_split(
+            opts.pars_latex_split, filter_columns=["value"]
         )
 
     if opts.pars_text:
@@ -170,6 +173,7 @@ def main(opts: Namespace) -> None:
                 accept_index=graph_accept_index,
                 filter=graph_accept_index,
             )
+
 
 def save_summary(model: Any, filenames: Sequence[str]):
     data = {}
@@ -340,8 +344,9 @@ if __name__ == "__main__":
     storage.add_argument(
         "--pars-datax", action="store_true", help="print parameters to latex (datax)"
     )
+    storage.add_argument("--pars-latex", help="print latex table with parameters")
     storage.add_argument(
-        "--pars-latex", action="store_true", help="print latex tables with parameters"
+        "--pars-latex-split", help="print latex tables with parameters"
     )
     storage.add_argument(
         "--pars-text", action="store_true", help="print text tables with parameters"
