@@ -2461,6 +2461,46 @@ class model_dayabay_v0e:
                 name="detector.lsnl.curves.evis_coarse",
             )
 
+            # Calculate relative versions of the curves exclusively for plotting
+            # reasons. The relative curves will not be used for the analysis.
+            # First, compute relative curves as f(Escint)/Escint.
+            Division.replicate(
+                outputs.get_dict("detector.lsnl.curves.evis_parts"),
+                outputs.get_value("detector.lsnl.curves.escint"),
+                name="detector.lsnl.curves.relative.evis_parts",
+                replicate_outputs=index["lsnl"],
+            )
+            # TODO
+            nodes["detector.lsnl.curves.relative.evis_parts_individual.nominal"] = (
+                nodes.get_value("detector.lsnl.curves.relative.evis_parts.nominal")
+            )
+            outputs["detector.lsnl.curves.relative.evis_parts_individual.nominal"] = (
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal")
+            )
+            Sum.replicate(
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts"),
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal"),
+                name="detector.lsnl.curves.relative.evis_parts_individual",
+                replicate_outputs=index["lsnl_nuisance"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=["nominal"],
+            )
+
+            Product.replicate(
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts"),
+                parameters.get_dict("constrained.detector.lsnl_scale_a"),
+                name="detector.lsnl.curves.relative.evis_parts_scaled",
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=("nominal",),
+                replicate_outputs=index["lsnl_nuisance"],
+            )
+
+            Sum.replicate(
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal"),
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts_scaled"),
+                name="detector.lsnl.curves.relative.evis_coarse",
+            )
+
             # The algorithm to adjust a histogram based on distorted X axes is tuned for
             # the monotonous (no extrema) absolute distortion curves. While it is true
             # for the nominal curve and the cases of small distortions some parameter

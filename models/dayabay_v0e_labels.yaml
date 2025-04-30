@@ -727,7 +727,7 @@ detector:
       plotoptions:
         aspect: "equal"
         mask_value: 0.0
-        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5, alpha: 0.5}
     matrix_rescaled:
       group:
         text: "IAV matrix for {key}\\nwith adjusted (fit) offdiagonal elements"
@@ -735,7 +735,7 @@ detector:
         plotoptions:
           aspect: "equal"
           mask_value: 0.0
-          plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+          plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5, alpha: 0.5}
   lsnl:
     curves:
       escint:
@@ -750,7 +750,7 @@ detector:
           unit: "MeV"
       evis_parts_scaled:
         group:
-          text: "Input coarse Evisᵢ(Escint) {key} curve for LSNL"
+          text: "Input scaled coarse Evisᵢ(Escint) {key} curve for LSNL"
           axis: '$E_{\rm vis}$'
           unit: "MeV"
       evis_coarse:
@@ -771,6 +771,22 @@ detector:
           text: "Visible energy Evis (LSNL×relative energy scale) for {key}"
           axis: '$E_{\rm vis}$'
           unit: "MeV"
+      relative:
+        evis_parts:
+          group:
+            text: "Input relative coarse Evisᵢ(Escint)/Escint {key} curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_parts_scaled:
+          group:
+            text: "Input scaled relative coarse Evisᵢ(Escint)/Escint {key} curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_parts_individual:
+          group:
+            text: "Input relative coarse Evisᵢ(Escint)/Escint {key} (target) curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_coarse:
+          text: "Input relative coarse Evis(Escint)/Escint for LSNL"
+          axis: '$E_{\rm vis}/E_{\rm scint}$'
     indexer_fwd:
       text: "Segment lookup for Evis(Escint)\\ninterpolation for LSNL correction"
     interpolated_fwd:
