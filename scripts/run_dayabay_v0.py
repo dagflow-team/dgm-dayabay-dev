@@ -109,7 +109,12 @@ def main(opts: Namespace) -> None:
 
     if opts.pars_latex_split:
         storage["parameters.all"].to_latex_files_split(
-            opts.pars_latex_split, filter_columns=["value"]
+            opts.pars_latex_split,
+            filter_columns=["central", "count"],
+            to_latex_kwargs={
+                "float_format": "{:.6g}".format,
+                "index": False,
+            },
         )
 
     if opts.pars_text:
