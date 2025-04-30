@@ -99,6 +99,12 @@ def main(opts: Namespace) -> None:
                 exact_substitutions=exact_substitutions,
             )
 
+    if opts.export_root:
+        storage("outputs").to_root(
+            opts.export_root,
+            latex_substitutions=latex_substitutions,
+        )
+
     if opts.pars_datax:
         storage["parameters.all"].to_datax_file(
             f"output/dayabay_{opts.version}_pars_datax.tex"
@@ -328,6 +334,9 @@ if __name__ == "__main__":
         "--interactive",
         action="store_true",
         help="Start IPython session",
+    )
+    parser.add_argument(
+        "--export-root", help="Export outputs as graphs and histograms to the ROOT file"
     )
 
     plot = parser.add_argument_group("plot", "plotting related options")
