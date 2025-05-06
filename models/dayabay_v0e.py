@@ -3514,21 +3514,23 @@ class model_dayabay_v0e:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
+        may_ignore = ["__common_definitions__"]
         if self.dataset == "b":
-            may_ignore = {
+            may_ignore.extend([
                 "bkg.count_fixed.muonx",
                 "bkg.count.muonx",
                 "bkg.spectrum.muonx",
                 "bkg.spectrum_shape.muonx",
                 "statistic.nuisance.parts.bkg.uncertainty_scale_by_site.muonx",
-            }
-        else:
-            may_ignore = set()
+            ])
         for key_may_ignore in list(may_ignore):
+            cleanup = False
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
                     del unused_keys[i]
-                    may_ignore.remove(key_may_ignore)
+                    cleanup = True
+            if cleanup:
+                may_ignore.remove(key_may_ignore)
 
         if may_ignore:
             raise RuntimeError(
