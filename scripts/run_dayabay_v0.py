@@ -99,14 +99,28 @@ def main(opts: Namespace) -> None:
                 exact_substitutions=exact_substitutions,
             )
 
+    if opts.export_root:
+        storage("outputs").to_root(
+            opts.export_root,
+            latex_substitutions=latex_substitutions,
+        )
+
     if opts.pars_datax:
         storage["parameters.all"].to_datax_file(
             f"output/dayabay_{opts.version}_pars_datax.tex"
         )
 
     if opts.pars_latex:
-        storage["parameters.all"].to_latex_file(
-            f"output/dayabay_{opts.version}_pars.tex"
+        storage["parameters.all"].to_latex_file(opts.pars_latex)
+
+    if opts.pars_latex_split:
+        storage["parameters.all"].to_latex_files_split(
+            opts.pars_latex_split,
+            filter_columns=["central", "count"],
+            to_latex_kwargs={
+                "float_format": "{:.6g}".format,
+                "index": False,
+            },
         )
 
     if opts.pars_text:
@@ -170,6 +184,7 @@ def main(opts: Namespace) -> None:
                 accept_index=graph_accept_index,
                 filter=graph_accept_index,
             )
+
 
 def save_summary(model: Any, filenames: Sequence[str]):
     data = {}
@@ -261,19 +276,20 @@ latex_substitutions = {
     "Escint": r"$E_{\rm scint}$",
     "Erec": r"$E_{\rm rec}$",
     "cosθ": r"$\cos\theta$",
-    "Δm²₃₁": r"$\Delta m²_{31}$",
-    "Δm²₃₂": r"$\Delta m²_{32}$",
-    "Δm²₂₁": r"$\Delta m²_{21}$",
+    "Δm²₃₁": r"$\Delta m^2_{31}$",
+    "Δm²₃₂": r"$\Delta m^2_{32}$",
+    "Δm²₂₁": r"$\Delta m^2_{21}$",
     "sin²2θ₁₃": r"$\sin^22\theta_{13}$",
     "sin²2θ₁₂": r"$\sin^22\theta_{12}$",
     "sin²θ₁₃": r"$\sin^2\theta_{13}$",
     "sin²θ₁₂": r"$\sin^2\theta_{12}$",
     "sin²2θ₁₂": r"$\sin^22\theta_{12}$",
-    "¹³C(α,n)¹⁶O": r"$^{13}{\rm C}(α,n)^{16}{\rm O}$",
+    "¹³C(α,n)¹⁶O": r"$^{13}{\rm C}(\alpha,n)^{16}{\rm O}$",
     "²⁴¹Am¹³C": r"$^{241}{\rm Am}^{13}{\rm C}$",
     "⁹Li/⁸He": r"$^{9}{\rm Li}/^{8}{\rm He}$",
     "ν̅": r"$\overline{\nu}$",
     "ν": r"$\nu$",
+    "α": r"$\alpha$",
     "δ": r"$\delta$",
     "γ": r"$\gamma$",
     "μ": r"$\mu$",
@@ -320,6 +336,9 @@ if __name__ == "__main__":
         action="store_true",
         help="Start IPython session",
     )
+    parser.add_argument(
+        "--export-root", help="Export outputs as graphs and histograms to the ROOT file"
+    )
 
     plot = parser.add_argument_group("plot", "plotting related options")
     plot.add_argument(
@@ -340,8 +359,9 @@ if __name__ == "__main__":
     storage.add_argument(
         "--pars-datax", action="store_true", help="print parameters to latex (datax)"
     )
+    storage.add_argument("--pars-latex", help="print latex table with parameters")
     storage.add_argument(
-        "--pars-latex", action="store_true", help="print latex tables with parameters"
+        "--pars-latex-split", help="print latex tables with parameters"
     )
     storage.add_argument(
         "--pars-text", action="store_true", help="print text tables with parameters"

@@ -2461,6 +2461,46 @@ class model_dayabay_v0e:
                 name="detector.lsnl.curves.evis_coarse",
             )
 
+            # Calculate relative versions of the curves exclusively for plotting
+            # reasons. The relative curves will not be used for the analysis.
+            # First, compute relative curves as f(Escint)/Escint.
+            Division.replicate(
+                outputs.get_dict("detector.lsnl.curves.evis_parts"),
+                outputs.get_value("detector.lsnl.curves.escint"),
+                name="detector.lsnl.curves.relative.evis_parts",
+                replicate_outputs=index["lsnl"],
+            )
+            # TODO
+            nodes["detector.lsnl.curves.relative.evis_parts_individual.nominal"] = (
+                nodes.get_value("detector.lsnl.curves.relative.evis_parts.nominal")
+            )
+            outputs["detector.lsnl.curves.relative.evis_parts_individual.nominal"] = (
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal")
+            )
+            Sum.replicate(
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts"),
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal"),
+                name="detector.lsnl.curves.relative.evis_parts_individual",
+                replicate_outputs=index["lsnl_nuisance"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=["nominal"],
+            )
+
+            Product.replicate(
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts"),
+                parameters.get_dict("constrained.detector.lsnl_scale_a"),
+                name="detector.lsnl.curves.relative.evis_parts_scaled",
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=("nominal",),
+                replicate_outputs=index["lsnl_nuisance"],
+            )
+
+            Sum.replicate(
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal"),
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts_scaled"),
+                name="detector.lsnl.curves.relative.evis_coarse",
+            )
+
             # The algorithm to adjust a histogram based on distorted X axes is tuned for
             # the monotonous (no extrema) absolute distortion curves. While it is true
             # for the nominal curve and the cases of small distortions some parameter
@@ -3131,6 +3171,9 @@ class model_dayabay_v0e:
             outputs.get_value("mc.parameters.toymc") >> parinp_mc
             nodes["mc.parameters.inputs"] = parinp_mc
 
+            #
+            # Covariance matrices and Cholesky decomposition
+            #
             Cholesky.replicate(name="cholesky.stat.variable")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3146,31 +3189,31 @@ class model_dayabay_v0e:
                 "cholesky.stat.data.fixed"
             )
 
-            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.fixed_stat")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value(
-                "covariance.covmat_full_p.stat_fixed"
+                "covariance.covmat_full_p.fixed_stat"
             )
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value(
-                "covariance.covmat_full_p.stat_fixed"
+                "covariance.covmat_full_p.fixed_stat"
             )
 
-            Cholesky.replicate(name="cholesky.covmat_full_p.stat_fixed")
+            Cholesky.replicate(name="cholesky.covmat_full_p.fixed_stat")
             outputs.get_value(
-                "covariance.covmat_full_p.stat_fixed"
-            ) >> inputs.get_value("cholesky.covmat_full_p.stat_fixed")
+                "covariance.covmat_full_p.fixed_stat"
+            ) >> inputs.get_value("cholesky.covmat_full_p.fixed_stat")
 
-            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_variable")
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.variable_stat")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+            ) >> nodes.get_value("covariance.covmat_full_p.variable_stat")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value(
-                "covariance.covmat_full_p.stat_variable"
+                "covariance.covmat_full_p.variable_stat"
             )
 
-            Cholesky.replicate(name="cholesky.covmat_full_p.stat_variable")
+            Cholesky.replicate(name="cholesky.covmat_full_p.variable_stat")
             outputs.get_value(
-                "covariance.covmat_full_p.stat_variable"
-            ) >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
+                "covariance.covmat_full_p.variable_stat"
+            ) >> inputs.get_value("cholesky.covmat_full_p.variable_stat")
 
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
@@ -3186,7 +3229,11 @@ class model_dayabay_v0e:
                 "cholesky.covmat_full_n"
             )
 
-            # (1) chi-squared Pearson stat (fixed Pearson errors)
+            #
+            # Chi-squared functions
+            #
+
+            # Chi-squared Pearson, stat (fixed stat errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3198,7 +3245,7 @@ class model_dayabay_v0e:
                 "statistic.stat.chi2p_iterative.data"
             )
 
-            # (2-2) chi-squared Neyman stat
+            # Chi-squared Neyman, stat
             Chi2.replicate(name="statistic.stat.chi2n")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3210,7 +3257,7 @@ class model_dayabay_v0e:
                 "statistic.stat.chi2n.data"
             )
 
-            # (2-1)
+            # Chi-squared Pearson, stat (variable stat errors)
             Chi2.replicate(name="statistic.stat.chi2p")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3222,41 +3269,53 @@ class model_dayabay_v0e:
                 "statistic.stat.chi2p.data"
             )
 
-            # (5) chi-squared Pearson syst (fixed Pearson errors)
-            Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
+            # Chi-squared Pearson, stat+syst, cov. matrix (fixed stat errors)
+            Chi2.replicate(name="statistic.full.covmat.chi2p_iterative")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2p_covmat_fixed.data"
+                "statistic.full.covmat.chi2p_iterative.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
-            outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value(
-                "statistic.full.chi2p_covmat_fixed.errors"
+            ) >> inputs.get_value("statistic.full.covmat.chi2p_iterative.theory")
+            outputs.get_value("cholesky.covmat_full_p.fixed_stat") >> inputs.get_value(
+                "statistic.full.covmat.chi2p_iterative.errors"
             )
 
-            # (2-3) chi-squared Neyman syst
-            Chi2.replicate(name="statistic.full.chi2n_covmat")
+            # Chi-squared Neyman, stat+syst, cov. matrix
+            Chi2.replicate(name="statistic.full.covmat.chi2n")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2n_covmat.data"
+                "statistic.full.covmat.chi2n.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2n_covmat.theory")
+            ) >> inputs.get_value("statistic.full.covmat.chi2n.theory")
             outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value(
-                "statistic.full.chi2n_covmat.errors"
+                "statistic.full.covmat.chi2n.errors"
             )
 
-            # (2-4) Pearson variable stat errors
-            Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
+            # Chi-squared Pearson, stat+syst, cov. matrix (variable stat errors)
+            Chi2.replicate(name="statistic.full.covmat.chi2p")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2p_covmat_variable.data"
+                "statistic.full.covmat.chi2p.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
+            ) >> inputs.get_value("statistic.full.covmat.chi2p.theory")
             outputs.get_value(
-                "cholesky.covmat_full_p.stat_variable"
-            ) >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
+                "cholesky.covmat_full_p.variable_stat"
+            ) >> inputs.get_value("statistic.full.covmat.chi2p.errors")
+
+            LogProdDiag.replicate(name="statistic.log_prod_diag.full")
+            outputs.get_value(
+                "cholesky.covmat_full_p.variable_stat"
+            ) >> inputs.get_value("statistic.log_prod_diag.full")
+
+            # Chi-squared Pearson, stat+syst, cov. matrix (variable stat errors)
+            Sum.replicate(
+                outputs.get_value("statistic.full.covmat.chi2p"),
+                outputs.get_value("statistic.log_prod_diag.full"),
+                name="statistic.full.covmat.chi2p_unbiased",
+            )
 
             # CNP stat error
             CNPStat.replicate(name="statistic.staterr.cnp")
@@ -3267,7 +3326,7 @@ class model_dayabay_v0e:
                 "eventscount.final.concatenated.selected"
             ) >> inputs.get_value("statistic.staterr.cnp.theory")
 
-            # (3) chi-squared CNP stat
+            # Chi-squared CNP, stat
             Chi2.replicate(name="statistic.stat.chi2cnp")
             outputs.get_value("data.proxy") >> inputs.get_value(
                 "statistic.stat.chi2cnp.data"
@@ -3288,43 +3347,51 @@ class model_dayabay_v0e:
                 "eventscount.final.concatenated.selected"
             ) >> inputs.get_value("statistic.stat.chi2poisson.theory")
 
-            # (2) chi-squared Pearson stat + pull (fixed Pearson errors)
+            # Chi-squared Pearson, stat+syst, pull (fixed stat errors)
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2p_iterative"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2p_iterative",
+                name="statistic.full.pull.chi2p_iterative",
             )
-            # (4) chi-squared CNP stat + pull (fixed Pearson errors)
+
+            # Chi-squared Pearson, stat+syst, pull (variable stat errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.pull.chi2p",
+            )
+
+            # Chi-squared CNP, stat+syst, pull
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2cnp"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2cnp",
+                name="statistic.full.pull.chi2cnp",
             )
 
-            LogProdDiag.replicate(name="statistic.log_prod_diag")
+            LogProdDiag.replicate(name="statistic.log_prod_diag.stat")
             outputs.get_value(
-                "cholesky.covmat_full_p.stat_variable"
-            ) >> inputs.get_value("statistic.log_prod_diag")
+                "cholesky.stat.variable"
+            ) >> inputs.get_value("statistic.log_prod_diag.stat")
 
-            # (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
+            # Chi-squared Pearson, stat, +log|Vstat| (variable stat errors)
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2p"),
-                outputs.get_value("statistic.log_prod_diag"),
+                outputs.get_value("statistic.log_prod_diag.stat"),
                 name="statistic.stat.chi2p_unbiased",
             )
 
-            # (8) chi-squared Pearson stat + log|V| + pull (unfixed Pearson errors)
+            # Chi-squared Pearson, stat+syst, pull, +log|V| (variable stat errors)
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2p_unbiased"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2p_unbiased",
+                name="statistic.full.pull.chi2p_unbiased",
             )
 
-            # (2-4) CNP covmat
+            # CNP covmat
             WeightedSumArgs.replicate(
-                outputs.get_value("statistic.full.chi2p_covmat_variable"),
-                outputs.get_value("statistic.full.chi2n_covmat"),
-                name="statistic.full.chi2cnp_covmat",
+                outputs.get_value("statistic.full.covmat.chi2p"),
+                outputs.get_value("statistic.full.covmat.chi2n"),
+                name="statistic.full.covmat.chi2cnp",
                 weight=(2/3, 1/3),
             )
 
@@ -3337,7 +3404,7 @@ class model_dayabay_v0e:
                 "eventscount.final.concatenated.selected"
             ) >> inputs.get_value("statistic.staterr.cnp_variance.theory")
 
-            # CNP + covariance matrix (as in paper)
+            # CNP, stat+syst, cov. matrix (linear cobination)
             SumMatOrDiag.replicate(
                     outputs.get_value("statistic.staterr.cnp_variance"),
                     outputs.get_value("covariance.covmat_syst.sum"),
@@ -3350,23 +3417,23 @@ class model_dayabay_v0e:
                 "covariance.covmat_full_cnp"
             ) >> inputs.get_value("cholesky.covmat_full_cnp")
 
-            # CNP covmat (as in paper)
-            Chi2.replicate(name="statistic.full.chi2cnp_covmat_alt")
+            # CNP, stat+syst, cov. matrix (as in the paper)
+            Chi2.replicate(name="statistic.full.covmat.chi2cnp_alt")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2cnp_covmat_alt.data"
+                "statistic.full.covmat.chi2cnp_alt.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2cnp_covmat_alt.theory")
+            ) >> inputs.get_value("statistic.full.covmat.chi2cnp_alt.theory")
             outputs.get_value(
                 "cholesky.covmat_full_cnp"
-            ) >> inputs.get_value("statistic.full.chi2cnp_covmat_alt.errors")
+            ) >> inputs.get_value("statistic.full.covmat.chi2cnp_alt.errors")
 
-            # Log Poisson Ratio + pull
+            # Log Poisson Ratio, stat+syst, pull
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2poisson"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2poisson",
+                name="statistic.full.pull.chi2poisson",
             )
             # fmt: on
 
@@ -3474,21 +3541,25 @@ class model_dayabay_v0e:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
+        may_ignore = ["__common_definitions__"]
         if self.dataset == "b":
-            may_ignore = {
-                "bkg.count_fixed.muonx",
-                "bkg.count.muonx",
-                "bkg.spectrum.muonx",
-                "bkg.spectrum_shape.muonx",
-                "statistic.nuisance.parts.bkg.uncertainty_scale_by_site.muonx",
-            }
-        else:
-            may_ignore = set()
+            may_ignore.extend(
+                [
+                    "bkg.count_fixed.muonx",
+                    "bkg.count.muonx",
+                    "bkg.spectrum.muonx",
+                    "bkg.spectrum_shape.muonx",
+                    "statistic.nuisance.parts.bkg.uncertainty_scale_by_site.muonx",
+                ]
+            )
         for key_may_ignore in list(may_ignore):
+            cleanup = False
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
                     del unused_keys[i]
-                    may_ignore.remove(key_may_ignore)
+                    cleanup = True
+            if cleanup:
+                may_ignore.remove(key_may_ignore)
 
         if may_ignore:
             raise RuntimeError(
