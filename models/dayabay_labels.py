@@ -96,5 +96,5 @@ LATEX_SYMBOLS["bkg.uncertainty_scale.amc"] = "r^{AmC}"
 
 for i in range(31):
     key = f"neutrino_per_fission_factor.spec_scale_{i:02d}"
-    value = f"\\zeta_{{{i}}}"
+    value = f"n_{{{i}}}"
     LATEX_SYMBOLS[r"{}".format(key)] = r"${}$".format(value)
