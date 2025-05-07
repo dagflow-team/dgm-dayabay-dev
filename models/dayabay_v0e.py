@@ -2832,6 +2832,25 @@ class model_dayabay_v0e:
             )
 
             Sum.replicate(
+                outputs("bkg.spectrum"),
+                name="eventscount.fine.bkg_by_source",
+                replicate_outputs=combinations["bkg.detector"],
+            )
+
+            Rebin.replicate(
+                names={
+                    "matrix": "detector.rebin.matrix_bkg_by_source",
+                    "product": "eventscount.final.bkg_by_source",
+                },
+                replicate_outputs=combinations["bkg.detector"],
+            )
+            edges_energy_erec >> inputs.get_value("detector.rebin.matrix_bkg_by_source.edges_old")
+            edges_energy_final >> inputs.get_value(
+                "detector.rebin.matrix_bkg_by_source.edges_new"
+            )
+            outputs("eventscount.fine.bkg_by_source") >> inputs("eventscount.final.bkg_by_source")
+
+            Sum.replicate(
                 outputs("eventscount.fine.ibd_normalized"),
                 outputs("eventscount.fine.bkg"),
                 name="eventscount.fine.total",
@@ -2926,7 +2945,7 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
                 name_function=lambda _, idx: f"anue_{idx[1]}",
-                # name_function=lambda _, idx: f"eventscount_fine_observed_{idx[1]}_{idx[0]}",
+                # name_function=lambda _, idx: f"eventscount_fine_total_{idx[1]}_{idx[0]}",
             )
 
             Rebin.replicate(
