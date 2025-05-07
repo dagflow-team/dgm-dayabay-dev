@@ -15,7 +15,6 @@ Example of call:
 """
 from argparse import Namespace
 
-from matplotlib import pyplot as plt
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_load
 
@@ -24,28 +23,15 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import available_models, load_model
-from models.dayabay_labels import LATEX_SYMBOLS
-from scripts.covmatrix_mc import calculate_correlation_matrix
 from scripts import (
     convert_numpy_to_lists,
     filter_fit,
-    plot_spectra_ratio_difference,
-    plot_spectral_weights,
     update_dict_parameters,
 )
 
 set_level(INFO1)
 
 DATA_INDICES = {"model": 0, "loaded": 1}
-
-
-plt.rcParams.update(
-    {
-        "xtick.minor.visible": True,
-        "ytick.minor.visible": True,
-        "axes.grid": True,
-    }
-)
 
 
 def main(args: Namespace) -> None:
@@ -68,9 +54,7 @@ def main(args: Namespace) -> None:
 
     chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, Parameter] = {}
-    update_dict_parameters(
-        minimization_parameters, args.free_parameters, parameters_free
-    )
+    update_dict_parameters(minimization_parameters, args.free_parameters, parameters_free)
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
@@ -80,10 +64,10 @@ def main(args: Namespace) -> None:
 
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, verbose=True)
     fit = minimizer.fit()
-    # if "iterative" in args.chi2:
-        # for _ in range(4):
-            # model.next_sample(mc_parameters=False, mc_statistics=False)
-            # fit = minimizer.fit()
+    if "iterative" in args.chi2:
+        for _ in range(4):
+            model.next_sample(mc_parameters=False, mc_statistics=False)
+            fit = minimizer.fit()
     filter_fit(fit, ["summary"])
     print(fit)
     convert_numpy_to_lists(fit)
@@ -91,67 +75,9 @@ def main(args: Namespace) -> None:
         with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
 
-    if args.output_plot_corrmat:
-        fig, axs = plt.subplots(1, 1, figsize=(6, 5), sharey=True)
-        cs = axs.matshow(calculate_correlation_matrix(fit["covariance"]), vmin=-1, vmax=1, cmap="RdBu_r")
-        plt.colorbar(cs, ax=axs)
-        labels = [LATEX_SYMBOLS[parameter] for parameter in fit["names"]]
-        axs.set_xticks(range(fit["npars"]), labels)
-        axs.tick_params(axis="x", rotation=90)
-        axs.set_yticks(range(fit["npars"]), labels)
-        axs.grid(False)
-        plt.tight_layout()
-        plt.savefig(args.output_plot_corrmat)
-
-
-    if args.output_plot_spectra:
-        edges = model.storage["outputs.edges.energy_final"].data
-        for obs_name, data in model.storage[
-            f"outputs.data.real.final.{args.compare_concatenation}"
-        ].walkjoineditems():
-            plot_spectra_ratio_difference(
-                model.storage[f"outputs.eventscount.final.{args.compare_concatenation}.{obs_name}"].data,
-                data.data,
-                edges,
-                obs_name,
-            )
-            plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
-
-        if "neutrino_per_fission_factor" in args.free_parameters:
-            edges = model.storage[
-                "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
-            ].data
-            plot_spectral_weights(edges, fit)
-            plt.savefig(args.output_plot_spectra.format("sw"))
-
-    plt.figure()
-    plt.errorbar(
-        fit["xdict"]["oscprob.SinSq2Theta13"],
-        fit["xdict"]["oscprob.DeltaMSq32"],
-        xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
-        yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
-        label="dag-flow",
-    )
     if args.compare_input:
         with open(args.compare_input, "r") as f:
             compare_fit = yaml_load(f)
-        plt.errorbar(
-            compare_fit["SinSq2Theta13"]["value"],
-            compare_fit["DeltaMSq32"]["value"],
-            xerr=compare_fit["SinSq2Theta13"]["error"],
-            yerr=compare_fit["DeltaMSq32"]["error"],
-            label="dataset",
-        )
-    plt.xlabel(r"$\sin^22\theta_{13}$")
-    plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
-    plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
-    # plt.xlim(0.124, 0.131)
-    # plt.ylim(2.44e-3, 2.52e-3)
-    plt.legend()
-    plt.tight_layout()
-    if args.output_plot_fit:
-        plt.savefig(args.output_plot_fit)
-    if args.compare_input:
         print(args.chi2)
         for name, par_values in compare_fit.items():
             if name not in fit["xdict"].keys():
@@ -168,10 +94,9 @@ def main(args: Namespace) -> None:
             )
             print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
-    # plt.show()
-
     if args.interactive:
         from IPython import embed
+
         embed()
 
 
@@ -268,22 +193,6 @@ if __name__ == "__main__":
     outputs.add_argument(
         "--output-fit",
         help="path to save full fit, yaml format",
-    )
-    outputs.add_argument(
-        "--output-plot-pars",
-        help="path to save plot of normalized values",
-    )
-    outputs.add_argument(
-        "--output-plot-corrmat",
-        help="path to save plot of correlation matrix of fitted parameters",
-    )
-    outputs.add_argument(
-        "--output-plot-spectra",
-        help="path to save full plot of fits",
-    )
-    outputs.add_argument(
-        "--output-plot-fit",
-        help="path to save full plot of fits",
     )
 
     args = parser.parse_args()

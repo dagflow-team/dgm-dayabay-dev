@@ -2,12 +2,25 @@ from itertools import product
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 from numpy.typing import NDArray
 from yaml import add_representer
 
 from dagflow.bundles.load_hist import load_hist
 from dagflow.core import NodeStorage
 from dagflow.parameters import Parameter
+
+
+class FFormatter(ticker.ScalarFormatter):
+
+    def __init__(self, fformat="%1.1f", offset=True, mathText=True, *args, **kwargs):
+        self.fformat = fformat
+        ticker.ScalarFormatter.__init__(
+            self, useOffset=offset, useMathText=mathText, *args, **kwargs
+        )
+
+    def _set_format(self):
+        self.format = self.fformat
 
 
 add_representer(
@@ -166,11 +179,14 @@ def calculate_difference_error(data_a: NDArray | float, data_b: NDArray | float)
     return (data_a + data_b) ** 0.5
 
 
-def plot_spectra_ratio_difference(
+def plot_spectra_ratio(
     data_a: NDArray,
     data_b: NDArray,
     edges: NDArray,
     title: str,
+    plot_diff: bool = False,
+    label_a: str = "A: fit",
+    label_b: str = "B: data",
     ylim_ratio: tuple[float] | tuple = (),
 ) -> None:
     """
@@ -185,6 +201,12 @@ def plot_spectra_ratio_difference(
             Edges of bins where data_a and data_b are determined
         title : str
             Title for plot
+        plot_diff : bool
+            Plot difference of data_a and data_b
+        label_a : str
+            Label for data_a
+        label_b : str
+            Label for data_b
         ylim_ratio : tuple[float] | tuple[None]
             Limits for y-axis of ratio plot
 
@@ -194,39 +216,75 @@ def plot_spectra_ratio_difference(
     """
     centers = (edges[1:] + edges[:-1]) / 2
     xerrs = (edges[1:] - edges[:-1]) / 2
-    fig, axs = plt.subplots(3, 1, figsize=(7, 6), height_ratios=[2, 1, 1], sharex=True)
-    axs[0].step([edges[0], *edges], [0, *data_a, 0], where="post", label="A: fit")
+    if plot_diff:
+        fig, axs = plt.subplots(3, 1, height_ratios=[2, 1, 1], sharex=True)
+    else:
+        fig, axs = plt.subplots(2, 1, height_ratios=[2, 1], sharex=True)
+    axs[0].step([edges[0], *edges], [0, *data_a, 0], where="post", label=label_a)
     axs[0].errorbar(
-        centers, data_b, xerr=xerrs, yerr=data_b**0.5, linestyle="none", label="B: data"
+        centers, data_b, yerr=data_b**0.5, marker="o", markersize=4, linestyle="none", label=label_b
     )
     axs[1].errorbar(
         centers,
         data_a / data_b - 1,
-        xerr=xerrs,
         yerr=calculate_ratio_error(data_a, data_b),
-        linestyle="none",
-    )
-    axs[2].errorbar(
-        centers,
-        data_a - data_b,
         xerr=xerrs,
-        yerr=calculate_difference_error(data_a, data_b),
+        marker="o",
+        markersize=4,
         linestyle="none",
     )
+    if plot_diff:
+        axs[2].errorbar(
+            centers,
+            data_a - data_b,
+            yerr=calculate_difference_error(data_a, data_b),
+            xerr=xerrs,
+            marker="o",
+            markersize=4,
+            linestyle="none",
+        )
     axs[0].set_title(title)
+    formatter = FFormatter()
+    formatter.set_powerlimits((0, 2))
+    axs[0].yaxis.set_major_formatter(formatter)
     axs[0].legend()
-    axs[2].set_xlabel("E, MeV")
+    if plot_diff:
+        axs[2].set_xlabel("E, MeV")
+        axs[2].set_ylabel("A - B")
+    else:
+        axs[1].set_xlabel("Reconstructed energy [MeV]")
     axs[0].set_ylabel("Entries")
-    axs[1].yaxis.tick_right()
+    # axs[1].yaxis.tick_right()
+    axs[1].tick_params(left=True, right=True, labelleft=False, labelright=True)
     axs[1].yaxis.set_label_position("right")
     axs[1].set_ylabel("A / B - 1")
-    axs[2].set_ylabel("A - B")
+    # axs[1].yaxis.tick_left()
     if ylim_ratio:
         axs[1].set_ylim(ylim_ratio)
-    axs[0].minorticks_on()
     plt.setp(axs[0].get_xticklabels(), visible=False)
-    plt.tight_layout()
-    plt.subplots_adjust(hspace=0.0)
+
+
+def calc_box_around(
+    xy_point: tuple[float, float], xy_errors: tuple[float, float], factor: float = 0.1
+) -> tuple[list[float], list[float]]:
+    x, y = xy_point
+    xerr, yerr = xy_errors
+    return (
+        [
+            x - xerr * factor,
+            x - xerr * factor,
+            x + xerr * factor,
+            x + xerr * factor,
+            x - xerr * factor,
+        ],
+        [
+            y - yerr * factor,
+            y + yerr * factor,
+            y + yerr * factor,
+            y - yerr * factor,
+            y - yerr * factor,
+        ],
+    )
 
 
 def plot_spectral_weights(edges, fit) -> None:
@@ -259,4 +317,3 @@ def plot_spectral_weights(edges, fit) -> None:
     plt.title(r"Spectral weights of $\overline{\nu}_{e}$ spectrum")
     plt.xlabel("E, MeV")
     plt.ylabel("value")
-    plt.tight_layout()
