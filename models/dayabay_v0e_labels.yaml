@@ -188,7 +188,7 @@ daily_data:
         axis: '$\varepsilon$'
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
     efflivetime:
       group:
         text: "Daily detector effective livetime in {index[1]} during {index[0]}"
@@ -196,7 +196,7 @@ daily_data:
         unit: "s"
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
     livetime:
       group:
         text: "Daily detector wall clock livetime in {index[1]} during {index[0]}"
@@ -204,7 +204,7 @@ daily_data:
         unit: "s"
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
     rate_acc:
       group:
         text: "Daily rate of accidental background events"
@@ -212,7 +212,7 @@ daily_data:
         unit: "#/day"
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
     num_acc_s_day:
       group:
         text: "Daily # of accidental background events × day/s"
@@ -220,7 +220,7 @@ daily_data:
         unit: "#"
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
   reactor:
     power:
       group:
@@ -228,21 +228,21 @@ daily_data:
         axis: '$W_i/W_{{\rm tot}}$'
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
     fission_fraction:
       group:
         text: "Daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
         axis: '$f_i$'
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
     fission_fraction_scaled:
       group:
         text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
         axis: '$f_i$'
         xaxis: "Day"
         plotoptions:
-          figure_kw: {figsize: [9.6, 4.8]}
+          figure_kw: {figsize: [11.2, 4.8]}
 reactor:
   energy_per_fission_weighted_MeV:
     group:
@@ -631,7 +631,7 @@ reactor_anue:
       text: "Lookup segment index\\nfor interpolation of NEQ ν̅ spectrum shape correction"
     correction_interpolated:
       group:
-        text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction (interpolated)"
+        text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction\\ninterpolated"
         axis: "Non-equilibrium correction"
         plotoptions: 
           method: "slicesy"
@@ -650,7 +650,7 @@ reactor_anue:
       text: "Lookup segment index\\nfor interpolation of SNF ν̅ spectrum shape correction"
     correction_interpolated:
       group:
-        text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key} (interpolated)"
+        text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\ninterpolated"
         axis: "SNF correction"
         plotoptions: 
           method: "slicesy"
@@ -658,7 +658,7 @@ reactor_anue:
     neutrino_per_second_isotope:
       group:
         text: "Partial rate of ν̅ from {index[1]} of {index[0]}, for spent nuclear fuel"
-        axis: "ν̅ rate" 
+        axis: "SNF ν̅ rate" 
         unit: "#ν/s/MeV"
         plotoptions: 
           method: "slicesy"

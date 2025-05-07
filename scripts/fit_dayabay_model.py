@@ -78,12 +78,12 @@ def main(args: Namespace) -> None:
             parameters_constrained,
         )
 
-    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters)
+    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, verbose=True)
     fit = minimizer.fit()
-    if "iterative" in args.chi2:
-        for _ in range(4):
-            model.next_sample(mc_parameters=False, mc_statistics=False)
-            fit = minimizer.fit()
+    # if "iterative" in args.chi2:
+        # for _ in range(4):
+            # model.next_sample(mc_parameters=False, mc_statistics=False)
+            # fit = minimizer.fit()
     filter_fit(fit, ["summary"])
     print(fit)
     convert_numpy_to_lists(fit)
