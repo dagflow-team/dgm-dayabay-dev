@@ -121,6 +121,7 @@ def main(opts: Namespace) -> None:
                 "float_format": "{:.6g}".format,
                 "index": False,
             },
+            latex_substitutions=latex_substitutions,
         )
 
     if opts.pars_text:
@@ -270,6 +271,10 @@ latex_substitutions = {
     "U238 ": r"$^{238}$U ",
     "Pu239 ": r"$^{239}$Pu ",
     "Pu241 ": r"$^{241}$Pu ",
+    "²³⁵U": r"$^{235}$U",
+    "²³⁸U": r"$^{238}$U",
+    "²³⁹Pu": r"$^{239}$Pu",
+    "²⁴¹Pu": r"$^{241}$Pu",
     "Eν": r"$E_{\nu}$",
     "Edep": r"$E_{\rm dep}$",
     "Evis": r"$E_{\rm vis}$",
@@ -298,9 +303,20 @@ latex_substitutions = {
     "χ²": r"$χ^2$",
     "·": r"$\cdot$",
     "×": r"$\times$",
+    "%": r'\%',
+    "#": r'\#',
     "⁻¹": r"$^{-1}$",
     "⁻²": r"$^{-2}$",
+    "¹": r"$^1$",
     "²": r"$^2$",
+    "³": r"$^3$",
+    "⁴": r"$^4$",
+    "⁵": r"$^5$",
+    "⁶": r"$^6$",
+    "⁷": r"$^7$",
+    "⁸": r"$^8$",
+    "⁹": r"$^9$",
+    "⁰": r"$^0$",
     "ᵢ": r"$_i$",
 }
 
