@@ -859,7 +859,7 @@ data:
         xaxis: "Bin energy/detector/period"
         xunit: "#"
   proxy:
-    text: "Switchable of the data source for likelihood"
+    text: "Switchable node for data source of likelihood"
     axis: "Entries"
     unit: "#"
     xaxis: "Bin energy/detector/period"
@@ -993,59 +993,73 @@ covariance:
   covmat_syst:
     oscprob:
       text: "Systematic covariance matrix for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     eres:
       text: "Systematic covariance matrix for energy resolution parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     lsnl:
       text: "Systematic covariance matrix for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      unit: "#²"
       plottitle: "Systematic covariance matrix for LSNL parameters"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     iav:
       text: "Systematic covariance matrix for Inner Acrylic Vessel (IAV) parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     detector_relative:
       text: "Systematic covariance matrix for relative detector efficiency\\nand relative energy scale parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     energy_per_fission:
       text: "Systematic covariance matrix for average fission energy parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     nominal_thermal_power:
       text: "Systematic covariance matrix for reactor thermal power parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     snf:
       text: "Systematic covariance matrix for spent nuclear fuel parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     neq:
       text: "Systematic covariance matrix for non-equilibrium correction parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     fission_fraction:
       text: "Systematic covariance matrix for fission fraction parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     bkg_rate:
       text: "Systematic covariance matrix for background rate parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     hm_corr:
       text: "Systematic covariance matrix for correlated ν̅ spectrum parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     hm_uncorr:
       text: "Systematic covariance matrix for uncorrelated ν̅ spectrum parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     sum:
       text: "Systematic covariance matrix"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
   data:
@@ -1054,20 +1068,24 @@ covariance:
       axis: '$\sigma^2$'
       unit: '#²'
   covmat_full_p:
-    stat_fixed:
+    fixed_stat:
       text: "Full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
-    stat_variable:
+    variable_stat:
       text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
   covmat_full_n:
     text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    unit: "#²"
     axis: '$V_{\rm syst}$'
     plotoptions: *covariance_plotoptions
   covmat_full_cnp:
     text: "Full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    unit: "#²"
     axis: '$V_{\rm syst}$'
     plotoptions: *covariance_plotoptions
 cholesky:
@@ -1086,66 +1104,79 @@ cholesky:
         axis: '$\sigma$'
         unit: '#'
   covmat_full_p:
-    stat_fixed:
+    fixed_stat:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      unit: "#"
       axis: "$L$"
       plotoptions: *covariance_plotoptions
-    stat_variable:
+    variable_stat:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      unit: "#"
       axis: "$L$"
       plotoptions: *covariance_plotoptions
   covmat_full_n:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    unit: "#"
     axis: "$L$"
     plotoptions: *covariance_plotoptions
   covmat_full_cnp:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    unit: "#"
     axis: "$L$"
     plotoptions: *covariance_plotoptions
 statistic:
   staterr:
     cnp:
-      text: "CNP statistical uncertainty (variable)"
+      text: "CNP statistical uncertainty"
       axis: '$\sigma_{\rm CNP}$'
       unit: "#"
     cnp_variance:
-      text: "CNP statistical variance (variable)"
+      text: "CNP statistical variance"
       axis: '$\sigma^2_{\rm CNP}$'
       unit: "#²"
   log_prod_diag:
-    text: "log\\|V\\| unbiasing term for χ²"
+    stat:
+      text: "log\\|V\\| unbiasing term for χ²\\nstat. only, variable stat uncertainties"
+    full:
+      text: "log\\|V\\| unbiasing term for χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
   stat:
     chi2cnp:
-      text: "Combined Neyman-Pearson's χ² with statistical uncertainties"
+      text: "Combined Neyman-Pearson's χ²\\nstat. only"
     chi2p:
-      text: "Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+      text: "Pearson's χ²\\nstat. only, variable stat. uncertainties"
     chi2p_unbiased:
-      text: "Unbiased Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+      text: "Unbiased Pearson's χ²\\nstat. only, variable stat. uncertainties"
     chi2p_iterative:
-      text: "Pearson's χ² with statistical uncertainties\\nfixed stat uncertainties"
+      text: "Pearson's χ²\\nstat. only, fixed stat. uncertainties"
     chi2n:
-      text: "Neyman's χ² with statistical uncertainties"
+      text: "Neyman's χ²\\nstat. only"
     chi2poisson:
       text: "Log Poisson Ratio (χ²)\\nstatistical uncertainties only"
   full:
-    chi2cnp:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\nnuisance terms"
-    chi2cnp_covmat:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum χ²"
-    chi2cnp_covmat_alt:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum variance"
-    chi2p_unbiased:
-      text: "Unbiased Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, nuisance terms"
-    chi2p_covmat_fixed:
-      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties, covariance matrix"
-    chi2p_covmat_variable:
-      text: "Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, covariance matrix"
-    chi2p_iterative:
-      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties"
-    chi2n_covmat:
-      text: "Neyman's χ² with statistical and systematic uncertainties\\ncovariance matrix"
-    chi2poisson:
-      text: "Log Poisson Ratio (χ²)\\nstatistical and systematic uncertainties"
+    covmat:
+      chi2cnp:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum χ²"
+      chi2cnp_alt:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum variance"
+      chi2p_iterative:
+        text: "Pearson's χ²\\nstat+syst, fixed stat uncertainties, covariance matrix"
+      chi2p:
+        text: "Pearson's χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
+      chi2p_unbiased:
+        text: "Unbiased Pearson's χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
+      chi2n:
+        text: "Neyman's χ²\\nstat+syst, covariance matrix"
+    pull:
+      chi2cnp:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, nuisance terms"
+      chi2p_unbiased:
+        text: "Unbiased Pearson's χ²\\nstat+syst, variable stat uncertainties, nuisance terms"
+      chi2p_iterative:
+        text: "Pearson's χ²\\nstat+syst, fixed stat uncertainties"
+      chi2p:
+        text: "Pearson's χ²\\nstat+syst, variable stat uncertainties"
+      chi2poisson:
+        text: "Log Poisson Ratio (χ²)\\nstatistical and systematic uncertainties"
   nuisance:
     all:
       text: "χ² nuisance term"
