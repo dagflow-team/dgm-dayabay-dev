@@ -116,12 +116,14 @@ kinematics:
       latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
       plotoptions:
         method: "slicesy"
+        mask_value: 0.0
     crosssection_jacobian:
       text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)"
       axis: "$\\sigma(E_{\\nu}, \\cos\\theta)\\times dE_{\\nu}/dE_{\\rm dep}$"
       unit: "cm⁻²/proton"
       plotoptions:
         method: "slicesy"
+        mask_value: 0.0
     crosssection_jacobian_oscillations:
       group:
         text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key}"
@@ -129,6 +131,7 @@ kinematics:
         unit: "cm⁻²/proton"
         plotoptions:
           method: "slicesy"
+          mask_value: 0.0
   neutrino_cm2_per_MeV_per_fission_per_proton:
     part:
       nu_main:
