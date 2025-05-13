@@ -12,6 +12,7 @@ Example of call:
 """
 from argparse import Namespace
 
+from IPython import embed
 from matplotlib import pyplot as plt
 from yaml import safe_load as yaml_load
 
@@ -19,18 +20,13 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
 from models.dayabay_labels import LATEX_SYMBOLS
+from scripts import calc_box_around, filter_fit, plot_spectra_ratio, plot_spectral_weights
 from scripts.covmatrix_mc import calculate_correlation_matrix
-from scripts import (
-    filter_fit,
-    plot_spectra_ratio,
-    plot_spectral_weights,
-    calc_box_around,
-)
 
 set_level(INFO1)
 
 DATA_INDICES = {"model": 0, "loaded": 1}
-AD_to_EH = {
+AD_TO_EH = {
     "AD11": "EH1",
     "AD12": "EH1",
     "AD21": "EH2",
@@ -67,7 +63,7 @@ def get_obs(storage_generator):
 def sum_by_eh(dict_obs) -> dict:
     result = dict(zip(["EH1", "EH2", "EH3"], [0, 0, 0]))
     for detector, obs in dict_obs.items():
-        result[AD_to_EH[detector]] += obs
+        result[AD_TO_EH[detector]] += obs
     return result
 
 
@@ -95,15 +91,11 @@ def main(args: Namespace) -> None:
     match args.data:
         case "model":
             data_obs = get_obs(
-                storage[
-                    f"outputs.eventscount.final.{args.compare_concatenation}"
-                ].walkjoineditems()
+                storage[f"outputs.eventscount.final.{args.compare_concatenation}"].walkjoineditems()
             )
         case "loaded":
             data_obs = get_obs(
-                storage[
-                    f"outputs.data.real.final.{args.compare_concatenation}"
-                ].walkjoineditems()
+                storage[f"outputs.data.real.final.{args.compare_concatenation}"].walkjoineditems()
             )
     model.set_parameters(fit["xdict"])
     fit_obs = get_obs(
@@ -141,9 +133,7 @@ def main(args: Namespace) -> None:
             plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
         if list(filter(lambda x: "neutrino_per_fission_factor" in x, fit["names"])):
-            edges = storage[
-                "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
-            ].data
+            edges = storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
             plot_spectral_weights(edges, fit)
             if args.output_sw_ylim:
                 plt.ylim(args.output_sw_ylim)
@@ -157,9 +147,9 @@ def main(args: Namespace) -> None:
         yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
         label=args.output_fit_label_a,
     )
-    plt.legend(title=args.chi2 + f" = {fit['fun']:1.3f}")
-    if args.compare_input:
-        with open(args.compare_input, "r") as f:
+    plt.legend(title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}")
+    if args.compare_fit:
+        with open(args.compare_fit, "r") as f:
             compare_fit = yaml_load(f)
         eb1 = plt.errorbar(
             compare_fit["SinSq2Theta13"]["value"],
@@ -178,7 +168,9 @@ def main(args: Namespace) -> None:
             color="C1",
             label=r"$0.1\sigma$",
         )
-        plt.legend(handles=[eb0, eb1, box], title=args.chi2 + f" = {fit['fun']:1.3f}")
+        plt.legend(
+            handles=[eb0, eb1, box], title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}"
+        )
     plt.xlabel(r"$\sin^22\theta_{13}$")
     plt.ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
     plt.title("")
@@ -189,12 +181,10 @@ def main(args: Namespace) -> None:
     if args.output_fit_ylim:
         plt.ylim(args.output_fit_ylim)
         print(args.output_fit_ylim)
-    # plt.tight_layout()
     plt.subplots_adjust(left=0.15, right=0.95, bottom=0.1, top=0.95)
     if args.output_plot_fit:
         plt.savefig(args.output_plot_fit)
-    if args.compare_input:
-        print(args.chi2)
+    if args.compare_fit:
         for name, par_values in compare_fit.items():
             if name not in fit["xdict"].keys():
                 continue
@@ -210,11 +200,10 @@ def main(args: Namespace) -> None:
             )
             print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
-    # plt.show()
+    if args.output_show:
+        plt.show()
 
     if args.interactive:
-        from IPython import embed
-
         embed()
 
 
@@ -245,16 +234,11 @@ if __name__ == "__main__":
         help="Data source type",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
-
-    fit_options = parser.add_argument_group("fit", "Set fit procedure")
-    fit_options.add_argument(
+    model.add_argument(
         "--data",
         default="model",
         choices=DATA_INDICES.keys(),
-        help="Choose data for fit",
-    )
-    fit_options.add_argument(
-        "--chi2",
+        help="Choose data for plotting as observed",
     )
 
     comparison = parser.add_argument_group("comparison", "Comparison options")
@@ -267,22 +251,18 @@ if __name__ == "__main__":
     comparison.add_argument(
         "--sum-by-eh",
         action="store_true",
-        help="",
+        help="Sum detectors by experimental halls",
     )
     comparison.add_argument(
         "--input-fit",
-        help="path to file with wich compare",
+        help="path to file which load as expected",
     )
     comparison.add_argument(
-        "--compare-input",
-        help="path to file with wich compare",
+        "--compare-fit",
+        help="path to file with which compare",
     )
 
     outputs = parser.add_argument_group("outputs", "set outputs")
-    outputs.add_argument(
-        "--output-fit",
-        help="path to save full fit, yaml format",
-    )
     outputs.add_argument(
         "--output-plot-pars",
         help="path to save plot of normalized values",
@@ -304,6 +284,9 @@ if __name__ == "__main__":
     outputs.add_argument(
         "--output-plot-fit",
         help="path to save full plot of fits",
+    )
+    outputs.add_argument(
+        "--output-fit-title-legend",
     )
     outputs.add_argument(
         "--output-fit-xlim",
@@ -331,6 +314,10 @@ if __name__ == "__main__":
     )
     outputs.add_argument(
         "--output-fit-label-b",
+    )
+    outputs.add_argument(
+        "--output-show",
+        action="store_true",
     )
 
     args = parser.parse_args()

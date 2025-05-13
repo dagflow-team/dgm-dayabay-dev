@@ -1,3 +1,14 @@
+__common_definitions__:
+  daily_plotoptions: &daily_plotoptions
+    figure_kw: {figsize: [12.4, 4.8]}
+    subplots_adjust: {left: 0.06, right: 0.97}
+  detector_response_plotoptions: &detector_response_plotoptions
+      aspect: "equal"
+      mask_value: 0.0
+      plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5, alpha: 0.5}
+  covariance_plotoptions: &covariance_plotoptions
+      aspect: "equal"
+      mask_value: 0.0
 edges:
   costheta:
     text: "Positron angle cosθ"
@@ -90,29 +101,27 @@ kinematics:
       axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$"
       unit: "cm⁻²/proton"
       latexunit: "cm$^{-2}$"
-      plotoptions: 
+      plotoptions:
         method: "slicesy"
-        mask_value: 0.0
     enu:
       text: "Eν mesh\\nfor integration"
       latex: "$E_{\\nu}$ mesh"
       axis: "$E_{\\nu}$"
       unit: "MeV"
-      plotoptions: 
+      plotoptions:
         method: "slicesy"
-        mask_value: 0.0
     jacobian:
       text: "dEν/dEdep Jacobian"
       axis: "$dE_{\\nu}/dE_{\\rm dep}$"
       latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
-      plotoptions: 
+      plotoptions:
         method: "slicesy"
         mask_value: 0.0
     crosssection_jacobian:
       text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)"
       axis: "$\\sigma(E_{\\nu}, \\cos\\theta)\\times dE_{\\nu}/dE_{\\rm dep}$"
       unit: "cm⁻²/proton"
-      plotoptions: 
+      plotoptions:
         method: "slicesy"
         mask_value: 0.0
     crosssection_jacobian_oscillations:
@@ -120,7 +129,7 @@ kinematics:
         text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key}"
         axis: '$P(E_{\nu}) \times \sigma(E_{\nu}, \cos\theta)\times dE_{\nu}/dE_{\rm dep}$'
         unit: "cm⁻²/proton"
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
           mask_value: 0.0
   neutrino_cm2_per_MeV_per_fission_per_proton:
@@ -130,25 +139,22 @@ kinematics:
           text: "Partial differential IBD rate (main)\\nfrom {index[1]} in {index[0]} at {index[2]}"
           axis: "IBD rate"
           unit: "#ν·cm²/MeV/fission/proton"
-          plotoptions: 
+          plotoptions:
             method: "slicesy"
-            mask_value: 0.0
       nu_neq:
         group:
           text: "Partial differential IBD rate from non-equilibrium\\nfrom {index[1]} in {index[0]} at {index[2]}"
           axis: "IBD rate"
           unit: "#ν·cm²/MeV/fission/proton"
-          plotoptions: 
+          plotoptions:
             method: "slicesy"
-            mask_value: 0.0
       nu_snf:
         group:
           text: "Partial differential IBD rate from spent nuclear fuel\\nfrom {index[0]} at {index[1]}"
           axis: "IBD rate"
           unit: "#ν·cm²/MeV/s/proton"
-          plotoptions: 
+          plotoptions:
             method: "slicesy"
-            mask_value: 0.0
   integral:
     nu_main:
       group:
@@ -156,27 +162,24 @@ kinematics:
         axis: "IBD flux"
         unit: "#ν·cm²/fission/proton"
         latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
     nu_neq:
       group:
         text: "Partial integrated rate of IBD events from non-equilibrium\\nfrom {index[1]} in {index[0]} at {index[2]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/fission/proton"
         latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
     nu_snf:
       group:
         text: "Partial integrated rate of IBD events from spent nuclear fuel\\nfrom {index[0]} at {index[1]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/s/proton"
         latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/s/proton'
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
 daily_data:
   detector:
     days:
@@ -187,62 +190,54 @@ daily_data:
         text: "Daily detector efficiency in {index[1]} during {index[0]}"
         axis: '$\varepsilon$'
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
     efflivetime:
       group:
         text: "Daily detector effective livetime in {index[1]} during {index[0]}"
         axis: "$T$"
         unit: "s"
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
     livetime:
       group:
         text: "Daily detector wall clock livetime in {index[1]} during {index[0]}"
         axis: "$T$"
         unit: "s"
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
     rate_acc:
       group:
         text: "Daily rate of accidental background events"
         axis: "$R$"
         unit: "#/day"
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
     num_acc_s_day:
       group:
         text: "Daily # of accidental background events × day/s"
         axis: "$N$"
         unit: "#"
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
   reactor:
     power:
       group:
         text: "Daily fractional reactor power for {index[0]} during {index[1]}"
         axis: '$W_i/W_{{\rm tot}}$'
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
     fission_fraction:
       group:
         text: "Daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
         axis: '$f_i$'
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
     fission_fraction_scaled:
       group:
         text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
         axis: '$f_i$'
         xaxis: "Day"
-        plotoptions:
-          figure_kw: {figsize: [11.2, 4.8]}
+        plotoptions: *daily_plotoptions
 reactor:
   energy_per_fission_weighted_MeV:
     group:
@@ -447,31 +442,37 @@ bkg:
         text: "# of accidental background events in {index[0]} during {index[1]}"
         axis: "$N$"
         unit: "#"
+        plotoptions: {yscale: log}
     alphan:
       group:
         text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]}"
         axis: "$N$"
         unit: "#"
+        plotoptions: {yscale: log}
     amc:
       group:
         text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]}"
         axis: "$N$"
         unit: "#"
+        plotoptions: {yscale: log}
     fastn:
       group:
         text: "# of fast neutron background events in {index[0]} during {index[1]}"
         axis: "$N$"
         unit: "#"
+        plotoptions: {yscale: log}
     lihe:
       group:
         text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}"
         axis: "$N$"
         unit: "#"
+        plotoptions: {yscale: log}
     muonx:
       group:
         text: "# of μ decay background events in {index[0]} during {index[1]}"
         axis: "$N$"
         unit: "#"
+        plotoptions: {yscale: log}
   spectrum_shape:
     acc:
       group:
@@ -633,9 +634,8 @@ reactor_anue:
       group:
         text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction\\ninterpolated"
         axis: "Non-equilibrium correction"
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
   snf_anue:
     correction_input:
       enu:
@@ -652,33 +652,29 @@ reactor_anue:
       group:
         text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\ninterpolated"
         axis: "SNF correction"
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
     neutrino_per_second_isotope:
       group:
         text: "Partial rate of ν̅ from {index[1]} of {index[0]}, for spent nuclear fuel"
-        axis: "SNF ν̅ rate" 
+        axis: "SNF ν̅ rate"
         unit: "#ν/s/MeV"
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
     neutrino_per_second:
       group:
         text: "Rate of ν̅ from {key}, for spent nuclear fuel"
-        axis: "SNF ν̅ rate" 
+        axis: "SNF ν̅ rate"
         unit: "#ν/s/MeV"
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
     neutrino_per_second_snf:
       group:
         text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
-        axis: "SNF ν̅ rate" 
+        axis: "SNF ν̅ rate"
         unit: "#ν/s/MeV"
-        plotoptions: 
+        plotoptions:
           method: "slicesy"
-          mask_value: 0.0
 reactor_detector:
   nfissions_daily:
     group:
@@ -686,6 +682,7 @@ reactor_detector:
       axis: "$N$"
       unit: "#fissions"
       xaxis: "Day"
+      plotoptions: *daily_plotoptions
   nfissions:
     group:
       text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during {index[3]} [#fissions]"
@@ -724,18 +721,12 @@ detector:
     matrix_raw:
       text: "IAV matrix (MC)"
       axis: "f"
-      plotoptions:
-        aspect: "equal"
-        mask_value: 0.0
-        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+      plotoptions: *detector_response_plotoptions
     matrix_rescaled:
       group:
         text: "IAV matrix for {key}\\nwith adjusted (fit) offdiagonal elements"
         axis: "f"
-        plotoptions:
-          aspect: "equal"
-          mask_value: 0.0
-          plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+        plotoptions: *detector_response_plotoptions
   lsnl:
     curves:
       escint:
@@ -750,7 +741,7 @@ detector:
           unit: "MeV"
       evis_parts_scaled:
         group:
-          text: "Input coarse Evisᵢ(Escint) {key} curve for LSNL"
+          text: "Input scaled coarse Evisᵢ(Escint) {key} curve for LSNL"
           axis: '$E_{\rm vis}$'
           unit: "MeV"
       evis_coarse:
@@ -771,6 +762,22 @@ detector:
           text: "Visible energy Evis (LSNL×relative energy scale) for {key}"
           axis: '$E_{\rm vis}$'
           unit: "MeV"
+      relative:
+        evis_parts:
+          group:
+            text: "Input relative coarse Evisᵢ(Escint)/Escint {key} curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_parts_scaled:
+          group:
+            text: "Input scaled relative coarse Evisᵢ(Escint)/Escint {key} curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_parts_individual:
+          group:
+            text: "Input relative coarse Evisᵢ(Escint)/Escint {key} (target) curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_coarse:
+          text: "Input relative coarse Evis(Escint)/Escint for LSNL"
+          axis: '$E_{\rm vis}/E_{\rm scint}$'
     indexer_fwd:
       text: "Segment lookup for Evis(Escint)\\ninterpolation for LSNL correction"
     interpolated_fwd:
@@ -789,10 +796,7 @@ detector:
       group:
         text: "Energy scale correction matrix for {key}\\nLSNL×relative energy scale"
         axis: "f"
-        plotoptions:
-          aspect: "equal"
-          mask_value: 0.0
-          plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+        plotoptions: *detector_response_plotoptions
   eres:
     e_bincenter:
       text: "Visible energy (Evis) bin centers"
@@ -804,25 +808,16 @@ detector:
     matrix:
       text: "Energy resolution matrix"
       axis: "f"
-      plotoptions:
-        aspect: "equal"
-        mask_value: 0.0
-        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+      plotoptions: *detector_response_plotoptions
   rebin:
     matrix_ibd:
       text: "Rebinning matrix for IBD events"
       axis: "f"
-      plotoptions:
-        aspect: "equal"
-        mask_value: 0.0
-        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+      plotoptions: *detector_response_plotoptions
     matrix_bkg:
       text: "Rebinning matrix for background events"
       axis: "f"
-      plotoptions:
-        aspect: "equal"
-        mask_value: 0.0
-        plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5}
+      plotoptions: *detector_response_plotoptions
 mc:
   parameters:
     toymc:
@@ -867,7 +862,7 @@ data:
         xaxis: "Bin energy/detector/period"
         xunit: "#"
   proxy:
-    text: "Switchable of the data source for likelihood"
+    text: "Switchable node for data source of likelihood"
     axis: "Entries"
     unit: "#"
     xaxis: "Bin energy/detector/period"
@@ -1001,118 +996,101 @@ covariance:
   covmat_syst:
     oscprob:
       text: "Systematic covariance matrix for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     eres:
       text: "Systematic covariance matrix for energy resolution parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     lsnl:
       text: "Systematic covariance matrix for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      unit: "#²"
+      plottitle: "Systematic covariance matrix for LSNL parameters"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     iav:
       text: "Systematic covariance matrix for Inner Acrylic Vessel (IAV) parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     detector_relative:
-      text: "Systematic covariance matrix for relative detector efficiency and energy scale parameters"
+      text: "Systematic covariance matrix for relative detector efficiency\\nand relative energy scale parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     energy_per_fission:
       text: "Systematic covariance matrix for average fission energy parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     nominal_thermal_power:
       text: "Systematic covariance matrix for reactor thermal power parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     snf:
       text: "Systematic covariance matrix for spent nuclear fuel parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     neq:
       text: "Systematic covariance matrix for non-equilibrium correction parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     fission_fraction:
       text: "Systematic covariance matrix for fission fraction parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     bkg_rate:
       text: "Systematic covariance matrix for background rate parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     hm_corr:
       text: "Systematic covariance matrix for correlated ν̅ spectrum parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     hm_uncorr:
       text: "Systematic covariance matrix for uncorrelated ν̅ spectrum parameters"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
     sum:
       text: "Systematic covariance matrix"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
   data:
     fixed:
       text: "Statistical variance (fixed) for covariance matrix calculation"
       axis: '$\sigma^2$'
       unit: '#²'
   covmat_full_p:
-    stat_fixed:
+    fixed_stat:
       text: "Full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
-    stat_variable:
+      plotoptions: *covariance_plotoptions
+    variable_stat:
       text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      unit: "#²"
       axis: '$V_{\rm syst}$'
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
   covmat_full_n:
     text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    unit: "#²"
     axis: '$V_{\rm syst}$'
-    plotoptions:
-      aspect: equal
-      mask_value: 0.0
+    plotoptions: *covariance_plotoptions
   covmat_full_cnp:
     text: "Full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    unit: "#²"
     axis: '$V_{\rm syst}$'
-    plotoptions:
-      aspect: equal
-      mask_value: 0.0
+    plotoptions: *covariance_plotoptions
 cholesky:
   stat:
     variable:
@@ -1129,74 +1107,79 @@ cholesky:
         axis: '$\sigma$'
         unit: '#'
   covmat_full_p:
-    stat_fixed:
+    fixed_stat:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      unit: "#"
       axis: "$L$"
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
-    stat_variable:
+      plotoptions: *covariance_plotoptions
+    variable_stat:
       text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      unit: "#"
       axis: "$L$"
-      plotoptions:
-        aspect: equal
-        mask_value: 0.0
+      plotoptions: *covariance_plotoptions
   covmat_full_n:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    unit: "#"
     axis: "$L$"
-    plotoptions:
-      aspect: equal
-      mask_value: 0.0
+    plotoptions: *covariance_plotoptions
   covmat_full_cnp:
     text: "Cholesky decomposition of full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    unit: "#"
     axis: "$L$"
-    plotoptions:
-      aspect: equal
-      mask_value: 0.0
+    plotoptions: *covariance_plotoptions
 statistic:
   staterr:
     cnp:
-      text: "CNP statistical uncertainty (variable)"
+      text: "CNP statistical uncertainty"
       axis: '$\sigma_{\rm CNP}$'
       unit: "#"
     cnp_variance:
-      text: "CNP statistical variance (variable)"
+      text: "CNP statistical variance"
       axis: '$\sigma^2_{\rm CNP}$'
       unit: "#²"
   log_prod_diag:
-    text: "log\\|V\\| unbiasing term for χ²"
+    stat:
+      text: "log\\|V\\| unbiasing term for χ²\\nstat. only, variable stat uncertainties"
+    full:
+      text: "log\\|V\\| unbiasing term for χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
   stat:
     chi2cnp:
-      text: "Combined Neyman-Pearson's χ² with statistical uncertainties"
+      text: "Combined Neyman-Pearson's χ²\\nstat. only"
     chi2p:
-      text: "Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+      text: "Pearson's χ²\\nstat. only, variable stat. uncertainties"
     chi2p_unbiased:
-      text: "Unbiased Pearson's χ² with statistical uncertainties\\nvariable stat uncertainties"
+      text: "Unbiased Pearson's χ²\\nstat. only, variable stat. uncertainties"
     chi2p_iterative:
-      text: "Pearson's χ² with statistical uncertainties\\nfixed stat uncertainties"
+      text: "Pearson's χ²\\nstat. only, fixed stat. uncertainties"
     chi2n:
-      text: "Neyman's χ² with statistical uncertainties"
+      text: "Neyman's χ²\\nstat. only"
     chi2poisson:
       text: "Log Poisson Ratio (χ²)\\nstatistical uncertainties only"
   full:
-    chi2cnp:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\nnuisance terms"
-    chi2cnp_covmat:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum χ²"
-    chi2cnp_covmat_alt:
-      text: "Combined Neyman-Pearson's χ² with statistical and systematic uncertainties\\ncovariance matrix, sum variance"
-    chi2p_unbiased:
-      text: "Unbiased Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, nuisance terms"
-    chi2p_covmat_fixed:
-      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties, covariance matrix"
-    chi2p_covmat_variable:
-      text: "Pearson's χ² with statistical and systematic uncertainties\\nvariable stat uncertainties, covariance matrix"
-    chi2p_iterative:
-      text: "Pearson's χ² with statistical and systematic uncertainties\\nfixed stat uncertainties"
-    chi2n_covmat:
-      text: "Neyman's χ² with statistical and systematic uncertainties\\ncovariance matrix"
-    chi2poisson:
-      text: "Log Poisson Ratio (χ²)\\nstatistical and systematic uncertainties"
+    covmat:
+      chi2cnp:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum χ²"
+      chi2cnp_alt:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum variance"
+      chi2p_iterative:
+        text: "Pearson's χ²\\nstat+syst, fixed stat uncertainties, covariance matrix"
+      chi2p:
+        text: "Pearson's χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
+      chi2p_unbiased:
+        text: "Unbiased Pearson's χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
+      chi2n:
+        text: "Neyman's χ²\\nstat+syst, covariance matrix"
+    pull:
+      chi2cnp:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, nuisance terms"
+      chi2p_unbiased:
+        text: "Unbiased Pearson's χ²\\nstat+syst, variable stat uncertainties, nuisance terms"
+      chi2p_iterative:
+        text: "Pearson's χ²\\nstat+syst, fixed stat uncertainties"
+      chi2p:
+        text: "Pearson's χ²\\nstat+syst, variable stat uncertainties"
+      chi2poisson:
+        text: "Log Poisson Ratio (χ²)\\nstatistical and systematic uncertainties"
   nuisance:
     all:
       text: "χ² nuisance term"

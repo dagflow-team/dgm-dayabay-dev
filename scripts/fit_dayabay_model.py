@@ -9,12 +9,12 @@ Example of call:
     --chi2 full.chi2n_covmat \
     --free-parameters oscprob neutrino_per_fission_factor \
     --constrained-parameters oscprob detector reactor bkg reactor_anue \
-    --output-plot-spectra "output/obs-{}.pdf" \
     --output-fit output/fit.yaml
 ```
 """
 from argparse import Namespace
 
+from IPython import embed
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_load
 
@@ -23,11 +23,7 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import available_models, load_model
-from scripts import (
-    convert_numpy_to_lists,
-    filter_fit,
-    update_dict_parameters,
-)
+from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
 
 set_level(INFO1)
 
@@ -95,8 +91,6 @@ def main(args: Namespace) -> None:
             print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
     if args.interactive:
-        from IPython import embed
-
         embed()
 
 
@@ -152,15 +146,17 @@ if __name__ == "__main__":
             "stat.chi2cnp",
             "stat.chi2p_unbiased",
             "stat.chi2poisson",
-            "full.chi2p_covmat_fixed",
-            "full.chi2n_covmat",
-            "full.chi2p_covmat_variable",
-            "full.chi2p_iterative",
-            "full.chi2cnp",
-            "full.chi2p_unbiased",
-            "full.chi2cnp_covmat",
-            "full.chi2cnp_covmat_alt",
-            "full.chi2poisson",
+            "full.covmat.chi2p_iterative",
+            "full.covmat.chi2n",
+            "full.covmat.chi2p",
+            "full.covmat.chi2p_unbiased",
+            "full.covmat.chi2cnp",
+            "full.covmat.chi2cnp_alt",
+            "full.pull.chi2p_iterative",
+            "full.pull.chi2p",
+            "full.pull.chi2cnp",
+            "full.pull.chi2p_unbiased",
+            "full.pull.chi2poisson",
         ],
         help="Choose chi-squared function for minimizer",
     )
