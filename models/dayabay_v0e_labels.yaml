@@ -719,7 +719,7 @@ detector:
       text: "Effective detector livetime {key} [day]"
   iav:
     matrix_raw:
-      text: "IAV matrix (MC)"
+      text: "IAV matrix, nominal"
       axis: "f"
       plotoptions: *detector_response_plotoptions
     matrix_rescaled:
