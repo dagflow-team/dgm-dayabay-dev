@@ -18,17 +18,19 @@ from dagflow.tools.profiling import (
     MemoryProfiler,
     NodeProfiler,
 )
+from dagflow.lib.common import Array
 from dagflow.tools.save_records import save_records
 from models import available_models, load_model
+from scripts import update_dict_parameters
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from dagflow.parameters import Parameter
     from typing import Any
 
 
 set_level(INFO1)
 
-# type of nodes used for node profiler
 PROFILE_NODES = [
     "Product",
     "Cholesky",
@@ -55,62 +57,77 @@ PROFILE_NODES = [
 ]
 
 
-def profile(model, opts: Namespace):
+def profile(model, opts: Namespace, fit_params, stat):
     print("Running profiling!")
 
-    all_nodes = model.graph._nodes
-    selected_nodes = list(
-        filter(lambda x: type(x).__name__ in PROFILE_NODES, all_nodes)
-    )
-
-    outpath = Path(opts.outpath)  / "profiling" / opts.version
+    outpath = Path(opts.outpath) / opts.version
     outpath.mkdir(parents=True, exist_ok=True)
     cur_time = datetime.strftime(datetime.now(), "%Y%m%d_%H%M%S")
 
-    node_profiler = NodeProfiler(selected_nodes, n_runs=opts.node_prof_runs)
+    all_nodes = model.graph._nodes
+
+    # nodes that are executed more than 1 time during the fit process
+    many_execution_nodes = list(
+        filter(lambda x: type(x).__name__ in PROFILE_NODES, all_nodes)
+    )
+
+    # we assume that Array should be non-modifiable for FrameworkProfiling,
+    # otherwise, we get an error from IntegratorSampler because of tainting integration orders.
+    no_array_nodes = list(
+        filter(lambda x: not isinstance(x, Array), all_nodes)
+    )
+
+    node_profiler = NodeProfiler(many_execution_nodes, n_runs=opts.node_prof_runs)
     st = time()
     node_profiler.estimate_target_nodes()
-    print(f"Node profiling took {time() - st:.2f} seconds.")
+    print(f"\nNode profiling took {time() - st:.2f} seconds.")
     report = node_profiler.print_report(sort_by="%_of_total")
     report.to_csv(outpath / f"node_{cur_time}.csv")
 
-    framework_profiler = FrameworkProfiler(all_nodes, n_runs=opts.framework_runs)
+    framework_profiler = FrameworkProfiler(no_array_nodes, n_runs=opts.framework_runs)
     st = time()
     framework_profiler.estimate_framework_time()
-    print(f"Framework profiling took {time() - st:.2f} seconds.")
+    print(f"\nFramework profiling took {time() - st:.2f} seconds.")
     framework_profiler.print_report().to_csv(outpath / f"framework_{cur_time}.csv")
 
     memory_profiler = MemoryProfiler(all_nodes)
     st = time()
     memory_profiler.estimate_target_nodes()
-    print(f"Memory profiling took {time() - st:.2f} seconds.")
+    print(f"\nMemory profiling took {time() - st:.2f} seconds.")
     report = memory_profiler.print_report(sort_by="size_sum")
     report.to_csv(outpath / f"memory_{cur_time}.csv")
 
-    # TODO: change the way of obtaning source/sinks
-    source, sinks = framework_profiler._sources, framework_profiler._sinks
+    # TODO: change the way of obtaning paramters and outputs
+    minimization_pars: dict[str, Parameter] = {}
+    update_dict_parameters(minimization_pars, ["oscprob", "detector"], fit_params["free"])
+    update_dict_parameters(
+        minimization_pars, ["oscprob", "detector", "reactor", "bkg"], fit_params["constrained"]
+    )
+
+    params = [param.output.node for param in minimization_pars.values()]
+    endpoints = [ stat.node ]
 
     fit_param_wise_profiler = FitSimulationProfiler(
         mode="parameter-wise",
-        parameters=source,
-        endpoints=sinks,
+        parameters=params,
+        endpoints=endpoints,
         n_runs=opts.fit_param_wise_runs,
     )
     st = time()
     fit_param_wise_profiler.estimate_fit()
-    print(f"parameter-wise fit profiling took {time() - st:.2f} seconds.")
+    print(f"\nParameter-wise fit profiling took {time() - st:.2f} seconds.")
     report = fit_param_wise_profiler.print_report()
     report.to_csv(outpath / f"fit_param_wise_{cur_time}.csv")
 
     fit_simultaneous_profiler = FitSimulationProfiler(
         mode="simultaneous",
-        parameters=source,
-        endpoints=sinks,
+        parameters=params,
+        endpoints=endpoints,
         n_runs=opts.fit_simultaneous_runs,
     )
     st = time()
     fit_simultaneous_profiler.estimate_fit()
-    print(f"simultaneous fit profiling took {time() - st:.2f} seconds.")
+    print(f"\nSimultaneous fit profiling took {time() - st:.2f} seconds.")
     report = fit_simultaneous_profiler.print_report()
     report.to_csv(outpath / f"fit_simultaneous_{cur_time}.csv")
 
@@ -147,8 +164,6 @@ def main(opts: Namespace) -> None:
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate="auto"))
 
-        if opts.graph_auto:
-            plot_graph(graph, storage, opts)
         return
 
     if opts.print_all:
@@ -194,61 +209,7 @@ def main(opts: Namespace) -> None:
     if opts.summary:
         save_summary(model, opts.summary)
 
-    if opts.graph_auto:
-        plot_graph(graph, storage, opts)
-
-    if opts.graphs:
-        mindepth = opts.mindepth or -2
-        maxdepth = opts.maxdepth or +1
-        accept_index = {
-            "reactor": [0],
-            "detector": [0, 1],
-            "isotope": [0],
-            "period": [1, 2],
-        }
-        storage["parameter_group.all"].savegraphs(
-            opts.graphs / "parameters",
-            mindepth=mindepth,
-            maxdepth=maxdepth,
-            keep_direction=True,
-            show="all",
-            accept_index=accept_index,
-            filter=accept_index,
-        )
-        with suppress(KeyError):
-            storage["parameters.sigma"].savegraphs(
-                opts.graphs / "parameters" / "sigma",
-                mindepth=mindepth,
-                maxdepth=maxdepth,
-                keep_direction=True,
-                show="all",
-                accept_index=accept_index,
-                filter=accept_index,
-            )
-        storage["nodes"].savegraphs(
-            opts.graphs,
-            mindepth=mindepth,
-            maxdepth=maxdepth,
-            keep_direction=True,
-            show="all",
-            accept_index=accept_index,
-            filter=accept_index,
-        )
-
-    if opts.graph_from_node:
-        from dagflow.plot.graphviz import GraphDot
-
-        nodepath, filepath = opts.graph_from_node
-        node = storage("nodes")[nodepath]
-        GraphDot.from_node(
-            node,
-            show="all",
-            mindepth=opts.mindepth,
-            maxdepth=opts.maxdepth,
-            keep_direction=True,
-        ).savegraph(filepath)
-
-    profile(model, opts)
+    profile(model, opts, storage["parameters"], storage["outputs.statistic.full.chi2cnp"])
 
 
 def save_summary(model: Any, filenames: Sequence[str]):
@@ -262,55 +223,6 @@ def save_summary(model: Any, filenames: Sequence[str]):
     save_records(
         data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False}
     )
-
-
-def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
-    from dagflow.plot.graphviz import GraphDot
-
-    GraphDot.from_graph(graph, show="all").savegraph(
-        f"output/dayabay_{opts.version}.dot"
-    )
-    GraphDot.from_graph(
-        graph,
-        show=["type", "mark", "label", "path"],
-        filter={
-            "reactor": [0],
-            "detector": [0, 1],
-            "isotope": [0],
-            "period": [0],
-            "background": [0],
-        },
-    ).savegraph(f"output/dayabay_{opts.version}_reduced.dot")
-    GraphDot.from_graph(
-        graph,
-        show="all",
-        filter={
-            "reactor": [0],
-            "detector": [0, 1],
-            "isotope": [0],
-            "period": [0],
-            "background": [0],
-        },
-    ).savegraph(f"output/dayabay_{opts.version}_reduced_full.dot")
-    GraphDot.from_node(
-        storage["nodes.statistic.nuisance.all"],
-        show="all",
-        mindepth=-1,
-        maxdepth=0,
-    ).savegraph(f"output/dayabay_{opts.version}_nuisance.dot")
-    GraphDot.from_output(
-        storage["outputs.statistic.stat.chi2p"],
-        show="all",
-        mindepth=-1,
-        filter={
-            "reactor": [0],
-            "detector": [0],
-            "isotope": [0],
-            "period": [0],
-            "background": [0],
-        },
-        maxdepth=0,
-    ).savegraph(f"output/dayabay_{opts.version}_stat.dot")
 
 
 if __name__ == "__main__":
@@ -382,21 +294,6 @@ if __name__ == "__main__":
         metavar=("index", "value1"),
     )
 
-    dot = parser.add_argument_group("graphviz", "plotting graphs")
-    dot.add_argument(
-        "-g",
-        "--graph-from-node",
-        nargs=2,
-        help="plot the graph starting from the node",
-        metavar=("node", "file"),
-    )
-    dot.add_argument("--mindepth", "--md", type=int, help="minimal depth")
-    dot.add_argument("--maxdepth", "--Md", type=int, help="maximaldepth depth")
-    dot.add_argument(
-        "--graph-auto", "--ga", action="store_true", help="plot graphs auto"
-    )
-    dot.add_argument("--graphs", type=Path, help="save partial graphs from every node")
-
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
         "--version",
@@ -417,7 +314,7 @@ if __name__ == "__main__":
     profiling_specs = parser.add_argument_group("profiling", "profiling options")
     profiling_specs.add_argument(
         "--np-runs",
-        default=20_000,
+        default=1,
         dest="node_prof_runs",
         type=int,
         metavar="N",
@@ -434,7 +331,7 @@ if __name__ == "__main__":
     profiling_specs.add_argument(
         "-o",
         "--output-dir",
-        default="./output",
+        default="./output/profiling",
         dest="outpath",
         metavar="/PATH/TO/DIR",
         help="output dir for profiling results ",
@@ -442,14 +339,14 @@ if __name__ == "__main__":
     profiling_specs.add_argument(
         "--fit-param-wise-runs",
         dest="fit_param_wise_runs",
-        default=1000,
+        default=10,
         type=int,
         help="number of runs for parameter-wise fit simulation profiling",
     )
     profiling_specs.add_argument(
         "--fit-simultaneous-runs",
         dest="fit_simultaneous_runs",
-        default=1000,
+        default=10,
         type=int,
         help="number of runs for simultaneous fit simulation profiling",
     )
