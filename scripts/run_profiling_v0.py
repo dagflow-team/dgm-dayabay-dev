@@ -57,7 +57,7 @@ PROFILE_NODES = [
 ]
 
 
-def profile(model, opts: Namespace, fit_params, stat):
+def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
     print("Running profiling!")
 
     outpath = Path(opts.outpath) / opts.version
@@ -322,22 +322,6 @@ if __name__ == "__main__":
 
     profiling_specs = parser.add_argument_group("profiling", "profiling options")
     profiling_specs.add_argument(
-        "--np-runs",
-        default=1,
-        dest="node_prof_runs",
-        type=int,
-        metavar="N",
-        help="number of runs of NodeProfiling for each node",
-    )
-    profiling_specs.add_argument(
-        "--fw-runs",
-        default=10,
-        dest="framework_runs",
-        type=int,
-        metavar="N",
-        help="number of runs of NodeProfiling for each node",
-    )
-    profiling_specs.add_argument(
         "-o",
         "--output-dir",
         default="./output/profiling",
@@ -346,10 +330,27 @@ if __name__ == "__main__":
         help="output dir for profiling results ",
     )
     profiling_specs.add_argument(
+        "--np-runs",
+        default=1,
+        dest="node_prof_runs",
+        type=int,
+        metavar="N_RUNS",
+        help="number of runs of NodeProfiling for each node",
+    )
+    profiling_specs.add_argument(
+        "--fw-runs",
+        default=10,
+        dest="framework_runs",
+        type=int,
+        metavar="N_RUNS",
+        help="number of runs of NodeProfiling for each node",
+    )
+    profiling_specs.add_argument(
         "--fit-param-wise-runs",
         dest="fit_param_wise_runs",
         default=10,
         type=int,
+        metavar="N_RUNS",
         help="number of runs for parameter-wise fit simulation profiling",
     )
     profiling_specs.add_argument(
@@ -357,6 +358,7 @@ if __name__ == "__main__":
         dest="fit_simultaneous_runs",
         default=10,
         type=int,
+        metavar="N_RUNS",
         help="number of runs for simultaneous fit simulation profiling",
     )
 
