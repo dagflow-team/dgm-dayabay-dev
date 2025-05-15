@@ -58,7 +58,7 @@ def main(args: Namespace) -> None:
             parameters_constrained,
         )
 
-    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, verbose=True)
+    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)}, verbose=True)
     fit = minimizer.fit()
     if "iterative" in args.chi2:
         for _ in range(4):
@@ -70,25 +70,6 @@ def main(args: Namespace) -> None:
     if args.output_fit:
         with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
-
-    if args.compare_input:
-        with open(args.compare_input, "r") as f:
-            compare_fit = yaml_load(f)
-        print(args.chi2)
-        for name, par_values in compare_fit.items():
-            if name not in fit["xdict"].keys():
-                continue
-            fit_value = fit["xdict"][name]
-            fit_error = fit["errorsdict"][name]
-            value = par_values["value"]
-            error = par_values["error"]
-            print(f"{name:>22}:")
-            print(f"{'dataset':>22}: value={value:1.9e}, error={error:1.9e}")
-            print(f"{'dag-flow':>22}: value={fit_value:1.9e}, error={fit_error:1.9e}")
-            print(
-                f"{' '*23} value_diff={(fit_value / value - 1)*100:1.7f}%, error_diff={(fit_error / error - 1)*100:1.7f}%"
-            )
-            print(f"{' '*23} sigma_diff={(fit_value - value) / error:1.7f}")
 
     if args.interactive:
         embed()
@@ -171,18 +152,6 @@ if __name__ == "__main__":
         default=[],
         nargs="*",
         help="Add constrained parameters to minimization process",
-    )
-
-    comparison = parser.add_argument_group("comparison", "Comparison options")
-    comparison.add_argument(
-        "--compare-concatenation",
-        choices=["detector", "detector_period"],
-        default="detector_period",
-        help="Choose concatenation mode for plotting observation",
-    )
-    comparison.add_argument(
-        "--compare-input",
-        help="path to file with wich compare",
     )
 
     outputs = parser.add_argument_group("outputs", "set outputs")

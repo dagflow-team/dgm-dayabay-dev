@@ -14,6 +14,7 @@ from argparse import Namespace
 
 from IPython import embed
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 from yaml import safe_load as yaml_load
 
 from dagflow.tools.logger import DEBUG as INFO4
@@ -103,7 +104,8 @@ def main(args: Namespace) -> None:
     )
 
     if args.output_plot_correlation_matrix:
-        fig, axs = plt.subplots(1, 1, figsize=(6, 5), sharey=True)
+        figsize = None if fit["npars"] < 20 else (0.24 * fit["npars"], 0.2 * fit["npars"])
+        fig, axs = plt.subplots(1, 1, figsize=figsize)
         cs = axs.matshow(
             calculate_correlation_matrix(fit["covariance"]), vmin=-1, vmax=1, cmap="RdBu_r"
         )
@@ -139,49 +141,47 @@ def main(args: Namespace) -> None:
                 plt.ylim(args.output_sw_ylim)
             plt.savefig(args.output_plot_spectra.format("sw"))
 
-    plt.figure()
-    eb0 = plt.errorbar(
-        fit["xdict"]["oscprob.SinSq2Theta13"],
-        fit["xdict"]["oscprob.DeltaMSq32"],
-        xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
-        yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
-        label=args.output_fit_label_a,
-    )
-    plt.legend(title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}")
+    fig, ax = plt.subplots(1, 1)
     if args.compare_fit:
         with open(args.compare_fit, "r") as f:
             compare_fit = yaml_load(f)
-        eb1 = plt.errorbar(
+        eb = ax.errorbar(
             compare_fit["SinSq2Theta13"]["value"],
             compare_fit["DeltaMSq32"]["value"],
             xerr=compare_fit["SinSq2Theta13"]["error"],
             yerr=compare_fit["DeltaMSq32"]["error"],
             label=args.output_fit_label_b,
         )
-        eb1[2][0].set_linestyle("--")
-        eb1[2][1].set_linestyle("--")
-        (box,) = plt.plot(
+        eb[2][0].set_linestyle("--")
+        eb[2][1].set_linestyle("--")
+        (box,) = ax.plot(
             *calc_box_around(
                 (compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"]),
                 (compare_fit["SinSq2Theta13"]["error"], compare_fit["DeltaMSq32"]["error"]),
             ),
-            color="C1",
+            color="C0",
             label=r"$0.1\sigma$",
         )
-        plt.legend(
-            handles=[eb0, eb1, box], title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}"
-        )
-    plt.xlabel(r"$\sin^22\theta_{13}$")
-    plt.ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
+    ax.errorbar(
+        fit["xdict"]["oscprob.SinSq2Theta13"],
+        fit["xdict"]["oscprob.DeltaMSq32"],
+        xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
+        yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
+        label=args.output_fit_label_a,
+    )
+    ax.legend(title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}")
+    ax.set_xlabel(r"$\sin^22\theta_{13}$")
+    ax.set_ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
     plt.title("")
     plt.grid()
+    formatter = ticker.ScalarFormatter(useMathText=True)
+    formatter.set_powerlimits((-3, 3))
+    ax.yaxis.set_major_formatter(formatter)
     if args.output_fit_xlim:
         plt.xlim(args.output_fit_xlim)
-        print(args.output_fit_xlim)
     if args.output_fit_ylim:
         plt.ylim(args.output_fit_ylim)
-        print(args.output_fit_ylim)
-    plt.subplots_adjust(left=0.15, right=0.95, bottom=0.1, top=0.95)
+    plt.subplots_adjust(left=0.12, right=0.95, bottom=0.10, top=0.95)
     if args.output_plot_fit:
         plt.savefig(args.output_plot_fit)
     if args.compare_fit:

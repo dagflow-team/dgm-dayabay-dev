@@ -53,7 +53,7 @@ def update_dict_parameters(
         dict_parameters.update(
             {
                 f"{group}.{path}": parameter
-                for path, parameter in model_parameters(group).walkjoineditems()
+                for path, parameter in model_parameters[group].walkjoineditems()
             }
         )
 
@@ -313,7 +313,9 @@ def plot_spectral_weights(edges, fit) -> None:
         data.append(fit["xdict"][key])
         yerrs.append(fit["errorsdict"][key])
     plt.figure()
+    plt.hlines(0, 0, 13, color="black", alpha=0.75)
     plt.errorbar(edges, data, xerr=0.1, yerr=yerrs, linestyle="none")
-    plt.title(r"Spectral weights of $\overline{\nu}_{e}$ spectrum")
-    plt.xlabel("E, MeV")
-    plt.ylabel("value")
+    plt.title(r"Correction to $\overline{\nu}_{e}$ spectrum")
+    plt.xlabel(r"$E_{\nu}$, MeV")
+    plt.ylabel("correction")
+    plt.xlim(1.5, 12.5)
