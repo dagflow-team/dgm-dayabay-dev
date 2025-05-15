@@ -71,41 +71,48 @@ def profile(model, opts: Namespace, fit_params, stat):
         filter(lambda x: type(x).__name__ in PROFILE_NODES, all_nodes)
     )
 
-    # we assume that Array should be non-modifiable for FrameworkProfiling,
-    # otherwise, we get an error from IntegratorSampler because of tainting integration orders.
-    no_array_nodes = list(
-        filter(lambda x: not isinstance(x, Array), all_nodes)
+    # NOTE: maby there is a better way to obtain paramters
+    minimization_pars: dict[str, Parameter] = {}
+    update_dict_parameters(
+        minimization_pars, ["oscprob", "detector"], fit_params["free"]
+    )
+    update_dict_parameters(
+        minimization_pars,
+        ["oscprob", "detector", "reactor", "bkg"],
+        fit_params["constrained"],
     )
 
-    node_profiler = NodeProfiler(many_execution_nodes, n_runs=opts.node_prof_runs)
+    params = [param.output.node for param in minimization_pars.values()]
+    endpoints = [stat.node]
+
+    node_profiler = NodeProfiler(
+        target_nodes=many_execution_nodes,
+        n_runs=opts.node_prof_runs,
+    )
     st = time()
     node_profiler.estimate_target_nodes()
     print(f"\nNode profiling took {time() - st:.2f} seconds.")
     report = node_profiler.print_report(sort_by="%_of_total")
     report.to_csv(outpath / f"node_{cur_time}.csv")
 
-    framework_profiler = FrameworkProfiler(no_array_nodes, n_runs=opts.framework_runs)
+    framework_profiler = FrameworkProfiler(
+        sources=params,
+        sinks=endpoints,
+        n_runs=opts.framework_runs,
+    )
     st = time()
     framework_profiler.estimate_framework_time()
     print(f"\nFramework profiling took {time() - st:.2f} seconds.")
     framework_profiler.print_report().to_csv(outpath / f"framework_{cur_time}.csv")
 
-    memory_profiler = MemoryProfiler(all_nodes)
+    memory_profiler = MemoryProfiler(
+        target_nodes=all_nodes,
+    )
     st = time()
     memory_profiler.estimate_target_nodes()
     print(f"\nMemory profiling took {time() - st:.2f} seconds.")
     report = memory_profiler.print_report(sort_by="size_sum")
     report.to_csv(outpath / f"memory_{cur_time}.csv")
-
-    # TODO: change the way of obtaning paramters and outputs
-    minimization_pars: dict[str, Parameter] = {}
-    update_dict_parameters(minimization_pars, ["oscprob", "detector"], fit_params["free"])
-    update_dict_parameters(
-        minimization_pars, ["oscprob", "detector", "reactor", "bkg"], fit_params["constrained"]
-    )
-
-    params = [param.output.node for param in minimization_pars.values()]
-    endpoints = [ stat.node ]
 
     fit_param_wise_profiler = FitSimulationProfiler(
         mode="parameter-wise",
@@ -209,7 +216,9 @@ def main(opts: Namespace) -> None:
     if opts.summary:
         save_summary(model, opts.summary)
 
-    profile(model, opts, storage["parameters"], storage["outputs.statistic.full.chi2cnp"])
+    profile(
+        model, opts, storage["parameters"], storage["outputs.statistic.full.chi2cnp"]
+    )
 
 
 def save_summary(model: Any, filenames: Sequence[str]):
