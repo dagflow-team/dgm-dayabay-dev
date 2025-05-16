@@ -195,7 +195,7 @@ def main(args: Namespace) -> None:
             compare_xdict["oscprob.DeltaMSq32"],
             xerr=compare_errorsdict["oscprob.SinSq2Theta13"],
             yerr=compare_errorsdict["oscprob.DeltaMSq32"],
-            label=args.output_fit_label_b,
+            label=args.output_fit_label_a,
         )
         (box,) = ax.plot(
             *calc_box_around(
@@ -233,7 +233,7 @@ def main(args: Namespace) -> None:
         xdict["oscprob.DeltaMSq32"],
         xerr=errorsdict["oscprob.SinSq2Theta13"],
         yerr=errorsdict["oscprob.DeltaMSq32"],
-        label=args.output_fit_label_a,
+        label=args.output_fit_label_b,
     )
     eb[2][0].set_linestyle("--")
     eb[2][1].set_linestyle("--")
