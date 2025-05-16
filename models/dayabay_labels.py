@@ -92,7 +92,7 @@ for eh in EXPERIMENTAL_HALLS:
         symbol = f"r^{{\\mathrm{{fast}}\\ n}}_{{{eh}, {period}}}"
         LATEX_SYMBOLS[f"bkg.uncertainty_scale_by_site.fastn.{eh}.{period}"] = r"${}$".format(symbol)
 
-LATEX_SYMBOLS["bkg.uncertainty_scale.amc"] = "r^{AmC}"
+LATEX_SYMBOLS["bkg.uncertainty_scale.amc"] = r"$r^{AmC}$"
 
 for i in range(31):
     key = f"neutrino_per_fission_factor.spec_scale_{i:02d}"

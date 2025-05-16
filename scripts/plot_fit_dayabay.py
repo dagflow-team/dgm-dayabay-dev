@@ -123,20 +123,23 @@ def main(args: Namespace) -> None:
     if args.output_plot_spectra:
         edges = storage["outputs.edges.energy_final"].data
         for obs_name, data in data_obs.items():
+            title = "{}, {} period".format(*obs_name.split(".")) if "." in obs_name else obs_name
             plot_spectra_ratio(
                 fit_obs[obs_name],
                 data,
                 edges,
-                title=args.output_spectra_title.format(obs_name),
+                title=args.output_spectra_title.format(title),
+                legend_title=args.output_spectra_legend_title,
                 label_a=args.output_spectra_label_a,
                 label_b=args.output_spectra_label_b,
             )
-            plt.subplots_adjust(hspace=0.0, left=0.1, right=0.875, bottom=0.125, top=0.925)
+            plt.subplots_adjust(hspace=0.0, left=0.1, right=0.9, bottom=0.125, top=0.925)
             plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
 
         if list(filter(lambda x: "neutrino_per_fission_factor" in x, fit["names"])):
             edges = storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
             plot_spectral_weights(edges, fit)
+            plt.subplots_adjust(left=0.12, right=0.95, bottom=0.10, top=0.90)
             if args.output_sw_ylim:
                 plt.ylim(args.output_sw_ylim)
             plt.savefig(args.output_plot_spectra.format("sw"))
@@ -145,15 +148,13 @@ def main(args: Namespace) -> None:
     if args.compare_fit:
         with open(args.compare_fit, "r") as f:
             compare_fit = yaml_load(f)
-        eb = ax.errorbar(
+        ax.errorbar(
             compare_fit["SinSq2Theta13"]["value"],
             compare_fit["DeltaMSq32"]["value"],
             xerr=compare_fit["SinSq2Theta13"]["error"],
             yerr=compare_fit["DeltaMSq32"]["error"],
             label=args.output_fit_label_b,
         )
-        eb[2][0].set_linestyle("--")
-        eb[2][1].set_linestyle("--")
         (box,) = ax.plot(
             *calc_box_around(
                 (compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"]),
@@ -162,13 +163,15 @@ def main(args: Namespace) -> None:
             color="C0",
             label=r"$0.1\sigma$",
         )
-    ax.errorbar(
+    eb = ax.errorbar(
         fit["xdict"]["oscprob.SinSq2Theta13"],
         fit["xdict"]["oscprob.DeltaMSq32"],
         xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
         yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
         label=args.output_fit_label_a,
     )
+    eb[2][0].set_linestyle("--")
+    eb[2][1].set_linestyle("--")
     ax.legend(title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}")
     ax.set_xlabel(r"$\sin^22\theta_{13}$")
     ax.set_ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
@@ -181,7 +184,7 @@ def main(args: Namespace) -> None:
         plt.xlim(args.output_fit_xlim)
     if args.output_fit_ylim:
         plt.ylim(args.output_fit_ylim)
-    plt.subplots_adjust(left=0.12, right=0.95, bottom=0.10, top=0.95)
+    plt.subplots_adjust(left=0.12, right=0.95, bottom=0.10, top=0.90)
     if args.output_plot_fit:
         plt.savefig(args.output_plot_fit)
     if args.compare_fit:
@@ -280,6 +283,9 @@ if __name__ == "__main__":
     )
     outputs.add_argument(
         "--output-spectra-title",
+    )
+    outputs.add_argument(
+        "--output-spectra-legend-title", default="",
     )
     outputs.add_argument(
         "--output-plot-fit",

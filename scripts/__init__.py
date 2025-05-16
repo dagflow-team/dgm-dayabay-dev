@@ -187,6 +187,7 @@ def plot_spectra_ratio(
     plot_diff: bool = False,
     label_a: str = "A: fit",
     label_b: str = "B: data",
+    legend_title: str = "",
     ylim_ratio: tuple[float] | tuple = (),
 ) -> None:
     """
@@ -247,7 +248,7 @@ def plot_spectra_ratio(
     formatter = FFormatter()
     formatter.set_powerlimits((0, 2))
     axs[0].yaxis.set_major_formatter(formatter)
-    axs[0].legend()
+    axs[0].legend(title=legend_title)
     if plot_diff:
         axs[2].set_xlabel("E, MeV")
         axs[2].set_ylabel("A - B")
@@ -256,7 +257,7 @@ def plot_spectra_ratio(
     axs[0].set_ylabel("Entries")
     # axs[1].yaxis.tick_right()
     axs[1].tick_params(left=True, right=True, labelleft=False, labelright=True)
-    axs[1].yaxis.set_label_position("right")
+    axs[1].yaxis.set_label_position("left")
     axs[1].set_ylabel("A / B - 1")
     # axs[1].yaxis.tick_left()
     if ylim_ratio:
@@ -317,5 +318,5 @@ def plot_spectral_weights(edges, fit) -> None:
     plt.errorbar(edges, data, xerr=0.1, yerr=yerrs, linestyle="none")
     plt.title(r"Correction to $\overline{\nu}_{e}$ spectrum")
     plt.xlabel(r"$E_{\nu}$, MeV")
-    plt.ylabel("correction")
+    plt.ylabel("Correction")
     plt.xlim(1.5, 12.5)

@@ -11,38 +11,34 @@ Example of call:
     --output-fit output/fit.yaml
 ```
 """
+from IPython import embed
 from argparse import Namespace
 from typing import Any
 
 from matplotlib import pyplot as plt
 from yaml import safe_dump as yaml_dump
 from yaml import safe_load as yaml_load
+from LaTeXDatax import datax as datax_dump
 
 from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import load_model
-from scripts import (
-    convert_numpy_to_lists,
-    filter_fit,
-    plot_spectra_ratio_difference,
-    plot_spectral_weights,
-    update_dict_parameters,
-)
+from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
 
 set_level(INFO1)
 
 DATA_INDICES = {"model": 0, "loaded": 1}
 
 
-plt.rcParams.update(
-    {
-        "xtick.minor.visible": True,
-        "ytick.minor.visible": True,
-        "axes.grid": True,
-    }
-)
+def do_fit(minimizer: IMinuitMinimizer, model, is_iterative: bool = False) -> dict:
+    fit = minimizer.fit()
+    if is_iterative:
+        for _ in range(4):
+            model.next_sample(mc_parameters=False, mc_statistics=False)
+            fit = minimizer.fit()
+    return fit
 
 
 def parse_config(config_path: str) -> list[dict[str, Any]]:
@@ -101,77 +97,24 @@ def main(args: Namespace) -> None:
             parameters_constrained,
         )
 
-    models[0].next_sample(mc_parameters=False, mc_statistics=False)
-    minimizer = IMinuitMinimizer(
-        chi2, parameters=minimization_parameters, limits={"SinSq2Theta13": (0, 1)}
-    )
-
+    if args.constrain_osc_parameters:
+        minimizer = IMinuitMinimizer(
+            chi2, parameters=minimization_parameters, limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)}, verbose=True
+        )
+        fit = do_fit(minimizer, models[0], "iterative" in args.chi2)
+    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, verbose=True)
     fit = minimizer.fit()
-    if "iterative" in args.chi2:
-        for _ in range(4):
-            model.next_sample(mc_parameters=False, mc_statistics=False)
-            fit = minimizer.fit()
     print(fit)
+    if args.interactive:
+        embed()
 
     filter_fit(fit, ["summary"])
     convert_numpy_to_lists(fit)
     if args.output_fit:
         with open(args.output_fit, "w") as f:
             yaml_dump(fit, f)
-
-    if args.output_plot_spectra:
-        edges = model.storage["outputs.edges.energy_final"].data
-        for obs_name, data in model.storage[
-            f"outputs.eventscount.final.{args.compare_concatenation}"
-        ].walkjoineditems():
-            plot_spectra_ratio_difference(
-                model.storage[f"outputs.eventscount.final.{args.compare_concatenation}.{obs_name}"].data,
-                data.data,
-                edges,
-                obs_name,
-            )
-            plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
-
-        if "neutrino_per_fission_factor" in args.free_parameters:
-            edges = model.storage[
-                "outputs.reactor_anue.spectrum_free_correction.spec_model_edges"
-            ].data
-            plot_spectral_weights(edges, fit)
-            plt.savefig(args.output_plot_spectra.format("sw"))
-
-    plt.figure()
-    plt.errorbar(
-        fit["xdict"]["oscprob.SinSq2Theta13"],
-        fit["xdict"]["oscprob.DeltaMSq32"],
-        xerr=fit["errorsdict"]["oscprob.SinSq2Theta13"],
-        yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
-        label="dag-flow",
-    )
-    if args.compare_input:
-        with open(args.compare_input, "r") as f:
-            compare_fit = yaml_load(f)
-        eb = plt.errorbar(
-            compare_fit["SinSq2Theta13"]["value"],
-            compare_fit["DeltaMSq32"]["value"],
-            xerr=compare_fit["SinSq2Theta13"]["error"],
-            yerr=compare_fit["DeltaMSq32"]["error"],
-            label="dataset",
-        )
-        eb[-1][0].set_linestyle("--")
-        eb[-1][1].set_linestyle("--")
-    plt.xlabel(r"$\sin^22\theta_{13}$")
-    plt.ylabel(r"$\Delta m^2_{32}$, [eV$^2$]")
-    plt.title(args.chi2 + f" = {fit['fun']:1.3f}")
-    plt.xlim(0.082, 0.089)
-    plt.ylim(2.38e-3, 2.50e-3)
-    plt.legend()
-    plt.tight_layout()
-    if args.output_plot_fit:
-        plt.savefig(args.output_plot_fit)
-
-    if args.interactive:
-        from IPython import embed
-        embed()
+    if args.output_fit_tex:
+        datax_dump(args.output_fit_tex, **fit)
 
 
 if __name__ == "__main__":
@@ -255,6 +198,10 @@ if __name__ == "__main__":
     outputs.add_argument(
         "--output-fit",
         help="path to save full fit, yaml format",
+    )
+    outputs.add_argument(
+        "--output-fit-tex",
+        help="path to save full fit, TeX format",
     )
     outputs.add_argument(
         "--output-plot-pars",
