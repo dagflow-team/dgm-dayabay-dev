@@ -75,6 +75,9 @@ def main(args: Namespace) -> None:
         fit = do_fit(minimizer, model, "iterative" in args.chi2)
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=True)
     fit = minimizer.fit()
+    if args.profile_parameters:
+        minos_profile = minimizer.profile_errors(args.profile_parameters)
+        fit["errorsdict_profiled"] = minos_profile["errorsdict"]
     print(fit)
     if args.interactive:
         embed()
@@ -135,6 +138,13 @@ if __name__ == "__main__":
         action="append",
         default=[],
         help="set parameter value",
+    )
+    fit_options.add_argument(
+        "--profile-parameters",
+        action="extend",
+        nargs="*",
+        default=[],
+        help="choose parameters for Minos profiling",
     )
     fit_options.add_argument(
         "--chi2",
