@@ -99,7 +99,7 @@ def main(args: Namespace) -> None:
 
     if args.constrain_osc_parameters:
         minimizer = IMinuitMinimizer(
-            chi2, parameters=minimization_parameters, limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)}, verbose=True
+            chi2, parameters=minimization_parameters, limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)}, nbins=models[0].nbins, verbose=True
         )
         fit = do_fit(minimizer, models[0], "iterative" in args.chi2)
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, verbose=True)
