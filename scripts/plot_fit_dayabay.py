@@ -149,16 +149,16 @@ def main(args: Namespace) -> None:
         with open(args.compare_fit, "r") as f:
             compare_fit = yaml_load(f)
         ax.errorbar(
-            compare_fit["SinSq2Theta13"]["value"],
-            compare_fit["DeltaMSq32"]["value"],
-            xerr=compare_fit["SinSq2Theta13"]["error"],
-            yerr=compare_fit["DeltaMSq32"]["error"],
+            compare_fit["xdict"]["oscprob.SinSq2Theta13"],
+            compare_fit["xdict"]["oscprob.DeltaMSq32"],
+            xerr=compare_fit["errorsdict"]["oscprob.SinSq2Theta13"],
+            yerr=compare_fit["errorsdict"]["oscprob.DeltaMSq32"],
             label=args.output_fit_label_b,
         )
         (box,) = ax.plot(
             *calc_box_around(
-                (compare_fit["SinSq2Theta13"]["value"], compare_fit["DeltaMSq32"]["value"]),
-                (compare_fit["SinSq2Theta13"]["error"], compare_fit["DeltaMSq32"]["error"]),
+                (compare_fit["xdict"]["oscprob.SinSq2Theta13"], compare_fit["xdict"]["oscprob.DeltaMSq32"]),
+                (compare_fit["errorsdict"]["oscprob.SinSq2Theta13"], compare_fit["errorsdict"]["oscprob.DeltaMSq32"]),
             ),
             color="C0",
             label=r"$0.1\sigma$",
@@ -188,13 +188,13 @@ def main(args: Namespace) -> None:
     if args.output_plot_fit:
         plt.savefig(args.output_plot_fit)
     if args.compare_fit:
-        for name, par_values in compare_fit.items():
+        for name, par_values in compare_fit["xdict"].items():
             if name not in fit["xdict"].keys():
                 continue
             fit_value = fit["xdict"][name]
             fit_error = fit["errorsdict"][name]
-            value = par_values["value"]
-            error = par_values["error"]
+            value = par_values
+            error = compare_fit["errorsdict"][name]
             print(f"{name:>22}:")
             print(f"{'dataset':>22}: value={value:1.9e}, error={error:1.9e}")
             print(f"{'dag-flow':>22}: value={fit_value:1.9e}, error={fit_error:1.9e}")
