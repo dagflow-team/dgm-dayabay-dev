@@ -291,6 +291,10 @@ class model_dayabay_v0e:
     def dataset(self) -> Literal["a", "b"]:
         return self._dataset
 
+    @property
+    def nbins(self) -> int:
+        return self.storage["outputs.eventscount.final.concatenated.selected"].data.shape[0]
+
     def build(self, override_indices: dict[str, tuple[str, ...]] = {}):
         """Actually build the model.
 
