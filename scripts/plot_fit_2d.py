@@ -96,12 +96,11 @@ def main(args: Namespace) -> None:
             xerr=1,
             fmt="o",
             markerfacecolor="none",
-            color="C0",
-            label=gn_type
+            label=gn_type,
         )
 
-    for compare_fit, label_b in zip_longest(
-        args.compare_fits, args.output_fit_labels_b, fillvalue=None
+    for i, (compare_fit, label_b) in enumerate(
+        zip_longest(args.compare_fits, args.output_fit_labels_b, fillvalue=None)
     ):
         with open(compare_fit, "r") as f:
             compare_fit = yaml_load(f)
@@ -116,6 +115,22 @@ def main(args: Namespace) -> None:
             yerr=compare_errorsdict["oscprob.DeltaMSq32"],
             label=label_b,
         )
+
+        if axgn:
+            gn_value, gn_error, gn_type = get_global_normalization(
+                compare_xdict, compare_errorsdict
+            )
+            xoffset = (i + 1) / 10.0
+            axgn.errorbar(
+                xoffset,
+                gn_value,
+                yerr=gn_error,
+                xerr=1,
+                fmt="o",
+                markerfacecolor="none",
+                label=gn_type,
+            )
+
     ax.legend(title=args.output_fit_title_legend)
     ax.set_xlabel(r"$\sin^22\theta_{13}$")
     ax.set_ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
@@ -209,7 +224,12 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    outputs.add_argument("--global-norm", "--gn", action="store_true")
+    outputs.add_argument(
+        "--global-norm",
+        "--gn",
+        action="store_true",
+        help="Plot also global normalization",
+    )
 
     args = parser.parse_args()
 
