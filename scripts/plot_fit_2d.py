@@ -49,7 +49,6 @@ def main(args: Namespace) -> None:
         yerr=fit["errorsdict"]["oscprob.DeltaMSq32"],
         label=args.output_fit_label_a,
     )
-    plt.legend(title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}")
     if args.output_box:
         (box,) = plt.plot(
             *calc_box_around(
@@ -69,7 +68,7 @@ def main(args: Namespace) -> None:
             yerr=compare_fit["errorsdict"]["oscprob.DeltaMSq32"],
             label=label_b,
         )
-        # plt.legend(title=args.output_fit_title_legend + f" = {fit['fun']:1.3f}")
+    plt.legend(title=args.output_fit_title_legend)
     plt.xlabel(r"$\sin^22\theta_{13}$")
     plt.ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
     plt.title("")
@@ -114,9 +113,9 @@ if __name__ == "__main__":
         action="store_true",
         help="Draw 0.1sigma box around input_fit",
     )
-    # outputs.add_argument(
-    #     "--output-fit-title-legend",
-    # )
+    outputs.add_argument(
+        "--output-fit-title-legend",
+    )
     outputs.add_argument(
         "--output-fit-label-a",
     )
