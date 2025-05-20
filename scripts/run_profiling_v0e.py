@@ -22,6 +22,7 @@ set_level(INFO1)
 
 # nodes that are executed more than 1 time during the fit process
 NODE_PROFILE_NODES = [
+    "MatrixProductDDt",
     "Product",
     "Cholesky",
     "SumMatOrDiag",
@@ -39,11 +40,21 @@ NODE_PROFILE_NODES = [
     "Concatenation",
     "View",
     "CNPStat",
+    "ArraySum",
     "Monotonize",
     "EnergyResolutionSigmaRelABC",
+    "InverseSquareLaw",
     "ElSumSq",
     "Chi2",
     "LogProdDiag",
+    "WeightedSumArgs",
+    "LogPoissonRatio",
+    "InterpolatorCore",
+    "Exp",
+    "ProductShiftedScaled",
+    "AxisDistortionMatrix",
+    "Difference",
+    "IntegratorCore",
 ]
 
 def main(opts: Namespace) -> None:
