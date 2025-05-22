@@ -1,6 +1,12 @@
 #!/usr/bin/env python
-
 from __future__ import annotations
+
+
+# disable numpy multithreading
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+
 
 from argparse import Namespace
 from datetime import datetime
@@ -56,6 +62,10 @@ NODE_PROFILE_NODES = [
     "Difference",
     "IntegratorCore",
 ]
+
+# number of derivative points for FirSimulationProfiling
+N_POINTS = 2
+
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
@@ -138,12 +148,13 @@ def main(opts: Namespace) -> None:
             parameters=params,
             endpoints=[stat],
             n_runs=opts.fit_param_wise_runs,
+            derivative_points=N_POINTS,
         )
         st = time()
         fit_param_wise_profiler.estimate_fit()
         report = fit_param_wise_profiler.print_report(rows=100)
         report.to_csv(
-            outpath / f"fit_param_wise_{stat_name}_{cur_time}.tsv",
+            outpath / f"fit_param_wise_p{N_POINTS}_{stat_name}_{cur_time}.tsv",
             sep="\t",
             index=False,
         )
@@ -154,12 +165,13 @@ def main(opts: Namespace) -> None:
             parameters=params,
             endpoints=[stat],
             n_runs=opts.fit_simultaneous_runs,
+            derivative_points=N_POINTS,
         )
         st = time()
         fit_simultaneous_profiler.estimate_fit()
         report = fit_simultaneous_profiler.print_report(rows=100)
         report.to_csv(
-            outpath / f"fit_simultaneous_{stat_name}_{cur_time}.tsv",
+            outpath / f"fit_simultaneous_p{N_POINTS}_{stat_name}_{cur_time}.tsv",
             sep="\t",
             index=False,
         )
