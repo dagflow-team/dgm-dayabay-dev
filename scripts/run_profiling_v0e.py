@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-
 # disable numpy multithreading
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
-
 
 from argparse import Namespace
 from datetime import datetime
@@ -63,10 +61,6 @@ NODE_PROFILE_NODES = [
     "IntegratorCore",
 ]
 
-# number of derivative points for FirSimulationProfiling
-N_POINTS = 2
-
-
 def main(opts: Namespace) -> None:
     if opts.verbose:
         opts.verbose = min(opts.verbose, 3)
@@ -115,6 +109,8 @@ def main(opts: Namespace) -> None:
         params, stat = graph_setup
         subgraph = list(gather_related_nodes(sources=params, sinks=[stat]))
 
+        d_points = opts.fit_d_points
+
         print("=" * 60)
         print(f"Running profiling for subgraph with '{stat_name}' stat!")
         print("=" * 60)
@@ -148,13 +144,16 @@ def main(opts: Namespace) -> None:
             parameters=params,
             endpoints=[stat],
             n_runs=opts.fit_param_wise_runs,
-            derivative_points=N_POINTS,
+            derivative_points=d_points,
         )
         st = time()
         fit_param_wise_profiler.estimate_fit()
-        report = fit_param_wise_profiler.print_report(rows=100)
+        report = fit_param_wise_profiler.print_report(
+            # aggregations=("count", "step", "single", "calls", "sum"),
+            rows=100
+        )
         report.to_csv(
-            outpath / f"fit_param_wise_p{N_POINTS}_{stat_name}_{cur_time}.tsv",
+            outpath / f"fit_param_wise_p{d_points}_{stat_name}_{cur_time}.tsv",
             sep="\t",
             index=False,
         )
@@ -165,13 +164,16 @@ def main(opts: Namespace) -> None:
             parameters=params,
             endpoints=[stat],
             n_runs=opts.fit_simultaneous_runs,
-            derivative_points=N_POINTS,
+            derivative_points=d_points,
         )
         st = time()
         fit_simultaneous_profiler.estimate_fit()
-        report = fit_simultaneous_profiler.print_report(rows=100)
+        report = fit_simultaneous_profiler.print_report(
+            # aggregations=("count", "step", "single", "calls", "sum"),
+            rows=100
+        )
         report.to_csv(
-            outpath / f"fit_simultaneous_p{N_POINTS}_{stat_name}_{cur_time}.tsv",
+            outpath / f"fit_simultaneous_p{d_points}_{stat_name}_{cur_time}.tsv",
             sep="\t",
             index=False,
         )
@@ -275,5 +277,12 @@ if __name__ == "__main__":
         metavar="N_RUNS",
         help="number of runs for simultaneous fit simulation profiling",
     )
-
+    profiling_specs.add_argument(
+        "--derivative-points",
+        dest="fit_d_points",
+        default=2,
+        type=int,
+        metavar="N_POINTS",
+        help="number of derivative points for parameter-wise fit simulation profiling",
+    )
     main(parser.parse_args())
