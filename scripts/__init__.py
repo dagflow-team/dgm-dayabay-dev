@@ -1,10 +1,11 @@
-from itertools import product
+from itertools import product, zip_longest
 
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 from numpy.typing import NDArray
 from yaml import add_representer
+from yaml import safe_load as yaml_load
 
 from dagflow.bundles.load_hist import load_hist
 from dagflow.core import NodeStorage
@@ -320,3 +321,140 @@ def plot_spectral_weights(edges, fit) -> None:
     plt.xlabel(r"$E_{\nu}$, MeV")
     plt.ylabel("Correction")
     plt.xlim(1.5, 12.5)
+
+
+def plot_fit_2d(
+    fit: dict,
+    compare_fit_paths: list[str],
+    xlim: tuple[float] | None = None,
+    ylim: tuple[float] | None = None,
+    label_a: str | None = None,
+    labels_b: list[str] = [],
+    title_legend: str | None = None,
+    add_box: bool = False,
+    dashed_comparison: bool = False,
+    add_global_normalization: bool = False,
+):
+    if add_global_normalization:
+        fig, (ax, axgn) = plt.subplots(
+            1,
+            2,
+            width_ratios=(4, 1),
+            gridspec_kw={
+                "wspace": 0,
+            },
+            subplot_kw={},
+        )
+    else:
+        fig, (ax,) = plt.subplots(1, 1)
+        axgn = None
+
+    xdict = fit["xdict"]
+    errorsdict = fit["errorsdict"]
+
+    ax.errorbar(
+        xdict["oscprob.SinSq2Theta13"],
+        xdict["oscprob.DeltaMSq32"],
+        xerr=errorsdict["oscprob.SinSq2Theta13"],
+        yerr=errorsdict["oscprob.DeltaMSq32"],
+        label=label_a,
+    )
+    if add_box:
+        (box,) = ax.plot(
+            *calc_box_around(
+                (
+                    xdict["oscprob.SinSq2Theta13"],
+                    xdict["oscprob.DeltaMSq32"],
+                ),
+                (
+                    errorsdict["oscprob.SinSq2Theta13"],
+                    errorsdict["oscprob.DeltaMSq32"],
+                ),
+            ),
+            color="C0",
+            label=r"$0.1\sigma$",
+        )
+
+    if axgn:
+        axgn.yaxis.set_label_position("right")
+        axgn.set_ylabel("Normalization offset")
+        axgn.tick_params(labelleft=False, labelright=True, labelbottom=False)
+        axgn.grid(axis="y")
+        axgn.set_ylim(-0.15, 0.075)
+
+        gn_value, gn_error, gn_type = get_global_normalization(xdict, errorsdict)
+        axgn.errorbar(
+            0,
+            gn_value,
+            yerr=gn_error,
+            xerr=1,
+            fmt="o",
+            markerfacecolor="none",
+            label=gn_type,
+        )
+
+    for i, (compare_fit_path, label_b) in enumerate(
+        zip_longest(compare_fit_paths, labels_b, fillvalue=None)
+    ):
+        with open(compare_fit_path, "r") as f:
+            compare_fit = yaml_load(f)
+
+        compare_xdict = compare_fit["xdict"]
+        compare_errorsdict = compare_fit["errorsdict"]
+
+        eb = ax.errorbar(
+            compare_xdict["oscprob.SinSq2Theta13"],
+            compare_xdict["oscprob.DeltaMSq32"],
+            xerr=compare_errorsdict["oscprob.SinSq2Theta13"],
+            yerr=compare_errorsdict["oscprob.DeltaMSq32"],
+            label=label_b,
+        )
+
+        if dashed_comparison:
+            eb[2][0].set_linestyle("--")
+            eb[2][1].set_linestyle("--")
+
+        if axgn:
+            gn_value, gn_error, gn_type = get_global_normalization(
+                compare_xdict, compare_errorsdict
+            )
+            xoffset = (i + 1) / 10.0
+            axgn.errorbar(
+                xoffset,
+                gn_value,
+                yerr=gn_error,
+                xerr=1,
+                fmt="o",
+                markerfacecolor="none",
+                label=gn_type,
+            )
+
+    ax.legend(title=title_legend)
+    ax.set_xlabel(r"$\sin^22\theta_{13}$")
+    ax.set_ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
+    ax.set_title("")
+    ax.grid()
+    if xlim:
+        ax.set_xlim(xlim)
+    if ylim:
+        ax.set_ylim(ylim)
+
+    plt.subplots_adjust(left=0.17, right=0.86, bottom=0.1, top=0.95)
+
+
+def get_global_normalization(xdict: dict, errorsdict: dict) -> tuple[float, float, str]:
+    key = "detector.global_normalization"
+    try:
+        return xdict[key] - 1.0, errorsdict[key], "fit"
+    except KeyError:
+        pass
+
+    names = [name for name in xdict if name.startswith("neutrino_per_fission_factor.spec_scale")]
+    scale = np.array([xdict[name] for name in names])
+    unc = np.array([errorsdict[name] for name in names])
+    w = unc**-2
+    wsum = w.sum()
+    res = (scale * w).sum() / wsum
+    # res_unc = wsum**-0.5 # incorrect since scales are correlated
+
+    return res, 0.0, "calc"
