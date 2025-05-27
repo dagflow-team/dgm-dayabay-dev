@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import os
+
+# Force single threaded mode. Must be done before numpy is loaded.
+num_threads = "1"
+os.environ["OMP_NUM_THREADS"] = num_threads
+os.environ["OPENBLAS_NUM_THREADS"] = num_threads
+os.environ["MKL_NUM_THREADS"] = num_threads
+
 from argparse import Namespace
 from contextlib import suppress
 from pathlib import Path
@@ -79,13 +87,15 @@ def main(opts: Namespace) -> None:
         model.index["detector"],
         model.index["lsnl"],
     ]
+    plot_kwargs = {
+        "overlay_priority": plot_overlay_priority,
+        "latex_substitutions": latex_substitutions,
+        "exact_substitutions": exact_substitutions,
+        "metadata": {"CreationDate": None},
+    }
     if opts.plots_all:
         storage("outputs").plot(
-            folder=opts.plots_all,
-            minimal_data_size=10,
-            overlay_priority=plot_overlay_priority,
-            latex_substitutions=latex_substitutions,
-            exact_substitutions=exact_substitutions,
+            folder=opts.plots_all, minimal_data_size=10, **plot_kwargs
         )
 
     if opts.plots:
@@ -94,9 +104,7 @@ def main(opts: Namespace) -> None:
             storage["outputs"](source).plot(
                 folder=f"{folder}/{source.replace('.', '/')}",
                 minimal_data_size=10,
-                overlay_priority=plot_overlay_priority,
-                latex_substitutions=latex_substitutions,
-                exact_substitutions=exact_substitutions,
+                **plot_kwargs,
             )
 
     if opts.export_root:
