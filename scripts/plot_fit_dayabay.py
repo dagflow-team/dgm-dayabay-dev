@@ -119,7 +119,7 @@ def main(args: Namespace) -> None:
         axs.grid(False)
         axs.minorticks_off()
         plt.tight_layout()
-        plt.savefig(args.output_plot_correlation_matrix)
+        plt.savefig(args.output_plot_correlation_matrix, metadata={"creationDate": None})
 
     if args.output_plot_spectra:
         edges = storage["outputs.edges.energy_final"].data
@@ -135,7 +135,7 @@ def main(args: Namespace) -> None:
                 label_b=args.output_spectra_label_b,
             )
             plt.subplots_adjust(hspace=0.0, left=0.1, right=0.9, bottom=0.125, top=0.925)
-            plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")))
+            plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")), metadata={"creationDate": None})
 
         if list(filter(lambda x: "neutrino_per_fission_factor" in x, fit["names"])):
             edges = storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
@@ -143,35 +143,36 @@ def main(args: Namespace) -> None:
             plt.subplots_adjust(left=0.12, right=0.95, bottom=0.10, top=0.90)
             if args.output_sw_ylim:
                 plt.ylim(args.output_sw_ylim)
-            plt.savefig(args.output_plot_spectra.format("sw"))
+            plt.savefig(args.output_plot_spectra.format("sw"), metadata={"creationDate": None})
 
     plot_fit_2d(
-        fit,
-        [args.compare_fit],
+        args.reference_fit,
+        [args.input_fit],
         xlim=args.output_fit_xlim,
         ylim=args.output_fit_ylim,
         label_a=args.output_fit_label_a,
         labels_b=[args.output_fit_label_b],
-        title_legend=args.output_fit_title_legend.format(fun=fit["fun"]),
-        add_box=True,
+        title_legend=args.output_fit_title_legend.format(**fit),
+        add_box=args.output_fit_sigma_cross,
         dashed_comparison=True,
         add_global_normalization=args.global_normalization,
+        add_nsigma_legend=True,
     )
     if args.output_plot_fit:
-        plt.savefig(args.output_plot_fit)
-    if args.compare_fit:
-        with open(args.compare_fit, "r") as f:
-            compare_fit = yaml_load(f)
+        plt.savefig(args.output_plot_fit, metadata={"creationDate": None})
+    if args.reference_fit:
+        with open(args.reference_fit, "r") as f:
+            reference_fit = yaml_load(f)
 
-        compare_xdict = compare_fit["xdict"]
-        compare_errorsdict = compare_fit["errorsdict"]
-        for name, par_values in compare_xdict.items():
+        reference_xdict = reference_fit["xdict"]
+        reference_errorsdict = reference_fit["errorsdict"]
+        for name, par_values in reference_xdict.items():
             if name not in fit["xdict"].keys():
                 continue
             fit_value = fit["xdict"][name]
             fit_error = fit["errorsdict"][name]
             value = par_values
-            error = compare_errorsdict[name]
+            error = reference_errorsdict[name]
             print(f"{name:>22}:")
             print(f"{'dataset':>22}: value={value:1.9e}, error={error:1.9e}")
             print(f"{'dag-flow':>22}: value={fit_value:1.9e}, error={fit_error:1.9e}")
@@ -238,7 +239,7 @@ if __name__ == "__main__":
         help="path to file which load as expected",
     )
     comparison.add_argument(
-        "--compare-fit",
+        "--reference-fit",
         help="path to file with which compare",
     )
 
@@ -271,6 +272,10 @@ if __name__ == "__main__":
     )
     outputs.add_argument(
         "--output-fit-title-legend",
+    )
+    outputs.add_argument(
+        "--output-fit-sigma-cross",
+        action="store_true",
     )
     outputs.add_argument(
         "--output-fit-xlim",

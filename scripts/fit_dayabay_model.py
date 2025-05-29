@@ -15,29 +15,19 @@ Example of call:
 from argparse import Namespace
 
 from IPython import embed
-from yaml import dump as yaml_dump
-from yaml import safe_load as yaml_load
 from LaTeXDatax import datax as datax_dump
+from yaml import dump as yaml_dump
 
 from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import available_models, load_model
-from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
+from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters, do_fit
 
 set_level(INFO1)
 
 DATA_INDICES = {"model": 0, "loaded": 1}
-
-
-def do_fit(minimizer: IMinuitMinimizer, model, is_iterative: bool = False) -> dict:
-    fit = minimizer.fit()
-    if is_iterative:
-        for _ in range(4):
-            model.next_sample(mc_parameters=False, mc_statistics=False)
-            fit = minimizer.fit()
-    return fit
 
 
 def main(args: Namespace) -> None:
@@ -70,10 +60,29 @@ def main(args: Namespace) -> None:
 
     if args.constrain_osc_parameters:
         minimizer = IMinuitMinimizer(
-            chi2, parameters=minimization_parameters, limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)}, nbins=model.nbins, verbose=True
+            chi2,
+            parameters=minimization_parameters,
+            limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)},
+            nbins=model.nbins,
+            verbose=True,
         )
         fit = do_fit(minimizer, model, "iterative" in args.chi2)
-    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=True)
+        if args.profile_parameters:
+            minos_profile = minimizer.profile_errors(args.profile_parameters)
+            fit["errorsdict_profiled"] = minos_profile["errorsdict"]
+        filter_fit(fit, ["summary"])
+        print(fit)
+        convert_numpy_to_lists(fit)
+        if args.output_fit:
+            with open(f"{args.output_fit}", "w") as f:
+                yaml_dump(fit, f)
+        if not fit["success"]:
+            exit()
+    minimizer = IMinuitMinimizer(
+        chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=True
+    )
+    if args.interactive:
+        embed()
     fit = minimizer.fit()
     if args.profile_parameters:
         minos_profile = minimizer.profile_errors(args.profile_parameters)
@@ -86,7 +95,7 @@ def main(args: Namespace) -> None:
     print(fit)
     convert_numpy_to_lists(fit)
     if args.output_fit:
-        with open(f"{args.output_fit}", "w") as f:
+        with open(f"{args.output_fit}2", "w") as f:
             yaml_dump(fit, f)
     if args.output_fit_tex:
         datax_dump(args.output_fit_tex, **fit)

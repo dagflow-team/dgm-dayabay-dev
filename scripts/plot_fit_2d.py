@@ -24,6 +24,7 @@ plt.rcParams.update(
         "xtick.top": True,
         "xtick.minor.top": True,
         "xtick.minor.visible": True,
+        "axes.grid": True,
         "ytick.left": True,
         "ytick.minor.left": True,
         "ytick.right": True,
@@ -39,18 +40,19 @@ def main(args: Namespace) -> None:
         fit = yaml_load(f)
 
     plot_fit_2d(
-        fit,
+        args.input_fit,
         args.compare_fits,
         xlim=args.output_fit_xlim,
         ylim=args.output_fit_ylim,
         label_a=args.output_fit_label_a,
         labels_b=args.output_fit_labels_b,
-        title_legend=args.output_fit_title_legend.format(fun=fit["fun"]),
+        title_legend=args.output_fit_title_legend.format(**fit),
         add_box=args.output_box,
         add_global_normalization=args.global_normalization,
+        add_nsigma_legend=False,
     )
     if args.output_plot_fit:
-        plt.savefig(args.output_plot_fit)
+        plt.savefig(args.output_plot_fit, metadata={"creationDate": None})
 
     if args.output_show:
         plt.show()

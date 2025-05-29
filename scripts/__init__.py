@@ -10,6 +10,7 @@ from yaml import safe_load as yaml_load
 from dagflow.bundles.load_hist import load_hist
 from dagflow.core import NodeStorage
 from dagflow.parameters import Parameter
+from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 
 
 class FFormatter(ticker.ScalarFormatter):
@@ -28,6 +29,17 @@ add_representer(
     np.ndarray,
     lambda representer, obj: representer.represent_str(np.array_repr(obj)),
 )
+
+
+def do_fit(minimizer: IMinuitMinimizer, model, is_iterative: bool = False) -> dict:
+    fit = minimizer.fit()
+    if is_iterative:
+        for _ in range(4):
+            model.next_sample(mc_parameters=False, mc_statistics=False)
+            fit = minimizer.fit()
+            if not fit["success"]:
+                break
+    return fit
 
 
 def update_dict_parameters(
@@ -222,9 +234,16 @@ def plot_spectra_ratio(
         fig, axs = plt.subplots(3, 1, height_ratios=[2, 1, 1], sharex=True)
     else:
         fig, axs = plt.subplots(2, 1, height_ratios=[2, 1], sharex=True)
-    axs[0].step([edges[0], *edges], [0, *data_a, 0], where="post", label=label_a)
+    axs[0].step([edges[0], *edges], [0, *data_a, 0], where="post", label=label_a, color="C1")
     axs[0].errorbar(
-        centers, data_b, yerr=data_b**0.5, marker="o", markersize=4, linestyle="none", label=label_b
+        centers,
+        data_b,
+        yerr=data_b**0.5,
+        marker="o",
+        markersize=4,
+        linestyle="none",
+        label=label_b,
+        color="C0",
     )
     axs[1].errorbar(
         centers,
@@ -249,7 +268,7 @@ def plot_spectra_ratio(
     formatter = FFormatter()
     formatter.set_powerlimits((0, 2))
     axs[0].yaxis.set_major_formatter(formatter)
-    axs[0].legend(title=legend_title)
+    axs[0].legend(title=legend_title, loc="upper right")
     if plot_diff:
         axs[2].set_xlabel("E, MeV")
         axs[2].set_ylabel("A - B")
@@ -324,7 +343,7 @@ def plot_spectral_weights(edges, fit) -> None:
 
 
 def plot_fit_2d(
-    fit: dict,
+    fit_path: str,
     compare_fit_paths: list[str],
     xlim: tuple[float] | None = None,
     ylim: tuple[float] | None = None,
@@ -334,6 +353,7 @@ def plot_fit_2d(
     add_box: bool = False,
     dashed_comparison: bool = False,
     add_global_normalization: bool = False,
+    add_nsigma_legend: bool = True,
 ):
     if add_global_normalization:
         fig, (ax, axgn) = plt.subplots(
@@ -349,40 +369,44 @@ def plot_fit_2d(
         fig, (ax,) = plt.subplots(1, 1)
         axgn = None
 
+    with open(fit_path, "r") as f:
+        fit = yaml_load(f)
+
     xdict = fit["xdict"]
     errorsdict = fit["errorsdict"]
 
+    dm_value, dm_error, _ = get_parameter_fit(xdict, errorsdict, "oscprob.DeltaMSq32")
+    sin_value, sin_error, _ = get_parameter_fit(xdict, errorsdict, "oscprob.SinSq2Theta13")
+
     ax.errorbar(
-        xdict["oscprob.SinSq2Theta13"],
-        xdict["oscprob.DeltaMSq32"],
-        xerr=errorsdict["oscprob.SinSq2Theta13"],
-        yerr=errorsdict["oscprob.DeltaMSq32"],
+        sin_value,
+        dm_value,
+        xerr=sin_error,
+        yerr=dm_error,
         label=label_a,
     )
     if add_box:
-        (box,) = ax.plot(
-            *calc_box_around(
-                (
-                    xdict["oscprob.SinSq2Theta13"],
-                    xdict["oscprob.DeltaMSq32"],
-                ),
-                (
-                    errorsdict["oscprob.SinSq2Theta13"],
-                    errorsdict["oscprob.DeltaMSq32"],
-                ),
-            ),
-            color="C0",
-            label=r"$0.1\sigma$",
+        label = r"$0.1\sigma$ " + label_a if label_a else r"$0.1\sigma$"
+        ax.axvspan(
+            sin_value - 0.1 * sin_error,
+            sin_value + 0.1 * sin_error,
+            -10,
+            10,
+            color="0.9",
+            label=label,
         )
+        ax.axhspan(dm_value - 0.1 * dm_error, dm_value + 0.1 * dm_error, -10, 10, color="0.9")
 
     if axgn:
         axgn.yaxis.set_label_position("right")
         axgn.set_ylabel("Normalization offset")
         axgn.tick_params(labelleft=False, labelright=True, labelbottom=False)
-        axgn.grid(axis="y")
+        axgn.grid(axis="x")
         axgn.set_ylim(-0.15, 0.075)
 
-        gn_value, gn_error, gn_type = get_global_normalization(xdict, errorsdict)
+        gn_value, gn_error, gn_type = get_parameter_fit(
+            xdict, errorsdict, "detector.global_normalization"
+        )
         axgn.errorbar(
             0,
             gn_value,
@@ -393,6 +417,8 @@ def plot_fit_2d(
             label=gn_type,
         )
 
+    nsigma_legend = None
+
     for i, (compare_fit_path, label_b) in enumerate(
         zip_longest(compare_fit_paths, labels_b, fillvalue=None)
     ):
@@ -402,11 +428,18 @@ def plot_fit_2d(
         compare_xdict = compare_fit["xdict"]
         compare_errorsdict = compare_fit["errorsdict"]
 
+        sin_value_c, sin_error_c, _ = get_parameter_fit(
+            compare_xdict, compare_errorsdict, "oscprob.SinSq2Theta13"
+        )
+        dm_value_c, dm_error_c, _ = get_parameter_fit(
+            compare_xdict, compare_errorsdict, "oscprob.DeltaMSq32"
+        )
+
         eb = ax.errorbar(
-            compare_xdict["oscprob.SinSq2Theta13"],
-            compare_xdict["oscprob.DeltaMSq32"],
-            xerr=compare_errorsdict["oscprob.SinSq2Theta13"],
-            yerr=compare_errorsdict["oscprob.DeltaMSq32"],
+            sin_value_c,
+            dm_value_c,
+            xerr=sin_error_c,
+            yerr=dm_error_c,
             label=label_b,
         )
 
@@ -415,37 +448,59 @@ def plot_fit_2d(
             eb[2][1].set_linestyle("--")
 
         if axgn:
-            gn_value, gn_error, gn_type = get_global_normalization(
-                compare_xdict, compare_errorsdict
+            gn_value_c, gn_error_c, gn_type_c = get_parameter_fit(
+                compare_xdict, compare_errorsdict, "detector.global_normalization"
             )
             xoffset = (i + 1) / 10.0
             axgn.errorbar(
                 xoffset,
-                gn_value,
-                yerr=gn_error,
+                gn_value_c,
+                yerr=gn_error_c,
                 xerr=1,
                 fmt="o",
                 markerfacecolor="none",
-                label=gn_type,
+                label=gn_type_c,
             )
 
-    ax.legend(title=title_legend)
+        if add_nsigma_legend and not nsigma_legend:
+            labels = [
+                r"$\sin^2 2\theta_{13} = " + f"{(sin_value - sin_value_c) / sin_error * 100:1.3f}$",
+                r"$\Delta m^2_{32} = " + f"{(dm_value - dm_value_c) / dm_error * 100:1.3f}$",
+            ]
+            if gn_error_c:
+                labels.append(
+                    r"$N^{\text{global}} = " + f"{(gn_value - gn_value_c) / gn_error * 100:1.3f}$"
+                )
+            handles = [plt.Line2D([], [], color="none", label=label) for label in labels]
+            nsigma_legend = plt.legend(
+                handles=handles,
+                title=r"$n\sigma$ difference, %",
+                loc="lower right",
+                handlelength=0,
+                handletextpad=0,
+                bbox_to_anchor=(0, 0),
+            )
+
+    ax.legend(title=title_legend, loc="upper right")
     ax.set_xlabel(r"$\sin^22\theta_{13}$")
     ax.set_ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
     ax.set_title("")
-    ax.grid()
+    formatter = ticker.ScalarFormatter(useMathText=True)
+    formatter.set_powerlimits((0, 2))
+    ax.yaxis.set_major_formatter(formatter)
     if xlim:
         ax.set_xlim(xlim)
     if ylim:
         ax.set_ylim(ylim)
+    if nsigma_legend:
+        plt.gca().add_artist(nsigma_legend)
 
     plt.subplots_adjust(left=0.17, right=0.86, bottom=0.1, top=0.95)
 
 
-def get_global_normalization(xdict: dict, errorsdict: dict) -> tuple[float, float, str]:
-    key = "detector.global_normalization"
+def get_parameter_fit(xdict: dict, errorsdict: dict, key: str) -> tuple[float, float, str]:
     try:
-        return xdict[key] - 1.0, errorsdict[key], "fit"
+        return xdict[key] - 1, errorsdict[key], "fit"
     except KeyError:
         pass
 
