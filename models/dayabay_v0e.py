@@ -2429,6 +2429,7 @@ class model_dayabay_v0e:
                 refine_times=4,
                 newmin=0.5,
                 newmax=12.1,
+                # savgol_filter_smoothen = (10, 4)
             )
 
             # Create (graph) arrays for the LSNL curves. A dedicated array for X axis,
