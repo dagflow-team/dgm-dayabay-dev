@@ -1829,11 +1829,56 @@ class model_dayabay_v0e:
                 assert (
                     "reactor-35days" not in self._future
                 ), "Mutually exclusive options"
-            elif "reactor-35days" in self._future:
+            elif "reactor-35days-by-number-of-fissions" in self._future:
                 logger.warning("Future: use merged reactor data, period: 35 days")
                 load_record_data(
                     name="daily_data.reactor_all",
-                    filenames=path_arrays / f"reactor_power_35days.{self.source_type}",
+                    filenames=path_arrays / f"reactor_power_35days_by_number_of_fissions.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-35days-by-number-of-neutrinos" in self._future:
+                logger.warning("Future: use merged reactor data, period: 35 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_35days_by_number_of_neutrinos.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-35days-by-power" in self._future:
+                logger.warning("Future: use merged reactor data, period: 35 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_35days_by_power.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-28days-by-number-of-fissions" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-28days-by-number-of-neutrinos" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_28days_by_number_of_neutrinos.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-28days-by-power" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_28days_by_power.{self.source_type}",
                     replicate_outputs=index["reactor"],
                     columns=("period", "day", "ndet", "ndays", "power")
                     + index["isotope_lower"],

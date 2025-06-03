@@ -366,7 +366,7 @@ def plot_fit_2d(
             subplot_kw={},
         )
     else:
-        fig, (ax,) = plt.subplots(1, 1)
+        fig, ax, = plt.subplots(1, 1)
         axgn = None
 
     with open(fit_path, "r") as f:
@@ -409,7 +409,7 @@ def plot_fit_2d(
         )
         axgn.errorbar(
             0,
-            gn_value,
+            gn_value - 1,
             yerr=gn_error,
             xerr=1,
             fmt="o",
@@ -454,7 +454,7 @@ def plot_fit_2d(
             xoffset = (i + 1) / 10.0
             axgn.errorbar(
                 xoffset,
-                gn_value_c,
+                gn_value_c - 1,
                 yerr=gn_error_c,
                 xerr=1,
                 fmt="o",
@@ -500,7 +500,7 @@ def plot_fit_2d(
 
 def get_parameter_fit(xdict: dict, errorsdict: dict, key: str) -> tuple[float, float, str]:
     try:
-        return xdict[key] - 1, errorsdict[key], "fit"
+        return xdict[key], errorsdict[key], "fit"
     except KeyError:
         pass
 
@@ -512,4 +512,4 @@ def get_parameter_fit(xdict: dict, errorsdict: dict, key: str) -> tuple[float, f
     res = (scale * w).sum() / wsum
     # res_unc = wsum**-0.5 # incorrect since scales are correlated
 
-    return res, 0.0, "calc"
+    return 1 + res, 0.0, "calc"

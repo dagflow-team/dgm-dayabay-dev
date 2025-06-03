@@ -25,20 +25,9 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import load_model
-from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
+from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters, do_fit
 
 set_level(INFO1)
-
-DATA_INDICES = {"model": 0, "loaded": 1}
-
-
-def do_fit(minimizer: IMinuitMinimizer, model, is_iterative: bool = False) -> dict:
-    fit = minimizer.fit()
-    if is_iterative:
-        for _ in range(4):
-            model.next_sample(mc_parameters=False, mc_statistics=False)
-            fit = minimizer.fit()
-    return fit
 
 
 def parse_config(config_path: str) -> list[dict[str, Any]]:
@@ -85,6 +74,9 @@ def main(args: Namespace) -> None:
     parameters_constrained = storage_fit("parameters.constrained")
     statistic = storage_fit("outputs.statistic")
 
+    for model in models:
+        model.next_sample(mc_parameters=False, mc_statistics=False)
+
     chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, Parameter] = {}
     update_dict_parameters(
@@ -101,17 +93,30 @@ def main(args: Namespace) -> None:
         minimizer = IMinuitMinimizer(
             chi2, parameters=minimization_parameters, limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)}, nbins=models[0].nbins, verbose=True
         )
+
         fit = do_fit(minimizer, models[0], "iterative" in args.chi2)
-    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, verbose=True)
-    fit = minimizer.fit()
-    print(fit)
+        if args.profile_parameters:
+            minos_profile = minimizer.profile_errors(args.profile_parameters)
+            fit["errorsdict_profiled"] = minos_profile["errorsdict"]
+        filter_fit(fit, ["summary"])
+        print(fit)
+        convert_numpy_to_lists(fit)
+        if args.output_fit:
+            with open(f"{args.output_fit}", "w") as f:
+                yaml_dump(fit, f)
+        if not fit["success"]:
+            exit()
+
+    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, nbins=models[0].nbins, verbose=True)
     if args.interactive:
         embed()
+    fit = minimizer.fit()
+    print(fit)
 
     filter_fit(fit, ["summary"])
     convert_numpy_to_lists(fit)
     if args.output_fit:
-        with open(args.output_fit, "w") as f:
+        with open(f"{args.output_fit}2", "w") as f:
             yaml_dump(fit, f)
     if args.output_fit_tex:
         datax_dump(args.output_fit_tex, **fit)
@@ -135,15 +140,16 @@ if __name__ == "__main__":
 
     fit_options = parser.add_argument_group("fit", "Set fit procedure")
     fit_options.add_argument(
-        "--data",
-        default="model",
-        choices=DATA_INDICES.keys(),
-        help="Choose data for fit",
-    )
-    fit_options.add_argument(
         "--constrain-osc-parameters",
         action="store_true",
         help="Constrain oscillation parameters",
+    )
+    fit_options.add_argument(
+        "--profile-parameters",
+        action="extend",
+        nargs="*",
+        default=[],
+        help="choose parameters for Minos profiling",
     )
     fit_options.add_argument(
         "--chi2",
