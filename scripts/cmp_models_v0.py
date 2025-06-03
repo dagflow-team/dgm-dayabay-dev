@@ -124,6 +124,7 @@ def plot(
             height_ratios=(3, 1, 1),
             gridspec_kw={"hspace": 0},
         )
+        plt.subplots_adjust(right=0.85)
         plt.sca(ax)
         if title:
             ktitle = f"{title}: {'.'.join(key)}"
@@ -155,6 +156,8 @@ def plot(
         tratio = sdiff / dataB.sum()
 
         plt.sca(axd)
+        axd.tick_params(labelleft=False, labelright=True)
+        axd.yaxis.set_label_position("right")
         axd.stairs(diff, edgesA, label=f"sum={sdiff:.2f}")
         axd.set_ylabel(f"{labelA}−{labelB}", size="small")
         if opts.ylim:

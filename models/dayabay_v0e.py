@@ -156,6 +156,7 @@ class model_dayabay_v0e:
         "spectrum_correction_interpolation_mode",
         "spectrum_correction_location",
         "concatenation_mode",
+        "lsnl_matrix_mode",
         "monte_carlo_mode",
         "_source_type",
         "_dataset",
@@ -175,6 +176,7 @@ class model_dayabay_v0e:
     spectrum_correction_interpolation_mode: Literal["linear", "exponential"]
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
+    lsnl_matrix_mode: Literal["exact", "linear", "linear-unprotected"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _dataset: Literal["a", "b"]  # todo: doc
@@ -202,6 +204,7 @@ class model_dayabay_v0e:
         seed: int = 0,
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
+        lsnl_matrix_mode: Literal["exact", "linear", "linear-unprotected"] = "exact",
         parameter_values: dict[str, float | str] = {},
         future: Collection[FutureType] = set(),
     ):
@@ -224,6 +227,15 @@ class model_dayabay_v0e:
         assert source_type in {"tsv", "hdf5", "root", "npz"}
         assert dataset in {"a", "b"}
 
+        assert spectrum_correction_interpolation_mode in {"linear", "exponential"}
+        assert spectrum_correction_location in {
+            "before-integration",
+            "after-integration",
+        }
+        assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
+        assert concatenation_mode in {"detector", "detector_period"}
+        assert lsnl_matrix_mode in {"exact", "linear", "linear-unprotected"}
+
         self.storage = NodeStorage()
         self.path_data = Path("data/dayabay-v0e")
         self._source_type = source_type
@@ -233,6 +245,7 @@ class model_dayabay_v0e:
         )
         self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
+        self.lsnl_matrix_mode = lsnl_matrix_mode
         self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
 
@@ -240,6 +253,7 @@ class model_dayabay_v0e:
         logger.log(INFO, f"Source type: {self._source_type}")
         logger.log(INFO, f"Data path: {self.path_data!s}")
         logger.log(INFO, f"Concatenation mode: {self.concatenation_mode}")
+        logger.log(INFO, f"LSNL matrix mode: {self.lsnl_matrix_mode}")
         logger.log(
             INFO,
             f"Spectrum correction mode: {self.spectrum_correction_interpolation_mode}",
@@ -334,6 +348,7 @@ class model_dayabay_v0e:
         from dagflow.tools.schema import LoadPy
         from dgf_detector import (
             AxisDistortionMatrix,
+            AxisDistortionMatrixLinear,
             EnergyResolution,
             Monotonize,
             Rebin,
@@ -2429,6 +2444,7 @@ class model_dayabay_v0e:
                 refine_times=4,
                 newmin=0.5,
                 newmax=12.1,
+                # savgol_filter_smoothen = (10, 4)
             )
 
             # Create (graph) arrays for the LSNL curves. A dedicated array for X axis,
@@ -2554,82 +2570,139 @@ class model_dayabay_v0e:
             # - backward — modify Evis bin edges with inverse energy scale conversion.
             # Interpolate Evis(Escint)
 
-            # Given the LSNL curves are pre-interpolated on a fine grid, use linear
-            # algorithm for both interpolations. We will use forced monotonous curves to
-            # ensure the interpolation is definite.
-            Interpolator.replicate(
-                method="linear",
-                names={
-                    "indexer": "detector.lsnl.indexer_fwd",
-                    "interpolator": "detector.lsnl.interpolated_fwd",
-                },
-            )
-            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
-                "detector.lsnl.interpolated_fwd.xcoarse"
-            )
-            outputs.get_value(
-                "detector.lsnl.curves.evis_coarse_monotonous"
-            ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
-            edges_energy_escint >> inputs.get_value(
-                "detector.lsnl.interpolated_fwd.xfine"
-            )
+            if self.lsnl_matrix_mode == "exact":
+                logger.warning("Future: precise LSNL matrix computation")
 
-            # Apply uncorrelated between detectors energy scale for forward interpolated
-            # Evis[d]=s[d]·Evis(Escint).
-            Product.replicate(
-                outputs.get_value("detector.lsnl.interpolated_fwd"),
-                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
-                name="detector.lsnl.curves.evis",
-                replicate_outputs=index["detector"],
-            )
+                # Given the LSNL curves are pre-interpolated on a fine grid, use linear
+                # algorithm for both interpolations. We will use forced monotonous curves to
+                # ensure the interpolation is definite.
+                Interpolator.replicate(
+                    method="linear",
+                    names={
+                        "indexer": "detector.lsnl.indexer_fwd",
+                        "interpolator": "detector.lsnl.interpolated_fwd",
+                    },
+                )
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xcoarse"
+                )
+                outputs.get_value(
+                    "detector.lsnl.curves.evis_coarse_monotonous"
+                ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                edges_energy_escint >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xfine"
+                )
 
-            # In order to apply the energy scale for the backward interpolation, it
-            # should be applied to the coarse version before interpolation.
-            Product.replicate(
-                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
-                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
-                name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
-                replicate_outputs=index["detector"],
-            )
+                # Apply uncorrelated between detectors energy scale for forward interpolated
+                # Evis[d]=s[d]·Evis(Escint).
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.interpolated_fwd"),
+                    outputs.get_dict(
+                        "detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis",
+                    replicate_outputs=index["detector"],
+                )
 
-            # Interpolate backward function Escint(Evis) for each detector.
-            # `replicate_xcoarse` boolean flag indicates that the coarse input X for the
-            # interpolation depends on the index.
-            Interpolator.replicate(
-                method="linear",
-                names={
-                    "indexer": "detector.lsnl.indexer_bkwd",
-                    "interpolator": "detector.lsnl.interpolated_bkwd",
-                },
-                replicate_xcoarse=True,
-                replicate_outputs=index["detector"],
-            )
-            outputs.get_dict(
-                "detector.lsnl.curves.evis_coarse_monotonous_scaled"
-            ) >> inputs.get_dict("detector.lsnl.interpolated_bkwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
-                "detector.lsnl.interpolated_bkwd.ycoarse"
-            )
-            edges_energy_evis.outputs[0] >> inputs.get_dict(
-                "detector.lsnl.interpolated_bkwd.xfine"
-            )
+                # In order to apply the energy scale for the backward interpolation, it
+                # should be applied to the coarse version before interpolation.
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
+                    outputs.get_dict(
+                        "detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
+                    replicate_outputs=index["detector"],
+                )
 
-            # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
-            # Escint edges, forward modified Escint edges and backward modified Evis
-            # edges to the relevant inputs.
-            AxisDistortionMatrix.replicate(
-                name="detector.lsnl.matrix", replicate_outputs=index["detector"]
-            )
-            edges_energy_escint.outputs[0] >> inputs(
-                "detector.lsnl.matrix.EdgesOriginal"
-            )
-            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
-            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
-                "detector.lsnl.matrix.EdgesModified"
-            )
-            outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
-                "detector.lsnl.matrix.EdgesModifiedBackwards"
-            )
+                # Interpolate backward function Escint(Evis) for each detector.
+                # `replicate_xcoarse` boolean flag indicates that the coarse input X for the
+                # interpolation depends on the index.
+                Interpolator.replicate(
+                    method="linear",
+                    names={
+                        "indexer": "detector.lsnl.indexer_bkwd",
+                        "interpolator": "detector.lsnl.interpolated_bkwd",
+                    },
+                    replicate_xcoarse=True,
+                    replicate_outputs=index["detector"],
+                )
+                outputs.get_dict(
+                    "detector.lsnl.curves.evis_coarse_monotonous_scaled"
+                ) >> inputs.get_dict("detector.lsnl.interpolated_bkwd.xcoarse")
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
+                    "detector.lsnl.interpolated_bkwd.ycoarse"
+                )
+                edges_energy_evis.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.interpolated_bkwd.xfine"
+                )
+
+                # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
+                # Escint edges, forward modified Escint edges and backward modified Evis
+                # edges to the relevant inputs.
+                AxisDistortionMatrix.replicate(
+                    name="detector.lsnl.matrix", replicate_outputs=index["detector"]
+                )
+                edges_energy_escint.outputs[0] >> inputs(
+                    "detector.lsnl.matrix.EdgesOriginal"
+                )
+                edges_energy_evis.outputs[0] >> inputs(
+                    "detector.lsnl.matrix.EdgesTarget"
+                )
+                outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesModified"
+                )
+                outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesModifiedBackwards"
+                )
+            else:
+                logger.warning("Future: linear LSNL matrix computation")
+                Interpolator.replicate(
+                    method="linear",
+                    names={
+                        "indexer": "detector.lsnl.indexer_fwd",
+                        "interpolator": "detector.lsnl.interpolated_fwd",
+                    },
+                )
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xcoarse"
+                )
+                if self.lsnl_matrix_mode=="linear-unprotected":
+                    logger.warning("Future: use non-monotonized LSNL curves")
+                    outputs.get_value(
+                        "detector.lsnl.curves.evis_coarse"
+                    ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                else:
+                    logger.warning("Future: monotonized LSNL curves")
+                    outputs.get_value(
+                        "detector.lsnl.curves.evis_coarse_monotonous"
+                    ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                edges_energy_edep >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xfine"
+                )
+
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.interpolated_fwd"),
+                    outputs.get_dict(
+                        "detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis",
+                    replicate_outputs=index["detector"],
+                )
+
+                AxisDistortionMatrixLinear.replicate(
+                    name="detector.lsnl.matrix",
+                    replicate_outputs=index["detector"],
+                )
+                edges_energy_escint.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesOriginal"
+                )
+                edges_energy_evis.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesTarget"
+                )
+                outputs.get_dict("detector.lsnl.curves.evis") >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesModified"
+                )
 
             # Finally as in the case with IAV apply distortions to the spectra for each
             # detector and period.
@@ -3552,6 +3625,15 @@ class model_dayabay_v0e:
                     "statistic.nuisance.parts.bkg.uncertainty_scale_by_site.muonx",
                 ]
             )
+        if self.lsnl_matrix_mode in {"linear", "linear-unprotected"}:
+            may_ignore.extend(
+                [
+                    "detector.lsnl.curves.evis_coarse_monotonous_scaled",
+                    "detector.lsnl.indexer_bkwd",
+                    "detector.lsnl.interpolated_bkwd",
+                ]
+            )
+
         for key_may_ignore in list(may_ignore):
             cleanup = False
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
