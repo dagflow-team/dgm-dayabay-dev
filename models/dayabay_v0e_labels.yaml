@@ -96,30 +96,30 @@ kinematics:
   ibd:
     crosssection:
       text:  "IBD cross section σ(Eν,cosθ)"
-      plottitle: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
-      latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$]"
-      axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$"
+      plottitle: 'IBD cross section $\sigma(E_{\nu}, \cos\theta)$'
+      latex: 'IBD cross section $\sigma(E_{\nu}, \cos\theta)$]'
+      axis:  '$\sigma(E_{\nu}, \cos\theta)$'
       unit: "cm⁻²/proton"
       latexunit: "cm$^{-2}$"
       plotoptions:
         method: "slicesy"
     enu:
       text: "Eν mesh\\nfor integration"
-      latex: "$E_{\\nu}$ mesh"
-      axis: "$E_{\\nu}$"
+      latex: '$E_{\nu}$ mesh'
+      axis: '$E_{\nu}$'
       unit: "MeV"
       plotoptions:
         method: "slicesy"
     jacobian:
       text: "dEν/dEdep Jacobian"
-      axis: "$dE_{\\nu}/dE_{\\rm dep}$"
-      latex: "$dE_{\\nu}/dE_{\\rm dep}$ Jacobian"
+      axis: '$dE_{\nu}/dE_{\rm dep}$'
+      latex: '$dE_{\nu}/dE_{\rm dep}$ Jacobian'
       plotoptions:
         method: "slicesy"
         mask_value: 0.0
     crosssection_jacobian:
       text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)"
-      axis: "$\\sigma(E_{\\nu}, \\cos\\theta)\\times dE_{\\nu}/dE_{\\rm dep}$"
+      axis: '$\sigma(E_{\nu}, \cos\theta)\times dE_{\nu}/dE_{\rm dep}$'
       unit: "cm⁻²/proton"
       plotoptions:
         method: "slicesy"
@@ -719,7 +719,7 @@ detector:
       text: "Effective detector livetime {key} [day]"
   iav:
     matrix_raw:
-      text: "IAV matrix (MC)"
+      text: "IAV matrix, nominal"
       axis: "f"
       plotoptions: *detector_response_plotoptions
     matrix_rescaled:
