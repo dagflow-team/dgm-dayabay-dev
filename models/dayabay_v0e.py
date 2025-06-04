@@ -2555,14 +2555,14 @@ class model_dayabay_v0e:
             # detector, which is done by `remap_items` function.
             remap_items(
                 parameters.get_dict("all.detector.detector_relative"),
-                outputs.create_child("detector.parameters_relative"),
+                parameters.create_child("selected.detector.parameters_relative"),
                 reorder_indices={
                     "from": ["detector", "parameters"],
                     "to": ["parameters", "detector"],
                 },
             )
             # Now there is a storage for energy scale parameters
-            # "detector.parameters_relative.energy_scale_factor".
+            # "selected.detector.parameters_relative.energy_scale_factor".
 
             # In order to build the LSNL+energy scale conversion matrix a most precise
             # way requires two branches of interpolations:
@@ -2597,8 +2597,8 @@ class model_dayabay_v0e:
                 # Evis[d]=s[d]·Evis(Escint).
                 Product.replicate(
                     outputs.get_value("detector.lsnl.interpolated_fwd"),
-                    outputs.get_dict(
-                        "detector.parameters_relative.energy_scale_factor"
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
                     ),
                     name="detector.lsnl.curves.evis",
                     replicate_outputs=index["detector"],
@@ -2608,8 +2608,8 @@ class model_dayabay_v0e:
                 # should be applied to the coarse version before interpolation.
                 Product.replicate(
                     outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
-                    outputs.get_dict(
-                        "detector.parameters_relative.energy_scale_factor"
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
                     ),
                     name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
                     replicate_outputs=index["detector"],
@@ -2683,8 +2683,8 @@ class model_dayabay_v0e:
 
                 Product.replicate(
                     outputs.get_value("detector.lsnl.interpolated_fwd"),
-                    outputs.get_dict(
-                        "detector.parameters_relative.energy_scale_factor"
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
                     ),
                     name="detector.lsnl.curves.evis",
                     replicate_outputs=index["detector"],
@@ -2775,7 +2775,7 @@ class model_dayabay_v0e:
             # factor, to be used to scale the IBD spectrum.
             Product.replicate(
                 parameters.get_value("all.detector.global_normalization"),
-                outputs.get_dict("detector.parameters_relative.efficiency_factor"),
+                parameters.get_dict("selected.detector.parameters_relative.efficiency_factor"),
                 name="detector.normalization",
                 replicate_outputs=index["detector"],
             )
@@ -2889,7 +2889,7 @@ class model_dayabay_v0e:
 
             remap_items(
                 parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                outputs.create_child("bkg.uncertainty_scale"),
+                parameters.create_child("selected.bkg.uncertainty_scale"),
                 rename_indices=site_arrangement,
                 skip_indices_target=inactive_detectors,
             )
@@ -2898,7 +2898,7 @@ class model_dayabay_v0e:
             ProductShiftedScaled.replicate(
                 outputs("bkg.count_fixed"),
                 parameters("sigma.bkg.rate"),
-                outputs.get_dict("bkg.uncertainty_scale"),
+                parameters.get_dict("selected.bkg.uncertainty_scale"),
                 name="bkg.count",
                 shift=1.0,
                 replicate_outputs=combinations["bkg_site_correlated.detector.period"],
