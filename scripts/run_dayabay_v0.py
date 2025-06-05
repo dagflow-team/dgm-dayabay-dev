@@ -105,7 +105,9 @@ def main(opts: Namespace) -> None:
         "overlay_priority": plot_overlay_priority,
         "latex_substitutions": latex_substitutions,
         "exact_substitutions": exact_substitutions,
-        "metadata": {"CreationDate": None},
+        "savefig_kwargs": {
+            "metadata": {"CreationDate": None},
+        },
     }
     if opts.plots_all:
         storage("outputs").plot(

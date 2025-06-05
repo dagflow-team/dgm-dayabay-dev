@@ -335,7 +335,7 @@ class model_dayabay_v0e:
             ProductShiftedScaled,
             Sum,
         )
-        from dagflow.lib.axis import BinCenter
+        from dagflow.lib.axis import BinCenter, BinWidth
         from dagflow.lib.common import Array, Concatenation, Proxy, View
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
@@ -971,6 +971,12 @@ class model_dayabay_v0e:
             Array.replicate(
                 name="reactor_anue.spectrum_free_correction.spec_model_edges",
                 array=antineutrino_model_edges,
+            )
+
+            # TODO
+            BinWidth.replicate(
+                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
+                name="reactor_anue.spectrum_free_correction.spec_model_widths",
             )
 
             # Introduce Δ=Eν-Edep=m(n)-m(p)-m(e) approximately connecting neutrino and
