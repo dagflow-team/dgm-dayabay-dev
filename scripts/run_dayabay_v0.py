@@ -66,13 +66,27 @@ def main(opts: Namespace) -> None:
         return
 
     if opts.print_all:
-        print(storage.to_table(truncate="auto"))
+        print(
+            storage.to_table(truncate="auto", df_kwargs={"columns": opts.print_columns})
+        )
     for sources in opts.print:
         for source in sources:
-            print(storage(source).to_table(truncate="auto"))
+            print(
+                storage(source).to_table(
+                    truncate="auto",
+                    df_kwargs={
+                        "columns": opts.print_columns,
+                        "parent_key": source,
+                    },
+                )
+            )
     if len(storage("inputs")) > 0:
         print("Not connected inputs")
-        print(storage("inputs").to_table(truncate="auto"))
+        print(
+            storage("inputs").to_table(
+                truncate="auto", df_kwargs={"columns": opts.print_columns}
+            )
+        )
 
     if opts.method:
         method = getattr(model, opts.method)
@@ -311,8 +325,8 @@ latex_substitutions = {
     "χ²": r"$χ^2$",
     "·": r"$\cdot$",
     "×": r"$\times$",
-    "[#": r'[\#',
-    " # ": r' \# ',
+    "[#": r"[\#",
+    " # ": r" \# ",
     "⁻¹": r"$^{-1}$",
     "⁻²": r"$^{-2}$",
     "¹": r"$^1$",
@@ -379,6 +393,9 @@ if __name__ == "__main__":
     storage.add_argument("-P", "--print-all", action="store_true", help="print all")
     storage.add_argument(
         "-p", "--print", action="append", nargs="+", default=[], help="print all"
+    )
+    storage.add_argument(
+        "--print-columns", "--pc", default=None, nargs="+", help="Print columns"
     )
     storage.add_argument(
         "--pars-datax", action="store_true", help="print parameters to latex (datax)"
