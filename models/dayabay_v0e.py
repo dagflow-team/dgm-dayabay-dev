@@ -176,7 +176,7 @@ class model_dayabay_v0e:
     spectrum_correction_interpolation_mode: Literal["linear", "exponential"]
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
-    lsnl_matrix_mode: Literal["exact", "linear", "linear-unprotected"]
+    lsnl_matrix_mode: Literal["exact", "linear", "linear-unprotected", "pointwise"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _dataset: Literal["a", "b"]  # todo: doc
@@ -204,7 +204,9 @@ class model_dayabay_v0e:
         seed: int = 0,
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
-        lsnl_matrix_mode: Literal["exact", "linear", "linear-unprotected"] = "exact",
+        lsnl_matrix_mode: Literal[
+            "exact", "linear", "linear-unprotected", "pointwise"
+        ] = "exact",
         parameter_values: dict[str, float | str] = {},
         future: Collection[FutureType] = set(),
     ):
@@ -234,7 +236,12 @@ class model_dayabay_v0e:
         }
         assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
         assert concatenation_mode in {"detector", "detector_period"}
-        assert lsnl_matrix_mode in {"exact", "linear", "linear-unprotected"}
+        assert lsnl_matrix_mode in {
+            "exact",
+            "linear",
+            "linear-unprotected",
+            "pointwise",
+        }
 
         self.storage = NodeStorage()
         self.path_data = Path("data/dayabay-v0e")
@@ -349,6 +356,7 @@ class model_dayabay_v0e:
         from dgf_detector import (
             AxisDistortionMatrix,
             AxisDistortionMatrixLinear,
+            AxisDistortionMatrixPointwise,
             EnergyResolution,
             Monotonize,
             Rebin,
@@ -975,7 +983,9 @@ class model_dayabay_v0e:
 
             # TODO
             BinWidth.replicate(
-                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
                 name="reactor_anue.spectrum_free_correction.spec_model_widths",
             )
 
@@ -2661,7 +2671,7 @@ class model_dayabay_v0e:
                 outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
                     "detector.lsnl.matrix.EdgesModifiedBackwards"
                 )
-            else:
+            elif self.lsnl_matrix_mode in {"linear", "linear-unprotected"}:
                 logger.warning("Future: linear LSNL matrix computation")
                 Interpolator.replicate(
                     method="linear",
@@ -2673,7 +2683,7 @@ class model_dayabay_v0e:
                 outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
                     "detector.lsnl.interpolated_fwd.xcoarse"
                 )
-                if self.lsnl_matrix_mode=="linear-unprotected":
+                if self.lsnl_matrix_mode == "linear-unprotected":
                     logger.warning("Future: use non-monotonized LSNL curves")
                     outputs.get_value(
                         "detector.lsnl.curves.evis_coarse"
@@ -2708,6 +2718,36 @@ class model_dayabay_v0e:
                 )
                 outputs.get_dict("detector.lsnl.curves.evis") >> inputs.get_dict(
                     "detector.lsnl.matrix.EdgesModified"
+                )
+            elif self.lsnl_matrix_mode == "pointwise":
+                logger.warning("Future: pointwise LSNL matrix computation")
+
+                # TODO: documentation
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.curves.evis_coarse"),
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis_coarse_scaled",
+                    replicate_outputs=index["detector"],
+                )
+
+                AxisDistortionMatrixPointwise.replicate(
+                    name="detector.lsnl.matrix",
+                    replicate_outputs=index["detector"],
+                )
+                edges_energy_escint.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesOriginal"
+                )
+                edges_energy_evis.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesTarget"
+                )
+
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
+                    "detector.lsnl.matrix.DistortionOriginal",
+                )
+                outputs.get_dict("detector.lsnl.curves.evis_coarse_scaled") >> inputs.get_dict(
+                    "detector.lsnl.matrix.DistortionTarget",
                 )
 
             # Finally as in the case with IAV apply distortions to the spectra for each
@@ -2781,7 +2821,9 @@ class model_dayabay_v0e:
             # factor, to be used to scale the IBD spectrum.
             Product.replicate(
                 parameters.get_value("all.detector.global_normalization"),
-                parameters.get_dict("selected.detector.parameters_relative.efficiency_factor"),
+                parameters.get_dict(
+                    "selected.detector.parameters_relative.efficiency_factor"
+                ),
                 name="detector.normalization",
                 replicate_outputs=index["detector"],
             )
@@ -3637,6 +3679,17 @@ class model_dayabay_v0e:
                     "detector.lsnl.curves.evis_coarse_monotonous_scaled",
                     "detector.lsnl.indexer_bkwd",
                     "detector.lsnl.interpolated_bkwd",
+                ]
+            )
+        elif self.lsnl_matrix_mode=="pointwise":
+            may_ignore.extend(
+                [
+                    "detector.lsnl.curves.evis_coarse_monotonous_scaled",
+                    "detector.lsnl.indexer_bkwd",
+                    "detector.lsnl.interpolated_bkwd",
+                    "detector.lsnl.curves.evis",
+                    "detector.lsnl.indexer_fwd",
+                    "detector.lsnl.interpolated_fwd",
                 ]
             )
 
