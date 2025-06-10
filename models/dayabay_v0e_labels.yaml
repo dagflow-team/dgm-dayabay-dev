@@ -547,9 +547,17 @@ reactor_anue:
       text: "Eν segment edges\\nfor parametrization of reactor ν̅ spectrum shape"
       axis: '$E_{\nu}$'
       unit: 'MeV'
+    spec_model_widths:
+      text: "Eν segment widths\\nfor parametrization of reactor ν̅ spectrum shape"
+      axis: '$\Delta E$'
+      unit: 'MeV'
     input:
       text: "Free correction (parameters) for ν̅ spectrum shape\\nat input Eν"
       axis: "$\\delta$"
+      plotoptions:
+        kwargs:
+          marker: o
+          markerfacecolor: none
     correction:
       text: "Free correction weights for ν̅ spectrum shape\\nat input Eν"
       axis: "$n$"
