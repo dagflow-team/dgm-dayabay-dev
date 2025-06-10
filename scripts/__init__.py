@@ -332,6 +332,7 @@ def plot_spectral_weights(edges, fit) -> None:
     yerrs = []
     for key in filter(lambda key: "spec" in key, fit["names"]):
         data.append(fit["xdict"][key])
+        # yerrs.append(fit.get("errorsdict_profiled", fit["errorsdict"])[key])
         yerrs.append(fit["errorsdict"][key])
     plt.figure()
     plt.hlines(0, 0, 13, color="black", alpha=0.75)
@@ -373,29 +374,29 @@ def plot_fit_2d(
         fit = yaml_load(f)
 
     xdict = fit["xdict"]
-    errorsdict = fit["errorsdict"]
+    errorsdict = fit.get("errorsdict_profiled", fit["errorsdict"])
 
-    dm_value, dm_error, _ = get_parameter_fit(xdict, errorsdict, "oscprob.DeltaMSq32")
-    sin_value, sin_error, _ = get_parameter_fit(xdict, errorsdict, "oscprob.SinSq2Theta13")
+    dm_value, dm_error_left, dm_error_right, _ = get_parameter_fit(xdict, errorsdict, "oscprob.DeltaMSq32")
+    sin_value, sin_error_left, sin_error_right, _ = get_parameter_fit(xdict, errorsdict, "oscprob.SinSq2Theta13")
 
     ax.errorbar(
         sin_value,
         dm_value,
-        xerr=sin_error,
-        yerr=dm_error,
+        xerr=[[sin_error_left], [sin_error_right]],
+        yerr=[[dm_error_left], [dm_error_right]],
         label=label_a,
     )
     if add_box:
         label = r"$0.1\sigma$ " + label_a if label_a else r"$0.1\sigma$"
         ax.axvspan(
-            sin_value - 0.1 * sin_error,
-            sin_value + 0.1 * sin_error,
+            sin_value - 0.1 * sin_error_left,
+            sin_value + 0.1 * sin_error_right,
             -10,
             10,
             color="0.9",
             label=label,
         )
-        ax.axhspan(dm_value - 0.1 * dm_error, dm_value + 0.1 * dm_error, -10, 10, color="0.9")
+        ax.axhspan(dm_value - 0.1 * dm_error_left, dm_value + 0.1 * dm_error_right, -10, 10, color="0.9")
 
     if axgn:
         axgn.yaxis.set_label_position("right")
@@ -404,13 +405,13 @@ def plot_fit_2d(
         axgn.grid(axis="x")
         axgn.set_ylim(-0.15, 0.075)
 
-        gn_value, gn_error, gn_type = get_parameter_fit(
+        gn_value, gn_error_left, gn_error_right, gn_type = get_parameter_fit(
             xdict, errorsdict, "detector.global_normalization"
         )
         axgn.errorbar(
             0,
             gn_value - 1,
-            yerr=gn_error,
+            yerr=[[gn_error_left], [gn_error_right]],
             xerr=1,
             fmt="o",
             markerfacecolor="none",
@@ -426,36 +427,37 @@ def plot_fit_2d(
             compare_fit = yaml_load(f)
 
         compare_xdict = compare_fit["xdict"]
-        compare_errorsdict = compare_fit["errorsdict"]
+        compare_errorsdict = compare_fit.get("errorsdict_profiled", compare_fit["errorsdict"])
 
-        sin_value_c, sin_error_c, _ = get_parameter_fit(
+        sin_value_c, sin_error_left_c, sin_error_right_c, _ = get_parameter_fit(
             compare_xdict, compare_errorsdict, "oscprob.SinSq2Theta13"
         )
-        dm_value_c, dm_error_c, _ = get_parameter_fit(
+        dm_value_c, dm_error_left_c, dm_error_right_c, _ = get_parameter_fit(
             compare_xdict, compare_errorsdict, "oscprob.DeltaMSq32"
         )
 
         eb = ax.errorbar(
             sin_value_c,
             dm_value_c,
-            xerr=sin_error_c,
-            yerr=dm_error_c,
+            xerr=[[sin_error_left_c], [sin_error_right_c]],
+            yerr=[[dm_error_left_c], [dm_error_right_c]],
             label=label_b,
+            capsize=4,
         )
 
-        if dashed_comparison:
-            eb[2][0].set_linestyle("--")
-            eb[2][1].set_linestyle("--")
+        # if dashed_comparison:
+        #     eb[2][0].set_linestyle("--")
+        #     eb[2][1].set_linestyle("--")
 
         if axgn:
-            gn_value_c, gn_error_c, gn_type_c = get_parameter_fit(
-                compare_xdict, compare_errorsdict, "detector.global_normalization"
+            gn_value_c, gn_error_c_left, gn_error_c_right, gn_type_c = get_parameter_fit(
+                compare_xdict, compare_fit["errorsdict"], "detector.global_normalization"
             )
             xoffset = (i + 1) / 10.0
             axgn.errorbar(
                 xoffset,
                 gn_value_c - 1,
-                yerr=gn_error_c,
+                yerr=[[gn_error_c_left], [gn_error_c_right]],
                 xerr=1,
                 fmt="o",
                 markerfacecolor="none",
@@ -463,11 +465,14 @@ def plot_fit_2d(
             )
 
         if add_nsigma_legend and not nsigma_legend:
+            dm_error = (dm_error_right + dm_error_left) / 2
+            sin_error = (sin_error_right + sin_error_left) / 2
+            gn_error = (gn_error_right + gn_error_left) / 2
             labels = [
                 r"$\sin^2 2\theta_{13} = " + f"{(sin_value - sin_value_c) / sin_error * 100:1.3f}$",
                 r"$\Delta m^2_{32} = " + f"{(dm_value - dm_value_c) / dm_error * 100:1.3f}$",
             ]
-            if gn_error_c:
+            if gn_error_c_left:
                 labels.append(
                     r"$N^{\text{global}} = " + f"{(gn_value - gn_value_c) / gn_error * 100:1.3f}$"
                 )
@@ -498,9 +503,11 @@ def plot_fit_2d(
     plt.subplots_adjust(left=0.17, right=0.86, bottom=0.1, top=0.95)
 
 
-def get_parameter_fit(xdict: dict, errorsdict: dict, key: str) -> tuple[float, float, str]:
+def get_parameter_fit(xdict: dict, errorsdict: dict, key: str) -> tuple[float, float, float, str]:
     try:
-        return xdict[key], errorsdict[key], "fit"
+        if isinstance(errorsdict[key], float):
+            return xdict[key], errorsdict[key], errorsdict[key], "fit"
+        return xdict[key], -1 * errorsdict[key][0], errorsdict[key][1], "fit"
     except KeyError:
         pass
 
@@ -512,4 +519,4 @@ def get_parameter_fit(xdict: dict, errorsdict: dict, key: str) -> tuple[float, f
     res = (scale * w).sum() / wsum
     # res_unc = wsum**-0.5 # incorrect since scales are correlated
 
-    return 1 + res, 0.0, "calc"
+    return 1 + res, 0.0, 0.0, "calc"
