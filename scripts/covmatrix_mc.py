@@ -130,7 +130,7 @@ def covariance_matrix_calculation(
     Notes
     -----
     For the calculation used the next formula
-    
+
     .. math:: cov_{ij} = \frac{1}{N}\sum_{k = 1}^{N}(x_i^k - \overline{x_i})(x_j^k - \overline{x_j}),
 
     where `x_i^k` is `i`-th bin value of `k`-th sample, `\overline{x_i}` is mean

@@ -129,7 +129,7 @@ if __name__ == "__main__":
     pars.add_argument(
         "--min-par", nargs="*", default=[], help="choose minimization parameters",
     )
-    
+
     stats = parser.add_argument_group("statistic", "statistic parameters")
     stats.add_argument(
         "--statistic", nargs="*", default=[], help="choose statistic of minimization",

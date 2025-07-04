@@ -3,7 +3,7 @@
 
 Examples
 --------
-Example of call:: 
+Example of call::
 
     ./scripts/plot_fit_dayabay.py --version v0e --data model \\
       --mo "{dataset: a}" \\
