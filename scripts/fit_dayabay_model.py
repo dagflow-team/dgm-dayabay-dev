@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-"""
-Script for fit model to observed/model data
+"""Script for fit model to observed/model data
 
-Example of call:
-```
-./scripts/fit_dayabay_model.py --version v0e \
-    --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \
-    --chi2 full.chi2n_covmat \
-    --free-parameters oscprob neutrino_per_fission_factor \
-    --constrained-parameters oscprob detector reactor bkg reactor_anue \
-    --output-fit output/fit.yaml
-```
+Example of call::
+
+    ./scripts/fit_dayabay_model.py --version v0e \\
+      --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \\
+      --chi2 full.chi2n_covmat \\
+      --free-parameters oscprob neutrino_per_fission_factor \\
+      --constrained-parameters oscprob detector reactor bkg reactor_anue \\
+      --constrain-osc-parameters \\
+      --output-fit output/fit.yaml
 """
 from argparse import Namespace
 
@@ -71,15 +70,14 @@ def main(args: Namespace) -> None:
             minos_profile = minimizer.profile_errors(args.profile_parameters)
             fit["errorsdict_profiled"] = minos_profile["errorsdict"]
         filter_fit(fit, ["summary"])
-        print(fit)
         convert_numpy_to_lists(fit)
         if args.output_fit:
-            with open(f"{args.output_fit}", "w") as f:
+            with open(f"{args.output_fit}.constrained_osc", "w") as f:
                 yaml_dump(fit, f)
         if not fit["success"]:
             exit()
     minimizer = IMinuitMinimizer(
-        chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=True
+        chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=False
     )
     if args.interactive:
         embed()
@@ -87,15 +85,13 @@ def main(args: Namespace) -> None:
     if args.profile_parameters:
         minos_profile = minimizer.profile_errors(args.profile_parameters)
         fit["errorsdict_profiled"] = minos_profile["errorsdict"]
-    print(fit)
     if args.interactive:
         embed()
 
     filter_fit(fit, ["summary"])
-    print(fit)
     convert_numpy_to_lists(fit)
     if args.output_fit:
-        with open(f"{args.output_fit}2", "w") as f:
+        with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
     if args.output_fit_tex:
         datax_dump(args.output_fit_tex, **fit)

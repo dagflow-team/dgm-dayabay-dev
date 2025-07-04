@@ -91,6 +91,8 @@ for eh in EXPERIMENTAL_HALLS:
         LATEX_SYMBOLS[f"bkg.uncertainty_scale_by_site.lihe.{eh}.{period}"] = r"${}$".format(symbol)
         symbol = f"r^{{\\mathrm{{fast}}\\ n}}_{{{eh}, {period}}}"
         LATEX_SYMBOLS[f"bkg.uncertainty_scale_by_site.fastn.{eh}.{period}"] = r"${}$".format(symbol)
+        symbol = f"r^{{muon-x}}_{{{eh}, {period}}}"
+        LATEX_SYMBOLS[f"bkg.uncertainty_scale_by_site.muonx.{eh}.{period}"] = r"${}$".format(symbol)
 
 LATEX_SYMBOLS["bkg.uncertainty_scale.amc"] = r"$r^{AmC}$"
 

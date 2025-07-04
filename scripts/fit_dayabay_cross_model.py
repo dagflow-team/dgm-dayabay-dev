@@ -108,9 +108,19 @@ def main(args: Namespace) -> None:
             exit()
 
     minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, nbins=models[0].nbins, verbose=True)
+
+    from iminuit import Minuit
+    from dgf_statistics.minimizer.minimizable import Minimizable
+    parameter = model.storage["parameters.all.reactor.fission_fraction_scale.LA1.U235"]
+    statistic = model.storage["outputs.statistic.full.pull.chi2p"]
+    mm = Minimizable(statistic, [parameter])
+    m = Minuit(lambda x: mm(x), [parameter.value], name=["par0"])
     if args.interactive:
         embed()
-    fit = minimizer.fit()
+    fit = do_fit(minimizer, models[0], "iterative" in args.chi2)
+    if args.profile_parameters:
+        minos_profile = minimizer.profile_errors(args.profile_parameters)
+        fit["errorsdict_profiled"] = minos_profile["errorsdict"]
     print(fit)
 
     filter_fit(fit, ["summary"])

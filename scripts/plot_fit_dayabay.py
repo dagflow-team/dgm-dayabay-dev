@@ -1,13 +1,29 @@
 #!/usr/bin/env python
 """Script for fit model to observed/model data.
 
-Example of call:
-```
-./scripts/plot_fit_dayabay.py --version v0e \
-    --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \
-    --output-plot-spectra "output/obs-{}.pdf" \
-    --output-fit output/fit.yaml
-```
+Example of call:: 
+
+    ./scripts/plot_fit_dayabay.py --version v0e --data model \\
+      --mo "{dataset: ${DATASET}, future: [${SW_MODEL}]}" \\
+      --compare-concatenation ${concatenation} \\
+      --input-fit fit.yaml \\
+      --reference-fit reference-fit.yaml \\
+      --output-plot-fit "output/fit_2d.pdf" \\
+      --output-fit-label-a "Reference fit" \\
+      --output-fit-label-b "Public model" \\
+      --output-plot-spectra "output/fit-{}.pdf" \\
+      --output-spectra-title "Fit to modeled data, {}" \\
+      --output-plot-correlation-matrix "output/fit-correlation-matrix.pdf" \\
+      --output-correlation-matrix-title "Post-fit parameters correlation matrix" \\
+      --output-spectra-label-a "Public model" \\
+      --output-spectra-label-b "Modeled data" \\
+      --output-sw-ylim -0.5 0.5 \\
+      --output-fit-xlim 0.080 0.010 \\
+      --output-fit-ylim 0.002 0.003 \\
+      --output-fit-sigma-cross \\
+      --output-fit-title-legend "legend for 2d plot fit" \\
+      --gn \\
+      --output-show
 """
 from argparse import Namespace
 
@@ -17,24 +33,14 @@ from yaml import safe_load as yaml_load
 
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-from models import available_models, load_model
+from models import AD_TO_EH, available_models, load_model
 from models.dayabay_labels import LATEX_SYMBOLS
-from scripts import plot_fit_2d, plot_spectra_ratio, plot_spectral_weights
+from scripts import filter_covariance_matrix, plot_fit_2d, plot_spectra_ratio, plot_spectral_weights, get_obs
 from scripts.covmatrix_mc import calculate_correlation_matrix
 
 set_level(INFO1)
 
 DATA_INDICES = {"model": 0, "loaded": 1}
-AD_TO_EH = {
-    "AD11": "EH1",
-    "AD12": "EH1",
-    "AD21": "EH2",
-    "AD22": "EH2",
-    "AD31": "EH3",
-    "AD32": "EH3",
-    "AD33": "EH3",
-    "AD34": "EH3",
-}
 
 
 plt.rcParams.update(
@@ -50,20 +56,6 @@ plt.rcParams.update(
         "ytick.minor.visible": True,
     }
 )
-
-
-def get_obs(storage_generator):
-    result = {}
-    for key, obs in storage_generator:
-        result[key] = obs.data.copy()
-    return result
-
-
-def sum_by_eh(dict_obs) -> dict:
-    result = dict(zip(["EH1", "EH2", "EH3"], [0, 0, 0]))
-    for detector, obs in dict_obs.items():
-        result[AD_TO_EH[detector]] += obs
-    return result
 
 
 def main(args: Namespace) -> None:
@@ -87,22 +79,26 @@ def main(args: Namespace) -> None:
 
     storage = model.storage
 
-    match args.data:
-        case "model":
-            data_obs = get_obs(
-                storage[f"outputs.eventscount.final.{args.compare_concatenation}"].walkjoineditems()
-            )
-        case "loaded":
-            data_obs = get_obs(
-                storage[f"outputs.data.real.final.{args.compare_concatenation}"].walkjoineditems()
-            )
+    data_to_observation = {
+        "model": "eventscount",
+        "loaded": "data.real",
+    }
+    subname = data_to_observation[args.data]
+    data_obs = get_obs(
+        storage[f"outputs.{subname}.final.{args.compare_concatenation}"].walkjoineditems()
+    )
     model.set_parameters(fit["xdict"])
     fit_obs = get_obs(
         storage[f"outputs.eventscount.final.{args.compare_concatenation}"].walkjoineditems()
     )
 
     if args.output_plot_correlation_matrix:
-        figsize = None if fit["npars"] < 20 else (0.24 * fit["npars"], 0.2 * fit["npars"])
+        selected_parameters = args.correlation_matrix_parameters
+        matrix, parameters = filter_covariance_matrix(
+            fit["covariance"], fit["names"], selected_parameters
+        )
+        npars = len(parameters)
+        figsize = None if npars < 20 else (0.24 * npars, 0.2 * npars)
         fig, axs = plt.subplots(1, 1, figsize=figsize)
         cs = axs.matshow(
             calculate_correlation_matrix(fit["covariance"]),
@@ -113,9 +109,9 @@ def main(args: Namespace) -> None:
         plt.title(args.output_correlation_matrix_title)
         plt.colorbar(cs, ax=axs)
         labels = [LATEX_SYMBOLS[parameter] for parameter in fit["names"]]
-        axs.set_xticks(range(fit["npars"]), labels)
+        axs.set_xticks(range(npars), labels)
         axs.tick_params(axis="x", rotation=90)
-        axs.set_yticks(range(fit["npars"]), labels)
+        axs.set_yticks(range(npars), labels)
         axs.grid(False)
         axs.minorticks_off()
         plt.tight_layout()
@@ -135,7 +131,10 @@ def main(args: Namespace) -> None:
                 label_b=args.output_spectra_label_b,
             )
             plt.subplots_adjust(hspace=0.0, left=0.1, right=0.9, bottom=0.125, top=0.925)
-            plt.savefig(args.output_plot_spectra.format(obs_name.replace(".", "-")), metadata={"creationDate": None})
+            plt.savefig(
+                args.output_plot_spectra.format(obs_name.replace(".", "-")),
+                metadata={"creationDate": None},
+            )
 
         if list(filter(lambda x: "neutrino_per_fission_factor" in x, fit["names"])):
             edges = storage["outputs.reactor_anue.spectrum_free_correction.spec_model_edges"].data
@@ -204,7 +203,7 @@ if __name__ == "__main__":
         "--version",
         default="v0",
         choices=available_models(),
-        help="model version",
+        help="Model version",
     )
     model.add_argument(
         "-s",
@@ -230,90 +229,104 @@ if __name__ == "__main__":
         help="Choose concatenation mode for plotting observation",
     )
     comparison.add_argument(
-        "--sum-by-eh",
-        action="store_true",
-        help="Sum detectors by experimental halls",
-    )
-    comparison.add_argument(
         "--input-fit",
-        help="path to file which load as expected",
+        help="Path to file which load as expected",
     )
     comparison.add_argument(
         "--reference-fit",
-        help="path to file with which compare",
+        help="Path to file with which compare",
     )
 
     outputs = parser.add_argument_group("outputs", "set outputs")
-    outputs.add_argument(
+    outputs.add_argument(  # NOTE: Used nowhere
         "--output-plot-pars",
-        help="path to save plot of normalized values",
+        help="Path to save plot of normalized values",
     )
     outputs.add_argument(
         "--output-plot-correlation-matrix",
-        help="path to save plot of correlation matrix of fitted parameters",
+        help="Path to save plot of correlation matrix of fitted parameters",
+    )
+    outputs.add_argument(
+        "--correlation_matrix_parameters",
+        default=[],
+        nargs="*",
+        help="Choose parameters for correlation matrix to be plotted, support filtering",
     )
     outputs.add_argument(
         "--output-correlation-matrix-title",
+        help="Set title for correlation matrix plot",
     )
     outputs.add_argument(
         "--output-plot-spectra",
-        help="path to save full plot of fits",
+        help="Path to save full plot of fits, needs placeholder",
     )
     outputs.add_argument(
         "--output-spectra-title",
+        help="Set title for spectra plot",
     )
     outputs.add_argument(
         "--output-spectra-legend-title",
         default="",
+        help="Set title for legend of spectra plot",
     )
     outputs.add_argument(
         "--output-plot-fit",
-        help="path to save full plot of fits",
+        help="Path to save full plot of fits (2d)",
     )
     outputs.add_argument(
         "--output-fit-title-legend",
+        help="Set title for legend of fit plot",
     )
     outputs.add_argument(
         "--output-fit-sigma-cross",
         action="store_true",
+        help="Plot 0.1σ width cross with the respect to reference fit in fit plot",
     )
     outputs.add_argument(
         "--output-fit-xlim",
         nargs=2,
         type=float,
+        help="X limits of fit plot",
     )
     outputs.add_argument(
         "--output-fit-ylim",
         nargs=2,
         type=float,
+        help="Y limits of fit plot",
     )
     outputs.add_argument(
         "--output-sw-ylim",
         nargs=2,
         type=float,
+        help="Y limits of spectral weights plot",
     )
     outputs.add_argument(
         "--output-spectra-label-a",
+        help="Set label for expected observation of spectra plot",
     )
     outputs.add_argument(
         "--output-spectra-label-b",
+        help="Set label for observed observation of spectra plot",
     )
     outputs.add_argument(
         "--output-fit-label-a",
+        help="Set label for observed observation of fit plot (2d)",
     )
     outputs.add_argument(
         "--output-fit-label-b",
+        help="Set label for expected observation of fit plot (2d)",
     )
     outputs.add_argument(
         "--output-show",
         action="store_true",
+        help="Show plots",
     )
 
     outputs.add_argument(
         "--global-normalization",
         "--gn",
         action="store_true",
-        help="Plot also global normalization",
+        help="Plot also global normalization in fit plot (2d)",
     )
 
     args = parser.parse_args()

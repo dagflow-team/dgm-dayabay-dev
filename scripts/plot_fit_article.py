@@ -2,8 +2,12 @@
 """Script for fit model to observed/model data.
 
 Example of call:
-```
-```
+
+    ./scripts/plot_fit_article.py --version v0e --data model \\
+      --mo "{dataset: ${DATASET}, future: [${SW_MODEL}]}" \\
+      --input-fit $filename \\
+      --output "fit-{}.pdf" \\
+      --output-show
 """
 from argparse import Namespace
 
@@ -17,12 +21,11 @@ from yaml import safe_load as yaml_load
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
-from scripts import FFormatter, calculate_ratio_error
+from scripts import FFormatter, calculate_ratio_error, get_obs
 from typing import Any
 
 from matplotlib.axes import Axes
 from numpy.typing import NDArray
-from collections.abc import Generator
 
 set_level(INFO1)
 
@@ -79,6 +82,27 @@ def plot(
     bkg_obs: dict[str, dict[str, NDArray]],
     markersize: int = 3,
 ):
+    """Plot observations, backgrounds, fits, etc.
+
+    Parameters
+    ----------
+    ax : Axes
+        Axes where to plot.
+    hall : str
+        Experimental hall.
+    edges : NDArray
+        Edges of bins.
+    no_osc_obs : dict[str, NDArray]
+        Dictionary with (EH, model observation without oscillation effects) items.
+    data_obs : dict[str, NDArray]
+        Dictionary with (EH, real observation) items.
+    fit_obs : dict[str, NDArray]
+        Dictionary with (EH, fitted model observation) items.
+    bkg_obs : dict[str, dict[str, NDArray]]
+        Dictionary with (EH, fitted model background) items.
+    markersize : int
+        Marker size for data points.
+    """
     centers = (edges[1:] + edges[:-1]) / 2
     ax.step([edges[0], *edges], [0, *no_osc_obs[hall], 0], where="post", label="No oscillation")
     ax.step([edges[0], *edges], [0, *data_obs[hall], 0], where="post", label="Best fit")
@@ -110,14 +134,19 @@ def plot(
             bkg -= bkg_obs["muonx"][hall]
 
 
-def get_obs(storage_generator: Generator[tuple[str, Any], None, None], width: NDArray):
-    result = {}
-    for key, obs in storage_generator:
-        result[key] = obs.data.copy() / width
-    return result
-
-
 def sum_by_eh(dict_obs: dict[str, NDArray]) -> dict:
+    """Summarize observations by experimental hall.
+
+    Parameters
+    ----------
+    dict_obs : dict[str, NDArray]
+        Dictionary with (AD, observation) items.
+
+    Returns
+    -------
+    dict
+        Dictionary with (EH, observation) items.
+    """
     result = dict(zip(["EH1", "EH2", "EH3"], [0, 0, 0]))
     for detector, obs in dict_obs.items():
         result[AD_TO_EH[detector]] += obs
@@ -206,8 +235,6 @@ def main(args: Namespace) -> None:
         formatter = FFormatter()
         formatter.set_powerlimits((0, 2))
         axs[0].yaxis.set_major_formatter(formatter)
-        # formatter = ticker.StrMethodFormatter("{x:,.1f}")
-        # axs[1].yaxis.set_major_formatter(formatter)
         axs[1].set_ylim(0.90, 1.07)
         axs[0].set_title(hall)
         axs[1].hlines(1, 0, 12, linestyle=":")
@@ -218,16 +245,6 @@ def main(args: Namespace) -> None:
         axs[0].set_ylabel("Entries [MeV$^{-1}$]")
         axs[1].set_xlabel("Reconstructed prompt energy [MeV]")
         axs[1].set_ylabel(r"$N^{\mathrm{obs}} / N^{\mathrm{pred}}_{\mathrm{no-osc.}}$")
-        # axs[0].grid()
-        # axs[1].grid()
-        # axs[0].add_patch(
-        #     patches.Rectangle(
-        #         (0.45 * 12, 0.55 * no_osc_obs[hall].max()),
-        #         12,
-        #         0.5 * no_osc_obs[hall].max(),
-        #         facecolor="red",
-        #     )
-        # )
         leg = axs[0].legend(loc="lower right")
         leg.get_frame().set_linewidth(0.0)
         leg.get_frame().set_alpha(1.0)
