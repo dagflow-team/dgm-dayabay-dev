@@ -22,15 +22,42 @@ add_representer(
 
 
 class FFormatter(ticker.ScalarFormatter):
-    """FFormatter class for pretty formatting of x-/y-axis tick labels."""
+    """FFormatter class for pretty formatting of x-/y-axis tick labels.
 
-    def __init__(self, fformat="%1.1f", useOffset=True, useMathText=True, *args, **kwargs):
+        Parameters
+        ----------
+        fformat : str
+            Format of labels.
+        useOffset : bool
+            Use offset value.
+        useMathText : bool
+            Use LaTeX for formatting.
+        *args : list
+            Other arguments to be delivered to parent class.
+        **kwargs : dict
+            Other keyword arguments to be delivered to parent class.
+    """
+
+    def __init__(
+        self,
+        fformat: str = "%1.1f",
+        useOffset: bool = True,
+        useMathText: bool = True,
+        *args: list,
+        **kwargs: dict,
+    ):
         self.fformat = fformat
         ticker.ScalarFormatter.__init__(
             self, useOffset=useOffset, useMathText=useMathText, *args, **kwargs
         )
 
-    def _set_format(self):
+    def _set_format(self) -> None:
+        """Set format field.
+
+        Returns
+        -------
+        None
+        """
         self.format = self.fformat
 
 
@@ -38,13 +65,13 @@ def do_fit(minimizer: MinimizerBase, model, is_iterative: bool = False) -> dict:
     """Do fit procedure obtain iterative statistics.
 
     Parameters
-    __________
-        minimizer : MinimizerBase
-            Minimization object.
-        model : model_dayabay_v0x
-            Object of model.
-        is_iterative : bool
-            Minimizable function is iterative statistics or not.
+    ----------
+    minimizer : MinimizerBase
+        Minimization object.
+    model : model_dayabay_v0x
+        Object of model.
+    is_iterative : bool
+        Minimizable function is iterative statistics or not.
 
     Returns
     -------
@@ -70,17 +97,16 @@ def update_dict_parameters(
 
     Parameters
     ----------
-        dict_parameters : dict[str, Parameter]
-            Dictionary of parameters.
-        groups : list[str]
-            List of groups of parameters to be added to dict_parameters.
-        model_parameters : NodeStorage
-            storage of model parameters.
+    dict_parameters : dict[str, Parameter]
+        Dictionary of parameters.
+    groups : list[str]
+        List of groups of parameters to be added to dict_parameters.
+    model_parameters : NodeStorage
+        Storage of model parameters.
 
     Returns
     -------
     None
-
     """
     for group in groups:
         dict_parameters.update(
@@ -98,14 +124,14 @@ def load_model_from_file(
 
     Parameters
     ----------
-        filename : str
-            Path to file that contains model observations.
-        node_name : str
-            Name of node where outputs model observations will be stored.
-        name_pattern : str
-            Pattern uses two placeholders: for detector and for item from `groups`.
-        groups : list[str]
-            list of groups to be added to NodeStorage.
+    filename : str
+        Path to file that contains model observations.
+    node_name : str
+        Name of node where outputs model observations will be stored.
+    name_pattern : str
+        Pattern uses two placeholders: for detector and for item from `groups`.
+    groups : list[str]
+        List of groups to be added to NodeStorage.
 
     Returns
     -------
@@ -127,28 +153,27 @@ def load_model_from_file(
     return comparison_storage["outputs"]
 
 
-def filter_fit(src: dict, keys_to_fiter: list[str]) -> None:
+def filter_fit(src: dict, keys_to_filter: list[str]) -> None:
     """Remove keys from fit dictionary.
 
     Parameters
     ----------
-        src : dict
-            Dictionary of fit.
-        keys_to_filter : list[str]
-            List of keys to be deleted from fit dictionary.
+    src : dict
+        Dictionary of fit.
+    keys_to_filter : list[str]
+        List of keys to be deleted from fit dictionary.
 
     Returns
     -------
     None
-
     """
     keys = list(src.keys())
     for key in keys:
-        if key in keys_to_fiter:
+        if key in keys_to_filter:
             del src[key]
             continue
         if isinstance(src[key], dict):
-            filter_fit(src[key], keys_to_fiter)
+            filter_fit(src[key], keys_to_filter)
 
 
 def convert_numpy_to_lists(src: dict[str, NDArray | dict]) -> None:
@@ -162,7 +187,6 @@ def convert_numpy_to_lists(src: dict[str, NDArray | dict]) -> None:
     Returns
     -------
     None
-
     """
     for key, value in src.items():
         if isinstance(value, np.ndarray):
@@ -180,10 +204,10 @@ def calculate_ratio_error(data_a: NDArray | float, data_b: NDArray | float) -> N
 
     Parameters
     ----------
-        data_a : NDArray | float
-            Numerator
-        data_b : NDArray | float
-            Denominator
+    data_a : NDArray | float
+        Numerator.
+    data_b : NDArray | float
+        Denominator.
 
     Returns
     -------
@@ -231,27 +255,28 @@ def plot_spectra_ratio(
 
     Parameters
     ----------
-        data_a : NDArray
-            Observation of model.
-        data_b : NDArray
-            (Pseudo-)data
-        edges : NDArray
-            Edges of bins where data_a and data_b are determined.
-        title : str
-            Title for plot
-        plot_diff : bool
-            Plot difference of data_a and data_b.
-        label_a : str
-            Label for data_a
-        label_b : str
-            Label for data_b
-        ylim_ratio : tuple[float] | tuple[None]
-            Limits for y-axis of ratio plot.
+    data_a : NDArray
+        Observation of model.
+    data_b : NDArray
+        (Pseudo-)data.
+    edges : NDArray
+        Edges of bins where data_a and data_b are determined.
+    title : str
+        Title for plot.
+    plot_diff : bool
+        Plot difference of data_a and data_b.
+    label_a : str
+        Label for data_a.
+    label_b : str
+        Label for data_b.
+    legend_title : str
+        Title for legend.
+    ylim_ratio : tuple[float] | tuple[None]
+        Limits for y-axis of ratio plot.
 
     Returns
     -------
     None
-
     """
     centers = (edges[1:] + edges[:-1]) / 2
     xerrs = (edges[1:] - edges[:-1]) / 2
@@ -321,7 +346,6 @@ def plot_spectral_weights(edges: NDArray, fit: dict[str, Any]) -> None:
     Returns
     -------
     None
-
     """
     data = []
     yerrs = []
@@ -344,8 +368,8 @@ def plot_fit_2d(
     ylim: tuple[float] | None = None,
     label_a: str | None = None,
     labels_b: list[str] = [],
-    title_legend: str | None = None,
-    add_box: bool = False,
+    legend_title: str | None = None,
+    add_sigma_cross: bool = False,
     dashed_comparison: bool = False,
     add_global_normalization: bool = False,
     add_nsigma_legend: bool = True,
@@ -366,9 +390,9 @@ def plot_fit_2d(
         Label for fit_path dict.
     labels_b : list[str]
         Labels for compare_fit_paths dicts.
-    title_legend : str | None
+    legend_title : str | None
         Title for legend.
-    add_box : bool
+    add_sigma_cross : bool
         Add grey cross with 0.1σ width.
     dashed_comparison : bool
         Plot fits from compare_fit_paths as with dashed lines.
@@ -378,9 +402,8 @@ def plot_fit_2d(
         Add separate legend about deviation between fit values in number of sigmas.
 
     Returns
-    _______
+    -------
     None
-
     """
     if add_global_normalization:
         fig, (ax, axgn) = plt.subplots(
@@ -419,7 +442,7 @@ def plot_fit_2d(
         yerr=[[dm_error_left], [dm_error_right]],
         label=label_a,
     )
-    if add_box:
+    if add_sigma_cross:
         label = r"$0.1\sigma$ " + label_a if label_a else r"$0.1\sigma$"
         ax.axvspan(
             sin_value - 0.1 * sin_error_left,
@@ -529,7 +552,7 @@ def plot_fit_2d(
                 bbox_to_anchor=(0, 0),
             )
 
-    ax.legend(title=title_legend, loc="upper right")
+    ax.legend(title=legend_title, loc="upper right")
     ax.set_xlabel(r"$\sin^22\theta_{13}$")
     ax.set_ylabel(r"$\Delta m^2_{32}$ [eV$^2$]")
     ax.set_title("")
@@ -563,7 +586,7 @@ def get_parameter_fit(
     Returns
     -------
     tuple[float, float, float, str]
-        Return tuple (central value, left error, right error, string with an additional information)
+        Return tuple (central value, left error, right error, string with an additional information).
     """
     if key in xdict:
         if isinstance(errorsdict[key], float):
@@ -620,7 +643,7 @@ def filter_covariance_matrix(
 
 def get_obs(
     storage_generator: Generator[tuple[str, Any], None, None], width: NDArray = np.array([1.0])
-):
+) -> None:
     """Get observable scaled or not by width of bins.
 
     Parameters
@@ -629,9 +652,12 @@ def get_obs(
         Storage that contains observables.
     width : NDArray
         Array of widths of bins.
+
+    Returns
+    -------
+    None
     """
     result = {}
     for key, obs in storage_generator:
         result[key] = obs.data.copy() / width
     return result
-

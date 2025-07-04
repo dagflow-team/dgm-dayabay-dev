@@ -1,31 +1,32 @@
 #!/usr/bin/env python
 """Script for fit model to observed/model data.
 
+Examples
+--------
 Example of call:
 
     ./scripts/plot_fit_article.py --version v0e --data model \\
-      --mo "{dataset: ${DATASET}, future: [${SW_MODEL}]}" \\
-      --input-fit $filename \\
+      --mo "{dataset: a}" \\
+      --input-fit fit.yaml \\
       --output "fit-{}.pdf" \\
       --output-show
 """
 from argparse import Namespace
+from typing import Any
 
 import numpy as np
 from IPython import embed
 from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib import ticker
+from matplotlib.axes import Axes
+from numpy.typing import NDArray
 from yaml import safe_load as yaml_load
 
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
 from scripts import FFormatter, calculate_ratio_error, get_obs
-from typing import Any
-
-from matplotlib.axes import Axes
-from numpy.typing import NDArray
 
 set_level(INFO1)
 
@@ -213,7 +214,15 @@ def main(args: Namespace) -> None:
         subax.tick_params(axis="x", which="both", top=False, bottom=True)
         subax.tick_params(axis="y", which="both", right=False, left=True)
         for label in subax.get_xticklabels() + subax.get_yticklabels():
-            label.set_bbox(dict(facecolor='white', edgecolor='None', alpha=0.85, pad=0, boxstyle='round,rounding_size=0.5'))
+            label.set_bbox(
+                dict(
+                    facecolor="white",
+                    edgecolor="None",
+                    alpha=0.85,
+                    pad=0,
+                    boxstyle="round,rounding_size=0.5",
+                )
+            )
         plt.setp(axs[0].get_xticklabels(), visible=False)
 
         ratio = np.array([0, *(fit_obs[hall] / no_osc_obs[hall])])
@@ -240,8 +249,7 @@ def main(args: Namespace) -> None:
         axs[1].hlines(1, 0, 12, linestyle=":")
         axs[0].set_xlim(0.7, 12.0)
         axs[0].set_ylim(0.0, no_osc_obs[hall].max() * 1.05)
-        import sys
-        print(f"ylim-{hall}", no_osc_obs[hall].max(), no_osc_obs[hall].max() * 1.05, file=sys.stderr)
+
         axs[0].set_ylabel("Entries [MeV$^{-1}$]")
         axs[1].set_xlabel("Reconstructed prompt energy [MeV]")
         axs[1].set_ylabel(r"$N^{\mathrm{obs}} / N^{\mathrm{pred}}_{\mathrm{no-osc.}}$")

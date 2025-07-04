@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-"""
-Script for contour plot of best fit value
+"""Script for contour plot of best fit value.
 
+Examples
+--------
 Example of call:
 ```
 ./scripts/fit_dayabay_contour.py --version v0e \
@@ -33,19 +34,19 @@ DATA_INDICES = {"model": 0, "loaded": 1}
 
 
 def convert_sigmas_to_chi2(df: int, sigmas: list[float] | NDArray) -> NDArray:
-    """Convert deviation of normal unit distribution N(0, 1) to critical value of chi-squared
+    """Convert deviation of normal unit distribution N(0, 1) to critical value of chi-squared.
 
     Parameters
     ----------
     df : int
-        degree of freedom of chi-squared distribution
+        Degree of freedom of chi-squared distribution.
     sigmas : list[float] | NDArray
-        list or array deviations from 0 in terms of standard deviation of normal unit distribution N(0, 1)
+        List or array deviations from 0 in terms of standard deviation of normal unit distribution N(0, 1).
 
     Returns
     -------
     NDArray
-        array of critical values of chi-squared
+        Array of critical values of chi-squared.
     """
     percentiles = 2 * norm(0, 1).cdf(sigmas) - 1
     return chi2(df).ppf(percentiles)
@@ -58,26 +59,25 @@ def get_profile_of_chi2(
     best_fit_value: float,
     best_fit_fun: float,
 ) -> tuple[NDArray, NDArray]:
-    """Make a profile of the chi-squared map using thee minimum value.
-    Works with 2-dimensional maps.
+    """Make a profile of the chi-squared map using thee minimum value. Works with 2-dimensional maps.
 
     Parameters
     ----------
     parameter_grid : NDArray
-        array of grid to look for best fit value of parameter
+        Array of grid to look for best fit value of parameter.
     profile_grid : NDArray
-        array of grid to create profile grid
+        Array of grid to create profile grid.
     chi2_map : NDArray
-        map of chi-squared values
+        Map of chi-squared values.
     best_fit_value : float
-        value of parameter in best fit point
+        Value of parameter in best fit point.
     best_fit_fun : float
-        value of the chi-squared in best fit point
+        Value of the chi-squared in best fit point.
 
     Returns
     -------
     tuple[NDArray, NDArray]
-        array of profile grid values and array of chi-squared values
+        Array of profile grid values and array of chi-squared values.
     """
     abs_difference = np.abs(parameter_grid - best_fit_value)
     closest_value = abs_difference.min()
@@ -88,31 +88,31 @@ def get_profile_of_chi2(
 
 def prepare_axes(
     ax: plt.Axes,
-    limits: list[tuple[float, float], tuple[float, float]],
+    limits: list[tuple[float, float]],
     profile: tuple[NDArray, NDArray],
     xlabel: str = "",
     ylabel: str = "",
     ticks: list[float] = [5, 10, 15, 20],
     levels: list[float] = [1, 4, 9, 16],
 ):
-    """Update axis labels, limits, ticks, and plot levels
+    """Update axis labels, limits, ticks, and plot levels.
 
     Parameters
     ----------
     ax : plt.Axes
-        element of (sub-)plot
+        Element of (sub-)plot.
     limits : list[tuple[float, float], tuple[float, float]]
-        tuples of xlimits and ylimits
+        Tuples of xlimits and ylimits.
     profile : tuple[NDArray, NDArray]
-        array of x values and y values (profile grid and chi-squared values or reversed)
+        Array of x values and y values (profile grid and chi-squared values or reversed).
     xlabel : str, optional
-        label of x axis, by default ""
+        Label of x axis.
     ylabel : str, optional
-        label of y axis, by default ""
+        Label of y axis.
     ticks : list[float], optional
-        ticks of chi-squared axis, by default [5, 10, 15, 20]
+        Ticks of chi-squared axis.
     levels : list[float], optional
-        levels of constant chi-squared, by default [1, 4, 9, 16]
+        Levels of constant chi-squared.
     """
     xlim, ylim = limits
     if xlabel:
@@ -132,17 +132,18 @@ def prepare_axes(
 
 
 def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[list[str], NDArray]:
-    """Create cartesian products of several axes
+    """Create cartesian products of several axes.
 
     Parameters
     ----------
     grid_opts : list[tuple[str, float, float, int]]
-        tuple of parameter name, left and right bounds, and the number of points with equal distance between the bounds
+        Tuple of parameter name, left and right bounds,
+        and the number of points with equal distance between the bounds.
 
     Returns
     -------
     tuple[list[str], NDArray]
-        list of parameter names, and array of cartesian products of grids
+        List of parameter names, and array of cartesian products of grids.
     """
     parameters = []
     grids = []
@@ -154,14 +155,14 @@ def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[l
 
 
 def push_parameters(parameters: list[GaussianParameter], values: NDArray) -> None:
-    """Push values of parameters
+    """Push values of parameters.
 
     Parameters
     ----------
     parameters : list[GaussianParameter]
-        list of parameters to be changed
+        List of parameters to be changed.
     values : NDArray
-        array of values to be pushed in parameters
+        Array of values to be pushed in parameters.
     """
     for parameter, value in zip(parameters, values):
         parameter.push(value)
@@ -194,9 +195,7 @@ def main(args: Namespace) -> None:
 
     stat_chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, GaussianParameter] = {}
-    update_dict_parameters(
-        minimization_parameters, parameters_groups["free"], parameters_free
-    )
+    update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
@@ -242,7 +241,11 @@ def main(args: Namespace) -> None:
     )
 
     dm32_profile, chi2_profile = get_profile_of_chi2(
-        grid[:, 0], grid[:, 1], chi2_map, best_fit_x, best_fit_fun,
+        grid[:, 0],
+        grid[:, 1],
+        chi2_map,
+        best_fit_x,
+        best_fit_fun,
     )
     prepare_axes(
         axes[1, 1],

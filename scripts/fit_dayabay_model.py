@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Script for fit model to observed/model data
 
+Examples
+--------
 Example of call::
 
     ./scripts/fit_dayabay_model.py --version v0e \\

@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """Script for fit model to observed/model data.
 
+Examples
+--------
 Example of call:: 
 
     ./scripts/plot_fit_dayabay.py --version v0e --data model \\
-      --mo "{dataset: ${DATASET}, future: [${SW_MODEL}]}" \\
-      --compare-concatenation ${concatenation} \\
+      --mo "{dataset: a}" \\
+      --compare-concatenation detector \\
       --input-fit fit.yaml \\
       --reference-fit reference-fit.yaml \\
       --output-plot-fit "output/fit_2d.pdf" \\
@@ -35,7 +37,13 @@ from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import AD_TO_EH, available_models, load_model
 from models.dayabay_labels import LATEX_SYMBOLS
-from scripts import filter_covariance_matrix, plot_fit_2d, plot_spectra_ratio, plot_spectral_weights, get_obs
+from scripts import (
+    filter_covariance_matrix,
+    get_obs,
+    plot_fit_2d,
+    plot_spectra_ratio,
+    plot_spectral_weights,
+)
 from scripts.covmatrix_mc import calculate_correlation_matrix
 
 set_level(INFO1)
@@ -151,8 +159,8 @@ def main(args: Namespace) -> None:
         ylim=args.output_fit_ylim,
         label_a=args.output_fit_label_a,
         labels_b=[args.output_fit_label_b],
-        title_legend=args.output_fit_title_legend.format(**fit),
-        add_box=args.output_fit_sigma_cross,
+        legend_title=args.output_fit_legend_title.format(**fit),
+        add_sigma_cross=args.output_fit_sigma_cross,
         dashed_comparison=True,
         add_global_normalization=args.global_normalization,
         add_nsigma_legend=True,
@@ -274,7 +282,7 @@ if __name__ == "__main__":
         help="Path to save full plot of fits (2d)",
     )
     outputs.add_argument(
-        "--output-fit-title-legend",
+        "--output-fit-legend-title",
         help="Set title for legend of fit plot",
     )
     outputs.add_argument(

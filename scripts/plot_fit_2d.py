@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 """Script for 2d fit plot.
 
-Example of call:
-```
-./scripts/plot_fit_2d.py \
-    --input-fit fit-a.yaml \
-    --output-fit-label-a a \
-    --compare-fits fit-b.yaml fit-c.yaml \
-    --output-box \
-    --output-fit-labels-b b c \
-    --output-show
-```
+Examples
+--------
+Example of call::
+
+    ./scripts/plot_fit_2d.py \\
+      --input-fit fit-a.yaml \\
+      --output-fit-label-a a \\
+      --compare-fits fit-b.yaml fit-c.yaml \\
+      --output-box \\
+      --output-fit-labels-b b c \\
+      --output-show
 """
 from argparse import Namespace
 
@@ -46,7 +47,7 @@ def main(args: Namespace) -> None:
         ylim=args.output_fit_ylim,
         label_a=args.output_fit_label_a,
         labels_b=args.output_fit_labels_b,
-        title_legend=args.output_fit_title_legend.format(**fit),
+        legend_title=args.output_fit_legend_title.format(**fit),
         add_box=args.output_box,
         add_global_normalization=args.global_normalization,
         add_nsigma_legend=False,
@@ -86,7 +87,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Draw 0.1sigma box around input_fit",
     )
-    outputs.add_argument("--output-fit-title-legend", default="")
+    outputs.add_argument("--output-fit-legend-title", default="")
     outputs.add_argument(
         "--output-fit-label-a",
     )
