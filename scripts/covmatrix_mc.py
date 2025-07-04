@@ -130,17 +130,20 @@ def covariance_matrix_calculation(
     Notes
     -----
     For the calculation used the next formula
+    
     .. math:: cov_{ij} = \frac{1}{N}\sum_{k = 1}^{N}(x_i^k - \overline{x_i})(x_j^k - \overline{x_j}),
 
     where `x_i^k` is `i`-th bin value of `k`-th sample, `\overline{x_i}` is mean
     value of `i`-th bin, $N$ is normalization factor
 
     Here we are using simplified formula
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_i^A},
 
     where we averaging over all MC samples
 
     If Asimov observation is passed, the next formula is used
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
     """
     observation_size = observation.data.shape[0]
@@ -193,6 +196,7 @@ def covariance_matrix_calculation_alternative(
     Notes
     -----
     For the calculation used simplified formula
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
 
     where `S` is `Nx(observation size)` matrix that contains all Monte-Carlo samples.
@@ -201,6 +205,7 @@ def covariance_matrix_calculation_alternative(
     calculations via matrix product
 
     If Asimov observation is passed, the next formula is used
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
     """
     observation_size = observation.data.shape[0]

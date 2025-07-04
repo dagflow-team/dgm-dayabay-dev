@@ -1,47 +1,47 @@
 #!/usr/bin/env python
-"""
-Script for fit model to another copy model
-Models are loading from .yaml file
+"""Script for fit model to another copy model. Models are loading from .yaml file.
 
+Examples
+--------
 Example of call:
-```
-./scripts/fit_dayabay_cross_model.py --config-path scripts/cross-fit-config.yaml \
-    --chi2 full.chi2n_covmat \
-    --output-plot-spectra "output/obs-{}.pdf" \
-    --output-fit output/fit.yaml
+.. code::
+    ./scripts/fit_dayabay_cross_model.py --config-path scripts/cross-fit-config.yaml \\
+      --chi2 full.chi2n_covmat \\
+      --output-plot-spectra "output/obs-{}.pdf" \\
+      --output-fit output/fit.yaml
 ```
 """
-from IPython import embed
 from argparse import Namespace
 from typing import Any
 
+from IPython import embed
+from LaTeXDatax import datax as datax_dump
 from matplotlib import pyplot as plt
 from yaml import safe_dump as yaml_dump
 from yaml import safe_load as yaml_load
-from LaTeXDatax import datax as datax_dump
 
 from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
 from models import load_model
-from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters, do_fit
+from scripts import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
 
 set_level(INFO1)
 
 
 def parse_config(config_path: str) -> list[dict[str, Any]]:
-    """Load yaml config as python dictionary
+    """Load yaml config as python dictionary.
 
     Parameters
-    __________
+    ----------
     config_path : str
-        Path to file with model options for two models
+        Path to file with model options for two models.
 
     Returns
-    _______
+    -------
     list[dict[str, Any]]
-        Two dictionaries with model options
+        Two dictionaries with model options.
     """
     with open(config_path, "r") as f:
         return yaml_load(f)
@@ -58,10 +58,13 @@ def main(args: Namespace) -> None:
         model = load_model(**config)
         models.append(model)
 
-    storage_data = models[0].storage
-    storage_fit = models[1].storage
-    graph_data = models[0].graph
-    graph_fit = models[1].graph
+    model_data = models[0]
+    model_fit = models[1]
+
+    storage_data = model_data.storage
+    storage_fit = model_fit.storage
+    graph_data = model_data.graph
+    graph_fit = model_fit.graph
     graph_fit.open()
     graph_data.open()
     storage_fit["nodes.data.proxy"].open()
@@ -79,9 +82,7 @@ def main(args: Namespace) -> None:
 
     chi2 = statistic[f"{args.chi2}"]
     minimization_parameters: dict[str, Parameter] = {}
-    update_dict_parameters(
-        minimization_parameters, args.free_parameters, parameters_free
-    )
+    update_dict_parameters(minimization_parameters, args.free_parameters, parameters_free)
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
@@ -91,42 +92,40 @@ def main(args: Namespace) -> None:
 
     if args.constrain_osc_parameters:
         minimizer = IMinuitMinimizer(
-            chi2, parameters=minimization_parameters, limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)}, nbins=models[0].nbins, verbose=True
+            chi2,
+            parameters=minimization_parameters,
+            limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)},
+            nbins=model_fit.nbins,
+            verbose=True,
         )
 
-        fit = do_fit(minimizer, models[0], "iterative" in args.chi2)
+        fit = do_fit(minimizer, model_fit, "iterative" in args.chi2)
         if args.profile_parameters:
             minos_profile = minimizer.profile_errors(args.profile_parameters)
             fit["errorsdict_profiled"] = minos_profile["errorsdict"]
         filter_fit(fit, ["summary"])
-        print(fit)
         convert_numpy_to_lists(fit)
         if args.output_fit:
-            with open(f"{args.output_fit}", "w") as f:
+            with open(f"{args.output_fit}.constrained_osc", "w") as f:
                 yaml_dump(fit, f)
         if not fit["success"]:
             exit()
 
-    minimizer = IMinuitMinimizer(chi2, parameters=minimization_parameters, nbins=models[0].nbins, verbose=True)
+    minimizer = IMinuitMinimizer(
+        chi2, parameters=minimization_parameters, nbins=model_fit.nbins, verbose=True
+    )
 
-    from iminuit import Minuit
-    from dgf_statistics.minimizer.minimizable import Minimizable
-    parameter = model.storage["parameters.all.reactor.fission_fraction_scale.LA1.U235"]
-    statistic = model.storage["outputs.statistic.full.pull.chi2p"]
-    mm = Minimizable(statistic, [parameter])
-    m = Minuit(lambda x: mm(x), [parameter.value], name=["par0"])
     if args.interactive:
         embed()
-    fit = do_fit(minimizer, models[0], "iterative" in args.chi2)
+    fit = do_fit(minimizer, model_fit, "iterative" in args.chi2)
     if args.profile_parameters:
         minos_profile = minimizer.profile_errors(args.profile_parameters)
         fit["errorsdict_profiled"] = minos_profile["errorsdict"]
-    print(fit)
 
     filter_fit(fit, ["summary"])
     convert_numpy_to_lists(fit)
     if args.output_fit:
-        with open(f"{args.output_fit}2", "w") as f:
+        with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
     if args.output_fit_tex:
         datax_dump(args.output_fit_tex, **fit)

@@ -199,8 +199,8 @@ def calculate_ratio_error(data_a: NDArray | float, data_b: NDArray | float) -> N
     r"""Calculate error of ratio of two observables.
 
     .. math::
-        \sigma\left(\frac{a}{b}\right) = \sqrt{\left(\frac{\sigma_a}{b}\right)^2 + \left(\frac{\sigma_b}{b^2}\right)^2}
-        = \frac{1}{b}\sqrt{\frac{a}{b}\left(a + b\right)}
+        \sigma\left(\dfrac{a}{b}\right) = \sqrt{\left(\dfrac{\sigma_a}{a}\right)^2 + \left(\dfrac{\sigma_b}{b}\right)^2}
+        = \dfrac{1}{b}\sqrt{\dfrac{a}{b}\left(a + b\right)}
 
     Parameters
     ----------
