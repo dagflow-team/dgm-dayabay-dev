@@ -96,7 +96,7 @@ def main(args: Namespace) -> None:
             parameters=minimization_parameters,
             limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)},
             nbins=model_fit.nbins,
-            verbose=True,
+            verbose=args.verbose > 1,
         )
 
         fit = do_fit(minimizer, model_fit, "iterative" in args.chi2)
@@ -112,11 +112,12 @@ def main(args: Namespace) -> None:
             exit()
 
     minimizer = IMinuitMinimizer(
-        chi2, parameters=minimization_parameters, nbins=model_fit.nbins, verbose=True
+        chi2, parameters=minimization_parameters, nbins=model_fit.nbins, verbose=args.verbose > 1
     )
 
     if args.interactive:
         embed()
+
     fit = do_fit(minimizer, model_fit, "iterative" in args.chi2)
     if args.profile_parameters:
         minos_profile = minimizer.profile_errors(args.profile_parameters)
@@ -127,8 +128,25 @@ def main(args: Namespace) -> None:
     if args.output_fit:
         with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
+
     if args.output_fit_tex:
-        datax_dump(args.output_fit_tex, **fit)
+        for key, val in fit.copy().items():
+            if isinstance(val, dict):
+                for key0, val0 in val.items():
+                    if isinstance(val0, (list, tuple)) and len(val0) == 2:
+                        fit[f"{key}.{key0}.left"] = val0[0]
+                        fit[f"{key}.{key0}.right"] = val0[1]
+                    else:
+                        fit[f"{key}.{key0}"] = val0
+
+        datax_dump(
+            args.output_fit_tex,
+            **{
+                key: val
+                for key, val in fit.items()
+                if not isinstance(val, (list, dict, type(None)))
+            },
+        )
 
 
 if __name__ == "__main__":
@@ -163,6 +181,7 @@ if __name__ == "__main__":
     fit_options.add_argument(
         "--chi2",
         default="stat.chi2p",
+        # TODO: Try to get info about statistics from model
         choices=[
             "stat.chi2p_iterative",
             "stat.chi2n",

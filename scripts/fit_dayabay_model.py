@@ -65,7 +65,7 @@ def main(args: Namespace) -> None:
             parameters=minimization_parameters,
             limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)},
             nbins=model.nbins,
-            verbose=True,
+            verbose=args.verbose > 1,
         )
         fit = do_fit(minimizer, model, "iterative" in args.chi2)
         if args.profile_parameters:
@@ -78,25 +78,36 @@ def main(args: Namespace) -> None:
                 yaml_dump(fit, f)
         if not fit["success"]:
             exit()
+
     minimizer = IMinuitMinimizer(
-        chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=False
+        chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=args.verbose > 1
     )
+
     if args.interactive:
         embed()
-    fit = minimizer.fit()
+
+    fit = do_fit(minimizer, model, "iterative" in args.chi2)
     if args.profile_parameters:
         minos_profile = minimizer.profile_errors(args.profile_parameters)
         fit["errorsdict_profiled"] = minos_profile["errorsdict"]
-    if args.interactive:
-        embed()
 
     filter_fit(fit, ["summary"])
     convert_numpy_to_lists(fit)
     if args.output_fit:
         with open(f"{args.output_fit}", "w") as f:
             yaml_dump(fit, f)
+
     if args.output_fit_tex:
-        datax_dump(args.output_fit_tex, **fit)
+        for key, val in fit.copy().items():
+            if isinstance(val, dict):
+                for key0, val0 in val.items():
+                    if isinstance(val0, (list, tuple)) and len(val0) == 2:
+                        fit[f"{key}.{key0}.left"] = val0[0]
+                        fit[f"{key}.{key0}.right"] = val0[1]
+                    else:
+                        fit[f"{key}.{key0}"] = val0
+        
+        datax_dump(args.output_fit_tex, **{key: val for key, val in fit.items() if not isinstance(val, (list, dict, type(None)))})
 
 
 if __name__ == "__main__":
@@ -156,6 +167,7 @@ if __name__ == "__main__":
     fit_options.add_argument(
         "--chi2",
         default="stat.chi2p",
+        # TODO: Try to get info about statistics from model
         choices=[
             "stat.chi2p_iterative",
             "stat.chi2n",
