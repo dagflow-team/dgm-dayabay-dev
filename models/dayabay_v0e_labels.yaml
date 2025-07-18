@@ -96,11 +96,11 @@ kinematics:
   ibd:
     crosssection:
       text:  "IBD cross section σ(Eν,cosθ)"
-      plottitle: 'IBD cross section $\sigma(E_{\nu}, \cos\theta)$'
+      plot_title: 'IBD cross section $\sigma(E_{\nu}, \cos\theta)$'
       latex: 'IBD cross section $\sigma(E_{\nu}, \cos\theta)$]'
       axis:  '$\sigma(E_{\nu}, \cos\theta)$'
       unit: "cm⁻²/proton"
-      latexunit: "cm$^{-2}$"
+      latex_unit: "cm$^{-2}$"
       plotoptions:
         method: "slicesy"
     enu:
@@ -161,7 +161,7 @@ kinematics:
         text: "Partial integrated rate of IBD events (main)\\nfrom {index[1]} in {index[0]} at {index[2]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/fission/proton"
-        latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
+        latex_unit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
         plotoptions:
           method: "slicesy"
     nu_neq:
@@ -169,7 +169,7 @@ kinematics:
         text: "Partial integrated rate of IBD events from non-equilibrium\\nfrom {index[1]} in {index[0]} at {index[2]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/fission/proton"
-        latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
+        latex_unit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
         plotoptions:
           method: "slicesy"
     nu_snf:
@@ -177,7 +177,7 @@ kinematics:
         text: "Partial integrated rate of IBD events from spent nuclear fuel\\nfrom {index[0]} at {index[1]}, integrated"
         axis: "IBD flux"
         unit: "#ν·cm²/s/proton"
-        latexunit: '#$\overline{{\nu}}\cdot$cm$^2$/s/proton'
+        latex_unit: '#$\overline{{\nu}}\cdot$cm$^2$/s/proton'
         plotoptions:
           method: "slicesy"
 daily_data:
@@ -510,7 +510,7 @@ reactor_anue:
       text: "Nominal ν̅ spectrum for {key}, interpolated"
       axis: "$S(E_{\\nu})$"
       unit: "#ν/fission/MeV"
-      latexunit: '#$\overline{{\nu}}$/fission/MeV'
+      latex_unit: '#$\overline{{\nu}}$/fission/MeV'
       plotoptions: "slicesy"
   neutrino_per_fission_per_MeV_input:
     spec:
@@ -519,7 +519,7 @@ reactor_anue:
         latex: "Input $\\overline{{\\nu}}$ spectrum for {key}"
         axis: "$S(E_{{\\nu}})$"
         unit: "#ν/fission/MeV"
-        latexunit: "#$\\overline{{\\nu}}$/fission/MeV"
+        latex_unit: "#$\\overline{{\\nu}}$/fission/MeV"
     enu:
         text: "Input ν̅ spectrum neutrino energy (Eν)"
         latex: "Input $\\overline{\\nu}$ spectrum neutrino energy $E_{\\nu}$"
@@ -531,14 +531,14 @@ reactor_anue:
         text: "ν̅ spectrum (main) for {key}\\nfit free and constrained corrections"
         axis: "$S(E_{\\nu})$"
         unit: "#ν/fission/MeV"
-        latexunit: '#$\overline{{\nu}}$/fission/MeV'
+        latex_unit: '#$\overline{{\nu}}$/fission/MeV'
         plotoptions: "slicesy"
     neutrino_per_fission_per_MeV_neq_nominal:
       group:
         text: "Nominal ν̅ spectrum for non-equilibrium for {key}"
         axis: '$S(E_{\nu})$'
         unit: "#ν/fission/MeV"
-        latexunit: '#$\overline{{\nu}}$/fission/MeV'
+        latex_unit: '#$\overline{{\nu}}$/fission/MeV'
         plotoptions: "slicesy"
   spec_indexer:
     text: "Lookup segment index\\nfor interpolation of input ν̅ spectrum"
@@ -1015,7 +1015,7 @@ covariance:
     lsnl:
       text: "Systematic covariance matrix for Liquid Scintillator Non-Linearity (LSNL) parameters"
       unit: "#²"
-      plottitle: "Systematic covariance matrix for LSNL parameters"
+      plot_title: "Systematic covariance matrix for LSNL parameters"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     iav:
