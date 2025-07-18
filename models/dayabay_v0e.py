@@ -981,7 +981,8 @@ class model_dayabay_v0e:
                 array=antineutrino_model_edges,
             )
 
-            # TODO
+            # Define supplementary width of the model of spectra. May be used for
+            # plotting.
             BinWidth.replicate(
                 outputs.get_value(
                     "reactor_anue.spectrum_free_correction.spec_model_edges"
@@ -2746,7 +2747,9 @@ class model_dayabay_v0e:
                 outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
                     "detector.lsnl.matrix.DistortionOriginal",
                 )
-                outputs.get_dict("detector.lsnl.curves.evis_coarse_scaled") >> inputs.get_dict(
+                outputs.get_dict(
+                    "detector.lsnl.curves.evis_coarse_scaled"
+                ) >> inputs.get_dict(
                     "detector.lsnl.matrix.DistortionTarget",
                 )
 
@@ -2868,7 +2871,9 @@ class model_dayabay_v0e:
 
             # The following block is related to the computation and application of the
             # background spectra. The background rates are given per day, therefore
-            # first we need to convert the effective livetime in s⁻¹ to day⁻¹.
+            # first we need to convert the effective livetime in s to day. This will be
+            # used for most of the sources of backgrounds, except for accidentals as
+            # accidental rates are given on a daily basis.
             Product.replicate(
                 outputs.get_dict("detector.efflivetime"),
                 parameters.get_value("constant.conversion.seconds_in_day_inverse"),
@@ -2877,23 +2882,26 @@ class model_dayabay_v0e:
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
             )
-            # HERE
-            # HERE get_value/get_dict
-            # fmt: off
 
-
-            Product.replicate(  # TODO: doc
+            # Compute the daily number accidental background events by multiplying daliy
+            # rate of accidentals and daily effective livetime. The temporary unit is
+            # [#·s/day].
+            Product.replicate(
                 outputs.get_dict("daily_data.detector.efflivetime"),
                 outputs.get_dict("daily_data.detector.rate_acc"),
                 name="daily_data.detector.num_acc_s_day",
                 replicate_outputs=combinations["detector.period"],
             )
 
+            # Sum the contents of each array to obtain the total number of accidental
+            # events in each detector during each period. Still [#·s/day].
             ArraySum.replicate(
                 outputs.get_dict("daily_data.detector.num_acc_s_day"),
                 name="bkg.count_acc_fixed_s_day",
             )
 
+            # Finally, normalize the unit by dividing by number of seconds in day and
+            # obtain total number of accidentals.
             Product.replicate(
                 outputs.get_dict("bkg.count_acc_fixed_s_day"),
                 parameters.get_value("constant.conversion.seconds_in_day_inverse"),
@@ -2901,6 +2909,10 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["detector.period"],
             )
 
+            # Now we need to load the normalized spectra for each backgrounds source.
+            # There are different files for each period. Within each file the spectra
+            # for each background and each detector are located.
+            # HERE
             load_hist(
                 name="bkg",
                 x="erec",
@@ -2919,6 +2931,8 @@ class model_dayabay_v0e:
                 name_function=lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}",
             )
 
+            # HERE get_value/get_dict
+            # fmt: off
             # TODO: labels
             Product.replicate(
                 parameters("all.bkg.rate"),
@@ -3681,7 +3695,7 @@ class model_dayabay_v0e:
                     "detector.lsnl.interpolated_bkwd",
                 ]
             )
-        elif self.lsnl_matrix_mode=="pointwise":
+        elif self.lsnl_matrix_mode == "pointwise":
             may_ignore.extend(
                 [
                     "detector.lsnl.curves.evis_coarse_monotonous_scaled",
