@@ -63,7 +63,7 @@ kinematics:
   ibd:
     crosssection:
       text:  "IBD cross section σ(Eν,cosθ) [cm⁻²/proton]"
-      plottitle: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
+      plot_title: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
       latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
       axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
     enu:
