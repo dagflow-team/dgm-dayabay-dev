@@ -27,9 +27,20 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Any
 
-# from dagflow.plot import plot_auto
-
 set_level(INFO1)
+
+plt.rcParams.update(
+    {
+        "axes.formatter.use_mathtext": True,
+        "axes.grid": False,
+        "xtick.minor.visible": True,
+        "xtick.top": True,
+        "ytick.minor.visible": True,
+        "ytick.right": True,
+        "axes.formatter.limits": (-3, 4),
+        "figure.max_open_warning": 30,
+    }
+)
 
 
 def main(opts: Namespace) -> None:
@@ -115,7 +126,7 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.plots:
-        folder, sources = opts.plots[0], opts.plots[1:]
+        folder, *sources = opts.plots
         for source in sources:
             storage["outputs"](source).plot(
                 folder=f"{folder}/{source.replace('.', '/')}",
@@ -156,8 +167,6 @@ def main(opts: Namespace) -> None:
     if opts.summary:
         save_summary(model, opts.summary)
 
-    graph_mindepth = opts.mindepth or -2
-    graph_maxdepth = opts.maxdepth or +1
     graph_accept_index = {
         "reactor": [0],
         "detector": [0, 1],
@@ -168,8 +177,8 @@ def main(opts: Namespace) -> None:
         path = Path(opts.graphs_all)
         storage["parameter_group.all"].savegraphs(
             path / "parameters",
-            mindepth=graph_mindepth,
-            maxdepth=graph_maxdepth,
+            mindepth=opts.mindepth,
+            maxdepth=opts.maxdepth,
             keep_direction=True,
             show="all",
             accept_index=graph_accept_index,
@@ -178,8 +187,8 @@ def main(opts: Namespace) -> None:
         with suppress(KeyError):
             storage["parameters.sigma"].savegraphs(
                 path / "parameters" / "sigma",
-                mindepth=graph_mindepth,
-                maxdepth=graph_maxdepth,
+                mindepth=opts.mindepth,
+                maxdepth=opts.maxdepth,
                 keep_direction=True,
                 show="all",
                 accept_index=graph_accept_index,
@@ -187,8 +196,8 @@ def main(opts: Namespace) -> None:
             )
         storage["nodes"].savegraphs(
             path,
-            mindepth=graph_mindepth,
-            maxdepth=graph_maxdepth,
+            mindepth=opts.mindepth,
+            maxdepth=opts.maxdepth,
             keep_direction=True,
             show="all",
             accept_index=graph_accept_index,
@@ -196,14 +205,14 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.graphs:
-        folder = Path(opts.graphs[0])
-        nodepaths = opts.graphs[1:]
+        folder, *nodepaths = opts.graphs
+        folder = Path(folder)
         for nodepath in nodepaths:
             nodes = storage("nodes")[nodepath]
             nodes.savegraphs(
                 f"{folder}/{nodepath.replace('.', '/')}",
-                mindepth=graph_mindepth,
-                maxdepth=graph_maxdepth,
+                mindepth=opts.mindepth,
+                maxdepth=opts.maxdepth,
                 keep_direction=True,
                 show="all",
                 accept_index=graph_accept_index,
@@ -223,68 +232,6 @@ def save_summary(model: Any, filenames: Sequence[str]):
         data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False}
     )
 
-
-# def plot_graph(graph: Graph, storage: NodeStorage, opts: Namespace) -> None:
-#     from dagflow.plot.graphviz import GraphDot
-
-#     GraphDot.from_graph(graph, show="all").savegraph(
-#         f"output/dayabay_{opts.version}.dot"
-#     )
-#     GraphDot.from_graph(
-#         graph,
-#         show=["type", "mark", "label", "path"],
-#         filter={
-#             "reactor": [0],
-#             "detector": [0, 1],
-#             "isotope": [0],
-#             "period": [0],
-#             "background": [0],
-#         },
-#     ).savegraph(f"output/dayabay_{opts.version}_reduced.dot")
-#     GraphDot.from_graph(
-#         graph,
-#         show="all",
-#         filter={
-#             "reactor": [0],
-#             "detector": [0, 1],
-#             "isotope": [0],
-#             "period": [0],
-#             "background": [0],
-#         },
-#     ).savegraph(f"output/dayabay_{opts.version}_reduced_full.dot")
-#     GraphDot.from_node(
-#         storage["nodes.statistic.nuisance.all"],
-#         show="all",
-#         mindepth=-1,
-#         maxdepth=0,
-#     ).savegraph(f"output/dayabay_{opts.version}_nuisance.dot")
-#     GraphDot.from_output(
-#         storage["outputs.statistic.stat.chi2p"],
-#         show="all",
-#         mindepth=-1,
-#         filter={
-#             "reactor": [0],
-#             "detector": [0],
-#             "isotope": [0],
-#             "period": [0],
-#             "background": [0],
-#         },
-#         maxdepth=0,
-#     ).savegraph(f"output/dayabay_{opts.version}_stat.dot")
-
-
-plt.rcParams.update(
-    {
-        "axes.formatter.use_mathtext": True,
-        "axes.grid": False,
-        "xtick.minor.visible": True,
-        "xtick.top": True,
-        "ytick.minor.visible": True,
-        "ytick.right": True,
-        "axes.formatter.limits": (-3, 4),
-        "figure.max_open_warning": 30,
-    }
-)
 
 latex_substitutions = {
     " U235": r" $^{235}$U",
@@ -440,8 +387,10 @@ if __name__ == "__main__":
     #     help="plot the graph starting from the node",
     #     metavar=("node", "file"),
     # )
-    dot.add_argument("--mindepth", "--md", type=int, help="minimal depth")
-    dot.add_argument("--maxdepth", "--Md", type=int, help="maximaldepth depth")
+    dot.add_argument("--mindepth", "--md", default=-2, type=int, help="minimal depth")
+    dot.add_argument(
+        "--maxdepth", "--Md", default=+1, type=int, help="maximaldepth depth"
+    )
     dot.add_argument("--graphs-all", help="plot graphs", metavar="folder")
     dot.add_argument(
         "--graphs",
