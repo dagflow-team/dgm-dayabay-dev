@@ -156,6 +156,7 @@ class model_dayabay_v0e:
         "spectrum_correction_interpolation_mode",
         "spectrum_correction_location",
         "concatenation_mode",
+        "lsnl_matrix_mode",
         "monte_carlo_mode",
         "_source_type",
         "_dataset",
@@ -175,6 +176,7 @@ class model_dayabay_v0e:
     spectrum_correction_interpolation_mode: Literal["linear", "exponential"]
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
+    lsnl_matrix_mode: Literal["exact", "linear", "linear-unprotected", "pointwise"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _dataset: Literal["a", "b"]  # todo: doc
@@ -202,6 +204,9 @@ class model_dayabay_v0e:
         seed: int = 0,
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
+        lsnl_matrix_mode: Literal[
+            "exact", "linear", "linear-unprotected", "pointwise"
+        ] = "exact",
         parameter_values: dict[str, float | str] = {},
         future: Collection[FutureType] = set(),
     ):
@@ -224,6 +229,20 @@ class model_dayabay_v0e:
         assert source_type in {"tsv", "hdf5", "root", "npz"}
         assert dataset in {"a", "b"}
 
+        assert spectrum_correction_interpolation_mode in {"linear", "exponential"}
+        assert spectrum_correction_location in {
+            "before-integration",
+            "after-integration",
+        }
+        assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
+        assert concatenation_mode in {"detector", "detector_period"}
+        assert lsnl_matrix_mode in {
+            "exact",
+            "linear",
+            "linear-unprotected",
+            "pointwise",
+        }
+
         self.storage = NodeStorage()
         self.path_data = Path("data/dayabay-v0e")
         self._source_type = source_type
@@ -233,6 +252,7 @@ class model_dayabay_v0e:
         )
         self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
+        self.lsnl_matrix_mode = lsnl_matrix_mode
         self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
 
@@ -240,6 +260,7 @@ class model_dayabay_v0e:
         logger.log(INFO, f"Source type: {self._source_type}")
         logger.log(INFO, f"Data path: {self.path_data!s}")
         logger.log(INFO, f"Concatenation mode: {self.concatenation_mode}")
+        logger.log(INFO, f"LSNL matrix mode: {self.lsnl_matrix_mode}")
         logger.log(
             INFO,
             f"Spectrum correction mode: {self.spectrum_correction_interpolation_mode}",
@@ -321,7 +342,7 @@ class model_dayabay_v0e:
             ProductShiftedScaled,
             Sum,
         )
-        from dagflow.lib.axis import BinCenter
+        from dagflow.lib.axis import BinCenter, BinWidth
         from dagflow.lib.common import Array, Concatenation, Proxy, View
         from dagflow.lib.exponential import Exp
         from dagflow.lib.integration import Integrator
@@ -330,10 +351,12 @@ class model_dayabay_v0e:
         from dagflow.lib.normalization import RenormalizeDiag
         from dagflow.lib.parameters import ParArrayInput
         from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
-        from dagflow.lib.summation import ArraySum, SumMatOrDiag
+        from dagflow.lib.summation import ArraySum, SumMatOrDiag, WeightedSumArgs
         from dagflow.tools.schema import LoadPy
         from dgf_detector import (
             AxisDistortionMatrix,
+            AxisDistortionMatrixLinear,
+            AxisDistortionMatrixPointwise,
             EnergyResolution,
             Monotonize,
             Rebin,
@@ -855,24 +878,6 @@ class model_dayabay_v0e:
                 },
             )
 
-            # 1/3 and 2/3 needed to construct Combined Neyman-Pearson χ²
-            load_parameters(
-                format="value",
-                state="fixed",
-                parameters={
-                    "stats": {
-                        "pearson": 2 / 3,
-                        "neyman": 1 / 3,
-                    }
-                },
-                labels={
-                    "stats": {
-                        "pearson": "Coefficient for Pearson's part of CNP χ²",
-                        "neyman": "Coefficient for Neyman's part of CNP χ²",
-                    }
-                },
-            )
-
             # Provide a few variable for handy read/write access of the model objects,
             # including:
             # - `nodes` - nested dictionary with nodes. Node is an instantiated function
@@ -974,6 +979,15 @@ class model_dayabay_v0e:
             Array.replicate(
                 name="reactor_anue.spectrum_free_correction.spec_model_edges",
                 array=antineutrino_model_edges,
+            )
+
+            # Define supplementary width of the model of spectra. May be used for
+            # plotting.
+            BinWidth.replicate(
+                outputs.get_value(
+                    "reactor_anue.spectrum_free_correction.spec_model_edges"
+                ),
+                name="reactor_anue.spectrum_free_correction.spec_model_widths",
             )
 
             # Introduce Δ=Eν-Edep=m(n)-m(p)-m(e) approximately connecting neutrino and
@@ -1323,7 +1337,7 @@ class model_dayabay_v0e:
             # corresponding NEQ (1.) corrections to 3 out of 4 isotopes. The correction
             # C should be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
             load_graph(
-                name="reactor_nonequilibrium_anue.correction_input",
+                name="reactor_anue.nonequilibrium_anue.correction_input",
                 x="enu",
                 y="nonequilibrium_correction",
                 merge_x=True,
@@ -1337,8 +1351,8 @@ class model_dayabay_v0e:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "reactor_nonequilibrium_anue.correction_indexer",
-                    "interpolator": "reactor_nonequilibrium_anue.correction_interpolated",
+                    "indexer": "reactor_anue.nonequilibrium_anue.correction_indexer",
+                    "interpolator": "reactor_anue.nonequilibrium_anue.correction_interpolated",
                 },
                 replicate_outputs=index["isotope_neq"],
                 underflow="constant",
@@ -1347,17 +1361,17 @@ class model_dayabay_v0e:
             # Similarly to the case of antineutrino spectrum connect coarse X, a few
             # coarse Y and target mesh to the interpolator nodes.
             outputs.get_value(
-                "reactor_nonequilibrium_anue.correction_input.enu"
+                "reactor_anue.nonequilibrium_anue.correction_input.enu"
             ) >> inputs.get_value(
-                "reactor_nonequilibrium_anue.correction_interpolated.xcoarse"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction"
+                "reactor_anue.nonequilibrium_anue.correction_input.nonequilibrium_correction"
             ) >> inputs.get_dict(
-                "reactor_nonequilibrium_anue.correction_interpolated.ycoarse"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.ycoarse"
             )
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_nonequilibrium_anue.correction_interpolated.xfine"
+                "reactor_anue.nonequilibrium_anue.correction_interpolated.xfine"
             )
 
             # Now load the SNF (2.) correction. The SNF correction is different from NEQ
@@ -1365,7 +1379,7 @@ class model_dayabay_v0e:
             # use reactor index for it. Aside from index the loading and interpolation
             # procedure is similar to that of NEQ correction.
             load_graph(
-                name="snf_anue.correction_input",
+                name="reactor_anue.snf_anue.correction_input",
                 x="enu",
                 y="snf_correction",
                 merge_x=True,
@@ -1375,21 +1389,25 @@ class model_dayabay_v0e:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "snf_anue.correction_indexer",
-                    "interpolator": "snf_anue.correction_interpolated",
+                    "indexer": "reactor_anue.snf_anue.correction_indexer",
+                    "interpolator": "reactor_anue.snf_anue.correction_interpolated",
                 },
                 replicate_outputs=index["reactor"],
                 underflow="constant",
                 overflow="constant",
             )
-            outputs.get_value("snf_anue.correction_input.enu") >> inputs.get_value(
-                "snf_anue.correction_interpolated.xcoarse"
+            outputs.get_value(
+                "reactor_anue.snf_anue.correction_input.enu"
+            ) >> inputs.get_value(
+                "reactor_anue.snf_anue.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "snf_anue.correction_input.snf_correction"
-            ) >> inputs.get_dict("snf_anue.correction_interpolated.ycoarse")
+                "reactor_anue.snf_anue.correction_input.snf_correction"
+            ) >> inputs.get_dict(
+                "reactor_anue.snf_anue.correction_interpolated.ycoarse"
+            )
             kinematic_integrator_enu >> inputs.get_value(
-                "snf_anue.correction_interpolated.xfine"
+                "reactor_anue.snf_anue.correction_interpolated.xfine"
             )
 
             # Finally create the parametrization of the correction to the shape of
@@ -1746,7 +1764,9 @@ class model_dayabay_v0e:
             # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
             Product.replicate(
                 outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs.get_dict("reactor_nonequilibrium_anue.correction_interpolated"),
+                outputs.get_dict(
+                    "reactor_anue.nonequilibrium_anue.correction_interpolated"
+                ),
                 name="reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=("U238",),
@@ -2176,20 +2196,20 @@ class model_dayabay_v0e:
             Product.replicate(
                 outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
                 outputs.get_dict("reactor.fissions_per_second_snf"),
-                name="snf_anue.neutrino_per_second_isotope",
+                name="reactor_anue.snf_anue.neutrino_per_second_isotope",
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
             Sum.replicate(
-                outputs.get_dict("snf_anue.neutrino_per_second_isotope"),
-                name="snf_anue.neutrino_per_second",
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_isotope"),
+                name="reactor_anue.snf_anue.neutrino_per_second",
                 replicate_outputs=index["reactor"],
             )
 
             Product.replicate(
-                outputs.get_dict("snf_anue.neutrino_per_second"),
-                outputs.get_dict("snf_anue.correction_interpolated"),
-                name="snf_anue.neutrino_per_second_snf",
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second"),
+                outputs.get_dict("reactor_anue.snf_anue.correction_interpolated"),
+                name="reactor_anue.snf_anue.neutrino_per_second_snf",
                 replicate_outputs=index["reactor"],
             )
 
@@ -2249,7 +2269,7 @@ class model_dayabay_v0e:
             # And for SNF.
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs.get_dict("snf_anue.neutrino_per_second_snf"),
+                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_snf"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
@@ -2308,18 +2328,18 @@ class model_dayabay_v0e:
             # during each period.
             Sum.replicate(
                 outputs.get_dict("eventscount.parts"),
-                name="eventscount.raw",
+                name="eventscount.stages.raw",
                 replicate_outputs=combinations["detector.period"],
             )
 
             # TODO: doc
             if self.spectrum_correction_location == "after-integration":
                 Product.replicate(
-                    outputs.get_dict("eventscount.raw"),
+                    outputs.get_dict("eventscount.stages.raw"),
                     outputs.get_value(
                         "reactor_anue.spectrum_free_correction_post.interpolated"
                     ),
-                    name="eventscount.raw_anue_spectrum_corrected",
+                    name="eventscount.stages.raw_anue_spectrum_corrected",
                     replicate_outputs=combinations["detector.period"],
                 )
 
@@ -2388,24 +2408,24 @@ class model_dayabay_v0e:
             # The correction is applied as matrix multiplication of smearing matrix over
             # column for each detector during each period..
             VectorMatrixProduct.replicate(
-                name="eventscount.iav",
+                name="eventscount.stages.iav",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             # Match and connect rescaled IAV distortion matrix for each detector to the
             # smearing node of each detector during each period.
             outputs.get_dict("detector.iav.matrix_rescaled") >> inputs.get_dict(
-                "eventscount.iav.matrix"
+                "eventscount.stages.iav.matrix"
             )
             # Match and connect IBD histogram each detector during each period to the
             # relevant IAV smearing input.
             if self.spectrum_correction_location == "after-integration":
                 outputs.get_dict(
-                    "eventscount.raw_anue_spectrum_corrected"
-                ) >> inputs.get_dict("eventscount.iav.vector")
+                    "eventscount.stages.raw_anue_spectrum_corrected"
+                ) >> inputs.get_dict("eventscount.stages.iav.vector")
             else:
-                outputs.get_dict("eventscount.raw") >> inputs.get_dict(
-                    "eventscount.iav.vector"
+                outputs.get_dict("eventscount.stages.raw") >> inputs.get_dict(
+                    "eventscount.stages.iav.vector"
                 )
 
             # The LSNL distortion matrix is created based on a relative energy scale
@@ -2441,6 +2461,7 @@ class model_dayabay_v0e:
                 refine_times=4,
                 newmin=0.5,
                 newmax=12.1,
+                # savgol_filter_smoothen = (10, 4)
             )
 
             # Create (graph) arrays for the LSNL curves. A dedicated array for X axis,
@@ -2471,6 +2492,46 @@ class model_dayabay_v0e:
                 outputs.get_value("detector.lsnl.curves.evis_parts.nominal"),
                 outputs.get_dict("detector.lsnl.curves.evis_parts_scaled"),
                 name="detector.lsnl.curves.evis_coarse",
+            )
+
+            # Calculate relative versions of the curves exclusively for plotting
+            # reasons. The relative curves will not be used for the analysis.
+            # First, compute relative curves as f(Escint)/Escint.
+            Division.replicate(
+                outputs.get_dict("detector.lsnl.curves.evis_parts"),
+                outputs.get_value("detector.lsnl.curves.escint"),
+                name="detector.lsnl.curves.relative.evis_parts",
+                replicate_outputs=index["lsnl"],
+            )
+            # TODO
+            nodes["detector.lsnl.curves.relative.evis_parts_individual.nominal"] = (
+                nodes.get_value("detector.lsnl.curves.relative.evis_parts.nominal")
+            )
+            outputs["detector.lsnl.curves.relative.evis_parts_individual.nominal"] = (
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal")
+            )
+            Sum.replicate(
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts"),
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal"),
+                name="detector.lsnl.curves.relative.evis_parts_individual",
+                replicate_outputs=index["lsnl_nuisance"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=["nominal"],
+            )
+
+            Product.replicate(
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts"),
+                parameters.get_dict("constrained.detector.lsnl_scale_a"),
+                name="detector.lsnl.curves.relative.evis_parts_scaled",
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=("nominal",),
+                replicate_outputs=index["lsnl_nuisance"],
+            )
+
+            Sum.replicate(
+                outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal"),
+                outputs.get_dict("detector.lsnl.curves.relative.evis_parts_scaled"),
+                name="detector.lsnl.curves.relative.evis_coarse",
             )
 
             # The algorithm to adjust a histogram based on distorted X axes is tuned for
@@ -2511,14 +2572,14 @@ class model_dayabay_v0e:
             # detector, which is done by `remap_items` function.
             remap_items(
                 parameters.get_dict("all.detector.detector_relative"),
-                outputs.create_child("detector.parameters_relative"),
+                parameters.create_child("selected.detector.parameters_relative"),
                 reorder_indices={
                     "from": ["detector", "parameters"],
                     "to": ["parameters", "detector"],
                 },
             )
             # Now there is a storage for energy scale parameters
-            # "detector.parameters_relative.energy_scale_factor".
+            # "selected.detector.parameters_relative.energy_scale_factor".
 
             # In order to build the LSNL+energy scale conversion matrix a most precise
             # way requires two branches of interpolations:
@@ -2526,96 +2587,185 @@ class model_dayabay_v0e:
             # - backward — modify Evis bin edges with inverse energy scale conversion.
             # Interpolate Evis(Escint)
 
-            # Given the LSNL curves are pre-interpolated on a fine grid, use linear
-            # algorithm for both interpolations. We will use forced monotonous curves to
-            # ensure the interpolation is definite.
-            Interpolator.replicate(
-                method="linear",
-                names={
-                    "indexer": "detector.lsnl.indexer_fwd",
-                    "interpolator": "detector.lsnl.interpolated_fwd",
-                },
-            )
-            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
-                "detector.lsnl.interpolated_fwd.xcoarse"
-            )
-            outputs.get_value(
-                "detector.lsnl.curves.evis_coarse_monotonous"
-            ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
-            edges_energy_escint >> inputs.get_value(
-                "detector.lsnl.interpolated_fwd.xfine"
-            )
+            if self.lsnl_matrix_mode == "exact":
+                logger.warning("Future: precise LSNL matrix computation")
 
-            # Apply uncorrelated between detectors energy scale for forward interpolated
-            # Evis[d]=s[d]·Evis(Escint).
-            Product.replicate(
-                outputs.get_value("detector.lsnl.interpolated_fwd"),
-                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
-                name="detector.lsnl.curves.evis",
-                replicate_outputs=index["detector"],
-            )
+                # Given the LSNL curves are pre-interpolated on a fine grid, use linear
+                # algorithm for both interpolations. We will use forced monotonous curves to
+                # ensure the interpolation is definite.
+                Interpolator.replicate(
+                    method="linear",
+                    names={
+                        "indexer": "detector.lsnl.indexer_fwd",
+                        "interpolator": "detector.lsnl.interpolated_fwd",
+                    },
+                )
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xcoarse"
+                )
+                outputs.get_value(
+                    "detector.lsnl.curves.evis_coarse_monotonous"
+                ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                edges_energy_escint >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xfine"
+                )
 
-            # In order to apply the energy scale for the backward interpolation, it
-            # should be applied to the coarse version before interpolation.
-            Product.replicate(
-                outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
-                outputs.get_dict("detector.parameters_relative.energy_scale_factor"),
-                name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
-                replicate_outputs=index["detector"],
-            )
+                # Apply uncorrelated between detectors energy scale for forward interpolated
+                # Evis[d]=s[d]·Evis(Escint).
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.interpolated_fwd"),
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis",
+                    replicate_outputs=index["detector"],
+                )
 
-            # Interpolate backward function Escint(Evis) for each detector.
-            # `replicate_xcoarse` boolean flag indicates that the coarse input X for the
-            # interpolation depends on the index.
-            Interpolator.replicate(
-                method="linear",
-                names={
-                    "indexer": "detector.lsnl.indexer_bkwd",
-                    "interpolator": "detector.lsnl.interpolated_bkwd",
-                },
-                replicate_xcoarse=True,
-                replicate_outputs=index["detector"],
-            )
-            outputs.get_dict(
-                "detector.lsnl.curves.evis_coarse_monotonous_scaled"
-            ) >> inputs.get_dict("detector.lsnl.interpolated_bkwd.xcoarse")
-            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
-                "detector.lsnl.interpolated_bkwd.ycoarse"
-            )
-            edges_energy_evis.outputs[0] >> inputs.get_dict(
-                "detector.lsnl.interpolated_bkwd.xfine"
-            )
+                # In order to apply the energy scale for the backward interpolation, it
+                # should be applied to the coarse version before interpolation.
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.curves.evis_coarse_monotonous"),
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis_coarse_monotonous_scaled",
+                    replicate_outputs=index["detector"],
+                )
 
-            # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
-            # Escint edges, forward modified Escint edges and backward modified Evis
-            # edges to the relevant inputs.
-            AxisDistortionMatrix.replicate(
-                name="detector.lsnl.matrix", replicate_outputs=index["detector"]
-            )
-            edges_energy_escint.outputs[0] >> inputs(
-                "detector.lsnl.matrix.EdgesOriginal"
-            )
-            edges_energy_evis.outputs[0] >> inputs("detector.lsnl.matrix.EdgesTarget")
-            outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
-                "detector.lsnl.matrix.EdgesModified"
-            )
-            outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
-                "detector.lsnl.matrix.EdgesModifiedBackwards"
-            )
+                # Interpolate backward function Escint(Evis) for each detector.
+                # `replicate_xcoarse` boolean flag indicates that the coarse input X for the
+                # interpolation depends on the index.
+                Interpolator.replicate(
+                    method="linear",
+                    names={
+                        "indexer": "detector.lsnl.indexer_bkwd",
+                        "interpolator": "detector.lsnl.interpolated_bkwd",
+                    },
+                    replicate_xcoarse=True,
+                    replicate_outputs=index["detector"],
+                )
+                outputs.get_dict(
+                    "detector.lsnl.curves.evis_coarse_monotonous_scaled"
+                ) >> inputs.get_dict("detector.lsnl.interpolated_bkwd.xcoarse")
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
+                    "detector.lsnl.interpolated_bkwd.ycoarse"
+                )
+                edges_energy_evis.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.interpolated_bkwd.xfine"
+                )
+
+                # Build LSNL matrix for each detector with `AxisDistortionMatrix` node. Pass
+                # Escint edges, forward modified Escint edges and backward modified Evis
+                # edges to the relevant inputs.
+                AxisDistortionMatrix.replicate(
+                    name="detector.lsnl.matrix", replicate_outputs=index["detector"]
+                )
+                edges_energy_escint.outputs[0] >> inputs(
+                    "detector.lsnl.matrix.EdgesOriginal"
+                )
+                edges_energy_evis.outputs[0] >> inputs(
+                    "detector.lsnl.matrix.EdgesTarget"
+                )
+                outputs.get_value("detector.lsnl.interpolated_fwd") >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesModified"
+                )
+                outputs.get_dict("detector.lsnl.interpolated_bkwd") >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesModifiedBackwards"
+                )
+            elif self.lsnl_matrix_mode in {"linear", "linear-unprotected"}:
+                logger.warning("Future: linear LSNL matrix computation")
+                Interpolator.replicate(
+                    method="linear",
+                    names={
+                        "indexer": "detector.lsnl.indexer_fwd",
+                        "interpolator": "detector.lsnl.interpolated_fwd",
+                    },
+                )
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xcoarse"
+                )
+                if self.lsnl_matrix_mode == "linear-unprotected":
+                    logger.warning("Future: use non-monotonized LSNL curves")
+                    outputs.get_value(
+                        "detector.lsnl.curves.evis_coarse"
+                    ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                else:
+                    logger.warning("Future: monotonized LSNL curves")
+                    outputs.get_value(
+                        "detector.lsnl.curves.evis_coarse_monotonous"
+                    ) >> inputs.get_value("detector.lsnl.interpolated_fwd.ycoarse")
+                edges_energy_edep >> inputs.get_value(
+                    "detector.lsnl.interpolated_fwd.xfine"
+                )
+
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.interpolated_fwd"),
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis",
+                    replicate_outputs=index["detector"],
+                )
+
+                AxisDistortionMatrixLinear.replicate(
+                    name="detector.lsnl.matrix",
+                    replicate_outputs=index["detector"],
+                )
+                edges_energy_escint.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesOriginal"
+                )
+                edges_energy_evis.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesTarget"
+                )
+                outputs.get_dict("detector.lsnl.curves.evis") >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesModified"
+                )
+            elif self.lsnl_matrix_mode == "pointwise":
+                logger.warning("Future: pointwise LSNL matrix computation")
+
+                # TODO: documentation
+                Product.replicate(
+                    outputs.get_value("detector.lsnl.curves.evis_coarse"),
+                    parameters.get_dict(
+                        "selected.detector.parameters_relative.energy_scale_factor"
+                    ),
+                    name="detector.lsnl.curves.evis_coarse_scaled",
+                    replicate_outputs=index["detector"],
+                )
+
+                AxisDistortionMatrixPointwise.replicate(
+                    name="detector.lsnl.matrix",
+                    replicate_outputs=index["detector"],
+                )
+                edges_energy_escint.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesOriginal"
+                )
+                edges_energy_evis.outputs[0] >> inputs.get_dict(
+                    "detector.lsnl.matrix.EdgesTarget"
+                )
+
+                outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_dict(
+                    "detector.lsnl.matrix.DistortionOriginal",
+                )
+                outputs.get_dict(
+                    "detector.lsnl.curves.evis_coarse_scaled"
+                ) >> inputs.get_dict(
+                    "detector.lsnl.matrix.DistortionTarget",
+                )
 
             # Finally as in the case with IAV apply distortions to the spectra for each
             # detector and period.
             VectorMatrixProduct.replicate(
-                name="eventscount.evis",
+                name="eventscount.stages.evis",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs.get_dict("detector.lsnl.matrix") >> inputs.get_dict(
-                "eventscount.evis.matrix"
+                "eventscount.stages.evis.matrix"
             )
             # Use outputs after IAV correction to serve as inputs.
-            outputs.get_dict("eventscount.iav") >> inputs.get_dict(
-                "eventscount.evis.vector"
+            outputs.get_dict("eventscount.stages.iav") >> inputs.get_dict(
+                "eventscount.stages.evis.vector"
             )
 
             # The smearing due to finite energy resolution is also defined by three
@@ -2659,22 +2809,24 @@ class model_dayabay_v0e:
             # resolution matrix and input spectrum (after LSNL) for each detector during
             # period.
             VectorMatrixProduct.replicate(
-                name="eventscount.erec",
+                name="eventscount.stages.erec",
                 mode="column",
                 replicate_outputs=combinations["detector.period"],
             )
             outputs.get_value("detector.eres.matrix") >> inputs.get_dict(
-                "eventscount.erec.matrix"
+                "eventscount.stages.erec.matrix"
             )
-            outputs.get_dict("eventscount.evis") >> inputs.get_dict(
-                "eventscount.erec.vector"
+            outputs.get_dict("eventscount.stages.evis") >> inputs.get_dict(
+                "eventscount.stages.erec.vector"
             )
 
             # Compute a product of global normalization and per-detector efficiency
             # factor, to be used to scale the IBD spectrum.
             Product.replicate(
                 parameters.get_value("all.detector.global_normalization"),
-                outputs.get_dict("detector.parameters_relative.efficiency_factor"),
+                parameters.get_dict(
+                    "selected.detector.parameters_relative.efficiency_factor"
+                ),
                 name="detector.normalization",
                 replicate_outputs=index["detector"],
             )
@@ -2683,7 +2835,7 @@ class model_dayabay_v0e:
             # during each period.
             Product.replicate(
                 outputs.get_dict("detector.normalization"),
-                outputs.get_dict("eventscount.erec"),
+                outputs.get_dict("eventscount.stages.erec"),
                 name="eventscount.fine.ibd_normalized",
                 replicate_outputs=combinations["detector.period"],
             )
@@ -2719,7 +2871,9 @@ class model_dayabay_v0e:
 
             # The following block is related to the computation and application of the
             # background spectra. The background rates are given per day, therefore
-            # first we need to convert the effective livetime in s⁻¹ to day⁻¹.
+            # first we need to convert the effective livetime in s to day. This will be
+            # used for most of the sources of backgrounds, except for accidentals as
+            # accidental rates are given on a daily basis.
             Product.replicate(
                 outputs.get_dict("detector.efflivetime"),
                 parameters.get_value("constant.conversion.seconds_in_day_inverse"),
@@ -2728,23 +2882,26 @@ class model_dayabay_v0e:
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
             )
-            # HERE
-            # HERE get_value/get_dict
-            # fmt: off
 
-
-            Product.replicate(  # TODO: doc
+            # Compute the daily number accidental background events by multiplying daliy
+            # rate of accidentals and daily effective livetime. The temporary unit is
+            # [#·s/day].
+            Product.replicate(
                 outputs.get_dict("daily_data.detector.efflivetime"),
                 outputs.get_dict("daily_data.detector.rate_acc"),
                 name="daily_data.detector.num_acc_s_day",
                 replicate_outputs=combinations["detector.period"],
             )
 
+            # Sum the contents of each array to obtain the total number of accidental
+            # events in each detector during each period. Still [#·s/day].
             ArraySum.replicate(
                 outputs.get_dict("daily_data.detector.num_acc_s_day"),
                 name="bkg.count_acc_fixed_s_day",
             )
 
+            # Finally, normalize the unit by dividing by number of seconds in day and
+            # obtain total number of accidentals.
             Product.replicate(
                 outputs.get_dict("bkg.count_acc_fixed_s_day"),
                 parameters.get_value("constant.conversion.seconds_in_day_inverse"),
@@ -2752,6 +2909,10 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["detector.period"],
             )
 
+            # Now we need to load the normalized spectra for each backgrounds source.
+            # There are different files for each period. Within each file the spectra
+            # for each background and each detector are located.
+            # HERE
             load_hist(
                 name="bkg",
                 x="erec",
@@ -2770,6 +2931,8 @@ class model_dayabay_v0e:
                 name_function=lambda _, idx: f"spectrum_shape_{idx[0]}_{idx[1]}",
             )
 
+            # HERE get_value/get_dict
+            # fmt: off
             # TODO: labels
             Product.replicate(
                 parameters("all.bkg.rate"),
@@ -2788,7 +2951,7 @@ class model_dayabay_v0e:
 
             remap_items(
                 parameters.get_dict("constrained.bkg.uncertainty_scale_by_site"),
-                outputs.create_child("bkg.uncertainty_scale"),
+                parameters.create_child("selected.bkg.uncertainty_scale"),
                 rename_indices=site_arrangement,
                 skip_indices_target=inactive_detectors,
             )
@@ -2797,7 +2960,7 @@ class model_dayabay_v0e:
             ProductShiftedScaled.replicate(
                 outputs("bkg.count_fixed"),
                 parameters("sigma.bkg.rate"),
-                outputs.get_dict("bkg.uncertainty_scale"),
+                parameters.get_dict("selected.bkg.uncertainty_scale"),
                 name="bkg.count",
                 shift=1.0,
                 replicate_outputs=combinations["bkg_site_correlated.detector.period"],
@@ -2911,6 +3074,7 @@ class model_dayabay_v0e:
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,
+                tainted=False
             )
 
             #
@@ -3136,10 +3300,15 @@ class model_dayabay_v0e:
                 mode="normal-unit",
                 shape=(npars_nuisance,),
                 generator=self._random_generator,
+                tainted=False,
+                frozen=True
             )
             outputs.get_value("mc.parameters.toymc") >> parinp_mc
             nodes["mc.parameters.inputs"] = parinp_mc
 
+            #
+            # Covariance matrices and Cholesky decomposition
+            #
             Cholesky.replicate(name="cholesky.stat.variable")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3155,31 +3324,31 @@ class model_dayabay_v0e:
                 "cholesky.stat.data.fixed"
             )
 
-            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.fixed_stat")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value(
-                "covariance.covmat_full_p.stat_fixed"
+                "covariance.covmat_full_p.fixed_stat"
             )
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value(
-                "covariance.covmat_full_p.stat_fixed"
+                "covariance.covmat_full_p.fixed_stat"
             )
 
-            Cholesky.replicate(name="cholesky.covmat_full_p.stat_fixed")
+            Cholesky.replicate(name="cholesky.covmat_full_p.fixed_stat")
             outputs.get_value(
-                "covariance.covmat_full_p.stat_fixed"
-            ) >> inputs.get_value("cholesky.covmat_full_p.stat_fixed")
+                "covariance.covmat_full_p.fixed_stat"
+            ) >> inputs.get_value("cholesky.covmat_full_p.fixed_stat")
 
-            SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_variable")
+            SumMatOrDiag.replicate(name="covariance.covmat_full_p.variable_stat")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> nodes.get_value("covariance.covmat_full_p.stat_variable")
+            ) >> nodes.get_value("covariance.covmat_full_p.variable_stat")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value(
-                "covariance.covmat_full_p.stat_variable"
+                "covariance.covmat_full_p.variable_stat"
             )
 
-            Cholesky.replicate(name="cholesky.covmat_full_p.stat_variable")
+            Cholesky.replicate(name="cholesky.covmat_full_p.variable_stat")
             outputs.get_value(
-                "covariance.covmat_full_p.stat_variable"
-            ) >> inputs.get_value("cholesky.covmat_full_p.stat_variable")
+                "covariance.covmat_full_p.variable_stat"
+            ) >> inputs.get_value("cholesky.covmat_full_p.variable_stat")
 
 
             SumMatOrDiag.replicate(name="covariance.covmat_full_n")
@@ -3195,7 +3364,11 @@ class model_dayabay_v0e:
                 "cholesky.covmat_full_n"
             )
 
-            # (1) chi-squared Pearson stat (fixed Pearson errors)
+            #
+            # Chi-squared functions
+            #
+
+            # Chi-squared Pearson, stat (fixed stat errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3207,7 +3380,7 @@ class model_dayabay_v0e:
                 "statistic.stat.chi2p_iterative.data"
             )
 
-            # (2-2) chi-squared Neyman stat
+            # Chi-squared Neyman, stat
             Chi2.replicate(name="statistic.stat.chi2n")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3219,7 +3392,7 @@ class model_dayabay_v0e:
                 "statistic.stat.chi2n.data"
             )
 
-            # (2-1)
+            # Chi-squared Pearson, stat (variable stat errors)
             Chi2.replicate(name="statistic.stat.chi2p")
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
@@ -3231,41 +3404,53 @@ class model_dayabay_v0e:
                 "statistic.stat.chi2p.data"
             )
 
-            # (5) chi-squared Pearson syst (fixed Pearson errors)
-            Chi2.replicate(name="statistic.full.chi2p_covmat_fixed")
+            # Chi-squared Pearson, stat+syst, cov. matrix (fixed stat errors)
+            Chi2.replicate(name="statistic.full.covmat.chi2p_iterative")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2p_covmat_fixed.data"
+                "statistic.full.covmat.chi2p_iterative.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2p_covmat_fixed.theory")
-            outputs.get_value("cholesky.covmat_full_p.stat_fixed") >> inputs.get_value(
-                "statistic.full.chi2p_covmat_fixed.errors"
+            ) >> inputs.get_value("statistic.full.covmat.chi2p_iterative.theory")
+            outputs.get_value("cholesky.covmat_full_p.fixed_stat") >> inputs.get_value(
+                "statistic.full.covmat.chi2p_iterative.errors"
             )
 
-            # (2-3) chi-squared Neyman syst
-            Chi2.replicate(name="statistic.full.chi2n_covmat")
+            # Chi-squared Neyman, stat+syst, cov. matrix
+            Chi2.replicate(name="statistic.full.covmat.chi2n")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2n_covmat.data"
+                "statistic.full.covmat.chi2n.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2n_covmat.theory")
+            ) >> inputs.get_value("statistic.full.covmat.chi2n.theory")
             outputs.get_value("cholesky.covmat_full_n") >> inputs.get_value(
-                "statistic.full.chi2n_covmat.errors"
+                "statistic.full.covmat.chi2n.errors"
             )
 
-            # (2-4) Pearson variable stat errors
-            Chi2.replicate(name="statistic.full.chi2p_covmat_variable")
+            # Chi-squared Pearson, stat+syst, cov. matrix (variable stat errors)
+            Chi2.replicate(name="statistic.full.covmat.chi2p")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2p_covmat_variable.data"
+                "statistic.full.covmat.chi2p.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
+            ) >> inputs.get_value("statistic.full.covmat.chi2p.theory")
             outputs.get_value(
-                "cholesky.covmat_full_p.stat_variable"
-            ) >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
+                "cholesky.covmat_full_p.variable_stat"
+            ) >> inputs.get_value("statistic.full.covmat.chi2p.errors")
+
+            LogProdDiag.replicate(name="statistic.log_prod_diag.full")
+            outputs.get_value(
+                "cholesky.covmat_full_p.variable_stat"
+            ) >> inputs.get_value("statistic.log_prod_diag.full")
+
+            # Chi-squared Pearson, stat+syst, cov. matrix (variable stat errors)
+            Sum.replicate(
+                outputs.get_value("statistic.full.covmat.chi2p"),
+                outputs.get_value("statistic.log_prod_diag.full"),
+                name="statistic.full.covmat.chi2p_unbiased",
+            )
 
             # CNP stat error
             CNPStat.replicate(name="statistic.staterr.cnp")
@@ -3276,7 +3461,7 @@ class model_dayabay_v0e:
                 "eventscount.final.concatenated.selected"
             ) >> inputs.get_value("statistic.staterr.cnp.theory")
 
-            # (3) chi-squared CNP stat
+            # Chi-squared CNP, stat
             Chi2.replicate(name="statistic.stat.chi2cnp")
             outputs.get_value("data.proxy") >> inputs.get_value(
                 "statistic.stat.chi2cnp.data"
@@ -3297,53 +3482,52 @@ class model_dayabay_v0e:
                 "eventscount.final.concatenated.selected"
             ) >> inputs.get_value("statistic.stat.chi2poisson.theory")
 
-            # (2) chi-squared Pearson stat + pull (fixed Pearson errors)
+            # Chi-squared Pearson, stat+syst, pull (fixed stat errors)
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2p_iterative"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2p_iterative",
+                name="statistic.full.pull.chi2p_iterative",
             )
-            # (4) chi-squared CNP stat + pull (fixed Pearson errors)
+
+            # Chi-squared Pearson, stat+syst, pull (variable stat errors)
+            Sum.replicate(
+                outputs.get_value("statistic.stat.chi2p"),
+                outputs.get_value("statistic.nuisance.all"),
+                name="statistic.full.pull.chi2p",
+            )
+
+            # Chi-squared CNP, stat+syst, pull
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2cnp"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2cnp",
+                name="statistic.full.pull.chi2cnp",
             )
 
-            LogProdDiag.replicate(name="statistic.log_prod_diag")
+            LogProdDiag.replicate(name="statistic.log_prod_diag.stat")
             outputs.get_value(
-                "cholesky.covmat_full_p.stat_variable"
-            ) >> inputs.get_value("statistic.log_prod_diag")
+                "cholesky.stat.variable"
+            ) >> inputs.get_value("statistic.log_prod_diag.stat")
 
-            # (7) chi-squared Pearson stat + log|V| (unfixed Pearson errors)
+            # Chi-squared Pearson, stat, +log|Vstat| (variable stat errors)
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2p"),
-                outputs.get_value("statistic.log_prod_diag"),
+                outputs.get_value("statistic.log_prod_diag.stat"),
                 name="statistic.stat.chi2p_unbiased",
             )
 
-            # (8) chi-squared Pearson stat + log|V| + pull (unfixed Pearson errors)
+            # Chi-squared Pearson, stat+syst, pull, +log|V| (variable stat errors)
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2p_unbiased"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2p_unbiased",
+                name="statistic.full.pull.chi2p_unbiased",
             )
 
-            Product.replicate(
-                parameters.get_value("all.stats.pearson"),
-                outputs.get_value("statistic.full.chi2p_covmat_variable"),
-                name="statistic.helper.pearson",
-            )
-            Product.replicate(
-                parameters.get_value("all.stats.neyman"),
-                outputs.get_value("statistic.full.chi2n_covmat"),
-                name="statistic.helper.neyman",
-            )
-            # (2-4) CNP covmat
-            Sum.replicate(
-                outputs.get_value("statistic.helper.pearson"),
-                outputs.get_value("statistic.helper.neyman"),
-                name="statistic.full.chi2cnp_covmat",
+            # CNP covmat
+            WeightedSumArgs.replicate(
+                outputs.get_value("statistic.full.covmat.chi2p"),
+                outputs.get_value("statistic.full.covmat.chi2n"),
+                name="statistic.full.covmat.chi2cnp",
+                weight=(2/3, 1/3),
             )
 
             # CNP stat variance
@@ -3355,7 +3539,7 @@ class model_dayabay_v0e:
                 "eventscount.final.concatenated.selected"
             ) >> inputs.get_value("statistic.staterr.cnp_variance.theory")
 
-            # CNP + covariance matrix (as in paper)
+            # CNP, stat+syst, cov. matrix (linear cobination)
             SumMatOrDiag.replicate(
                     outputs.get_value("statistic.staterr.cnp_variance"),
                     outputs.get_value("covariance.covmat_syst.sum"),
@@ -3368,23 +3552,23 @@ class model_dayabay_v0e:
                 "covariance.covmat_full_cnp"
             ) >> inputs.get_value("cholesky.covmat_full_cnp")
 
-            # CNP covmat (as in paper)
-            Chi2.replicate(name="statistic.full.chi2cnp_covmat_alt")
+            # CNP, stat+syst, cov. matrix (as in the paper)
+            Chi2.replicate(name="statistic.full.covmat.chi2cnp_alt")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.chi2cnp_covmat_alt.data"
+                "statistic.full.covmat.chi2cnp_alt.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.chi2cnp_covmat_alt.theory")
+            ) >> inputs.get_value("statistic.full.covmat.chi2cnp_alt.theory")
             outputs.get_value(
                 "cholesky.covmat_full_cnp"
-            ) >> inputs.get_value("statistic.full.chi2cnp_covmat_alt.errors")
+            ) >> inputs.get_value("statistic.full.covmat.chi2cnp_alt.errors")
 
-            # Log Poisson Ratio + pull
+            # Log Poisson Ratio, stat+syst, pull
             Sum.replicate(
                 outputs.get_value("statistic.stat.chi2poisson"),
                 outputs.get_value("statistic.nuisance.all"),
-                name="statistic.full.chi2poisson",
+                name="statistic.full.pull.chi2poisson",
             )
             # fmt: on
 
@@ -3492,21 +3676,45 @@ class model_dayabay_v0e:
             return
 
         unused_keys = list(labels_mk.walkjoinedkeys())
+        may_ignore = ["__common_definitions__"]
         if self.dataset == "b":
-            may_ignore = {
-                "bkg.count_fixed.muonx",
-                "bkg.count.muonx",
-                "bkg.spectrum.muonx",
-                "bkg.spectrum_shape.muonx",
-                "statistic.nuisance.parts.bkg.uncertainty_scale_by_site.muonx",
-            }
-        else:
-            may_ignore = set()
+            may_ignore.extend(
+                [
+                    "bkg.count_fixed.muonx",
+                    "bkg.count.muonx",
+                    "bkg.spectrum.muonx",
+                    "bkg.spectrum_shape.muonx",
+                    "statistic.nuisance.parts.bkg.uncertainty_scale_by_site.muonx",
+                ]
+            )
+        if self.lsnl_matrix_mode in {"linear", "linear-unprotected"}:
+            may_ignore.extend(
+                [
+                    "detector.lsnl.curves.evis_coarse_monotonous_scaled",
+                    "detector.lsnl.indexer_bkwd",
+                    "detector.lsnl.interpolated_bkwd",
+                ]
+            )
+        elif self.lsnl_matrix_mode == "pointwise":
+            may_ignore.extend(
+                [
+                    "detector.lsnl.curves.evis_coarse_monotonous_scaled",
+                    "detector.lsnl.indexer_bkwd",
+                    "detector.lsnl.interpolated_bkwd",
+                    "detector.lsnl.curves.evis",
+                    "detector.lsnl.indexer_fwd",
+                    "detector.lsnl.interpolated_fwd",
+                ]
+            )
+
         for key_may_ignore in list(may_ignore):
+            cleanup = False
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
                     del unused_keys[i]
-                    may_ignore.remove(key_may_ignore)
+                    cleanup = True
+            if cleanup:
+                may_ignore.remove(key_may_ignore)
 
         if may_ignore:
             raise RuntimeError(

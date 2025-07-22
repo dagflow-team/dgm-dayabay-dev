@@ -3,67 +3,67 @@ edges:
     text: "Positron angle cosθ"
     latex: "Positron angle $\\cos\\theta$"
     axis: "$\\cos\\theta$"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_common:
     text: "Common energy (E) bin edges [MeV]"
     axis: "$E$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_final:
     text: "Final reconstructed energy (Erec) bin edges [MeV]"
     axis: "$E_{\\rm rec}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_enu:
     text: "Neutrino energy (Eν) bin edges [MeV]"
     latex: "Neutrino energy $E_{\\nu}$ bin edges [MeV]"
     axis: "$E_{\\nu}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_edep:
     text: "Deposited energy (Edep) bin edges [MeV]"
     latex: "Deposited energy $E_{\\rm dep}$ bin edges [MeV]"
     axis: "$E_{\\rm dep}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_escint:
     text: "Deposited in scintillator energy (Escint) bin edges [MeV]"
     latex: "Deposited in scintillator energy $E_{\\rm scint}$ bin edges [MeV]"
     axis: "$E_{\\rm scint}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_evis:
     text: "Visible energy (Evis) bin edges [MeV]"
     latex: "Visible energy $E_{\\rm vis}$ bin edges [MeV]"
     axis: "$E_{\\rm vis}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   energy_erec:
     text: "Reconstructed energy (Erec) bin edges [MeV]"
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV]"
     axis: "$E_{\\rm rec}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
 kinematics:
   integration:
     orders_edep:
       text: "Evis integration orders (precision)"
       latex: "$E_{\\rm vis}$ integration orders (precision)"
       axis: "order"
-      plotmethod: 'none'
+      plotoptions: 'none'
     orders_costheta:
       text: "cosθ integration orders (precision)"
       latex: "$\\cos\\theta$ integration orders (precision)"
       axis: "order"
-      plotmethod: 'none'
+      plotoptions: 'none'
   sampler:
     node:
       text: "dE, dcosθ integration sampler"
     mesh_edep:
       text: "Deposinted energy integration mesh"
       axis: "$E_{\\rm dep}$ [MeV]"
-      plotmethod: 'none'
+      plotoptions: 'none'
     mesh_costheta:
       text: "cosθ integration mesh"
       axis: "$\\cos\\theta$"
-      plotmethod: 'none'
+      plotoptions: 'none'
   ibd:
     crosssection:
       text:  "IBD cross section σ(Eν,cosθ) [cm⁻²/proton]"
-      plottitle: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
+      plot_title: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$"
       latex: "IBD cross section $\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
       axis:  "$\\sigma(E_{\\nu}, \\cos\\theta)$ [cm$^{-2}$]"
     enu:
@@ -220,7 +220,7 @@ bkg:
     text: "Reconstructed energy (Erec) bin edges [MeV]\\nfor background events"
     latex: "Reconstructed energy $E_{\\rm rec}$ bin edges [MeV] (for background events)"
     axis: "$E_{\\rm rec}$ [MeV]"
-    plotmethod: 'none'
+    plotoptions: 'none'
   spectrum:
     acc: 
       group:
@@ -274,7 +274,7 @@ oscprob:
     text: "ν̅(e) survival probability {key}"
     latex: "$\\bar{{\\nu}}_e$ survival probability {key}"
     axis: "$P_{{\\rm ee}}$"
-    plotmethod: "slicesy"
+    plotoptions: "slicesy"
 reactor_anue:
   neutrino_per_fission_per_MeV_nominal:
     group:
