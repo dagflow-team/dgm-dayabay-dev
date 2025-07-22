@@ -168,6 +168,7 @@ class model_dayabay_v0e:
         "monte_carlo_mode",
         "_source_type",
         "_dataset",
+        "_binning",
         "_strict",
         "_close",
         "_future",
@@ -188,6 +189,7 @@ class model_dayabay_v0e:
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _dataset: Literal["a", "b"]  # todo: doc
+    _binning: Literal["a", "b", "c"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -200,6 +202,7 @@ class model_dayabay_v0e:
         *,
         source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
         dataset: Literal["a", "b"] = "a",
+        binning: Literal["a", "b", "c"] = "a",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -255,6 +258,7 @@ class model_dayabay_v0e:
         self.path_data = Path("data/dayabay-v0e")
         self._source_type = source_type
         self._dataset = dataset
+        self._binning = binning
         self.spectrum_correction_interpolation_mode = (
             spectrum_correction_interpolation_mode
         )
@@ -929,7 +933,15 @@ class model_dayabay_v0e:
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
             #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
-            in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
+            match self._binning:
+                case "a":
+                    in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
+                case "b":
+                    in_edges_final = concatenate(([0.7], arange(1., 7., 0.25), arange(7., 8.1, 0.5), [9.5], [12]))
+                case "c":
+                    in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+                case _:
+                    raise RuntimeError(f"No binning for option {self._binning}")
             in_edges_costheta = [-1, 1]
 
             # Instantiate the storage nodes for bin edges. In what follows all the
@@ -2399,7 +2411,6 @@ class model_dayabay_v0e:
             # TODO: doc
             if self.spectrum_correction_location == "after-integration":
                 Product.replicate(
-                    # parameters.get_value("all.detector.global_normalization"),
                     outputs.get_dict("eventscount.stages.raw"),
                     outputs.get_value(
                         "reactor_anue.spectrum_free_correction_post.interpolated"
@@ -3175,7 +3186,6 @@ class model_dayabay_v0e:
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
                 name_function=lambda _, idx: f"anue_{idx[1]}",
-                # name_function=lambda _, idx: f"eventscount_fine_total_{idx[1]}_{idx[0]}",
             )
 
             Rebin.replicate(
@@ -3797,8 +3807,8 @@ class model_dayabay_v0e:
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
                     del unused_keys[i]
-                    # if key_may_ignore in may_ignore:
-                    #     may_ignore.remove(key_may_ignore)
+                    if key_may_ignore in may_ignore:
+                        may_ignore.remove(key_may_ignore)
                     cleanup = True
             if cleanup:
                 may_ignore.remove(key_may_ignore)
