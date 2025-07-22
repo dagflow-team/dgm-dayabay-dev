@@ -69,87 +69,74 @@ class model_dayabay_v0e:
     """The Daya Bay analysis implementation version v0e.
 
     Purpose:
-        - copy of model v0d with removed old options
+        - Copy of model v0d with removed old options.
 
     Updates:
-        - add multiple options for antineutrino model edges
-        - add alternative method to apply antineutrino spectrum corrections
-            + original: apply to the antineutrino spectrum before the integration
-            + new: apply Edep spectrum after the integration
+        - Add multiple options for antineutrino model edges.
+        - Add alternative method to apply antineutrino spectrum corrections.
+            + original: apply to the antineutrino spectrum before the integration.
+            + new: apply Edep spectrum after the integration.
 
     Attributes
     ----------
     storage : NodeStorage
-        nested dictionary with model elements: nodes, parameters, etc.
-
+        Nested dictionary with model elements: nodes, parameters, etc.
     graph : Graph
-        graph instance
-
+        Graph instance.
     index : dict[str, tuple[str, ...]]
-        dictionary with all possible names for replicated items, e.g.
+        Dictionary with all possible names for replicated items, e.g.
         "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
-        index is setup within the model
-
+        index is setup within the model.
     combinations : dict[str, tuple[tuple[str, ...], ...]]
-        lists of all combinations of values of 1 and more indices,
+        Lists of all combinations of values of 1 and more indices,
         e.g. detector, detector/period, reator/isotope, reactor/isotope/period, etc.
-
     spectrum_correction_interpolation_mode : str, default="exponential"
-        mode of how the parameters of the free spectrum model
+        Mode of how the parameters of the free spectrum model
         are treated:
             - "exponential": pᵢ=0 by default, S(Eᵢ) is
               multiplied by exp(pᵢ) the correction is always
-              positive, but nonlinear
+              positive, but nonlinear.
             - "linear": pᵢ=0 by default, S(Eᵢ) is multiplied by
               1+pᵢ the correction may be negative, but is always
-              linear
-
+              linear.
     spectrum_correction_location : str, default="before-integration"
-        place, where the spectrum correction is applied:
+        Place, where the spectrum correction is applied:
             - "before-integration": the antineutrino spectrum of each isotope is
               corrected, domain — neutrino energy.
             - "after-integration": the expected spectrum of each detector during each
               period is corrected (before detector effects), domain: deposited energy
               (Edep). The conversion from Eν to Edep is done approximately by a constant
               shift.
-
     concatenation_mode : str, default="detector_period"
-        choses the observation to be analyzed:
+        Choses the observation to be analyzed:
             - "detector_period" - concatenation of observations at
-              each detector at each period
+              each detector at each period,
             - "detector" - concatenation of observations at each
-              detector (combined for all period)
-
-    monte_carlo_mode : str, default="asimov"
-        the Monte-Carlo mode for pseudo-data:
-            - "asimov" - Asimov, no fluctuations
-            - "normal-stats" - normal fluctuations with statistical
-              errors
-            - "poisson" - Poisson fluctuations
-
+              detector (combined for all period).
+    monte_carlo_mode : str, default="asimov".
+        The Monte-Carlo mode for pseudo-data:
+            - "asimov" - Asimov, no fluctuations,
+            - "normal-stats" - normal fluctuations with statistical,
+              errors,
+            - "poisson" - Poisson fluctuations.
     path_data : Path
-        path to the data
-
+        Path to the data.
     source_type : str, default="npz"
-        type of the data to read ("tsv", "hdf5", "root" or "npz")
+        Type of the data to read ("tsv", "hdf5", "root" or "npz").
 
     Technical attributes
     --------------------
     _strict : bool, default=True
-        strict mode. Stop execution if:
-            - the model is not complete
-            - any labels were not applied
-
+        Strict mode. Stop execution if:
+            - the model is not complete,
+            - any labels were not applied.
     _close : bool, default=True
         if True the graph is closed and memory is allocated
         may be used to debug corrupt model
-
     _random_generator : Generator
         numpy random generator to be used for ToyMC
-
     _covariance_matrix : MetaNode
         covariance matrix, computed on this model
-
     _frozen_nodes : dict[str, tuple]
         storage with nodes, which are being fixed at their values and
         require manual intervention in order to be recalculated
@@ -3807,8 +3794,6 @@ class model_dayabay_v0e:
             for i, key_unused in reversed(tuple(enumerate(unused_keys))):
                 if key_unused.startswith(key_may_ignore):
                     del unused_keys[i]
-                    if key_may_ignore in may_ignore:
-                        may_ignore.remove(key_may_ignore)
                     cleanup = True
             if cleanup:
                 may_ignore.remove(key_may_ignore)
