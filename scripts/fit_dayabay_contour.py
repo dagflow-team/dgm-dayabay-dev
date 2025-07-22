@@ -19,9 +19,10 @@ from argparse import Namespace
 import numpy as np
 from matplotlib import pyplot as plt
 from numpy.typing import NDArray
+from typing import Any
 from scipy.stats import chi2, norm
 
-from dagflow.parameters.gaussian_parameter import GaussianParameter
+from dagflow.parameters.gaussian_parameter import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
@@ -131,7 +132,7 @@ def prepare_axes(
     ax.minorticks_on()
 
 
-def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[list[str], NDArray]:
+def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[list[str], list[NDArray], NDArray]:
     """Create cartesian products of several axes.
 
     Parameters
@@ -143,7 +144,7 @@ def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[l
     Returns
     -------
     tuple[list[str], NDArray]
-        List of parameter names, and array of cartesian products of grids.
+        List of parameter names, list of arrays for cartersian product, and cartesian products of arrays.
     """
     parameters = []
     grids = []
@@ -151,21 +152,7 @@ def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[l
         parameters.append(parameter)
         grids.append(np.linspace(float(l_bound), float(r_bound), int(num)))
     grid = np.array(list(itertools.product(*grids)))
-    return parameters, grid
-
-
-def push_parameters(parameters: list[GaussianParameter], values: NDArray) -> None:
-    """Push values of parameters.
-
-    Parameters
-    ----------
-    parameters : list[GaussianParameter]
-        List of parameters to be changed.
-    values : NDArray
-        Array of values to be pushed in parameters.
-    """
-    for parameter, value in zip(parameters, values):
-        parameter.push(value)
+    return parameters, grids, grid
 
 
 def main(args: Namespace) -> None:
@@ -182,74 +169,82 @@ def main(args: Namespace) -> None:
     parameters_constrained = model.storage("parameters.constrained")
     statistic = model.storage("outputs.statistic")
 
-    parameters_groups = {
-        "free": ["oscprob"],
-        "constrained": ["oscprob", "reactor", "detector", "bkg"],
-    }
-    if args.use_free_spec:
-        parameters_groups["free"].append("neutrino_per_fission_factor")
-    else:
-        parameters_groups["free"].append("detector")
-    if args.use_hm_unc_pull_terms:
-        parameters_groups["constrained"].append("reactor_anue")
-
     stat_chi2 = statistic[f"{args.chi2}"]
-    minimization_parameters: dict[str, GaussianParameter] = {}
-    update_dict_parameters(minimization_parameters, parameters_groups["free"], parameters_free)
+    minimization_parameters: dict[str, Parameter] = {}
+    update_dict_parameters(minimization_parameters, args.free_parameters, parameters_free)
     if "covmat" not in args.chi2:
         update_dict_parameters(
             minimization_parameters,
-            parameters_groups["constrained"],
+            args.constrained_parameters,
             parameters_constrained,
         )
 
-    model.next_sample()
-    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters)
+    model.next_sample(mc_parameters=False, mc_statistics=False)
+    minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters, nbins=model.nbins)
     global_fit = minimizer.fit()
-    best_fit_fun = global_fit["fun"]
-    best_fit_values = global_fit["x"]
-    best_fit_x, best_fit_y, *_ = best_fit_values
-    best_fit_errors = global_fit["errors"]
-    push_parameters(minimization_parameters.values(), best_fit_values)
+    print(global_fit)
+    fun = global_fit["fun"]
+    bf_xdict = global_fit["xdict"]
+    best_fit_x = bf_xdict["oscprob.SinSq2Theta13"]
+    best_fit_y = bf_xdict["oscprob.DeltaMSq32"]
+    model.set_parameters(bf_xdict)
 
-    parameters, grid = cartesian_product(args.scan_par)
+    parameters, grids, xy_grid = cartesian_product(args.scan_par)
     grid_parameters = []
+    minimization_parameters_2d = minimization_parameters.copy()
     for parameter in parameters:
-        grid_parameter = minimization_parameters.pop(parameter)
-        grid_parameters.append(grid_parameter)
+        grid_parameter = minimization_parameters_2d.pop(parameter)
+        grid_parameters.append(parameter)
 
-    model.next_sample()
-    scan_minimizer = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters)
-    chi2_map = np.zeros(grid.shape[0])
-    for idx, grid_values in enumerate(grid):
-        push_parameters(grid_parameters, grid_values)
-        fit = scan_minimizer.fit()
-        scan_minimizer.push_initial_values()
+    model.next_sample(mc_parameters=False, mc_statistics=False)
+    minimizer_scan_2d = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters_2d)
+    chi2_map = np.zeros(xy_grid.shape[0])
+    for idx, grid_values in enumerate(xy_grid):
+        model.set_parameters(dict(zip(grid_parameters, grid_values)))
+        fit = minimizer_scan_2d.fit()
+        minimizer_scan_2d.push_initial_values()
         chi2_map[idx] = fit["fun"]
+
+    chi2_map_1d: dict[str, NDArray | Any] = dict.fromkeys(grid_parameters)
+    for parameter, grid_1d in zip(grid_parameters, grids):
+        model.set_parameters(bf_xdict)
+        chi2_map_1d[parameter] = np.zeros(grid_1d.shape[0])
+        minimization_parameters_1d = minimization_parameters.copy()
+        minimization_parameters_1d.pop(parameter)
+        minimizer_scan_1d = IMinuitMinimizer(stat_chi2, parameters=minimization_parameters_1d)
+        for idx, grid_value in enumerate(grid_1d):
+            model.set_parameters({parameter: grid_value})
+            fit = minimizer_scan_1d.fit()
+            minimizer_scan_1d.push_initial_values()
+            chi2_map_1d[parameter][idx] = fit["fun"]
+
+    import IPython; IPython.embed()
 
     fig, axes = plt.subplots(2, 2, gridspec_kw={"width_ratios": [3, 1], "height_ratios": [1, 3]})
     sinSqD13_profile, chi2_profile = get_profile_of_chi2(
-        grid[:, 1], grid[:, 0], chi2_map, best_fit_y, best_fit_fun
+        xy_grid[:, 1], xy_grid[:, 0], chi2_map, best_fit_y, fun
     )
+
+    # TODO: profile 1d
 
     label = r"$\Delta\chi^2$"
     prepare_axes(
         axes[0, 0],
-        limits=[(grid[:, 0].min(), grid[:, 0].max()), (0, 20)],
+        limits=[(xy_grid[:, 0].min(), xy_grid[:, 0].max()), (0, 20)],
         ylabel=label,
         profile=(sinSqD13_profile, chi2_profile),
     )
 
     dm32_profile, chi2_profile = get_profile_of_chi2(
-        grid[:, 0],
-        grid[:, 1],
+        xy_grid[:, 0],
+        xy_grid[:, 1],
         chi2_map,
         best_fit_x,
-        best_fit_fun,
+        fun,
     )
     prepare_axes(
         axes[1, 1],
-        limits=[(0, 20), (grid[:, 1].min(), grid[:, 1].max())],
+        limits=[(0, 20), (xy_grid[:, 1].min(), xy_grid[:, 1].max())],
         xlabel=label,
         profile=(chi2_profile, dm32_profile),
     )
@@ -258,7 +253,7 @@ def main(args: Namespace) -> None:
     levels = convert_sigmas_to_chi2(ndof, [0, 1, 2, 3])
     axes[1, 0].grid(linestyle="--")
     axes[1, 0].tricontourf(
-        grid[:, 0], grid[:, 1], chi2_map - best_fit_fun, levels=levels, cmap="GnBu"
+        xy_grid[:, 0], xy_grid[:, 1], chi2_map - fun, levels=levels, cmap="GnBu"
     )
     bf_x_error, bf_y_error, *_ = best_fit_errors
     axes[1, 0].errorbar(
@@ -309,21 +304,21 @@ if __name__ == "__main__":
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
-    pars = parser.add_argument_group("fit", "Set fit procedure")
-    pars.add_argument(
+    fit_options = parser.add_argument_group("fit", "Set fit procedure")
+    fit_options.add_argument(
         "--data",
         default="model",
         choices=DATA_INDICES.keys(),
         help="Choose data for fit: 0th and 1st output",
     )
-    pars.add_argument(
+    fit_options.add_argument(
         "--scan-par",
         nargs=4,
         action="append",
         default=[],
         help="linspace of parameter",
     )
-    pars.add_argument(
+    fit_options.add_argument(
         "--chi2",
         default="stat.chi2p",
         choices=[
@@ -332,25 +327,32 @@ if __name__ == "__main__":
             "stat.chi2p",
             "stat.chi2cnp",
             "stat.chi2p_unbiased",
-            "full.chi2p_covmat_fixed",
-            "full.chi2n_covmat",
-            "full.chi2p_covmat_variable",
-            "full.chi2p_iterative",
-            "full.chi2cnp",
-            "full.chi2p_unbiased",
-            "full.chi2cnp_covmat",
+            "stat.chi2poisson",
+            "full.covmat.chi2p_iterative",
+            "full.covmat.chi2n",
+            "full.covmat.chi2p",
+            "full.covmat.chi2p_unbiased",
+            "full.covmat.chi2cnp",
+            "full.covmat.chi2cnp_alt",
+            "full.pull.chi2p_iterative",
+            "full.pull.chi2p",
+            "full.pull.chi2cnp",
+            "full.pull.chi2p_unbiased",
+            "full.pull.chi2poisson",
         ],
         help="Choose chi-squared function for minimizer",
     )
-    pars.add_argument(
-        "--use-free-spec",
-        action="store_true",
-        help="Add antineutrino spectrum parameters to minimizer",
+    fit_options.add_argument(
+        "--free-parameters",
+        default=[],
+        nargs="*",
+        help="Add free parameters to minimization process",
     )
-    pars.add_argument(
-        "--use-hm-unc-pull-terms",
-        action="store_true",
-        help="Add uncertainties of antineutrino spectra (HM model) to minimizer",
+    fit_options.add_argument(
+        "--constrained-parameters",
+        default=[],
+        nargs="*",
+        help="Add constrained parameters to minimization process",
     )
 
     outputs = parser.add_argument_group("outputs", "set outputs")

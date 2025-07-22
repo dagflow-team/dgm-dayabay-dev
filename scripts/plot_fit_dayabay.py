@@ -74,6 +74,7 @@ def main(args: Namespace) -> None:
 
     with open(args.input_fit, "r") as f:
         fit = yaml_load(f)
+    print(fit)
 
     if not fit["success"]:
         print("Fit is not succeed")
@@ -255,7 +256,7 @@ if __name__ == "__main__":
         help="Path to save plot of correlation matrix of fitted parameters",
     )
     outputs.add_argument(
-        "--correlation_matrix_parameters",
+        "--correlation-matrix-parameters",
         default=[],
         nargs="*",
         help="Choose parameters for correlation matrix to be plotted, support filtering",

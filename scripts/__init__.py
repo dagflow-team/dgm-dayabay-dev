@@ -588,10 +588,10 @@ def get_parameter_fit(
     tuple[float, float, float, str]
         Return tuple (central value, left error, right error, string with an additional information).
     """
-    if key in xdict:
+    if key in xdict.keys():
         if isinstance(errorsdict[key], float):
             return xdict[key], errorsdict[key], errorsdict[key], "fit"
-        elif isinstance(errorsdict[key], tuple):
+        elif isinstance(errorsdict[key], (tuple, list)):
             return xdict[key], -1 * errorsdict[key][0], errorsdict[key][1], "fit"
     elif key == "detector.global_normalization":
         names = [
@@ -604,8 +604,7 @@ def get_parameter_fit(
         res = (scale * w).sum() / wsum
         # res_unc = wsum**-0.5 # incorrect since scales are correlated
         return 1 + res, 0.0, 0.0, "calc"
-    else:
-        raise KeyError(f"No key {key} in fit information.")
+    raise KeyError(f"No key {key} in fit information.")
 
 
 def filter_covariance_matrix(

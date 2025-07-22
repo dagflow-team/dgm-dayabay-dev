@@ -37,6 +37,7 @@ FutureType = Literal[
     "reactor-35days-by-power",
     "reactor-35days-by-number-of-fissions",
     "reactor-35days-by-number-of-neutrinos",
+    "anue-tmp",
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
     "anue-model-edges-140",  # use more optimal antineutrino model segments starting from 140 keV
     "anue-model-edges-180",  # use more optimal antineutrino model segments starting from 180 keV
@@ -928,7 +929,6 @@ class model_dayabay_v0e:
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
             #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
-            in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
             in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
             in_edges_costheta = [-1, 1]
 
