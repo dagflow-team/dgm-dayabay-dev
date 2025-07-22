@@ -47,7 +47,7 @@ def main(args: Namespace) -> None:
 
     model.touch()
 
-    from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
+    from dgf_statistics.minimizer.iminuit_minimizer import IMinuitMinimizer
 
     minimization_pars = [parameters[par_name] for par_name in args.min_par]
     minimizers = dict(

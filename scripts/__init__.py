@@ -12,7 +12,7 @@ from collections.abc import Generator
 from dagflow.bundles.load_hist import load_hist
 from dagflow.core import NodeStorage
 from dagflow.parameters import Parameter
-from dgf_statistics.minimizer.minimizerbase import MinimizerBase
+from dgf_statistics.minimizer.minimizer_base import MinimizerBase
 
 
 add_representer(

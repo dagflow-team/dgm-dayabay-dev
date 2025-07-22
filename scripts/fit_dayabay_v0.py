@@ -94,7 +94,7 @@ def main(args: Namespace) -> None:
 
     from yaml import safe_dump
 
-    from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
+    from dgf_statistics.minimizer.iminuit_minimizer import IMinuitMinimizer
 
     chi2p_stat = statistic["stat.chi2p"]
     chi2p_syst = statistic["full.chi2cnp"]

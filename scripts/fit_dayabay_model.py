@@ -22,7 +22,7 @@ from yaml import dump as yaml_dump
 from dagflow.parameters import Parameter
 from dagflow.tools.logger import DEBUG as INFO4
 from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
+from dgf_statistics.minimizer.iminuit_minimizer import IMinuitMinimizer
 from models import available_models, load_model
 from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters, do_fit
 
