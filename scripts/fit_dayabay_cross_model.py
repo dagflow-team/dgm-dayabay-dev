@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-"""Script for fit model to another copy model. Models are loading from .yaml file.
+r"""Script for fit model to another copy model. Models are loading from .yaml file.
 
 Examples
 --------
 Example of call:
 .. code::
-    ./scripts/fit_dayabay_cross_model.py --config-path scripts/cross-fit-config.yaml \\
-      --chi2 full.chi2n_covmat \\
-      --output-plot-spectra "output/obs-{}.pdf" \\
+    ./scripts/fit_dayabay_cross_model.py --config-path scripts/cross-fit-config.yaml \
+      --chi2 full.chi2n_covmat \
+      --output-plot-spectra "output/obs-{}.pdf" \
       --output-fit output/fit.yaml
 ```
 """

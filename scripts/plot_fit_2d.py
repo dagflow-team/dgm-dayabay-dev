@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-"""Script for 2d fit plot.
+r"""Script for 2d fit plot.
 
 Examples
 --------
 Example of call::
 
-    ./scripts/plot_fit_2d.py \\
-      --input-fit fit-a.yaml \\
-      --output-fit-label-a a \\
-      --compare-fits fit-b.yaml fit-c.yaml \\
-      --output-box \\
-      --output-fit-labels-b b c \\
+    ./scripts/plot_fit_2d.py \
+      --input-fit fit-a.yaml \
+      --output-fit-label-a a \
+      --compare-fits fit-b.yaml fit-c.yaml \
+      --output-box \
+      --output-fit-labels-b b c \
       --output-show
 """
 from argparse import Namespace

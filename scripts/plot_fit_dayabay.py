@@ -5,26 +5,26 @@ Examples
 --------
 Example of call::
 
-    ./scripts/plot_fit_dayabay.py --version v0e --data model \\
-      --mo "{dataset: a}" \\
-      --compare-concatenation detector \\
-      --input-fit fit.yaml \\
-      --reference-fit reference-fit.yaml \\
-      --output-plot-fit "output/fit_2d.pdf" \\
-      --output-fit-label-a "Reference fit" \\
-      --output-fit-label-b "Public model" \\
-      --output-plot-spectra "output/fit-{}.pdf" \\
-      --output-spectra-title "Fit to modeled data, {}" \\
-      --output-plot-correlation-matrix "output/fit-correlation-matrix.pdf" \\
-      --output-correlation-matrix-title "Post-fit parameters correlation matrix" \\
-      --output-spectra-label-a "Public model" \\
-      --output-spectra-label-b "Modeled data" \\
-      --output-sw-ylim -0.5 0.5 \\
-      --output-fit-xlim 0.080 0.010 \\
-      --output-fit-ylim 0.002 0.003 \\
-      --output-fit-sigma-cross \\
-      --output-fit-title-legend "legend for 2d plot fit" \\
-      --gn \\
+    ./scripts/plot_fit_dayabay.py --version v0e --data model \
+      --mo "{dataset: a}" \
+      --compare-concatenation detector \
+      --input-fit fit.yaml \
+      --reference-fit reference-fit.yaml \
+      --output-plot-fit "output/fit_2d.pdf" \
+      --output-fit-label-a "Reference fit" \
+      --output-fit-label-b "Public model" \
+      --output-plot-spectra "output/fit-{}.pdf" \
+      --output-spectra-title "Fit to modeled data, {}" \
+      --output-plot-correlation-matrix "output/fit-correlation-matrix.pdf" \
+      --output-correlation-matrix-title "Post-fit parameters correlation matrix" \
+      --output-spectra-label-a "Public model" \
+      --output-spectra-label-b "Modeled data" \
+      --output-sw-ylim -0.5 0.5 \
+      --output-fit-xlim 0.080 0.010 \
+      --output-fit-ylim 0.002 0.003 \
+      --output-fit-sigma-cross \
+      --output-fit-title-legend "legend for 2d plot fit" \
+      --gn \
       --output-show
 """
 from argparse import Namespace

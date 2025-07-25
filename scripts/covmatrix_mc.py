@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-"""Script for creating covariance matrix via Monte-Carlo approach.
+r"""Script for creating covariance matrix via Monte-Carlo approach.
 
 Examples
 --------
 Example of call::
 
-    ./scripts/covmatrix_mc.py \\
-      --model-options "{dataset: a}" \\
-        --par oscprob.DeltaMSq32 2.5e-3 \\
-        --systematic-parameters-groups oscprob eres snf \\
-        "--seed 1 \\
+    ./scripts/covmatrix_mc.py \
+      --model-options "{dataset: a}" \
+        --par oscprob.DeltaMSq32 2.5e-3 \
+        --systematic-parameters-groups oscprob eres snf \
+        "--seed 1 \
         "--num 500
 """
 

@@ -5,10 +5,10 @@ Examples
 --------
 Example of call:
 
-    ./scripts/plot_fit_article.py --version v0e --data model \\
-      --mo "{dataset: a}" \\
-      --input-fit fit.yaml \\
-      --output "fit-{}.pdf" \\
+    ./scripts/plot_fit_article.py --version v0e --data model \
+      --mo "{dataset: a}" \
+      --input-fit fit.yaml \
+      --output "fit-{}.pdf" \
       --output-show
 """
 from argparse import Namespace

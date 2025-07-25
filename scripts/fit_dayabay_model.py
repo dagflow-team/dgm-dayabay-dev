@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-"""Script for fit model to observed/model data
+r"""Script for fit model to observed/model data.
 
 Examples
 --------
 Example of call::
 
-    ./scripts/fit_dayabay_model.py --version v0e \\
-      --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \\
-      --chi2 full.chi2n_covmat \\
-      --free-parameters oscprob neutrino_per_fission_factor \\
-      --constrained-parameters oscprob detector reactor bkg reactor_anue \\
-      --constrain-osc-parameters \\
+    ./scripts/fit_dayabay_model.py --version v0e \
+      --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \
+      --chi2 full.chi2n_covmat \
+      --free-parameters oscprob neutrino_per_fission_factor \
+      --constrained-parameters oscprob detector reactor bkg reactor_anue \
+      --constrain-osc-parameters \
       --output-fit output/fit.yaml
 """
 from argparse import Namespace
