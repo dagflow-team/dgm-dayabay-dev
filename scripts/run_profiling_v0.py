@@ -93,7 +93,7 @@ def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
     node_profiler.estimate_target_nodes()
     print(f"\nNode profiling took {time() - st:.2f} seconds.")
     report = node_profiler.print_report(sort_by="%_of_total")
-    report.to_csv(outpath / f"node_{cur_time}.csv")
+    report.to_csv(outpath / f"node_{cur_time}.tsv", index=False)
 
     framework_profiler = FrameworkProfiler(
         sources=params,
@@ -103,7 +103,7 @@ def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
     st = time()
     framework_profiler.estimate_framework_time()
     print(f"\nFramework profiling took {time() - st:.2f} seconds.")
-    framework_profiler.print_report().to_csv(outpath / f"framework_{cur_time}.csv")
+    framework_profiler.print_report().to_csv(outpath / f"framework_{cur_time}.tsv", index=False)
 
     memory_profiler = MemoryProfiler(
         target_nodes=all_nodes,
@@ -112,7 +112,7 @@ def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
     memory_profiler.estimate_target_nodes()
     print(f"\nMemory profiling took {time() - st:.2f} seconds.")
     report = memory_profiler.print_report(sort_by="size_sum")
-    report.to_csv(outpath / f"memory_{cur_time}.csv")
+    report.to_csv(outpath / f"memory_{cur_time}.tsv", index=False)
 
     fit_param_wise_profiler = FitSimulationProfiler(
         mode="parameter-wise",
@@ -124,7 +124,7 @@ def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
     fit_param_wise_profiler.estimate_fit()
     print(f"\nParameter-wise fit profiling took {time() - st:.2f} seconds.")
     report = fit_param_wise_profiler.print_report()
-    report.to_csv(outpath / f"fit_param_wise_{cur_time}.csv")
+    report.to_csv(outpath / f"fit_param_wise_{cur_time}.tsv", index=False)
 
     fit_simultaneous_profiler = FitSimulationProfiler(
         mode="simultaneous",
@@ -136,7 +136,7 @@ def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
     fit_simultaneous_profiler.estimate_fit()
     print(f"\nSimultaneous fit profiling took {time() - st:.2f} seconds.")
     report = fit_simultaneous_profiler.print_report()
-    report.to_csv(outpath / f"fit_simultaneous_{cur_time}.csv")
+    report.to_csv(outpath / f"fit_simultaneous_{cur_time}.tsv", index=False)
 
 
 def main(opts: Namespace) -> None:
