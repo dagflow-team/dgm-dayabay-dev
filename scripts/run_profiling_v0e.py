@@ -144,7 +144,7 @@ def main(opts: Namespace) -> None:
             parameters=params,
             endpoints=[stat],
             n_runs=opts.fit_param_wise_runs,
-            derivative_points=d_points,
+            n_derivative_points=d_points,
         )
         st = time()
         fit_param_wise_profiler.estimate_fit()
@@ -164,7 +164,7 @@ def main(opts: Namespace) -> None:
             parameters=params,
             endpoints=[stat],
             n_runs=opts.fit_simultaneous_runs,
-            derivative_points=d_points,
+            n_derivative_points=d_points,
         )
         st = time()
         fit_simultaneous_profiler.estimate_fit()
