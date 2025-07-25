@@ -37,7 +37,6 @@ FutureType = Literal[
     "reactor-35days-by-power",
     "reactor-35days-by-number-of-fissions",
     "reactor-35days-by-number-of-neutrinos",
-    "anue-tmp",
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
     "anue-model-edges-140",  # use more optimal antineutrino model segments starting from 140 keV
     "anue-model-edges-180",  # use more optimal antineutrino model segments starting from 180 keV
