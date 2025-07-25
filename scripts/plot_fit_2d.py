@@ -3,7 +3,9 @@ r"""Script for 2d fit plot.
 
 Examples
 --------
-Example of call::
+Example of call
+
+.. code-block:: shell
 
     ./scripts/plot_fit_2d.py \
       --input-fit fit-a.yaml \

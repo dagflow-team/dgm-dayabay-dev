@@ -1,17 +1,18 @@
 #!/usr/bin/env python
-"""Script for contour plot of best fit value.
+r"""Script for contour plot of best fit value.
 
 Examples
 --------
-Example of call:
-```
-./scripts/fit_dayabay_contour.py --version v0e \
-    --scan-par oscprob.SinSq2Theta13 0.07 0.1 31 \
-    --scan-par oscprob.DeltaMSq32 2.2e-3 2.8e-3 61 \
-    --chi2 full.chi2n_covmat \
-    --output-contour output/contour.pdf \
-    --output-map output/contour.npz
-```
+Example of call
+
+.. code-block:: shell
+
+    ./scripts/fit_dayabay_contour.py --version v0e \
+      --scan-par oscprob.SinSq2Theta13 0.07 0.1 31 \
+      --scan-par oscprob.DeltaMSq32 2.2e-3 2.8e-3 61 \
+      --chi2 full.chi2n_covmat \
+      --output-contour output/contour.pdf \
+      --output-map output/contour.npz
 """
 import itertools
 from argparse import Namespace

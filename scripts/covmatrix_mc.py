@@ -3,7 +3,9 @@ r"""Script for creating covariance matrix via Monte-Carlo approach.
 
 Examples
 --------
-Example of call::
+Example of call
+
+.. code-block:: shell
 
     ./scripts/covmatrix_mc.py \
       --model-options "{dataset: a}" \

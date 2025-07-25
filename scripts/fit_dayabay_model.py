@@ -3,7 +3,9 @@ r"""Script for fit model to observed/model data.
 
 Examples
 --------
-Example of call::
+Example of call
+
+.. code-block:: shell
 
     ./scripts/fit_dayabay_model.py --version v0e \
       --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \

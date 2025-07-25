@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-"""Script for fit model to observed/model data.
+r"""Script for fit model to observed/model data.
 
 Examples
 --------
-Example of call:
+Example of call
+
+.. code-block:: shell
 
     ./scripts/plot_fit_article.py --version v0e --data model \
       --mo "{dataset: a}" \
