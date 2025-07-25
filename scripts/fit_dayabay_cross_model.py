@@ -7,7 +7,7 @@ Example of call:
 
 .. code-block:: shell
 
-    ./scripts/fit_dayabay_cross_model.py --config-path scripts/cross-fit-config.yaml \
+    ./scripts/fit_dayabay_cross_model.py --config-path scripts/cross_fit_config.yaml \
       --chi2 full.chi2n_covmat \
       --output-plot-spectra "output/obs-{}.pdf" \
       --output-fit output/fit.yaml
