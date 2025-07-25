@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+r"""Script for creating covariance matrix via Monte-Carlo approach.
+
+Examples
+--------
+Example of call
+
+.. code-block:: shell
+
+    ./scripts/covmatrix_mc.py \
+      --model-options "{dataset: a}" \
+        --par oscprob.DeltaMSq32 2.5e-3 \
+        --systematic-parameters-groups oscprob eres snf \
+        "--seed 1 \
+        "--num 500
+"""
 
 from argparse import Namespace
 
@@ -14,20 +29,35 @@ from models import available_models, load_model
 from multikeydict.nestedmkdict import walkvalues
 from multikeydict.typing import properkey
 
+SYSTEMATIC_UNCERTAINTIES_GROUPS = {
+    "all",
+    "oscprob",
+    "eres",
+    "lsnl",
+    "iav",
+    "detector_relative",
+    "energy_per_fission",
+    "nominal_thermal_power",
+    "snf",
+    "neq",
+    "fission_fraction",
+    "bkg_rate",
+    "hm_corr",
+    "hm_uncorr",
+}
+
 set_level(INFO1)
 
 
-def variate_parameters(
-    parameters: list[Parameter], generator: np.random.Generator
-) -> None:
-    """Randomize value of parameters via normal unit distribution N(0, 1)
+def variate_parameters(parameters: list[Parameter], generator: np.random.Generator) -> None:
+    """Randomize value of parameters via normal unit distribution N(0, 1).
 
     Parameters
     ----------
-    parameters: list[Parameter]
-        list of normalized parameters
-    generator: np.random.Generator
-        numpy generator of pseudo-random numbers
+    parameters : list[Parameter]
+        List of normalized parameters.
+    generator : np.random.Generator
+        Numpy generator of pseudo-random numbers.
 
     Returns
     -------
@@ -46,17 +76,17 @@ def create_list_of_variation_parameters(
 
     Parameters
     ----------
-    model:
-        Model of experiment
-    storage: NodeStorage
-        Storage of model where all necessary items are stored
-    groups: list[str]
-        List of parameters groups that will be used for Monte-Carlo method
+    model : model_dayabay_v0x
+        Object of model.
+    storage : NodeStorage
+        Storage of model where all necessary items are stored.
+    groups : list[str]
+        List of parameters groups that will be used for Monte-Carlo method.
 
     Returns
     -------
     list[Parameter]
-        List of normalized parameters
+        List of normalized parameters.
     """
     parameters = []
     if "all" in groups:
@@ -81,37 +111,42 @@ def covariance_matrix_calculation(
 ) -> NDArray:
     r"""Calculate absolute covariance matrix.
 
+    Parameters
+    ----------
+    parameters : list[Parameter]
+        List of normalized parameters.
+    generator : np.random.Generator
+        Numpy generator of pseudo-random numbers.
+    observation : Output
+        Observation of model that depends on parameters.
+    N : int
+        Number of samples for calculation covariance matrices.
+    asimov : NDArray, optional
+        Asimov observation (no fluctuation of parameters).
+
+    Returns
+    -------
+    NDArray
+        Two dimensional square array, absolute covariance matrix.
+
+    Notes
+    -----
     For the calculation used the next formula
+
     .. math:: cov_{ij} = \frac{1}{N}\sum_{k = 1}^{N}(x_i^k - \overline{x_i})(x_j^k - \overline{x_j}),
 
     where `x_i^k` is `i`-th bin value of `k`-th sample, `\overline{x_i}` is mean
     value of `i`-th bin, $N$ is normalization factor
 
     Here we are using simplified formula
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_i^A},
 
     where we averaging over all MC samples
 
     If Asimov observation is passed, the next formula is used
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
-
-    Parameters
-    ----------
-    parameters: list[Parameter]
-        List of normalized parameters
-    generator: np.random.Generator
-        numpy generator of pseudo-random numbers
-    observation: Output
-        Observation of model that depends on parameters
-    N: int
-        Number of samples for calculation covariance matrices
-    asimov: NDArray, optional
-        Asimov observation (no fluctuation of parameters)
-
-    Returns
-    -------
-    NDArray
-        Two dimensional square array, absolute covariance matrix
     """
     observation_size = observation.data.shape[0]
     product_mean = np.zeros((observation_size, observation_size))
@@ -124,15 +159,11 @@ def covariance_matrix_calculation(
         product_mean /= N
         observation_mean_asimov = np.outer(observation_sum, asimov) / N
         observation_product_mean = (
-            observation_mean_asimov
-            + observation_mean_asimov.T
-            - np.outer(asimov, asimov)
+            observation_mean_asimov + observation_mean_asimov.T - np.outer(asimov, asimov)
         )
     else:
         product_mean /= N - 1
-        observation_product_mean = (
-            np.outer(observation_sum, observation_sum) / ((N - 1) * N)
-        )
+        observation_product_mean = np.outer(observation_sum, observation_sum) / ((N - 1) * N)
     covariance_matrix_absolute = product_mean - observation_product_mean
     return covariance_matrix_absolute
 
@@ -144,9 +175,30 @@ def covariance_matrix_calculation_alternative(
     N: int,
     asimov: NDArray | None = None,
 ) -> NDArray:
-    r"""Calculate absolute matrix (alternative method)
+    r"""Calculate absolute matrix (alternative method).
 
+    Parameters
+    ----------
+    parameters : list[Parameter]
+        List of normalized parameters.
+    generator : np.random.Generator
+        Numpy generator of pseudo-random numbers.
+    observation : Output
+        Observation of model that depends on parameters.
+    N : int
+        Number of samples for calculation covariance matrices.
+    asimov : NDArray, optional
+        Two dimensional square array, absolute covariance matrix.
+
+    Returns
+    -------
+    NDArray
+        Absolute covariance matrix.
+
+    Notes
+    -----
     For the calculation used simplified formula
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
 
     where `S` is `Nx(observation size)` matrix that contains all Monte-Carlo samples.
@@ -155,25 +207,8 @@ def covariance_matrix_calculation_alternative(
     calculations via matrix product
 
     If Asimov observation is passed, the next formula is used
+
     .. math:: cov_{ij} = \frac{1}{\text{norm}} \overline{x_i x_j} - \overline{x_i}\overline{x_j^A} - \overline{x_j}\overline{x_i^A} + \overline{x_i^A}\overline{x_j^A},
-
-    Parameters
-    ----------
-    parameters: list[Parameter]
-        List of normalized parameters
-    generator: np.random.Generator
-        numpy generator of pseudo-random numbers
-    observation: Output
-        Observation of model that depends on parameters
-    N: int
-        Number of samples for calculation covariance matrices
-    asimov: NDArray, optional
-        Two dimensional square array, absolute covariance matrix
-
-    Returns
-    -------
-    NDArray
-        Absolute covariance matrix
     """
     observation_size = observation.data.shape[0]
     samples = np.zeros((N, observation_size))
@@ -187,26 +222,27 @@ def covariance_matrix_calculation_alternative(
         samples_mean = samples.mean(axis=0)
         covariance_normalization_factor = N - 1
     samples_diff = samples - samples_mean
-    covariance_matrix_absolute = (
-        samples_diff.T @ samples_diff / covariance_normalization_factor
-    )
+    covariance_matrix_absolute = samples_diff.T @ samples_diff / covariance_normalization_factor
     return covariance_matrix_absolute
 
 
 def calculate_correlation_matrix(covariance_matrix: NDArray) -> NDArray:
     r"""Calculate correlation matrix from covariance matrix.
 
-    $\mathrm{corr}_{ij} = \frac{\mathrm{cov}_{ij}}{\sqrt{\mathrm{cov}_{ii}\mathrm{cov}_{jj}}}$
-
     Parameters
     ----------
-    covariance_matrix: NDArray
-        covariance matrix
+    covariance_matrix : NDArray
+        Covariance matrix.
 
     Returns
     -------
     NDArray
-        Correlation matrix
+        Correlation matrix.
+
+    Notes
+    -----
+
+    .. math:: \mathrm{corr}_{ij} = \frac{\mathrm{cov}_{ij}}{\sqrt{\mathrm{cov}_{ii}\mathrm{cov}_{jj}}}
     """
     diagonal = np.diagonal(covariance_matrix)
     return covariance_matrix / np.outer(diagonal, diagonal) ** 0.5
@@ -290,9 +326,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",
@@ -318,20 +352,17 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     cov = parser.add_argument_group("cov", "covariance parameters")
     pars.add_argument(
         "--systematic-parameters-groups",
         "--cov",
         default=[],
+        choices=SYSTEMATIC_UNCERTAINTIES_GROUPS,
         nargs="+",
         help="Choose systematic parameters for building covariance matrix",
     )

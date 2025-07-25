@@ -47,7 +47,7 @@ def main(args: Namespace) -> None:
 
     model.touch()
 
-    from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
+    from dgf_statistics.minimizer.iminuit_minimizer import IMinuitMinimizer
 
     minimization_pars = [parameters[par_name] for par_name in args.min_par]
     minimizers = dict(
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     pars.add_argument(
         "--min-par", nargs="*", default=[], help="choose minimization parameters",
     )
-    
+
     stats = parser.add_argument_group("statistic", "statistic parameters")
     stats.add_argument(
         "--statistic", nargs="*", default=[], help="choose statistic of minimization",

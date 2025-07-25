@@ -120,6 +120,7 @@ def main(opts: Namespace) -> None:
                 ax.text(
                     1, 1, ad, transform=ax.transAxes - text_offset, va="top", ha="right"
                 )
+                labels_added.add(ad)
 
             ax.tick_params(
                 axis="y",

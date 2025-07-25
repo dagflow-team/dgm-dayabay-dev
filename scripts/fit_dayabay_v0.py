@@ -94,7 +94,7 @@ def main(args: Namespace) -> None:
 
     from yaml import safe_dump
 
-    from dgf_statistics.minimizer.iminuitminimizer import IMinuitMinimizer
+    from dgf_statistics.minimizer.iminuit_minimizer import IMinuitMinimizer
 
     chi2p_stat = statistic["stat.chi2p"]
     chi2p_syst = statistic["full.chi2cnp"]
@@ -105,6 +105,7 @@ def main(args: Namespace) -> None:
         update_dict_parameters(
             minimization_pars, ["oscprob", "detector", "reactor", "bkg"], parameters["constrained"]
         )
+
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
         dagflow_fit = minimizer.fit()

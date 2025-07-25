@@ -1,0 +1,12 @@
+- version: v0e
+  source_type: npz
+  model_options:
+    dataset: b
+    monte_carlo_mode: asimov
+    seed: 0
+- version: v0e
+  source_type: root
+  model_options:
+    dataset: b
+    monte_carlo_mode: asimov
+    seed: 0

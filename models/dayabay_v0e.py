@@ -31,11 +31,18 @@ if TYPE_CHECKING:
 FutureType = Literal[
     "reactor-28days",  # merge reactor data, each 4 weeks
     "reactor-35days",  # merge reactor data, each 5 weeks
+    "reactor-28days-by-power",
+    "reactor-28days-by-number-of-fissions",
+    "reactor-28days-by-number-of-neutrinos",
+    "reactor-35days-by-power",
+    "reactor-35days-by-number-of-fissions",
+    "reactor-35days-by-number-of-neutrinos",
     "anue-spectra-sysu",  # merge reactor data, each 5 weeks
     "anue-model-edges-140",  # use more optimal antineutrino model segments starting from 140 keV
     "anue-model-edges-180",  # use more optimal antineutrino model segments starting from 180 keV
+    "anue-model-edges-300",  # use more optimal antineutrino model segments starting from 300 keV
 ]
-_future_redundant = ["reactor-35days", "anue-model-edges-140"]
+_future_redundant = ["anue-model-edges-140"]
 _future_included = {}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -61,87 +68,74 @@ class model_dayabay_v0e:
     """The Daya Bay analysis implementation version v0e.
 
     Purpose:
-        - copy of model v0d with removed old options
+        - Copy of model v0d with removed old options.
 
     Updates:
-        - add multiple options for antineutrino model edges
-        - add alternative method to apply antineutrino spectrum corrections
-            + original: apply to the antineutrino spectrum before the integration
-            + new: apply Edep spectrum after the integration
+        - Add multiple options for antineutrino model edges.
+        - Add alternative method to apply antineutrino spectrum corrections.
+            + original: apply to the antineutrino spectrum before the integration.
+            + new: apply Edep spectrum after the integration.
 
     Attributes
     ----------
     storage : NodeStorage
-        nested dictionary with model elements: nodes, parameters, etc.
-
+        Nested dictionary with model elements: nodes, parameters, etc.
     graph : Graph
-        graph instance
-
+        Graph instance.
     index : dict[str, tuple[str, ...]]
-        dictionary with all possible names for replicated items, e.g.
+        Dictionary with all possible names for replicated items, e.g.
         "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
-        index is setup within the model
-
+        index is setup within the model.
     combinations : dict[str, tuple[tuple[str, ...], ...]]
-        lists of all combinations of values of 1 and more indices,
+        Lists of all combinations of values of 1 and more indices,
         e.g. detector, detector/period, reator/isotope, reactor/isotope/period, etc.
-
     spectrum_correction_interpolation_mode : str, default="exponential"
-        mode of how the parameters of the free spectrum model
+        Mode of how the parameters of the free spectrum model
         are treated:
             - "exponential": pᵢ=0 by default, S(Eᵢ) is
               multiplied by exp(pᵢ) the correction is always
-              positive, but nonlinear
+              positive, but nonlinear.
             - "linear": pᵢ=0 by default, S(Eᵢ) is multiplied by
               1+pᵢ the correction may be negative, but is always
-              linear
-
+              linear.
     spectrum_correction_location : str, default="before-integration"
-        place, where the spectrum correction is applied:
+        Place, where the spectrum correction is applied:
             - "before-integration": the antineutrino spectrum of each isotope is
               corrected, domain — neutrino energy.
             - "after-integration": the expected spectrum of each detector during each
               period is corrected (before detector effects), domain: deposited energy
               (Edep). The conversion from Eν to Edep is done approximately by a constant
               shift.
-
     concatenation_mode : str, default="detector_period"
-        choses the observation to be analyzed:
+        Choses the observation to be analyzed:
             - "detector_period" - concatenation of observations at
-              each detector at each period
+              each detector at each period,
             - "detector" - concatenation of observations at each
-              detector (combined for all period)
-
-    monte_carlo_mode : str, default="asimov"
-        the Monte-Carlo mode for pseudo-data:
-            - "asimov" - Asimov, no fluctuations
-            - "normal-stats" - normal fluctuations with statistical
-              errors
-            - "poisson" - Poisson fluctuations
-
+              detector (combined for all period).
+    monte_carlo_mode : str, default="asimov".
+        The Monte-Carlo mode for pseudo-data:
+            - "asimov" - Asimov, no fluctuations,
+            - "normal-stats" - normal fluctuations with statistical,
+              errors,
+            - "poisson" - Poisson fluctuations.
     path_data : Path
-        path to the data
-
+        Path to the data.
     source_type : str, default="npz"
-        type of the data to read ("tsv", "hdf5", "root" or "npz")
+        Type of the data to read ("tsv", "hdf5", "root" or "npz").
 
     Technical attributes
     --------------------
     _strict : bool, default=True
-        strict mode. Stop execution if:
-            - the model is not complete
-            - any labels were not applied
-
+        Strict mode. Stop execution if:
+            - the model is not complete,
+            - any labels were not applied.
     _close : bool, default=True
         if True the graph is closed and memory is allocated
         may be used to debug corrupt model
-
     _random_generator : Generator
         numpy random generator to be used for ToyMC
-
     _covariance_matrix : MetaNode
         covariance matrix, computed on this model
-
     _frozen_nodes : dict[str, tuple]
         storage with nodes, which are being fixed at their values and
         require manual intervention in order to be recalculated
@@ -160,6 +154,7 @@ class model_dayabay_v0e:
         "monte_carlo_mode",
         "_source_type",
         "_dataset",
+        "_binning",
         "_strict",
         "_close",
         "_future",
@@ -180,6 +175,7 @@ class model_dayabay_v0e:
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _dataset: Literal["a", "b"]  # todo: doc
+    _binning: Literal["a", "b", "c"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -192,6 +188,7 @@ class model_dayabay_v0e:
         *,
         source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
         dataset: Literal["a", "b"] = "a",
+        binning: Literal["a", "b", "c"] = "a",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -247,6 +244,7 @@ class model_dayabay_v0e:
         self.path_data = Path("data/dayabay-v0e")
         self._source_type = source_type
         self._dataset = dataset
+        self._binning = binning
         self.spectrum_correction_interpolation_mode = (
             spectrum_correction_interpolation_mode
         )
@@ -310,6 +308,10 @@ class model_dayabay_v0e:
     @property
     def dataset(self) -> Literal["a", "b"]:
         return self._dataset
+
+    @property
+    def nbins(self) -> int:
+        return self.storage["outputs.eventscount.final.concatenated.selected"].data.shape[0]
 
     def build(self, override_indices: dict[str, tuple[str, ...]] = {}):
         """Actually build the model.
@@ -397,6 +399,13 @@ class model_dayabay_v0e:
             logger.warning("Use fine antineutrino spectrum model (180+ keV)")
             antineutrino_model_edges = LoadPy(
                 path_parameters / "reactor_antineutrino_spectrum_edges_fine_180keV.py",
+                variable="edges",
+                type=ndarray,
+            )
+        elif "anue-model-edges-300" in self._future:
+            logger.warning("Use fine antineutrino spectrum model (300+ keV)")
+            antineutrino_model_edges = LoadPy(
+                path_parameters / "reactor_antineutrino_spectrum_edges_300keV.py",
                 variable="edges",
                 type=ndarray,
             )
@@ -910,7 +919,15 @@ class model_dayabay_v0e:
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
             #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
-            in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+            match self._binning:
+                case "a":
+                    in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
+                case "b":
+                    in_edges_final = concatenate(([0.7], arange(1., 7., 0.25), arange(7., 8.1, 0.5), [9.5], [12]))
+                case "c":
+                    in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
+                case _:
+                    raise RuntimeError(f"No binning for option {self._binning}")
             in_edges_costheta = [-1, 1]
 
             # Instantiate the storage nodes for bin edges. In what follows all the
@@ -1848,11 +1865,56 @@ class model_dayabay_v0e:
                 assert (
                     "reactor-35days" not in self._future
                 ), "Mutually exclusive options"
-            elif "reactor-35days" in self._future:
+            elif "reactor-35days-by-number-of-fissions" in self._future:
                 logger.warning("Future: use merged reactor data, period: 35 days")
                 load_record_data(
                     name="daily_data.reactor_all",
-                    filenames=path_arrays / f"reactor_power_35days.{self.source_type}",
+                    filenames=path_arrays / f"reactor_power_35days_by_number_of_fissions.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-35days-by-number-of-neutrinos" in self._future:
+                logger.warning("Future: use merged reactor data, period: 35 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_35days_by_number_of_neutrinos.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-35days-by-power" in self._future:
+                logger.warning("Future: use merged reactor data, period: 35 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_35days_by_power.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-28days-by-number-of-fissions" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-28days-by-number-of-neutrinos" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_28days_by_number_of_neutrinos.{self.source_type}",
+                    replicate_outputs=index["reactor"],
+                    columns=("period", "day", "ndet", "ndays", "power")
+                    + index["isotope_lower"],
+                )
+            elif "reactor-28days-by-power" in self._future:
+                logger.warning("Future: use merged reactor data, period: 28 days")
+                load_record_data(
+                    name="daily_data.reactor_all",
+                    filenames=path_arrays / f"reactor_power_28days_by_power.{self.source_type}",
                     replicate_outputs=index["reactor"],
                     columns=("period", "day", "ndet", "ndays", "power")
                     + index["isotope_lower"],
@@ -2995,6 +3057,25 @@ class model_dayabay_v0e:
                 name="eventscount.fine.bkg",
                 replicate_outputs=combinations["detector.period"],
             )
+
+            Sum.replicate(
+                outputs("bkg.spectrum"),
+                name="eventscount.fine.bkg_by_source",
+                replicate_outputs=combinations["bkg.detector"],
+            )
+
+            Rebin.replicate(
+                names={
+                    "matrix": "detector.rebin.matrix_bkg_by_source",
+                    "product": "eventscount.final.bkg_by_source",
+                },
+                replicate_outputs=combinations["bkg.detector"],
+            )
+            edges_energy_erec >> inputs.get_value("detector.rebin.matrix_bkg_by_source.edges_old")
+            edges_energy_final >> inputs.get_value(
+                "detector.rebin.matrix_bkg_by_source.edges_new"
+            )
+            outputs("eventscount.fine.bkg_by_source") >> inputs("eventscount.final.bkg_by_source")
 
             Sum.replicate(
                 outputs("eventscount.fine.ibd_normalized"),
