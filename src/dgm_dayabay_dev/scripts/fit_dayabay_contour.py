@@ -16,18 +16,17 @@ Example of call
 """
 import itertools
 from argparse import Namespace
+from typing import Any
 
 import numpy as np
-from matplotlib import pyplot as plt
-from numpy.typing import NDArray
-from typing import Any
-from scipy.stats import chi2, norm
-
 from dag_modelling.parameters.gaussian_parameter import Parameter
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_fit.iminuit_minimizer import IMinuitMinimizer
+from matplotlib import pyplot as plt
 from models import available_models, load_model
+from numpy.typing import NDArray
+from scipy.stats import chi2, norm
 from scripts import update_dict_parameters
 
 set_level(INFO1)
@@ -36,7 +35,8 @@ DATA_INDICES = {"model": 0, "loaded": 1}
 
 
 def convert_sigmas_to_chi2(df: int, sigmas: list[float] | NDArray) -> NDArray:
-    """Convert deviation of normal unit distribution N(0, 1) to critical value of chi-squared.
+    """Convert deviation of normal unit distribution N(0, 1) to critical value
+    of chi-squared.
 
     Parameters
     ----------
@@ -61,7 +61,8 @@ def get_profile_of_chi2(
     best_fit_value: float,
     best_fit_fun: float,
 ) -> tuple[NDArray, NDArray]:
-    """Make a profile of the chi-squared map using thee minimum value. Works with 2-dimensional maps.
+    """Make a profile of the chi-squared map using thee minimum value. Works
+    with 2-dimensional maps.
 
     Parameters
     ----------
@@ -133,7 +134,9 @@ def prepare_axes(
     ax.minorticks_on()
 
 
-def cartesian_product(grid_opts: list[tuple[str, float, float, int]]) -> tuple[list[str], list[NDArray], NDArray]:
+def cartesian_product(
+    grid_opts: list[tuple[str, float, float, int]],
+) -> tuple[list[str], list[NDArray], NDArray]:
     """Create cartesian products of several axes.
 
     Parameters
@@ -219,7 +222,9 @@ def main(args: Namespace) -> None:
             minimizer_scan_1d.push_initial_values()
             chi2_map_1d[parameter][idx] = fit["fun"]
 
-    import IPython; IPython.embed()
+    import IPython
+
+    IPython.embed()
 
     fig, axes = plt.subplots(2, 2, gridspec_kw={"width_ratios": [3, 1], "height_ratios": [1, 3]})
     sinSqD13_profile, chi2_profile = get_profile_of_chi2(
@@ -253,9 +258,7 @@ def main(args: Namespace) -> None:
     ndof = len(parameters)
     levels = convert_sigmas_to_chi2(ndof, [0, 1, 2, 3])
     axes[1, 0].grid(linestyle="--")
-    axes[1, 0].tricontourf(
-        xy_grid[:, 0], xy_grid[:, 1], chi2_map - fun, levels=levels, cmap="GnBu"
-    )
+    axes[1, 0].tricontourf(xy_grid[:, 0], xy_grid[:, 1], chi2_map - fun, levels=levels, cmap="GnBu")
     bf_x_error, bf_y_error, *_ = best_fit_errors
     axes[1, 0].errorbar(
         best_fit_x,

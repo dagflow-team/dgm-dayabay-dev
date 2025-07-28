@@ -17,16 +17,15 @@ Example of call
 """
 from argparse import Namespace
 
-from IPython import embed
-from LaTeXDatax import datax as datax_dump
-from yaml import dump as yaml_dump
-
 from dag_modelling.parameters import Parameter
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_fit.iminuit_minimizer import IMinuitMinimizer
+from IPython import embed
+from LaTeXDatax import datax as datax_dump
 from models import available_models, load_model
-from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters, do_fit
+from scripts import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
+from yaml import dump as yaml_dump
 
 set_level(INFO1)
 
@@ -108,8 +107,15 @@ def main(args: Namespace) -> None:
                         fit[f"{key}.{key0}.right"] = val0[1]
                     else:
                         fit[f"{key}.{key0}"] = val0
-        
-        datax_dump(args.output_fit_tex, **{key: val for key, val in fit.items() if not isinstance(val, (list, dict, type(None)))})
+
+        datax_dump(
+            args.output_fit_tex,
+            **{
+                key: val
+                for key, val in fit.items()
+                if not isinstance(val, (list, dict, type(None)))
+            },
+        )
 
 
 if __name__ == "__main__":

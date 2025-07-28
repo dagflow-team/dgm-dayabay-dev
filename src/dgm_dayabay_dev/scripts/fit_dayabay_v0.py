@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 from argparse import Namespace
 
-from matplotlib import pyplot as plt
-from numpy import ndarray
-from yaml import safe_load
-
 from dag_modelling.parameters import Parameter
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from matplotlib import pyplot as plt
 from models.dayabay_v0 import model_dayabay_v0
-from scripts import update_dict_parameters, filter_fit, convert_numpy_to_lists
+from numpy import ndarray
+from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
+from yaml import safe_load
 
 set_level(INFO1)
 
@@ -92,9 +91,8 @@ def main(args: Namespace) -> None:
     parameters = storage["parameters"]
     statistic = storage["outputs.statistic"]
 
-    from yaml import safe_dump
-
     from dgf_fit.iminuit_minimizer import IMinuitMinimizer
+    from yaml import safe_dump
 
     chi2p_stat = statistic["stat.chi2p"]
     chi2p_syst = statistic["full.chi2cnp"]

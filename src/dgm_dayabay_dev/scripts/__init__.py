@@ -1,19 +1,19 @@
 """Common classes and functions for scripts."""
+
+from collections.abc import Generator
 from itertools import product, zip_longest
+from typing import Any
 
 import numpy as np
+from dag_modelling.bundles.load_hist import load_hist
+from dag_modelling.core import NodeStorage
+from dag_modelling.parameters import Parameter
+from dgf_fit.minimizer_base import MinimizerBase
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 from numpy.typing import NDArray
 from yaml import add_representer
 from yaml import safe_load as yaml_load
-from typing import Any
-from collections.abc import Generator
-from dag_modelling.bundles.load_hist import load_hist
-from dag_modelling.core import NodeStorage
-from dag_modelling.parameters import Parameter
-from dgf_fit.minimizer_base import MinimizerBase
-
 
 add_representer(
     np.ndarray,
@@ -24,18 +24,18 @@ add_representer(
 class FFormatter(ticker.ScalarFormatter):
     """FFormatter class for pretty formatting of x-/y-axis tick labels.
 
-        Parameters
-        ----------
-        fformat : str
-            Format of labels.
-        useOffset : bool
-            Use offset value.
-        useMathText : bool
-            Use LaTeX for formatting.
-        *args : list
-            Other arguments to be delivered to parent class.
-        **kwargs : dict
-            Other keyword arguments to be delivered to parent class.
+    Parameters
+    ----------
+    fformat : str
+        Format of labels.
+    useOffset : bool
+        Use offset value.
+    useMathText : bool
+        Use LaTeX for formatting.
+    *args : list
+        Other arguments to be delivered to parent class.
+    **kwargs : dict
+        Other keyword arguments to be delivered to parent class.
     """
 
     def __init__(

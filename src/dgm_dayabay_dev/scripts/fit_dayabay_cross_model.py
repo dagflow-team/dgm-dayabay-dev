@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-r"""Script for fit model to another copy model. Models are loading from .yaml file.
+r"""Script for fit model to another copy model. Models are loading from .yaml
+file.
 
 Examples
 --------
@@ -15,18 +16,17 @@ Example of call:
 from argparse import Namespace
 from typing import Any
 
-from IPython import embed
-from LaTeXDatax import datax as datax_dump
-from matplotlib import pyplot as plt
-from yaml import safe_dump as yaml_dump
-from yaml import safe_load as yaml_load
-
 from dag_modelling.parameters import Parameter
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_fit.iminuit_minimizer import IMinuitMinimizer
+from IPython import embed
+from LaTeXDatax import datax as datax_dump
+from matplotlib import pyplot as plt
 from models import load_model
 from scripts import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
+from yaml import safe_dump as yaml_dump
+from yaml import safe_load as yaml_load
 
 set_level(INFO1)
 
