@@ -360,8 +360,8 @@ class model_dayabay_v0e:
         )
         from dag_modelling.lib.summation import ArraySum, SumMatOrDiag, WeightedSumArgs
         from dag_modelling.tools.schema import LoadPy
-        from dgf_detector import Monotonize
-        from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
+        from dgm_dayabay_dev.nodes.Monotonize import Monotonize
+        from dgm_dayabay_dev.bundles.refine_lsnl_data import refine_lsnl_data
         from dgm_reactor_neutrino import (
             IBDXsecVBO1Group,
             InverseSquareLaw,

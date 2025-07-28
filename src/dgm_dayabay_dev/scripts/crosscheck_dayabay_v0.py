@@ -109,16 +109,16 @@ comparison_objects = {
 
 class Comparator:
     opts: Namespace
-    output_dgf: NestedMapping
+    output_dgm: NestedMapping
 
     _cmpopts: dict[str, Any] = {}
     _maxdiff: float = 0.0
     _maxreldiff: float = 0.0
 
     _skey_gna: str = ""
-    _skey_dgf: str = ""
+    _skey_dgm: str = ""
     _skey2_gna: str = ""
-    _skey2_dgf: str = ""
+    _skey2_dgm: str = ""
 
     _data_g: NDArray
     _data_d: NDArray
@@ -164,14 +164,14 @@ class Comparator:
             opts.verbose = min(opts.verbose, 3)
             set_level(globals()[f"INFO{opts.verbose}"])
 
-        self.outputs_dgf = self.model.storage("outputs")
-        self.parameters_dgf = self.model.storage("parameters.all")
+        self.outputs_dgm = self.model.storage("outputs")
+        self.parameters_dgm = self.model.storage("parameters.all")
 
         with suppress(StopIteration):
             self.compare(
                 self.opts.input["parameters/dayabay"],
                 comparison_parameters,
-                self.parameters_dgf,
+                self.parameters_dgm,
                 self.compare_parameters,
             )
 
@@ -179,7 +179,7 @@ class Comparator:
             self.compare(
                 self.opts.input,
                 comparison_objects,
-                self.outputs_dgf,
+                self.outputs_dgm,
                 self.compare_outputs,
             )
 
@@ -187,27 +187,27 @@ class Comparator:
         self,
         gnasource: File | Group,
         comparison_objects: dict,
-        outputs_dgf: NestedMapping,
+        outputs_dgm: NestedMapping,
         compare: Callable,
     ) -> None:
         if self.opts.last:
             iterable = islice(reversed(comparison_objects.items()), 1)
         else:
             iterable = comparison_objects.items()
-        for self._skey_dgf, cmpopts in iterable:
+        for self._skey_dgm, cmpopts in iterable:
             match cmpopts:
                 case dict():
                     self._skey_gna = cmpopts["gnaname"]
                     self._cmpopts = cmpopts
 
                     if cmpopts.get("skip", False):
-                        logger.log(INFO1, f"Skip {self._skey_dgf}: skip")
+                        logger.log(INFO1, f"Skip {self._skey_dgm}: skip")
                         continue
 
                     if (mode := cmpopts.get("mode", None)) is not None:
                         if mode != self.opts.mode:
                             logger.log(
-                                INFO1, f"Skip {self._skey_dgf}: not in {mode} mode"
+                                INFO1, f"Skip {self._skey_dgm}: not in {mode} mode"
                             )
                             continue
                 case str():
@@ -223,9 +223,9 @@ class Comparator:
                 case list() | tuple():
                     keys_gna = self._skey_gna
                     for self._skey_gna in keys_gna:
-                        self.compare_source(gnasource, compare, outputs_dgf)
+                        self.compare_source(gnasource, compare, outputs_dgm)
                 case str():
-                    self.compare_source(gnasource, compare, outputs_dgf)
+                    self.compare_source(gnasource, compare, outputs_dgm)
                 case _:
                     raise RuntimeError()
 
@@ -234,7 +234,7 @@ class Comparator:
         )
 
     def compare_source(
-        self, gnasource: File | Group, compare: Callable, outputs_dgf: NestedMapping
+        self, gnasource: File | Group, compare: Callable, outputs_dgm: NestedMapping
     ) -> None:
         from dag_modelling.parameters import Parameter
 
@@ -244,25 +244,25 @@ class Comparator:
             data_storage_gna = gnasource[path_gna]
         except KeyError:
             raise RuntimeError(f"GNA object {path_gna} not found")
-        data_storage_dgf = outputs_dgf.get_any(self._skey_dgf)
+        data_storage_dgm = outputs_dgm.get_any(self._skey_dgm)
 
-        match data_storage_dgf, data_storage_gna:
+        match data_storage_dgm, data_storage_gna:
             case Output(), Dataset():
                 self.data_g = data_storage_gna[:]
-                self.data_d = data_storage_dgf.data
-                self._skey2_dgf = ""
+                self.data_d = data_storage_dgm.data
+                self._skey2_dgm = ""
                 self._skey2_gna = ""
                 compare()
             case Parameter(), Dataset():
                 self.data_g = data_storage_gna[:]
-                self.data_d = data_storage_dgf.to_dict()
+                self.data_d = data_storage_dgm.to_dict()
                 if self._data_g.dtype.names:
                     self.data_g = array([self._data_g[0]["value"]], dtype="d")
-                self._skey2_dgf = ""
+                self._skey2_dgm = ""
                 self._skey2_gna = ""
                 compare()
             case NestedMapping(), Group():
-                self.compare_nested(data_storage_gna, data_storage_dgf, compare)
+                self.compare_nested(data_storage_gna, data_storage_dgm, compare)
             case _:
                 raise RuntimeError("Unexpected data types")
 
@@ -362,19 +362,19 @@ class Comparator:
         ax.grid()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="", title=f"dgm {self.key_dgf}")
+        ax = plt.subplot(111, xlabel="", ylabel="", title=f"dgm {self.key_dgm}")
         cmappable = ax.matshow(data_d)
         add_colorbar(cmappable)
         ax.grid()
 
         # plt.figure()
-        # ax = plt.subplot(111, xlabel="", ylabel="", title=f"both {self.key_dgf}")
+        # ax = plt.subplot(111, xlabel="", ylabel="", title=f"both {self.key_dgm}")
         # ax.matshow(data_g, alpha=0.6, cmap="viridis")
         # ax.matshow(data_d, alpha=0.6, cmap="inferno")
         # ax.grid()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="", title=f"diff {self.key_dgf}")
+        ax = plt.subplot(111, xlabel="", ylabel="", title=f"diff {self.key_dgm}")
         cmappable = ax.matshow(data_d - data_g, alpha=0.6)
         add_colorbar(cmappable)
         ax.grid()
@@ -389,7 +389,7 @@ class Comparator:
         pargs = {"markerfacecolor": "none", "alpha": 0.4}
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
+        ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgm)
         ax.plot(self._data_g, f"{mstyle}--", label="GNA", **pargs)
         ax.plot(self._data_d, f"{mstyle}-", label="dgm", **pargs)
         scale_factor = self._data_g.sum() / self._data_d.sum()
@@ -403,7 +403,7 @@ class Comparator:
         ax.grid()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="dgm/GNA-1", title=self.key_dgf)
+        ax = plt.subplot(111, xlabel="", ylabel="dgm/GNA-1", title=self.key_dgm)
         with suppress(ValueError):
             ax.plot(
                 self._data_d / self._data_g - 1, f"{mstyle}-", label="dgm/GNA-1", **pargs
@@ -412,7 +412,7 @@ class Comparator:
         ax.legend()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="dgm-GNA", title=self.key_dgf)
+        ax = plt.subplot(111, xlabel="", ylabel="dgm-GNA", title=self.key_dgm)
         with suppress(ValueError):
             ax.plot(self._data_d - self._data_g, f"{mstyle}-", label="dgm-GNA", **pargs)
         ax.grid()
@@ -421,8 +421,8 @@ class Comparator:
         plt.show()
 
     @property
-    def key_dgf(self) -> str:
-        return f"{self._skey_dgf}{self._skey2_dgf}"
+    def key_dgm(self) -> str:
+        return f"{self._skey_dgm}{self._skey2_dgm}"
 
     @property
     def key_gna(self) -> str:
@@ -430,7 +430,7 @@ class Comparator:
 
     @property
     def cmpstring(self) -> str:
-        return f"dgm:{self._skey_dgf}{self._skey2_dgf} ↔ gna:{self._skey_gna}{self._skey2_gna}"
+        return f"dgm:{self._skey_dgm}{self._skey2_dgm} ↔ gna:{self._skey_gna}{self._skey2_gna}"
 
     @property
     def tolstring(self) -> str:
@@ -454,14 +454,14 @@ class Comparator:
         return f"dgm: {self._data_d.shape}, gna: {self._data_g.shape}"
 
     def compare_nested(
-        self, storage_gna: Group, storage_dgf: NestedMapping, compare: Callable
+        self, storage_gna: Group, storage_dgm: NestedMapping, compare: Callable
     ):
-        for key_d, output_dgf in storage_dgf.walkitems():
+        for key_d, output_dgm in storage_dgm.walkitems():
             try:
-                self.data_d = output_dgf.data
+                self.data_d = output_dgm.data
             except AttributeError:
-                self.data_d = output_dgf.to_dict()
-            self._skey2_dgf = ".".join(("",) + key_d)
+                self.data_d = output_dgm.to_dict()
+            self._skey2_dgm = ".".join(("",) + key_d)
 
             for key_g in permutations(key_d):
                 path_g = "/".join(key_g)
@@ -480,7 +480,7 @@ class Comparator:
                 break
             else:
                 raise RuntimeError(
-                    f"Was not able to find a match for {self._skey2_dgf}"
+                    f"Was not able to find a match for {self._skey2_dgm}"
                 )
 
     @property
@@ -491,9 +491,9 @@ class Comparator:
     def rtol(self) -> float:
         return float(self._cmpopts.get("rtol", 0.0))
 
-    def data_consistent(self, gna: NDArray, dgf: NDArray) -> bool:
+    def data_consistent(self, gna: NDArray, dgm: NDArray) -> bool:
         try:
-            status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
+            status = allclose(dgm, gna, rtol=self.rtol, atol=self.atol)
         except ValueError:
             self._maxdiff = -1
             self._maxreldiff = -1
@@ -501,7 +501,7 @@ class Comparator:
             self._n_fail += 1
             return False
 
-        fdiff = fabs(dgf - gna)
+        fdiff = fabs(dgm - gna)
         self._maxdiff = float(fdiff.max())
         self._maxreldiff = float(nanmax(fdiff / gna))
 

@@ -1188,7 +1188,7 @@ class model_dayabay_v0b:
             if "lsnl-curves" in self._future:
                 # Refine LSNL curves: interpolate with smaller step
                 logger.warning("Future: Pre-interpolate LSNL curves")
-                from dgf_detector.bundles.refine_lsnl_data import \
+                from dgm_dayabay_dev.bundles.refine_lsnl_data import \
                     refine_lsnl_data
                 refine_lsnl_data(
                     storage("data.detector.lsnl.curves"),
@@ -1200,7 +1200,7 @@ class model_dayabay_v0b:
                 )
             else:
                 # Coarse LSNL model, consistent with GNA implementation
-                from dgf_detector.bundles.cross_check_refine_lsnl_data import \
+                from dgm_dayabay_dev.bundles.cross_check_refine_lsnl_data import \
                     cross_check_refine_lsnl_data
                 cross_check_refine_lsnl_data(
                     storage("data.detector.lsnl.curves"),
@@ -1237,7 +1237,7 @@ class model_dayabay_v0b:
             # - Required by matrix calculation algorithm
             # - Introduced to achieve stable minimization
             # - Non-monotonous behavior happens for extreme systematic values and is not expected to affect the analysis
-            from dgf_detector import Monotonize
+            from dgm_dayabay_dev.nodes.Monotonize import Monotonize
             Monotonize.replicate(
                     name="detector.lsnl.curves.evis_coarse_monotonous",
                     index_fraction = 0.5,
@@ -1327,7 +1327,7 @@ class model_dayabay_v0b:
                     replicate_outputs = index["detector"]
                 )
 
-                from dgf_detector.AxisDistortionMatrixLinearLegacy import \
+                from dgm_dayabay_dev.nodes.AxisDistortionMatrixLinearLegacy import \
                     AxisDistortionMatrixLinearLegacy
                 AxisDistortionMatrixLinearLegacy.replicate(
                     name="detector.lsnl.matrix",

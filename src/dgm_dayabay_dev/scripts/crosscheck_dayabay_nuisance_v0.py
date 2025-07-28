@@ -87,10 +87,10 @@ comparison = {
 class NuisanceComparator:
     __slots__ = (
         "model",
-        "parameters_dgf",
+        "parameters_dgm",
         "opts",
-        "outputs_dgf",
-        "outputs_dgf_default",
+        "outputs_dgm",
+        "outputs_dgm_default",
         "outputs_gna_default",
         "cmpopts",
         #
@@ -104,15 +104,15 @@ class NuisanceComparator:
         #
         "index",
         "skey_gna",
-        "skey_dgf",
+        "skey_dgm",
         "skey2_gna",
-        "skey2_dgf",
+        "skey2_dgm",
         "skey_par_gna",
-        "skey_par_dgf",
+        "skey_par_dgm",
         "skey2_par_gna",
-        "skey2_par_dgf",
+        "skey2_par_dgm",
         "data_gna",
-        "data_dgf",
+        "data_dgm",
         "diff",
         "n_success",
         "n_fail",
@@ -121,8 +121,8 @@ class NuisanceComparator:
         "n_hists",
     )
     opts: Namespace
-    outputs_dgf: NestedMapping
-    outputs_dgf_default: NestedMapping
+    outputs_dgm: NestedMapping
+    outputs_dgm_default: NestedMapping
     outputs_gna_default: NestedMapping
 
     cmpopts: dict[str, Any]
@@ -138,17 +138,17 @@ class NuisanceComparator:
     index: tuple[str, ...]
 
     skey_gna: str
-    skey_dgf: str
+    skey_dgm: str
     skey2_gna: str
-    skey2_dgf: str
+    skey2_dgm: str
 
     skey_par_gna: str
-    skey_par_dgf: str
+    skey_par_dgm: str
     skey2_par_gna: str
-    skey2_par_dgf: str
+    skey2_par_dgm: str
 
     data_gna: NDArray
-    data_dgf: NDArray
+    data_dgm: NDArray
     diff: NDArray | Literal[False]
 
     n_success: int
@@ -167,14 +167,14 @@ class NuisanceComparator:
         self.index = ()
 
         self.skey_gna = ""
-        self.skey_dgf = ""
+        self.skey_dgm = ""
         self.skey2_gna = ""
-        self.skey2_dgf = ""
+        self.skey2_dgm = ""
 
         self.skey_par_gna = ""
-        self.skey_par_dgf = ""
+        self.skey_par_dgm = ""
         self.skey2_par_gna = ""
-        self.skey2_par_dgf = ""
+        self.skey2_par_dgm = ""
 
         self.n_success = 0
         self.n_fail = 0
@@ -187,7 +187,7 @@ class NuisanceComparator:
         self.value_left = "default"
         self.value_right = "default"
 
-        self.outputs_dgf_default = NestedMapping(sep=".")
+        self.outputs_dgm_default = NestedMapping(sep=".")
         self.outputs_gna_default = NestedMapping(sep=".")
 
         self.model = model_dayabay_v0(source_type=opts.source_type)
@@ -198,9 +198,9 @@ class NuisanceComparator:
             set_level(globals()[f"INFO{opts.verbose}"])
 
         self.skey_gna = "fine"
-        self.skey_dgf = opts.object
-        self.outputs_dgf = self.model.storage(f"outputs.{self.skey_dgf}")
-        self.parameters_dgf = self.model.storage("parameters")
+        self.skey_dgm = opts.object
+        self.outputs_dgm = self.model.storage(f"outputs.{self.skey_dgm}")
+        self.parameters_dgm = self.model.storage("parameters")
 
         with suppress(StopIteration):
             self.process()
@@ -253,7 +253,7 @@ class NuisanceComparator:
             )
             _, normvalue_left, normvalue_right = results["normvalues"]
 
-            parsloc = self.parameters_dgf.get_any(self.cmpopts["location"])
+            parsloc = self.parameters_dgm.get_any(self.cmpopts["location"])
             keys_mapping = self.cmpopts.get("keys_mapping", lambda s: s)
             if isinstance(keys_mapping, dict):
                 keys_fcn = lambda s: keys_mapping.get(s, s)
@@ -270,7 +270,7 @@ class NuisanceComparator:
 
             if par.value != self.value_central:
                 logger.error(
-                    f"Parameters not consistent: dgf={par.value} gna={self.value_central}"
+                    f"Parameters not consistent: dgm={par.value} gna={self.value_central}"
                 )
                 continue
 
@@ -279,8 +279,8 @@ class NuisanceComparator:
 
             self.skey_par_gna = parname
             self.skey2_par_gna = ".".join(("",) + index)
-            self.skey_par_dgf = self.cmpopts["location"]
-            self.skey2_par_dgf = ""
+            self.skey_par_dgm = self.cmpopts["location"]
+            self.skey2_par_dgm = ""
 
             par.push()
 
@@ -303,7 +303,7 @@ class NuisanceComparator:
     ):
         default = self.opts.input["default"]
         self.skey_par_gna = "default"
-        self.skey_par_dgf = label
+        self.skey_par_dgm = label
         self.cmpopts = comparison["default"]
         if self.compare_hists(default, save=save, check_change=check_change):
             logger.log(INFO2, f"OK: default {self.cmpstring_par}")
@@ -326,7 +326,7 @@ class NuisanceComparator:
         is_ok = True
 
         change2_gna = 0.0
-        change2_dgf = 0.0
+        change2_dgm = 0.0
         for ad, addir in results.items():
             for period, data in addir.items():
                 if (
@@ -338,17 +338,17 @@ class NuisanceComparator:
                     continue
                 self.skey2_gna = f".{ad}.{period}"
                 self.index = (ad, period)
-                dgf = self.outputs_dgf[ad, period]
+                dgm = self.outputs_dgm[ad, period]
 
-                self.data_dgf = dgf.data
+                self.data_dgm = dgm.data
                 self.data_gna = data[:]
 
                 if save:
-                    self.outputs_dgf_default[ad, period] = self.data_dgf.copy()
+                    self.outputs_dgm_default[ad, period] = self.data_dgm.copy()
                     self.outputs_gna_default[ad, period] = self.data_gna.copy()
                 else:
-                    change2_dgf += (
-                        (self.data_dgf - self.outputs_dgf_default[ad, period]) ** 2
+                    change2_dgm += (
+                        (self.data_dgm - self.outputs_dgm_default[ad, period]) ** 2
                     ).sum()
                     change2_gna += (
                         (self.data_gna - self.outputs_gna_default[ad, period]) ** 2
@@ -357,15 +357,15 @@ class NuisanceComparator:
                 is_ok &= self.compare_data()
 
         if check_change:
-            if change2_dgf == 0.0 or change2_gna == 0.0:
+            if change2_dgm == 0.0 or change2_gna == 0.0:
                 logger.error(
-                    f"FAIL: data unchanged dgf²={change2_dgf} gna²={change2_gna}"
+                    f"FAIL: data unchanged dgm²={change2_dgm} gna²={change2_gna}"
                 )
                 return False
         return is_ok
 
     def compare_data(self) -> bool:
-        is_ok = self.data_consistent(self.data_gna, self.data_dgf)
+        is_ok = self.data_consistent(self.data_gna, self.data_dgm)
         if is_ok:
             logger.log(INFO2, f"OK: {self.cmpstring}")
             # logger.log(INFO2, f"    {self.tolstring}")
@@ -389,7 +389,7 @@ class NuisanceComparator:
 
         if self.opts.embed_on_failure:
             try:
-                self.diff = self.data_dgf - self.data_gna
+                self.diff = self.data_dgm - self.data_gna
             except:
                 self.diff = False
 
@@ -420,10 +420,10 @@ class NuisanceComparator:
         )
         plt.subplots_adjust(**subplots_opts)
         ax.plot(self.data_gna, style, label="GNA", **pargs)
-        ax.plot(self.data_dgf, style, label="dgm", **pargs)
-        # scale_factor = self.data_gna.sum() / self.data_dgf.sum()
+        ax.plot(self.data_dgm, style, label="dgm", **pargs)
+        # scale_factor = self.data_gna.sum() / self.data_dgm.sum()
         # ax.plot(
-        #     self.data_dgf * scale_factor,
+        #     self.data_dgm * scale_factor,
         #     f"{style}-",
         #     label="dgm scaled",
         #     **pargs,
@@ -440,7 +440,7 @@ class NuisanceComparator:
         )
         plt.subplots_adjust(**subplots_opts)
         with suppress(ValueError):
-            ax.plot(self.data_dgf / self.data_gna - 1, style, label="dgf/GNA", **pargs)
+            ax.plot(self.data_dgm / self.data_gna - 1, style, label="dgm/GNA", **pargs)
 
         ax.legend()
         ax.grid()
@@ -454,7 +454,7 @@ class NuisanceComparator:
         )
         plt.subplots_adjust(**subplots_opts)
         with suppress(ValueError):
-            ax.plot(self.data_dgf - self.data_gna, style, label="dgf-GNA", **pargs)
+            ax.plot(self.data_dgm - self.data_gna, style, label="dgm-GNA", **pargs)
 
         ax.legend()
         ax.grid()
@@ -468,12 +468,12 @@ class NuisanceComparator:
         )
         plt.subplots_adjust(**subplots_opts)
         with suppress(ValueError):
-            ax.plot(self.data_dgf / self.data_gna - 1, style, label="dgf/GNA", **pargs)
+            ax.plot(self.data_dgm / self.data_gna - 1, style, label="dgm/GNA", **pargs)
 
-        dgf_reference = self.outputs_dgf_default[self.index]
+        dgm_reference = self.outputs_dgm_default[self.index]
         with suppress(ValueError):
             ax.plot(
-                self.data_dgf / dgf_reference - 1, style, label="dgf/default", **pargs
+                self.data_dgm / dgm_reference - 1, style, label="dgm/default", **pargs
             )
 
         gna_reference = self.outputs_gna_default[self.index]
@@ -487,8 +487,8 @@ class NuisanceComparator:
         plt.show()
 
     @property
-    def key_dgf(self) -> str:
-        return f"{self.skey_dgf}{self.skey2_dgf}"
+    def key_dgm(self) -> str:
+        return f"{self.skey_dgm}{self.skey2_dgm}"
 
     @property
     def key_gna(self) -> str:
@@ -496,11 +496,11 @@ class NuisanceComparator:
 
     @property
     def cmpstring(self) -> str:
-        return f"dgm: {self.skey_dgf}{self.skey2_dgf} ↔ gna:{self.skey_gna}{self.skey2_gna}"
+        return f"dgm: {self.skey_dgm}{self.skey2_dgm} ↔ gna:{self.skey_gna}{self.skey2_gna}"
 
     @property
     def cmpstring_par(self) -> str:
-        return f"dgm: {self.skey_par_dgf}{self.skey2_par_dgf} ↔ gna:{self.skey_par_gna}{self.skey2_par_gna}"
+        return f"dgm: {self.skey_par_dgm}{self.skey2_par_dgm} ↔ gna:{self.skey_par_gna}{self.skey2_par_gna}"
 
     @property
     def valuestring(self) -> str:
@@ -516,7 +516,7 @@ class NuisanceComparator:
 
     @property
     def shapestrings(self) -> str:
-        return f"dgm: {self.data_dgf.shape}, gna: {self.data_gna.shape}"
+        return f"dgm: {self.data_dgm.shape}, gna: {self.data_gna.shape}"
 
     @property
     def atol(self) -> float:
@@ -526,10 +526,10 @@ class NuisanceComparator:
     def rtol(self) -> float:
         return float(self.cmpopts.get("rtol", 0.0))
 
-    def data_consistent(self, gna: NDArray, dgf: NDArray) -> bool:
+    def data_consistent(self, gna: NDArray, dgm: NDArray) -> bool:
         self.n_hists += 1
         try:
-            status = allclose(dgf, gna, rtol=self.rtol, atol=self.atol)
+            status = allclose(dgm, gna, rtol=self.rtol, atol=self.atol)
         except ValueError:
             self.maxdiff = -1
             self.maxreldiff = -1
@@ -537,7 +537,7 @@ class NuisanceComparator:
             self.n_fail += 1
             return False
 
-        fdiff = fabs(dgf - gna)
+        fdiff = fabs(dgm - gna)
         self.maxdiff = float(fdiff.max())
         self.maxreldiff = float(nanmax(fdiff / gna))
 
