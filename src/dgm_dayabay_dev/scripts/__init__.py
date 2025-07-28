@@ -12,7 +12,7 @@ from collections.abc import Generator
 from dag_modelling.bundles.load_hist import load_hist
 from dag_modelling.core import NodeStorage
 from dag_modelling.parameters import Parameter
-from dgf_statistics.minimizer.minimizer_base import MinimizerBase
+from dgf_fit.minimizer_base import MinimizerBase
 
 
 add_representer(
