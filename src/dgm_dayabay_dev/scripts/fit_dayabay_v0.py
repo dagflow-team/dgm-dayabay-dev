@@ -5,54 +5,54 @@ from matplotlib import pyplot as plt
 from numpy import ndarray
 from yaml import safe_load
 
-from dagflow.parameters import Parameter
-from dagflow.tools.logger import DEBUG as INFO4
-from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.parameters import Parameter
+from dag_modelling.tools.logger import DEBUG as INFO4
+from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from models.dayabay_v0 import model_dayabay_v0
 from scripts import update_dict_parameters, filter_fit, convert_numpy_to_lists
 
 set_level(INFO1)
 
 
-dagflow_parameters_to_gna = {
+dgm_parameters_to_gna = {
     "detector.global_normalization": "dayabay.global_norm",
     "oscprob.DeltaMSq32": "dayabay.pmns.DeltaMSq23",
     "oscprob.SinSq2Theta13": "dayabay.pmns.SinSqDouble13",
 }
 
-gna_parameters_to_dagflow = {
+gna_parameters_to_dgm = {
     "dayabay.global_norm": "detector.global_normalization",
     "dayabay.pmns.DeltaMSq23": "oscprob.DeltaMSq32",
     "dayabay.pmns.SinSqDouble13": "oscprob.SinSq2Theta13",
 }
 
 
-def _compare_parameters(gna_pars: list, dagflow_pars: list) -> bool:
-    dagflow_transformed = sorted([dagflow_parameters_to_gna[name] for name in dagflow_pars])
+def _compare_parameters(gna_pars: list, dgm_pars: list) -> bool:
+    dgm_transformed = sorted([dgm_parameters_to_gna[name] for name in dgm_pars])
     gna_transformed = sorted(gna_pars)
-    return gna_transformed == dagflow_transformed
+    return gna_transformed == dgm_transformed
 
 
-def compare_gna(dagflow_fit: dict, gna_fit_filename: str) -> None:
+def compare_gna(dgm_fit: dict, gna_fit_filename: str) -> None:
     with open(gna_fit_filename, "r") as f:
         gna_fits = safe_load(f)["fitresult"]
     for gna_fit in gna_fits.values():
-        if _compare_parameters(gna_fit["names"], dagflow_fit["names"]):
+        if _compare_parameters(gna_fit["names"], dgm_fit["names"]):
             print(
-                f"ChiSquared:     {gna_fit['fun']:+1.3e}  {dagflow_fit['fun']:+1.3e}      {(gna_fit['fun'] - dagflow_fit['fun']) / gna_fit['fun']:+1.3e}"
+                f"ChiSquared:     {gna_fit['fun']:+1.3e}  {dgm_fit['fun']:+1.3e}      {(gna_fit['fun'] - dgm_fit['fun']) / gna_fit['fun']:+1.3e}"
             )
             for gna_par_name in gna_fit["names"]:
-                dagflow_par_name = gna_parameters_to_dagflow[gna_par_name]
+                dgm_par_name = gna_parameters_to_dgm[gna_par_name]
                 gna_par_value = gna_fit["xdict"][gna_par_name]
                 gna_par_error = gna_fit["errorsdict"][gna_par_name]
-                dagflow_par_value = dagflow_fit["xdict"][dagflow_par_name]
-                dagflow_par_error = dagflow_fit["errorsdict"][dagflow_par_name]
+                dgm_par_value = dgm_fit["xdict"][dgm_par_name]
+                dgm_par_error = dgm_fit["errorsdict"][dgm_par_name]
                 print(gna_par_name)
                 print(
-                    f"Central:        {gna_par_value:+1.3e}  {dagflow_par_value:+1.3e}      {(gna_par_value - dagflow_par_value) / gna_par_value:+1.3e}"
+                    f"Central:        {gna_par_value:+1.3e}  {dgm_par_value:+1.3e}      {(gna_par_value - dgm_par_value) / gna_par_value:+1.3e}"
                 )
                 print(
-                    f"Error:          {gna_par_error:+1.3e}  {dagflow_par_error:+1.3e}      {(gna_par_error - dagflow_par_error) / gna_par_error:+1.3e}"
+                    f"Error:          {gna_par_error:+1.3e}  {dgm_par_error:+1.3e}      {(gna_par_error - dgm_par_error) / gna_par_error:+1.3e}"
                 )
                 fig, axs = plt.subplots(1, 1)
                 axs.errorbar(
@@ -64,19 +64,19 @@ def compare_gna(dagflow_fit: dict, gna_fit_filename: str) -> None:
                     label="GNA",
                 )
                 axs.errorbar(
-                    x=[dagflow_par_value],
+                    x=[dgm_par_value],
                     y=[1],
-                    xerr=[dagflow_par_error],
+                    xerr=[dgm_par_error],
                     fmt="X",
                     markerfacecolor="none",
                     label="dag-flow",
                 )
                 axs.set_xlabel("value")
-                axs.set_title(dagflow_par_name)
+                axs.set_title(dgm_par_name)
                 axs.legend()
                 axs.set_ylim(-1, 2)
                 plt.tight_layout()
-                plt.savefig(f"output/comparison/{dagflow_par_name}.png")
+                plt.savefig(f"output/comparison/{dgm_par_name}.png")
 
 
 def main(args: Namespace) -> None:
@@ -108,13 +108,13 @@ def main(args: Namespace) -> None:
 
         chi2 = chi2p_stat if args.full_fit == "stat" else chi2p_syst
         minimizer = IMinuitMinimizer(chi2, parameters=minimization_pars)
-        dagflow_fit = minimizer.fit()
-        print(dagflow_fit)
+        dgm_fit = minimizer.fit()
+        print(dgm_fit)
         if args.full_fit_output:
-            filter_fit(dagflow_fit, ["summary"])
-            convert_numpy_to_lists(dagflow_fit)
+            filter_fit(dgm_fit, ["summary"])
+            convert_numpy_to_lists(dgm_fit)
             with open(f"{args.full_fit_output}-{args.full_fit}.yaml", "w") as f:
-                safe_dump(dagflow_fit, f)
+                safe_dump(dgm_fit, f)
 
     minimizer_stat = IMinuitMinimizer(chi2p_stat, parameters=minimization_pars)
     minimizer_syst = IMinuitMinimizer(chi2p_syst, parameters=minimization_pars)
@@ -125,16 +125,16 @@ def main(args: Namespace) -> None:
             model.set_parameters({par_name: par_value})
             model.next_sample()
             model.set_parameters({par_name: par_value_init})
-            dagflow_fit = minimizer.fit()
+            dgm_fit = minimizer.fit()
             print(f"Fit {stat_type}:{'GNA':>17}{'dag-flow':>12}  relative-error")
-            compare_gna(dagflow_fit, filename)
+            compare_gna(dgm_fit, filename)
             minimizer.push_initial_values()
             if args.fit_output:
-                filter_fit(dagflow_fit, ["summary"])
-                convert_numpy_to_lists(dagflow_fit)
-                dagflow_fit = dict(**dagflow_fit)
+                filter_fit(dgm_fit, ["summary"])
+                convert_numpy_to_lists(dgm_fit)
+                dgm_fit = dict(**dgm_fit)
                 with open(f"{args.fit_output}-{stat_type}.yaml", "w") as f:
-                    safe_dump(dagflow_fit, f)
+                    safe_dump(dgm_fit, f)
 
     if args.profile_par:
         profile_parameter_str, l_edge, r_edge, n_points = args.profile_par

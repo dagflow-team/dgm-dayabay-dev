@@ -6,8 +6,8 @@ from argparse import Namespace
 
 from h5py import File
 
-from dagflow.lib.calculus.jacobian import compute_covariance_matrix
-from dagflow.tools.logger import INFO1, INFO2, INFO3, logger, set_level
+from dag_modelling.lib.calculus.jacobian import compute_covariance_matrix
+from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
 from models import available_models, load_model
 from multikeydict.nestedmkdict import walkvalues
 

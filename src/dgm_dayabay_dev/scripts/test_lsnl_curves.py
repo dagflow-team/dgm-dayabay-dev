@@ -9,8 +9,8 @@ from matplotlib import pyplot as plt
 from numpy import fabs, full_like, linspace, ma
 from numpy.typing import NDArray
 
-from dagflow.tools.logger import DEBUG as INFO4
-from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.logger import DEBUG as INFO4
+from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
 
 if TYPE_CHECKING:

@@ -7,21 +7,20 @@ from os.path import relpath
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, get_args
 
+from dag_modelling.bundles.file_reader import FileReader
+from dag_modelling.bundles.load_array import load_array
+from dag_modelling.bundles.load_graph import load_graph, load_graph_data
+from dag_modelling.bundles.load_parameters import load_parameters
+from dag_modelling.core import Graph, NodeStorage
+from dag_modelling.tools.logger import logger
+from dag_modelling.tools.schema import LoadYaml
+from multikeydict.nestedmkdict import NestedMKDict
 from numpy import ndarray
 from numpy.random import Generator
 from pandas import DataFrame
 
-from dagflow.bundles.file_reader import FileReader
-from dagflow.bundles.load_array import load_array
-from dagflow.bundles.load_graph import load_graph, load_graph_data
-from dagflow.bundles.load_parameters import load_parameters
-from dagflow.core import Graph, NodeStorage
-from dagflow.tools.logger import logger
-from dagflow.tools.schema import LoadYaml
-from multikeydict.nestedmkdict import NestedMKDict
-
 if TYPE_CHECKING:
-    from dagflow.core.meta_node import MetaNode
+    from dag_modelling.core.meta_node import MetaNode
 
 FutureType = Literal[
     "all",  # enable all the options
@@ -254,39 +253,35 @@ class model_dayabay_v0d:
         #
         # Import necessary nodes and loaders
         #
-        from numpy import arange, concatenate, linspace, ones
-
-        from dagflow.bundles.load_hist import load_hist
-        from dagflow.bundles.load_record import load_record_data
-        from dagflow.bundles.make_y_parameters_for_x import make_y_parameters_for_x
-        from dagflow.lib.arithmetic import Division, Product, ProductShiftedScaled, Sum
-        from dagflow.lib.common import Array, Concatenation, Proxy, View
-        from dagflow.lib.exponential import Exp
-        from dagflow.lib.integration import Integrator
-        from dagflow.lib.interpolation import Interpolator
-        from dagflow.lib.linalg import Cholesky, VectorMatrixProduct
-        from dagflow.lib.normalization import RenormalizeDiag
-        from dagflow.lib.parameters import ParArrayInput
-        from dagflow.lib.statistics import CovarianceMatrixGroup, LogProdDiag
-        from dagflow.lib.summation import ArraySum, SumMatOrDiag
-        from dagflow.tools.schema import LoadPy
-        from dgf_detector import (
-            AxisDistortionMatrix,
-            EnergyResolution,
-            Monotonize,
-            Rebin,
-        )
+        from dag_modelling.bundles.load_hist import load_hist
+        from dag_modelling.bundles.load_record import load_record_data
+        from dag_modelling.bundles.make_y_parameters_for_x import make_y_parameters_for_x
+        from dag_modelling.lib.arithmetic import Division, Product, ProductShiftedScaled, Sum
+        from dag_modelling.lib.common import Array, Concatenation, Proxy, View
+        from dag_modelling.lib.exponential import Exp
+        from dag_modelling.lib.hist import AxisDistortionMatrix, Rebin
+        from dag_modelling.lib.integration import Integrator
+        from dag_modelling.lib.interpolation import Interpolator
+        from dag_modelling.lib.linalg import Cholesky, VectorMatrixProduct
+        from dag_modelling.lib.normalization import RenormalizeDiag
+        from dag_modelling.lib.parameters import ParArrayInput
+        from dag_modelling.lib.physics import EnergyResolution
+        from dag_modelling.lib.statistics import CovarianceMatrixGroup, LogProdDiag
+        from dag_modelling.lib.summation import ArraySum, SumMatOrDiag
+        from dag_modelling.tools.schema import LoadPy
+        from dgf_detector import Monotonize
         from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
-        from dgf_reactoranueosc import (
+        from dgf_statistics import Chi2, CNPStat, MonteCarlo
+        from dgm_reactor_neutrino import (
             IBDXsecVBO1Group,
             InverseSquareLaw,
             NueSurvivalProbability,
         )
-        from dgf_statistics import Chi2, CNPStat, MonteCarlo
         from models.bundles.refine_detector_data import refine_detector_data
         from models.bundles.refine_reactor_data import refine_reactor_data
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from multikeydict.tools import remap_items
+        from numpy import arange, concatenate, linspace, ones
 
         # Initialize the storage and paths
         storage = self.storage
@@ -298,7 +293,9 @@ class model_dayabay_v0d:
         # Provide variable for chosen dataset
         dataset = "asimov"
         if "dataset-a" in self._future or "dataset-b" in self._future:
-            dataset = next(iter({"asimov", "dataset-a", "dataset-b"}.intersection(set(self._future)))).replace("-", "_")
+            dataset = next(
+                iter({"asimov", "dataset-a", "dataset-b"}.intersection(set(self._future)))
+            ).replace("-", "_")
         if dataset.endswith("a") or dataset.endswith("b"):
             dataset_path = "dayabay_" + dataset
             dataset_label = dataset[-1].upper()
@@ -380,9 +377,7 @@ class model_dayabay_v0d:
             "lsnl_nuisance": ("pull0", "pull1", "pull2", "pull3"),
             # Free antineutrino spectrum parameter names: one parameter for each edge
             # from `antineutrino_model_edges`
-            "spec": tuple(
-                f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))
-            ),
+            "spec": tuple(f"spec_scale_{i:02d}" for i in range(len(antineutrino_model_edges))),
         }
 
         if dataset == "dataset_a":
@@ -398,9 +393,7 @@ class model_dayabay_v0d:
         index.update(override_indices)
 
         # Check there are now overlaps
-        index_all = (
-            index["isotope"] + index["detector"] + index["reactor"] + index["period"]
-        )
+        index_all = index["isotope"] + index["detector"] + index["reactor"] + index["period"]
         set_all = set(index_all)
         if len(index_all) != len(set_all):
             raise RuntimeError("Repeated indices")
@@ -457,13 +450,8 @@ class model_dayabay_v0d:
         # nu_neq is related to only a fraction of isotops, while nu_snf does not index
         # isotopes at all
         combinations["anue_source.reactor.isotope.detector"] = (
-            tuple(
-                ("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"]
-            )
-            + tuple(
-                ("nu_neq",) + cmb
-                for cmb in combinations["reactor.isotope_neq.detector"]
-            )
+            tuple(("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"])
+            + tuple(("nu_neq",) + cmb for cmb in combinations["reactor.isotope_neq.detector"])
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
 
@@ -553,9 +541,7 @@ class model_dayabay_v0d:
                 load=path_parameters / "oscprob_solar.yaml",
                 joint_nuisance=True,
             )
-            load_parameters(
-                path="oscprob", load=path_parameters / "oscprob_constants.yaml"
-            )
+            load_parameters(path="oscprob", load=path_parameters / "oscprob_constants.yaml")
             # The parameters are located in "parameters.oscprob" folder as defined by
             # the `path` argument.
             # The annotated table with values may be then printed for any storage as
@@ -589,9 +575,7 @@ class model_dayabay_v0d:
             # `scipy.constants` are used to provide the numbers.
             # There are no constants, except maybe 1, 1/3 and π, defined within the
             # code. All the numbers are read based on the configuration files.
-            load_parameters(
-                path="conversion", load=path_parameters / "conversion_thermal_power.py"
-            )
+            load_parameters(path="conversion", load=path_parameters / "conversion_thermal_power.py")
             load_parameters(
                 path="conversion",
                 load=path_parameters / "conversion_oscprob_argument.py",
@@ -605,12 +589,8 @@ class model_dayabay_v0d:
             # - fixed detector efficiency (variation is managed by uncorrelated
             #   "detector_relative.efficiency_factor")
             # - fixed correction to the number of protons in each detector
-            load_parameters(
-                path="detector", load=path_parameters / "detector_normalization.yaml"
-            )
-            load_parameters(
-                path="detector", load=path_parameters / "detector_efficiency.yaml"
-            )
+            load_parameters(path="detector", load=path_parameters / "detector_normalization.yaml")
+            load_parameters(path="detector", load=path_parameters / "detector_efficiency.yaml")
             load_parameters(
                 path="detector",
                 load=path_parameters / "detector_nprotons_correction.yaml",
@@ -622,9 +602,7 @@ class model_dayabay_v0d:
             #   Non-Linearity (LSNL) parameters
             # - constrained uncorrelated between detectors energy distortion related to
             #   Inner Acrylic Vessel
-            load_parameters(
-                path="detector", load=path_parameters / "detector_eres.yaml"
-            )
+            load_parameters(path="detector", load=path_parameters / "detector_eres.yaml")
             load_parameters(
                 path="detector",
                 load=path_parameters / "detector_lsnl.yaml",
@@ -743,12 +721,8 @@ class model_dayabay_v0d:
                     ignore_keys=inactive_backgrounds,
                 )
             else:
-                load_parameters(
-                    path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml"
-                )
-                load_parameters(
-                    path="bkg.rate", load=path_parameters / "bkg_rates.yaml"
-                )
+                load_parameters(path="bkg.rate", load=path_parameters / "bkg_rate_acc.yaml")
+                load_parameters(path="bkg.rate", load=path_parameters / "bkg_rates.yaml")
 
             # Additionally a few constants are provided.
             # A constant to convert seconds to days for the backgrounds estimation
@@ -827,15 +801,11 @@ class model_dayabay_v0d:
             # locations. This is done via usage of the `Node.replicate()` class method.
             # The method is also responsible for creating indexed copies of the classes,
             # hence the name.
-            edges_costheta, _ = Array.replicate(
-                name="edges.costheta", array=in_edges_costheta
-            )
+            edges_costheta, _ = Array.replicate(name="edges.costheta", array=in_edges_costheta)
             edges_energy_common, _ = Array.replicate(
                 name="edges.energy_common", array=in_edges_fine
             )
-            edges_energy_final, _ = Array.replicate(
-                name="edges.energy_final", array=in_edges_final
-            )
+            edges_energy_final, _ = Array.replicate(name="edges.energy_final", array=in_edges_final)
             # For example the final energy node is stored as "nodes.edges.energy_final".
             # The output may be accessed via the node itself, of via the storage of
             # outputs as "outputs.edges.energy_final".
@@ -943,9 +913,9 @@ class model_dayabay_v0d:
             outputs.get_value("kinematics.integration.orders_edep") >> inputs.get_value(
                 "kinematics.sampler.orders_edep"
             )
-            outputs.get_value(
-                "kinematics.integration.orders_costheta"
-            ) >> inputs.get_value("kinematics.sampler.orders_costheta")
+            outputs.get_value("kinematics.integration.orders_costheta") >> inputs.get_value(
+                "kinematics.sampler.orders_costheta"
+            )
             # Regular way of accessing dictionaries via `[]` operator may be used. Here
             # we use `storage.get_value(key)` function to ensure the value is an object,
             # but not a nested dictionary. Similarly `storage.get_dict(key)` may be used
@@ -993,9 +963,7 @@ class model_dayabay_v0d:
             # corresponding dEnu/dEdep jacobian. The IBD nodes may operate with either
             # positron energy Ee as input, or deposited energy Edep=Ee+m(e) as input,
             # which is specified via an argument.
-            ibd, _ = IBDXsecVBO1Group.replicate(
-                path="kinematics.ibd", input_energy="edep"
-            )
+            ibd, _ = IBDXsecVBO1Group.replicate(path="kinematics.ibd", input_energy="edep")
             # IBD cross section depends on a set of parameters, including neutron
             # liftime, proton and neutron masses, vector coupling constant, etc. The
             # values of these parameters were previously loaded and are located in the
@@ -1009,10 +977,7 @@ class model_dayabay_v0d:
             # Connect the integration meshes for Edep and cosθ to the inputs of the
             # IBD node.
             outputs.get_value("kinematics.sampler.mesh_edep") >> ibd.inputs["edep"]
-            (
-                outputs.get_value("kinematics.sampler.mesh_costheta")
-                >> ibd.inputs["costheta"]
-            )
+            (outputs.get_value("kinematics.sampler.mesh_costheta") >> ibd.inputs["costheta"])
             # There is an output, which yields neutrino energy Enu (mesh), corresponding
             # to the Edep, cosθ meshes. As it will be used quite often, let us save it
             # to a variable.
@@ -1135,9 +1100,7 @@ class model_dayabay_v0d:
             # interpolator.
             outputs.get_value(
                 "reactor_anue.neutrino_per_fission_per_MeV_input.enu"
-            ) >> inputs.get_value(
-                "reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse"
-            )
+            ) >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
             # Connect the input antineutrino spectra as coarse Y inputs of the
             # interpolator. This is performed for each of the 4 isotopes.
             outputs("reactor_anue.neutrino_per_fission_per_MeV_input.spec") >> inputs(
@@ -1219,9 +1182,7 @@ class model_dayabay_v0d:
             # coarse Y and target mesh to the interpolator nodes.
             outputs.get_value(
                 "reactor_nonequilibrium_anue.correction_input.enu"
-            ) >> inputs.get_value(
-                "reactor_nonequilibrium_anue.correction_interpolated.xcoarse"
-            )
+            ) >> inputs.get_value("reactor_nonequilibrium_anue.correction_interpolated.xcoarse")
             outputs(
                 "reactor_nonequilibrium_anue.correction_input.nonequilibrium_correction"
             ) >> inputs("reactor_nonequilibrium_anue.correction_interpolated.ycoarse")
@@ -1257,9 +1218,7 @@ class model_dayabay_v0d:
             outputs("snf_anue.correction_input.snf_correction") >> inputs(
                 "snf_anue.correction_interpolated.ycoarse"
             )
-            kinematic_integrator_enu >> inputs.get_value(
-                "snf_anue.correction_interpolated.xfine"
-            )
+            kinematic_integrator_enu >> inputs.get_value("snf_anue.correction_interpolated.xfine")
 
             # Finally create the parametrization of the correction to the shape of
             # average reactor electron antineutrino spectrum. The `spec_scale`
@@ -1285,20 +1244,14 @@ class model_dayabay_v0d:
             # for the Array nodes, which already have data, but may be not the case for
             # other nodes.
             make_y_parameters_for_x(
-                outputs.get_value(
-                    "reactor_anue.spectrum_free_correction.spec_model_edges"
-                ),
+                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
                 namefmt="spec_scale_{:02d}",
                 format="value",
                 state="variable",
                 key="neutrino_per_fission_factor",
                 values=0.0,
                 labels="Edge {i:02d} ({value:.2f} MeV) reactor antineutrino spectrum correction"
-                + (
-                    " (exp)"
-                    if self.spectrum_correction_mode == "exponential"
-                    else " (linear)"
-                ),
+                + (" (exp)" if self.spectrum_correction_mode == "exponential" else " (linear)"),
                 hide_nodes=True,
             )
 
@@ -1313,12 +1266,8 @@ class model_dayabay_v0d:
             )
             # For convenience purposes let us assign `spec_model_edges` as X axis for
             # the array of parameters.
-            outputs.get_value(
-                "reactor_anue.spectrum_free_correction.input"
-            ).dd.axes_meshes = (
-                outputs.get_value(
-                    "reactor_anue.spectrum_free_correction.spec_model_edges"
-                ),
+            outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (
+                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
             )
 
             # Depending on chosen method, convert the parameters to the correction
@@ -1355,9 +1304,7 @@ class model_dayabay_v0d:
                 outputs.get_value(
                     "reactor_anue.spectrum_free_correction.correction"
                 ).dd.axes_meshes = (
-                    outputs.get_value(
-                        "reactor_anue.spectrum_free_correction.spec_model_edges"
-                    ),
+                    outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
                 )
 
             # Interpolate the spectral correction exponentially. The extrapolation will
@@ -1371,14 +1318,10 @@ class model_dayabay_v0d:
             )
             outputs.get_value(
                 "reactor_anue.spectrum_free_correction.spec_model_edges"
-            ) >> inputs.get_value(
-                "reactor_anue.spectrum_free_correction.interpolated.xcoarse"
-            )
+            ) >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xcoarse")
             outputs.get_value(
                 "reactor_anue.spectrum_free_correction.correction"
-            ) >> inputs.get_value(
-                "reactor_anue.spectrum_free_correction.interpolated.ycoarse"
-            )
+            ) >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.ycoarse")
             kinematic_integrator_enu >> inputs.get_value(
                 "reactor_anue.spectrum_free_correction.interpolated.xfine"
             )
@@ -2666,9 +2609,7 @@ class model_dayabay_v0d:
         return Generator(algo)
 
     def _touch(self):
-        for output in (
-            self.storage["outputs"].get_dict("eventscount.final.detector").walkvalues()
-        ):
+        for output in self.storage["outputs"].get_dict("eventscount.final.detector").walkvalues():
             output.touch()
 
     def update_frozen_nodes(self):
@@ -2682,9 +2623,7 @@ class model_dayabay_v0d:
 
     def set_parameters(
         self,
-        parameter_values: (
-            Mapping[str, float | str] | Sequence[tuple[str, float | int]]
-        ) = (),
+        parameter_values: Mapping[str, float | str] | Sequence[tuple[str, float | int]] = (),
         *,
         mode: Literal["value", "normvalue"] = "value",
     ):
@@ -2715,9 +2654,7 @@ class model_dayabay_v0d:
             par = parameters_storage[parname]
             setter(par, value)
 
-    def next_sample(
-        self, *, mc_parameters: bool = True, mc_statistics: bool = True
-    ) -> None:
+    def next_sample(self, *, mc_parameters: bool = True, mc_statistics: bool = True) -> None:
         if mc_parameters:
             self.storage.get_value("nodes.mc.parameters.toymc").next_sample()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
@@ -2738,9 +2675,7 @@ class model_dayabay_v0d:
 
         processed_keys_set = set()
         self.storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
-        self.storage("outputs").read_labels(
-            labels, processed_keys_set=processed_keys_set
-        )
+        self.storage("outputs").read_labels(labels, processed_keys_set=processed_keys_set)
         self.storage("inputs").remove_connected_inputs()
         self.storage.read_paths(index=self.index)
         self.graph.build_index_dict(self.index)
@@ -2784,9 +2719,7 @@ class model_dayabay_v0d:
         if not unused_keys:
             return
 
-        raise RuntimeError(
-            f"The following label groups were not used: {', '.join(unused_keys)}"
-        )
+        raise RuntimeError(f"The following label groups were not used: {', '.join(unused_keys)}")
 
     def make_summary_table(
         self, period: Literal["total", "6AD", "8AD", "7AD"] = "total"
@@ -2831,7 +2764,7 @@ class model_dayabay_v0d:
         df[df.isna()] = 0.0
 
         df.set_index("name", inplace=True)
-        df.loc["daq_time_day"]/=60.*60.*24.
+        df.loc["daq_time_day"] /= 60.0 * 60.0 * 24.0
         df.reset_index(inplace=True)
 
         df = df.astype({"name": "S"})

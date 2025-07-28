@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from numpy import allclose, fabs, nanmax
 from numpy.typing import NDArray
 
-from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
+from dag_modelling.logger import INFO1, INFO2, INFO3, logger, set_level
 from models.dayabay_v0 import model_dayabay_v0
 from multikeydict.nestedmkdict import NestedMKDict
 
@@ -420,12 +420,12 @@ class NuisanceComparator:
         )
         plt.subplots_adjust(**subplots_opts)
         ax.plot(self.data_gna, style, label="GNA", **pargs)
-        ax.plot(self.data_dgf, style, label="dagflow", **pargs)
+        ax.plot(self.data_dgf, style, label="dgm", **pargs)
         # scale_factor = self.data_gna.sum() / self.data_dgf.sum()
         # ax.plot(
         #     self.data_dgf * scale_factor,
         #     f"{style}-",
-        #     label="dagflow scaled",
+        #     label="dgm scaled",
         #     **pargs,
         # )
         ax.legend()
@@ -496,11 +496,11 @@ class NuisanceComparator:
 
     @property
     def cmpstring(self) -> str:
-        return f"dagflow:{self.skey_dgf}{self.skey2_dgf} ↔ gna:{self.skey_gna}{self.skey2_gna}"
+        return f"dgm: {self.skey_dgf}{self.skey2_dgf} ↔ gna:{self.skey_gna}{self.skey2_gna}"
 
     @property
     def cmpstring_par(self) -> str:
-        return f"dagflow:{self.skey_par_dgf}{self.skey2_par_dgf} ↔ gna:{self.skey_par_gna}{self.skey2_par_gna}"
+        return f"dgm: {self.skey_par_dgf}{self.skey2_par_dgf} ↔ gna:{self.skey_par_gna}{self.skey2_par_gna}"
 
     @property
     def valuestring(self) -> str:
@@ -516,7 +516,7 @@ class NuisanceComparator:
 
     @property
     def shapestrings(self) -> str:
-        return f"dagflow: {self.data_dgf.shape}, gna: {self.data_gna.shape}"
+        return f"dgm: {self.data_dgf.shape}, gna: {self.data_gna.shape}"
 
     @property
     def atol(self) -> float:

@@ -25,8 +25,8 @@ from matplotlib.axes import Axes
 from numpy.typing import NDArray
 from yaml import safe_load as yaml_load
 
-from dagflow.tools.logger import DEBUG as INFO4
-from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.logger import DEBUG as INFO4
+from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from models import available_models, load_model
 from scripts import FFormatter, calculate_ratio_error, get_obs
 

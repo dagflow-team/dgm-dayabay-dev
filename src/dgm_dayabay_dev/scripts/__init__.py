@@ -9,9 +9,9 @@ from yaml import add_representer
 from yaml import safe_load as yaml_load
 from typing import Any
 from collections.abc import Generator
-from dagflow.bundles.load_hist import load_hist
-from dagflow.core import NodeStorage
-from dagflow.parameters import Parameter
+from dag_modelling.bundles.load_hist import load_hist
+from dag_modelling.core import NodeStorage
+from dag_modelling.parameters import Parameter
 from dgf_statistics.minimizer.minimizer_base import MinimizerBase
 
 

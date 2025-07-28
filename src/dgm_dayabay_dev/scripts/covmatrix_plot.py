@@ -12,8 +12,8 @@ from matplotlib.colors import SymLogNorm
 from numpy import arange, diagonal, isnan, quantile
 from numpy.typing import NDArray
 
-from dagflow.plot.plot import add_colorbar
-from dagflow.tools.logger import logger
+from dag_modelling.plot.plot import add_colorbar
+from dag_modelling.tools.logger import logger
 
 if TYPE_CHECKING:
     from typing import Literal, Mapping, Sequence

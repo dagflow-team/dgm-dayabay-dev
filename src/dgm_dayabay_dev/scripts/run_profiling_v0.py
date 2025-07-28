@@ -9,23 +9,23 @@ from pathlib import Path
 from time import time
 from typing import TYPE_CHECKING
 
-from dagflow.core import Graph, NodeStorage
-from dagflow.tools.logger import DEBUG as INFO4
-from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
-from dagflow.tools.profiling import (
+from dag_modelling.core import Graph, NodeStorage
+from dag_modelling.tools.logger import DEBUG as INFO4
+from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.profiling import (
     FitSimulationProfiler,
     FrameworkProfiler,
     MemoryProfiler,
     NodeProfiler,
 )
-from dagflow.lib.common import Array
-from dagflow.tools.save_records import save_records
+from dag_modelling.lib.common import Array
+from dag_modelling.tools.save_records import save_records
 from models import available_models, load_model
 from scripts import update_dict_parameters
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from dagflow.parameters import Parameter
+    from dag_modelling.parameters import Parameter
     from typing import Any
 
 

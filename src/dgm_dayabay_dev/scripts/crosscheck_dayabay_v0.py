@@ -10,8 +10,8 @@ from matplotlib import pyplot as plt
 from numpy import allclose, array, fabs, ma, nanmax
 from numpy.typing import NDArray
 
-from dagflow.logger import INFO1, INFO2, INFO3, logger, set_level
-from dagflow.output import Output
+from dag_modelling.logger import INFO1, INFO2, INFO3, logger, set_level
+from dag_modelling.output import Output
 from models.dayabay_v0 import model_dayabay_v0
 from multikeydict.nestedmkdict import NestedMKDict
 
@@ -44,7 +44,7 @@ comparison_parameters = {
     "bkg.rate.lihe": {"gnaname": "bkg_rate_lihe", "rtol": 1e-14},
 }
 comparison_objects = {
-    # dagflow: gna
+    # dgm: gna
     "edges.energy_edep": "evis_edges",
     "kinematics_sampler.mesh_edep": "evis_mesh",
     "ibd.enu": {"gnaname": "enu", "atol": 1e-14},
@@ -236,7 +236,7 @@ class Comparator:
     def compare_source(
         self, gnasource: File | Group, compare: Callable, outputs_dgf: NestedMKDict
     ) -> None:
-        from dagflow.parameters import Parameter
+        from dag_modelling.parameters import Parameter
 
         path_gna = self._skey_gna.replace(".", "/")
 
@@ -362,7 +362,7 @@ class Comparator:
         ax.grid()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="", title=f"dagflow {self.key_dgf}")
+        ax = plt.subplot(111, xlabel="", ylabel="", title=f"dgm {self.key_dgf}")
         cmappable = ax.matshow(data_d)
         add_colorbar(cmappable)
         ax.grid()
@@ -391,30 +391,30 @@ class Comparator:
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="", title=self.key_dgf)
         ax.plot(self._data_g, f"{mstyle}--", label="GNA", **pargs)
-        ax.plot(self._data_d, f"{mstyle}-", label="dagflow", **pargs)
+        ax.plot(self._data_d, f"{mstyle}-", label="dgm", **pargs)
         scale_factor = self._data_g.sum() / self._data_d.sum()
         ax.plot(
             self._data_d * scale_factor,
             f"{mstyle}:",
-            label="dagflow scaled",
+            label="dgm scaled",
             **pargs,
         )
         ax.legend()
         ax.grid()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="dagflow/GNA-1", title=self.key_dgf)
+        ax = plt.subplot(111, xlabel="", ylabel="dgm/GNA-1", title=self.key_dgf)
         with suppress(ValueError):
             ax.plot(
-                self._data_d / self._data_g - 1, f"{mstyle}-", label="dagflow/GNA-1", **pargs
+                self._data_d / self._data_g - 1, f"{mstyle}-", label="dgm/GNA-1", **pargs
             )
         ax.grid()
         ax.legend()
 
         plt.figure()
-        ax = plt.subplot(111, xlabel="", ylabel="dagflow-GNA", title=self.key_dgf)
+        ax = plt.subplot(111, xlabel="", ylabel="dgm-GNA", title=self.key_dgf)
         with suppress(ValueError):
-            ax.plot(self._data_d - self._data_g, f"{mstyle}-", label="dagflow-GNA", **pargs)
+            ax.plot(self._data_d - self._data_g, f"{mstyle}-", label="dgm-GNA", **pargs)
         ax.grid()
         ax.legend()
 
@@ -430,7 +430,7 @@ class Comparator:
 
     @property
     def cmpstring(self) -> str:
-        return f"dagflow:{self._skey_dgf}{self._skey2_dgf} ↔ gna:{self._skey_gna}{self._skey2_gna}"
+        return f"dgm:{self._skey_dgf}{self._skey2_dgf} ↔ gna:{self._skey_gna}{self._skey2_gna}"
 
     @property
     def tolstring(self) -> str:
@@ -441,9 +441,9 @@ class Comparator:
         try:
             if self._data_d.shape != 1:
                 return ""
-            return f"dagflow[0]={self._data_d[0]}  gna[0]={self._data_g[0]}  diff={self._data_d[0]-self._data_g[0]}"
+            return f"dgm[0]={self._data_d[0]}  gna[0]={self._data_g[0]}  diff={self._data_d[0]-self._data_g[0]}"
         except (KeyError, AttributeError):
-            return f"dagflow[0]={self._data_d['value']}  gna[0]={self._data_g[0]}  diff={self._data_d['value']-self._data_g[0]}"
+            return f"dgm[0]={self._data_d['value']}  gna[0]={self._data_g[0]}  diff={self._data_d['value']-self._data_g[0]}"
 
     @property
     def shapestring(self) -> str:
@@ -451,7 +451,7 @@ class Comparator:
 
     @property
     def shapestrings(self) -> str:
-        return f"dagflow: {self._data_d.shape}, gna: {self._data_g.shape}"
+        return f"dgm: {self._data_d.shape}, gna: {self._data_g.shape}"
 
     def compare_nested(
         self, storage_gna: Group, storage_dgf: NestedMKDict, compare: Callable

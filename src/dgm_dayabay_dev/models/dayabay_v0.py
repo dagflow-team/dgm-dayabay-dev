@@ -7,14 +7,14 @@ from typing import Any, Literal
 from numpy import ndarray
 from numpy.random import Generator
 
-from dagflow.bundles.file_reader import FileReader
-from dagflow.bundles.load_array import load_array
-from dagflow.bundles.load_graph import load_graph, load_graph_data
-from dagflow.bundles.load_parameters import load_parameters
-from dagflow.core import Graph, NodeStorage
-from dagflow.lib.arithmetic import Division, Product, Sum
-from dagflow.lib.interpolation import Interpolator
-from dagflow.tools.schema import LoadYaml
+from dag_modelling.bundles.file_reader import FileReader
+from dag_modelling.bundles.load_array import load_array
+from dag_modelling.bundles.load_graph import load_graph, load_graph_data
+from dag_modelling.bundles.load_parameters import load_parameters
+from dag_modelling.core import Graph, NodeStorage
+from dag_modelling.lib.arithmetic import Division, Product, Sum
+from dag_modelling.lib.interpolation import Interpolator
+from dag_modelling.tools.schema import LoadYaml
 from multikeydict.nestedmkdict import NestedMKDict
 
 
@@ -130,7 +130,7 @@ class model_dayabay_v0:
         path_arrays = path_data / self._source_type
         path_root = path_data / "root"
 
-        from dagflow.tools.schema import LoadPy
+        from dag_modelling.tools.schema import LoadPy
 
         antineutrino_model_edges = LoadPy(
             path_parameters / "reactor_antineutrino_spectrum_edges.py",
@@ -325,7 +325,7 @@ class model_dayabay_v0:
             in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
             in_edges_costheta = [-1, 1]
 
-            from dagflow.lib.common import Array, View
+            from dag_modelling.lib.common import Array, View
 
             edges_costheta, _ = Array.replicate(
                 name="edges.costheta", array=in_edges_costheta
@@ -368,7 +368,7 @@ class model_dayabay_v0:
                 "kinematics.integration.orders_y", 3, edges=edges_costheta, store=True
             )
 
-            from dagflow.lib.integration import Integrator
+            from dag_modelling.lib.integration import Integrator
 
             integrator, _ = Integrator.replicate(
                 "gl2d",
@@ -547,7 +547,7 @@ class model_dayabay_v0:
             #   - correlated between isotopes
             #   - uncorrelated between energy intervals
             #
-            from dagflow.bundles.make_y_parameters_for_x import \
+            from dag_modelling.bundles.make_y_parameters_for_x import \
                 make_y_parameters_for_x
             make_y_parameters_for_x(
                     outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
@@ -561,7 +561,7 @@ class model_dayabay_v0:
                     hide_nodes = True
                     )
 
-            from dagflow.lib.common import Concatenation
+            from dag_modelling.lib.common import Concatenation
 
             Concatenation.replicate(
                     parameters("all.neutrino_per_fission_factor"),
@@ -569,7 +569,7 @@ class model_dayabay_v0:
                     )
             outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),)
             if self._spectrum_correction_mode == "exponential":
-                from dagflow.lib.exponential import Exp
+                from dag_modelling.lib.exponential import Exp
                 Exp.replicate(
                         outputs.get_value("reactor_anue.spectrum_free_correction.input"),
                         name = "reactor_anue.spectrum_free_correction.correction"
@@ -611,7 +611,7 @@ class model_dayabay_v0:
             )
 
             # In the case of constant (left) interpolation bin edges should be used
-            # from dagflow.lib.MeshToEdges import MeshToEdges
+            # from dag_modelling.lib.MeshToEdges import MeshToEdges
             # MeshToEdges.replicate(name="reactor_anue.spectrum_uncertainty.enu")
             # outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers") >> inputs.get_value("reactor_anue.spectrum_uncertainty.enu")
             # nodes.get_value("reactor_anue.spectrum_uncertainty.enu").close()
@@ -719,7 +719,7 @@ class model_dayabay_v0:
             #
             # Livetime
             #
-            from dagflow.bundles.load_record import load_record_data
+            from dag_modelling.bundles.load_record import load_record_data
             load_record_data(
                 name = "daily_data.detector_all",
                 filenames = path_arrays/f"livetimes_Dubna_AdSimpleNL_all.{self._source_type}",
@@ -887,7 +887,7 @@ class model_dayabay_v0:
                     )
 
             # Total effective number of fissions from a Reactor seen in the Detector during Period
-            from dagflow.lib.summation import ArraySum
+            from dag_modelling.lib.summation import ArraySum
             ArraySum.replicate(
                     outputs("reactor_detector.nfissions_daily"),
                     name = "reactor_detector.nfissions",
@@ -1088,12 +1088,12 @@ class model_dayabay_v0:
                     }
             )
 
-            from dagflow.lib.normalization import RenormalizeDiag
+            from dag_modelling.lib.normalization import RenormalizeDiag
             RenormalizeDiag.replicate(mode="offdiag", name="detector.iav.matrix_rescaled", replicate_outputs=index["detector"])
             parameters("all.detector.iav_offdiag_scale_factor") >> inputs("detector.iav.matrix_rescaled.scale")
             outputs.get_value("detector.iav.matrix_raw") >> inputs("detector.iav.matrix_rescaled.matrix")
 
-            from dagflow.lib.linalg import VectorMatrixProduct
+            from dag_modelling.lib.linalg import VectorMatrixProduct
             VectorMatrixProduct.replicate(name="eventscount.iav", replicate_outputs=combinations["detector.period"], mode="column")
             outputs("detector.iav.matrix_rescaled") >> inputs("eventscount.iav.matrix")
             outputs("eventscount.raw") >> inputs("eventscount.iav.vector")
@@ -1201,7 +1201,7 @@ class model_dayabay_v0:
             outputs("detector.lsnl.matrix") >> inputs("eventscount.evis.matrix")
             outputs("eventscount.iav") >> inputs("eventscount.evis.vector")
 
-            from dgf_detector import EnergyResolution
+            from dag_modelling.lib.physics import EnergyResolution
             EnergyResolution.replicate(path="detector.eres")
             nodes.get_value("detector.eres.sigma_rel") << parameters("constrained.detector.eres")
             outputs.get_value("edges.energy_evis") >> inputs.get_value("detector.eres.matrix.e_edges")
@@ -1232,7 +1232,7 @@ class model_dayabay_v0:
                 replicate_outputs=combinations["detector"],
             )
 
-            from dgf_detector import Rebin
+            from dag_modelling.lib.hist import Rebin
             Rebin.replicate(
                 names={"matrix": "detector.rebin.matrix_ibd", "product": "eventscount.final.ibd"},
                 replicate_outputs=combinations["detector.period"],
@@ -1244,7 +1244,7 @@ class model_dayabay_v0:
             #
             # Backgrounds
             #
-            from dagflow.bundles.load_hist import load_hist
+            from dag_modelling.bundles.load_hist import load_hist
             bkg_names = {
                 'acc': "accidental",
                 'lihe': "lithium9",
@@ -1394,7 +1394,7 @@ class model_dayabay_v0:
             #
             # Covariance matrices
             #
-            from dagflow.lib.statistics import CovarianceMatrixGroup
+            from dag_modelling.lib.statistics import CovarianceMatrixGroup
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance", **self._covmatrix_kwargs)
 
             for name, parameters_source in self.systematic_uncertainties_groups().items():
@@ -1409,7 +1409,7 @@ class model_dayabay_v0:
             if npars_cov!=npars_nuisance:
                 raise RuntimeError("Some parameters are missing from covariance matrix")
 
-            from dagflow.lib.parameters import ParArrayInput
+            from dag_modelling.lib.parameters import ParArrayInput
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
                 parameters=list_parameters_nuisance_normalized,
@@ -1430,7 +1430,7 @@ class model_dayabay_v0:
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("data.pseudo.self.data")
             self._frozen_nodes["pseudodata"] = (nodes.get_value("data.pseudo.self"),)
 
-            from dagflow.lib.common import Proxy
+            from dag_modelling.lib.common import Proxy
             Proxy.replicate(
                 name="data.proxy",
             )
@@ -1453,7 +1453,7 @@ class model_dayabay_v0:
             outputs.get_value("mc.parameters.toymc") >> parinp_mc
             nodes["mc.parameters.inputs"] = parinp_mc
 
-            from dagflow.lib.linalg import Cholesky
+            from dag_modelling.lib.linalg import Cholesky
             Cholesky.replicate(name="cholesky.stat.variable")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("cholesky.stat.variable")
 
@@ -1463,7 +1463,7 @@ class model_dayabay_v0:
             Cholesky.replicate(name="cholesky.stat.data.fixed")
             outputs.get_value("data.proxy") >> inputs.get_value("cholesky.stat.data.fixed")
 
-            from dagflow.lib.summation import SumMatOrDiag
+            from dag_modelling.lib.summation import SumMatOrDiag
             SumMatOrDiag.replicate(name="covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.data.fixed") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
             outputs.get_value("covariance.covmat_syst.sum") >> nodes.get_value("covariance.covmat_full_p.stat_fixed")
@@ -1547,7 +1547,7 @@ class model_dayabay_v0:
                 name="statistic.full.chi2cnp",
             )
 
-            from dagflow.lib.statistics import LogProdDiag
+            from dag_modelling.lib.statistics import LogProdDiag
             LogProdDiag.replicate(name="statistic.log_prod_diag")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.log_prod_diag")
 

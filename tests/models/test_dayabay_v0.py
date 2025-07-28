@@ -1,7 +1,7 @@
 from pytest import mark
 
-from dagflow.core import Graph, NodeStorage
-from dagflow.plot.graphviz import GraphDot
+from dag_modelling.core import Graph, NodeStorage
+from dag_modelling.plot.graphviz import GraphDot
 from models import available_models, load_model
 
 

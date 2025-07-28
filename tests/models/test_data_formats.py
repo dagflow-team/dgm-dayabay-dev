@@ -1,8 +1,8 @@
 from pytest import mark
 
 from os import environ
-from dagflow.core import Graph, NodeStorage
-from dagflow.plot.graphviz import GraphDot
+from dag_modelling.core import Graph, NodeStorage
+from dag_modelling.plot.graphviz import GraphDot
 from models import model_dayabay_v0c as reference_model
 from numpy import allclose
 

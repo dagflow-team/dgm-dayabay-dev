@@ -23,9 +23,9 @@ from numpy.typing import NDArray
 from typing import Any
 from scipy.stats import chi2, norm
 
-from dagflow.parameters.gaussian_parameter import Parameter
-from dagflow.tools.logger import DEBUG as INFO4
-from dagflow.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.parameters.gaussian_parameter import Parameter
+from dag_modelling.tools.logger import DEBUG as INFO4
+from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgf_statistics.minimizer.iminuit_minimizer import IMinuitMinimizer
 from models import available_models, load_model
 from scripts import update_dict_parameters
