@@ -350,12 +350,18 @@ class model_dayabay_v0e:
         from dag_modelling.lib.normalization import RenormalizeDiag
         from dag_modelling.lib.parameters import ParArrayInput
         from dag_modelling.lib.physics import EnergyResolution
-        from dag_modelling.lib.statistics import CovarianceMatrixGroup, LogProdDiag
+        from dag_modelling.lib.statistics import (
+            Chi2,
+            CNPStat,
+            CovarianceMatrixGroup,
+            LogPoissonRatio,
+            LogProdDiag,
+            MonteCarlo,
+        )
         from dag_modelling.lib.summation import ArraySum, SumMatOrDiag, WeightedSumArgs
         from dag_modelling.tools.schema import LoadPy
         from dgf_detector import Monotonize
         from dgf_detector.bundles.refine_lsnl_data import refine_lsnl_data
-        from dgf_statistics import Chi2, CNPStat, LogPoissonRatio, MonteCarlo
         from dgm_reactor_neutrino import (
             IBDXsecVBO1Group,
             InverseSquareLaw,

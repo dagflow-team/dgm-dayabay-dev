@@ -1421,7 +1421,7 @@ class model_dayabay_v0:
             # Create Nuisance parameters
             Sum.replicate(outputs("statistic.nuisance.parts"), name="statistic.nuisance.all")
 
-            from dgf_statistics import MonteCarlo
+            from dag_modelling.lib.statistics import MonteCarlo
             MonteCarlo.replicate(
                 name="data.pseudo.self",
                 mode=self._monte_carlo_mode,
@@ -1485,7 +1485,7 @@ class model_dayabay_v0:
             Cholesky.replicate(name="cholesky.covmat_full_n")
             outputs.get_value("covariance.covmat_full_n") >> inputs.get_value("cholesky.covmat_full_n")
 
-            from dgf_statistics import Chi2
+            from dag_modelling.lib.statistics import Chi2
 
             # (1) chi-squared Pearson stat (fixed Pearson errors)
             Chi2.replicate(name="statistic.stat.chi2p_iterative")
@@ -1523,7 +1523,7 @@ class model_dayabay_v0:
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.full.chi2p_covmat_variable.theory")
             outputs.get_value("cholesky.covmat_full_p.stat_variable") >> inputs.get_value("statistic.full.chi2p_covmat_variable.errors")
 
-            from dgf_statistics import CNPStat
+            from dag_modelling.lib.statistics import CNPStat
             CNPStat.replicate(name="statistic.staterr.cnp")
             outputs.get_value("data.proxy") >> inputs.get_value("statistic.staterr.cnp.data")
             outputs.get_value("eventscount.final.concatenated.selected") >> inputs.get_value("statistic.staterr.cnp.theory")
