@@ -2,11 +2,11 @@ from numpy import arange, concatenate, linspace
 from numpy.typing import NDArray
 from scipy.interpolate import interp1d
 
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping.nested_mapping import NestedMapping
 
 
 def refine_lsnl_data(
-    storage: NestedMKDict, *, xname: str, nominalname: str, **kwargs
+    storage: NestedMapping, *, xname: str, nominalname: str, **kwargs
 ) -> None:
     xcoarse = storage[xname]
 
