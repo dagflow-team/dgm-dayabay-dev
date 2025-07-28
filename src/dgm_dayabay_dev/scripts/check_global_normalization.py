@@ -5,7 +5,7 @@ import numpy as np
 from dag_modelling.logger import DEBUG as INFO4
 from dag_modelling.logger import INFO1, INFO2, INFO3, set_level
 from matplotlib import pyplot as plt
-from models.dayabay_v0 import model_dayabay_v0
+from ..models.dayabay_v0 import model_dayabay_v0
 
 set_level(INFO1)
 

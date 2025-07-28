@@ -1,6 +1,7 @@
 import unittest
+
+from dgm_dayabay_dev.models.dayabay_v0 import model_dayabay_v0
 from parameterized import parameterized
-from models.dayabay_v0 import model_dayabay_v0
 
 
 class CorrelatedTest(unittest.TestCase):

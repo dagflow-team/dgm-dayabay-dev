@@ -1,10 +1,10 @@
-from pytest import mark
-
 from os import environ
+
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.plot.graphviz import GraphDot
-from models import model_dayabay_v0c as reference_model
+from dgm_dayabay_dev.models import model_dayabay_v0c as reference_model
 from numpy import allclose
+from pytest import mark
 
 source_type_reference = "hdf5"
 source_types_other = ["tsv", "npz"]
@@ -14,11 +14,8 @@ if "ROOTSYS" in environ:
 else:
     print("ROOT is disabled")
 
-precision_requirement = {
-    "tsv": 8.e-11,
-    "root": 2.e-11,
-    "npz": 0
-    }
+precision_requirement = {"tsv": 8.0e-11, "root": 2.0e-11, "npz": 0}
+
 
 @mark.parametrize("source_type", source_types_other)
 def test_dayabay_v0(source_type: str):
@@ -34,8 +31,3 @@ def test_dayabay_v0(source_type: str):
 
     atol = precision_requirement[source_type]
     assert allclose(data, data_ref, rtol=0, atol=atol), f"{source_type} requires {atol=}"
-
-
-
-
-

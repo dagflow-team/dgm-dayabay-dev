@@ -728,7 +728,7 @@ class model_dayabay_v0:
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
                 skip = self.inactive_detectors
             )
-            from models.bundles.refine_detector_data import \
+            from ..bundles.refine_detector_data import \
                 refine_detector_data
             refine_detector_data(
                 data("daily_data.detector_all"),
@@ -743,7 +743,7 @@ class model_dayabay_v0:
                 columns = ("week", "day", "ndet", "ndays", "core", "power") + index["isotope_lower"],
                 output_key_order = (("week", "core_data"), ("week",))
             )
-            from models.bundles.refine_reactor_data import split_refine_reactor_data
+            from ..bundles.refine_reactor_data import split_refine_reactor_data
             split_refine_reactor_data(
                 data("daily_data.reactor_all"),
                 data.create_child("daily_data.reactor"),
@@ -751,7 +751,7 @@ class model_dayabay_v0:
                 isotopes = index["isotope"],
             )
 
-            from models.bundles.sync_reactor_detector_data import \
+            from ..bundles.sync_reactor_detector_data import \
                 sync_reactor_detector_data
             sync_reactor_detector_data(
                     data("daily_data.reactor"),

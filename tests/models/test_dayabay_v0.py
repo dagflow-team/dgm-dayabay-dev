@@ -1,8 +1,7 @@
-from pytest import mark
-
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.plot.graphviz import GraphDot
-from models import available_models, load_model
+from dgm_dayabay_dev.models import available_models, load_model
+from pytest import mark
 
 
 @mark.parametrize("model_version", available_models())

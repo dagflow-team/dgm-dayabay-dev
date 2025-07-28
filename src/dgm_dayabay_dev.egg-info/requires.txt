@@ -1,0 +1,8 @@
+dag-modelling
+dgm-fit
+dgm-reactor-neutrino
+
+[dev]
+coverage
+pytest
+pytest-cov

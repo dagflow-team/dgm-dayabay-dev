@@ -9,7 +9,7 @@ from matplotlib import rcParams, transforms
 
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
-from models import available_models, load_model
+from ..models import available_models, load_model
 
 set_level(INFO1)
 
