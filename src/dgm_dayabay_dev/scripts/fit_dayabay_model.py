@@ -20,7 +20,7 @@ from argparse import Namespace
 from dag_modelling.parameters import Parameter
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
-from dgf_fit.iminuit_minimizer import IMinuitMinimizer
+from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from IPython import embed
 from LaTeXDatax import datax as datax_dump
 from ..models import available_models, load_model

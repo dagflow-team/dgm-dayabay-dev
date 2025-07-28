@@ -8,7 +8,7 @@ import numpy as np
 from dag_modelling.bundles.load_hist import load_hist
 from dag_modelling.core import NodeStorage
 from dag_modelling.parameters import Parameter
-from dgf_fit.minimizer_base import MinimizerBase
+from dgm_fit.minimizer_base import MinimizerBase
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 from numpy.typing import NDArray

@@ -91,7 +91,7 @@ def main(args: Namespace) -> None:
     parameters = storage["parameters"]
     statistic = storage["outputs.statistic"]
 
-    from dgf_fit.iminuit_minimizer import IMinuitMinimizer
+    from dgm_fit.iminuit_minimizer import IMinuitMinimizer
     from yaml import safe_dump
 
     chi2p_stat = statistic["stat.chi2p"]
