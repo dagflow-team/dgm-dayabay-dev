@@ -14,7 +14,7 @@ from dag_modelling.bundles.load_parameters import load_parameters
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import logger
 from dag_modelling.tools.schema import LoadYaml
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping import NestedMapping
 from numpy import ndarray
 from numpy.random import Generator
 from pandas import DataFrame
@@ -280,7 +280,7 @@ class model_dayabay_v0d:
         from models.bundles.refine_detector_data import refine_detector_data
         from models.bundles.refine_reactor_data import refine_reactor_data
         from models.bundles.sync_reactor_detector_data import sync_reactor_detector_data
-        from multikeydict.tools import remap_items
+        from nested_mapping.tools import remap_items
         from numpy import arange, concatenate, linspace, ones
 
         # Initialize the storage and paths
@@ -2680,7 +2680,7 @@ class model_dayabay_v0d:
         self.storage.read_paths(index=self.index)
         self.graph.build_index_dict(self.index)
 
-        labels_mk = NestedMKDict(labels, sep=".")
+        labels_mk = NestedMapping(labels, sep=".")
         if not self._strict:
             return
 

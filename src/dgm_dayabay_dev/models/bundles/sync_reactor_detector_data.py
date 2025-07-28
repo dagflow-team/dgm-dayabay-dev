@@ -1,9 +1,9 @@
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping import NestedMapping
 
 
 def sync_reactor_detector_data(
-    reactor_data: NestedMKDict,
-    detector_data: NestedMKDict,
+    reactor_data: NestedMapping,
+    detector_data: NestedMapping,
 ) -> None:
     reactor_day = reactor_data("days")
     detector_day = detector_data("days")

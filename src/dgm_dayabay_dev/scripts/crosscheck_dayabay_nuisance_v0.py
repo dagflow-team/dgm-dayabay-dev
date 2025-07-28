@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 from dag_modelling.logger import INFO1, INFO2, INFO3, logger, set_level
 from models.dayabay_v0 import model_dayabay_v0
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping import NestedMapping
 
 set_level(INFO1)
 
@@ -121,9 +121,9 @@ class NuisanceComparator:
         "n_hists",
     )
     opts: Namespace
-    outputs_dgf: NestedMKDict
-    outputs_dgf_default: NestedMKDict
-    outputs_gna_default: NestedMKDict
+    outputs_dgf: NestedMapping
+    outputs_dgf_default: NestedMapping
+    outputs_gna_default: NestedMapping
 
     cmpopts: dict[str, Any]
 
@@ -187,8 +187,8 @@ class NuisanceComparator:
         self.value_left = "default"
         self.value_right = "default"
 
-        self.outputs_dgf_default = NestedMKDict(sep=".")
-        self.outputs_gna_default = NestedMKDict(sep=".")
+        self.outputs_dgf_default = NestedMapping(sep=".")
+        self.outputs_gna_default = NestedMapping(sep=".")
 
         self.model = model_dayabay_v0(source_type=opts.source_type)
         self.opts = opts
@@ -565,10 +565,10 @@ def iterate_mappings_till_key(
             yield from iterate_mappings_till_key(submapping, target_key, head=retkey)
 
 
-from multikeydict.typing import KeyLike, properkey
+from nested_mapping.typing import KeyLike, properkey
 
 
-def get_orderless(storage: NestedMKDict | Any, key: KeyLike) -> Any:
+def get_orderless(storage: NestedMapping | Any, key: KeyLike) -> Any:
     key = properkey(key)
     if not key:
         return storage

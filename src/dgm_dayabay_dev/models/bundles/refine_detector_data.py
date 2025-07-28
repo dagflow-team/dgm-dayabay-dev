@@ -1,11 +1,11 @@
 from collections.abc import Sequence
 
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping import NestedMapping
 
 
 def refine_detector_data(
-    source: NestedMKDict,
-    target: NestedMKDict,
+    source: NestedMapping,
+    target: NestedMapping,
     *,
     detectors: Sequence[str],
     periods: Sequence[str] = ("6AD", "8AD", "7AD"),

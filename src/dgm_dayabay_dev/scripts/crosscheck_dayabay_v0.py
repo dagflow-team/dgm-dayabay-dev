@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 from dag_modelling.logger import INFO1, INFO2, INFO3, logger, set_level
 from dag_modelling.output import Output
 from models.dayabay_v0 import model_dayabay_v0
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping import NestedMapping
 
 set_level(INFO2)
 
@@ -109,7 +109,7 @@ comparison_objects = {
 
 class Comparator:
     opts: Namespace
-    output_dgf: NestedMKDict
+    output_dgf: NestedMapping
 
     _cmpopts: dict[str, Any] = {}
     _maxdiff: float = 0.0
@@ -187,7 +187,7 @@ class Comparator:
         self,
         gnasource: File | Group,
         comparison_objects: dict,
-        outputs_dgf: NestedMKDict,
+        outputs_dgf: NestedMapping,
         compare: Callable,
     ) -> None:
         if self.opts.last:
@@ -234,7 +234,7 @@ class Comparator:
         )
 
     def compare_source(
-        self, gnasource: File | Group, compare: Callable, outputs_dgf: NestedMKDict
+        self, gnasource: File | Group, compare: Callable, outputs_dgf: NestedMapping
     ) -> None:
         from dag_modelling.parameters import Parameter
 
@@ -261,7 +261,7 @@ class Comparator:
                 self._skey2_dgf = ""
                 self._skey2_gna = ""
                 compare()
-            case NestedMKDict(), Group():
+            case NestedMapping(), Group():
                 self.compare_nested(data_storage_gna, data_storage_dgf, compare)
             case _:
                 raise RuntimeError("Unexpected data types")
@@ -454,7 +454,7 @@ class Comparator:
         return f"dgm: {self._data_d.shape}, gna: {self._data_g.shape}"
 
     def compare_nested(
-        self, storage_gna: Group, storage_dgf: NestedMKDict, compare: Callable
+        self, storage_gna: Group, storage_dgf: NestedMapping, compare: Callable
     ):
         for key_d, output_dgf in storage_dgf.walkitems():
             try:

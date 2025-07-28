@@ -4,7 +4,7 @@ from numba import njit
 from numpy import empty, isnan
 from numpy.typing import NDArray
 
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping import NestedMapping
 
 
 @njit
@@ -50,8 +50,8 @@ def weeks_to_days(array: NDArray) -> NDArray:
 
 
 def refine_reactor_data(
-    source: NestedMKDict,
-    target: NestedMKDict,
+    source: NestedMapping,
+    target: NestedMapping,
     *,
     reactors: Sequence[str],
     isotopes: Sequence[str],
@@ -114,9 +114,9 @@ def refine_reactor_data(
 
     Parameters
     ----------
-    source : NestedMKDict
+    source : NestedMapping
         storage/record/mapping with source data.
-    target : NestedMKDict
+    target : NestedMapping
         storage to write target arrays to.
     reactors : Sequence[str]
         reactor names to use when writing data.
@@ -178,8 +178,8 @@ def refine_reactor_data(
 
 
 def split_refine_reactor_data(
-    source: NestedMKDict,
-    target: NestedMKDict,
+    source: NestedMapping,
+    target: NestedMapping,
     *,
     reactors: Sequence[str],
     isotopes: Sequence[str],
@@ -240,9 +240,9 @@ def split_refine_reactor_data(
 
     Parameters
     ----------
-    source : NestedMKDict
+    source : NestedMapping
         storage/record/mapping with source data.
-    target : NestedMKDict
+    target : NestedMapping
         storage to write target arrays to.
     reactors : Sequence[str]
         reactor names to use when writing data.

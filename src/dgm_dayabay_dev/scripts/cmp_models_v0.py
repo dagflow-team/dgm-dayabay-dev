@@ -8,8 +8,8 @@ from numpy import log, nanmax, nanmin, where
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
 from models import available_models, available_sources, load_model
-from multikeydict.nestedmkdict import NestedMKDict
-from multikeydict.tools import mkmap
+from nested_mapping import NestedMapping
+from nested_mapping.tools import mkmap
 
 plt.style.use(
     {
@@ -104,8 +104,8 @@ def main(opts: Namespace) -> None:
 
 
 def plot(
-    storageA: NestedMKDict,
-    storageB: NestedMKDict,
+    storageA: NestedMapping,
+    storageB: NestedMapping,
     labelA: str,
     labelB: str,
     *,

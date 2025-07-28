@@ -15,7 +15,7 @@ from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.lib.arithmetic import Division, Product, Sum
 from dag_modelling.lib.interpolation import Interpolator
 from dag_modelling.tools.schema import LoadYaml
-from multikeydict.nestedmkdict import NestedMKDict
+from nested_mapping import NestedMapping
 
 
 _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
@@ -1155,7 +1155,7 @@ class model_dayabay_v0:
             outputs.get_value("detector.lsnl.curves.edep") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.x")
             outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value("detector.lsnl.curves.evis_coarse_monotonous.y")
 
-            from multikeydict.tools import remap_items
+            from nested_mapping.tools import remap_items
             remap_items(
                 parameters("all.detector.detector_relative"),
                 outputs.create_child("detector.parameters_relative"),
@@ -1268,7 +1268,7 @@ class model_dayabay_v0:
             )
 
             # TODO: Daya Bay v1 (if needed)
-            # from multikeydict.tools import remap_items
+            # from nested_mapping.tools import remap_items
             # ads_at_sites = {
             #         "EH1": ("AD11", "AD12"),
             #         "EH2": ("AD21", "AD22"),
@@ -1672,7 +1672,7 @@ class model_dayabay_v0:
         self.storage.read_paths(index=self.index)
         self.graph.build_index_dict(self.index)
 
-        labels_mk = NestedMKDict(labels, sep=".")
+        labels_mk = NestedMapping(labels, sep=".")
         if not self._strict:
             return
 
