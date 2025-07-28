@@ -20,7 +20,7 @@ from argparse import Namespace
 from matplotlib import pyplot as plt
 from yaml import safe_load as yaml_load
 
-from scripts import plot_fit_2d
+from . import plot_fit_2d
 
 plt.rcParams.update(
     {

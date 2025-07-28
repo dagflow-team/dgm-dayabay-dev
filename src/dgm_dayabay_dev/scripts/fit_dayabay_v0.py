@@ -7,7 +7,7 @@ from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from matplotlib import pyplot as plt
 from ..models.dayabay_v0 import model_dayabay_v0
 from numpy import ndarray
-from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
+from . import convert_numpy_to_lists, filter_fit, update_dict_parameters
 from yaml import safe_load
 
 set_level(INFO1)

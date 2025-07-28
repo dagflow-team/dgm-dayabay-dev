@@ -21,7 +21,7 @@ from dag_modelling.tools.profiling import (
 from dag_modelling.lib.common import Array
 from dag_modelling.tools.save_records import save_records
 from ..models import available_models, load_model
-from scripts import update_dict_parameters
+from . import update_dict_parameters
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

@@ -27,7 +27,7 @@ from matplotlib import pyplot as plt
 from ..models import available_models, load_model
 from numpy.typing import NDArray
 from scipy.stats import chi2, norm
-from scripts import update_dict_parameters
+from . import update_dict_parameters
 
 set_level(INFO1)
 
