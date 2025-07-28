@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 
 from numba import njit
 
-from dagflow.core.exception import InitializationError
-from dagflow.core.node import Node
-from dagflow.core.type_functions import (
+from dag_modelling.core.exception import InitializationError
+from dag_modelling.core.node import Node
+from dag_modelling.core.type_functions import (
     check_dimension_of_inputs,
     check_inputs_have_same_shape,
     copy_from_inputs_to_outputs,
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from numpy import double
     from numpy.typing import NDArray
 
-    from dagflow.core.input import Input
-    from dagflow.core.output import Output
+    from dag_modelling.core.input import Input
+    from dag_modelling.core.output import Output
 
 
 @njit(cache=True)

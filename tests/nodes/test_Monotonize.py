@@ -7,9 +7,9 @@ from matplotlib import pyplot as plt
 from numpy import allclose, fabs, finfo, linspace, log
 from pytest import mark
 
-from dagflow.core.graph import Graph
-from dagflow.lib.common import Array
-from dagflow.plot.graphviz import savegraph
+from dag_modelling.core.graph import Graph
+from dag_modelling.lib.common import Array
+from dag_modelling.plot.graphviz import savegraph
 from dgm_dayabay_dev.nodes.Monotonize import Monotonize
 
 
