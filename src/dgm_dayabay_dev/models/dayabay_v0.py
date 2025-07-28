@@ -388,7 +388,7 @@ class model_dayabay_v0:
                 "orders_y"
             )
 
-            from dgf_reactoranueosc import IBDXsecVBO1Group
+            from dgm_reactor_neutrino import IBDXsecVBO1Group
 
             ibd, _ = IBDXsecVBO1Group.replicate(
                 path="kinematics.ibd", input_energy="edep"
@@ -406,7 +406,7 @@ class model_dayabay_v0:
             #
             # Oscillations
             #
-            from dgf_reactoranueosc import NueSurvivalProbability
+            from dgm_reactor_neutrino import NueSurvivalProbability
             NueSurvivalProbability.replicate(
                 name="oscprob",
                 distance_unit="m",
@@ -894,7 +894,7 @@ class model_dayabay_v0:
                     )
 
             # Baseline factor from Reactor to Detector: 1/(4πL²)
-            from dgf_reactoranueosc import InverseSquareLaw
+            from dgm_reactor_neutrino import InverseSquareLaw
             InverseSquareLaw.replicate(
                 name="reactor_detector.baseline_factor_per_cm2",
                 scale="m_to_cm",
