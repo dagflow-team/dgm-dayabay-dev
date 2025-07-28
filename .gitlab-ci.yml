@@ -13,20 +13,19 @@ tests:
     - python3 -m venv venv
     - source venv/bin/activate
     - git lfs install --skip-repo
-    - git submodule sync
-    - git submodule update --init --depth=1 -- submodules/dag-flow
-    - git submodule update --init --depth=1 -- submodules/dagflow-reactornueosc submodules/dagflow-detector submodules/dagflow-statistics submodules/dictwrapper
+    - pip install --upgrade wheel setuptools pip
+    - pip install cython
+    # nested-dict is yet in testing
+    - pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple -e ".[dev]"
+    # - pip install -e ".[dev]"
     - git clone --branch $DATA_BRANCH --depth=1 https://gitlab-ci-token:${CI_JOB_TOKEN}@git.jinr.ru/dag-computing/dayabay-data-all.git data
-    - python3 -m pip install $(find . -name requirements.txt -type f -printf "-r %p\n")
-    - mkdir output
-    - coverage run --source=. --omit=submodules/* -m pytest
+    - coverage run --source=. -m pytest
     - coverage report
     - coverage xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     paths:
-      - test
-      - output
+      - tests/output
     reports:
       coverage_report:
         coverage_format: cobertura
