@@ -32,6 +32,9 @@ urls.documentation = "https://github.com/dagflow-team/dgm-dayabay-dev/wiki"
 urls.homepage = "https://github.com/dagflow-team/dgm-dayabay-dev"
 urls.repository = "https://github.com/dagflow-team/dgm-dayabay-dev"
 
+[tool.setuptools.package-data]
+"*" = [ "*.yaml" ]
+
 [tool.setuptools.packages.find]
 where = [ "src" ]
 exclude = [
