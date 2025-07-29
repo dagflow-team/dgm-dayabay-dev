@@ -1373,7 +1373,7 @@ class model_dayabay_v0b:
                 replicate_outputs=combinations["detector"],
             )
 
-            from dag_modelling.list.hist import Rebin
+            from dag_modelling.lib.hist import Rebin
             Rebin.replicate(
                 names={"matrix": "detector.rebin.matrix_ibd", "product": "eventscount.final.ibd"},
                 replicate_outputs=combinations["detector.period"],
