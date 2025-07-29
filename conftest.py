@@ -10,6 +10,18 @@ def pytest_sessionstart(session):
     Create `tests/output` dir
     """
     makedirs("tests/output", exist_ok=True)
+def pytest_addoption(parser):
+    parser.addoption(
+        "--debug-graph",
+        action="store_true",
+        default=False,
+        help="set debug=True for all the graphs in tests",
+    )
+
+
+@fixture(scope="session")
+def debug_graph(request):
+    return request.config.option.debug_graph
 
 
 @fixture()
