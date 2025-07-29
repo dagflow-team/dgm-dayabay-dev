@@ -25,7 +25,7 @@ dependencies = [
   "more-itertools",
 ]
 
-optional-dependencies.dev = [ "coverage", "parameterized", "pytest", "pytest-cov", "nbvonvert" ]
+optional-dependencies.dev = [ "coverage", "parameterized", "pytest", "pytest-cov", "nbconvert" ]
 urls."Bug Tracker" = "https://github.com/dagflow-team/dgm-dayabay-dev/issues"
 urls."DAGModelling Team" = "https://github.com/dagflow-team"
 urls.documentation = "https://github.com/dagflow-team/dgm-dayabay-dev/wiki"
