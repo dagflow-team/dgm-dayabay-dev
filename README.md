@@ -1,11 +1,11 @@
 # dgm-dayabay-dev
 
 [![python](https://img.shields.io/badge/python-3.11-purple.svg)](https://www.python.org/)
-[![pipeline](https://git.jinr.ru/dag-computing/dayabay-model/badges/main/pipeline.svg)](https://git.jinr.ru/dag-computing/dayabay-model/commits/main)
-[![coverage report](https://git.jinr.ru/dag-computing/dayabay-model/badges/main/coverage.svg)](https://git.jinr.ru/dag-computing/dayabay-model/-/commits/main)
+[![pipeline](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/badges/main/pipeline.svg)](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/commits/main)
+[![coverage report](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/badges/main/coverage.svg)](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/-/commits/main)
 
 <!--- Uncomment here after adding docs!
-[![pages](https://img.shields.io/badge/pages-link-white.svg)](http://dag-computing.pages.jinr.ru/dayabay-model)
+[![pages](https://img.shields.io/badge/pages-link-white.svg)](http://dagflow-team.pages.jinr.ru/dgm-dayabay-dev)
 -->
 
 Implementation of the Daya Bay modelfor `dag-modelling` framework. Development version.
@@ -13,6 +13,6 @@ Implementation of the Daya Bay modelfor `dag-modelling` framework. Development v
 ## Repositories
 
 - Main repo:
-  - Development/CI: https://git.jinr.ru/dag-computing/dayabay-model
+  - Development/CI: https://git.jinr.ru/dagflow-team/dgm-dayabay-dev
   - Contact/pypi/mirror: https://github.com/dagflow-team/dgm-dayabay-dev
-  - PYPI: https://test.pypi.org/project/dgm-dayabay-dev
+  - PYPI: https://pypi.org/project/dgm-dayabay-dev
