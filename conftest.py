@@ -8,17 +8,8 @@ def pytest_sessionstart(session):
     """Called after the Session object has been created and before performing
     collection and entering the run test loop.
 
-    Automatic change path to the `dgm-dayabay-dev/tests` and create
-    `tests/output` dir
+    Create `output/` dir
     """
-    while path := getcwd():
-        if (lastdir := path.split("/")[-1]) == "tests":
-            break
-        elif ".git" in listdir(path):
-            chdir("./tests")
-            break
-        else:
-            chdir("..")
     if not isdir("output"):
         mkdir("output")
 
