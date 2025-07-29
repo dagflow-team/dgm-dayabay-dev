@@ -80,7 +80,7 @@ def test_monotonize(
     ax.plot(x, ym, "x", label="monotonize 1")
     ax.plot(x, ym2, ".", label="monotonize 2")
     ax.legend()
-    fig.savefig(f"output/{testname}-plot.png")
+    fig.savefig(f"tests/output/{testname}-plot.png")
     plt.close()
 
-    savegraph(graph, f"output/{testname}.png")
+    savegraph(graph, f"tests/output/{testname}.png")

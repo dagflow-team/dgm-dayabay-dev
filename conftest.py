@@ -1,5 +1,4 @@
-from os import chdir, environ, getcwd, listdir, mkdir
-from os.path import isdir
+from os import environ, makedirs
 
 from pytest import fixture
 
@@ -8,10 +7,9 @@ def pytest_sessionstart(session):
     """Called after the Session object has been created and before performing
     collection and entering the run test loop.
 
-    Create `output/` dir
+    Create `tests/output` dir
     """
-    if not isdir("output"):
-        mkdir("output")
+    makedirs("tests/output", exist_ok=True)
 
 
 @fixture()
