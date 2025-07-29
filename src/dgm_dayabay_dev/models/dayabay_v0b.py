@@ -1188,7 +1188,7 @@ class model_dayabay_v0b:
             if "lsnl-curves" in self._future:
                 # Refine LSNL curves: interpolate with smaller step
                 logger.warning("Future: Pre-interpolate LSNL curves")
-                from dgm_dayabay_dev.bundles.refine_lsnl_data import \
+                from ..bundles.refine_lsnl_data import \
                     refine_lsnl_data
                 refine_lsnl_data(
                     storage("data.detector.lsnl.curves"),
@@ -1200,7 +1200,7 @@ class model_dayabay_v0b:
                 )
             else:
                 # Coarse LSNL model, consistent with GNA implementation
-                from dgm_dayabay_dev.bundles.cross_check_refine_lsnl_data import \
+                from ..bundles.cross_check_refine_lsnl_data import \
                     cross_check_refine_lsnl_data
                 cross_check_refine_lsnl_data(
                     storage("data.detector.lsnl.curves"),

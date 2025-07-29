@@ -1108,7 +1108,7 @@ class model_dayabay_v0:
             )
 
             # Coarse LSNL model, consistent with GNA implementation
-            from dgm_dayabay_dev.bundles.cross_check_refine_lsnl_data import \
+            from ..bundles.cross_check_refine_lsnl_data import \
                 cross_check_refine_lsnl_data
             cross_check_refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),

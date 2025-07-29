@@ -276,7 +276,7 @@ class model_dayabay_v0d:
         from dag_modelling.lib.summation import ArraySum, SumMatOrDiag
         from dag_modelling.tools.schema import LoadPy
         from dgm_dayabay_dev.nodes.Monotonize import Monotonize
-        from dgm_dayabay_dev.bundles.refine_lsnl_data import refine_lsnl_data
+        from ..bundles.refine_lsnl_data import refine_lsnl_data
         from dgm_reactor_neutrino import (
             IBDXsecVBO1Group,
             InverseSquareLaw,
