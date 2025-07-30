@@ -4,7 +4,7 @@ from dgm_dayabay_dev.models import available_models, load_model
 from pytest import mark
 
 
-@mark.parametrize("model_version", available_models())
+@mark.parametrize("model_version", [model for model in available_models() if model!="latest"])
 def test_dayabay_v0(model_version: str):
     model = load_model(model_version, close=True, strict=True)
 
