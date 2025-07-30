@@ -24,9 +24,10 @@ from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from matplotlib import pyplot as plt
-from ..models import available_models, load_model
 from numpy.typing import NDArray
 from scipy.stats import chi2, norm
+
+from ..models import available_models, load_model
 from . import update_dict_parameters
 
 set_level(INFO1)
@@ -221,10 +222,6 @@ def main(args: Namespace) -> None:
             fit = minimizer_scan_1d.fit()
             minimizer_scan_1d.push_initial_values()
             chi2_map_1d[parameter][idx] = fit["fun"]
-
-    import IPython
-
-    IPython.embed()
 
     fig, axes = plt.subplots(2, 2, gridspec_kw={"width_ratios": [3, 1], "height_ratios": [1, 3]})
     sinSqD13_profile, chi2_profile = get_profile_of_chi2(

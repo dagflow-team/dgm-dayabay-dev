@@ -104,18 +104,18 @@ def main(opts: Namespace) -> None:
 
 
 def plot(
-    storageA: NestedMapping,
-    storageB: NestedMapping,
-    labelA: str,
-    labelB: str,
+    storage_a: NestedMapping,
+    storage_b: NestedMapping,
+    label_a: str,
+    label_b: str,
     *,
     opts: Namespace,
     title: str = "",
     xlabel: str = "E, MeV",
     ylabel: str = "entries",
 ):
-    for key, (edgesA, dataA) in storageA.walkitems():
-        _, dataB = storageB[key]
+    for key, (edgesA, dataA) in storage_a.walkitems():
+        _, dataB = storage_b[key]
 
         _, (ax, axd, axr) = plt.subplots(
             3,
@@ -134,8 +134,8 @@ def plot(
         if ylabel:
             ax.set_ylabel(ylabel)
 
-        ax.stairs(dataA, edgesA, label=labelA)
-        ax.stairs(dataB, edgesA, label=labelB)
+        ax.stairs(dataA, edgesA, label=label_a)
+        ax.stairs(dataB, edgesA, label=label_b)
         ax.legend()
 
         diff = dataA - dataB
@@ -159,7 +159,7 @@ def plot(
         axd.tick_params(labelleft=False, labelright=True)
         axd.yaxis.set_label_position("right")
         axd.stairs(diff, edgesA, label=f"sum={sdiff:.2f}")
-        axd.set_ylabel(f"{labelA}−{labelB}", size="small")
+        axd.set_ylabel(f"{label_a}−{label_b}", size="small")
         if opts.ylim:
             axd.set_ylim(*opts.ylim)
         if opts.dlim:
@@ -168,7 +168,7 @@ def plot(
 
         plt.sca(axr)
         axr.stairs(lratiom, edgesA[istart_ratio:], label=f"ratio={tratio*100:.2f} %")
-        axr.set_ylabel(f"log({labelA}/{labelB})", size="small")
+        axr.set_ylabel(f"log({label_a}/{label_b})", size="small")
         rmin = min(nanmin(lratiom) * 0.9, nanmin(lratiom) * 1.1)
         rmax = max(nanmax(lratiom) * 0.9, nanmax(lratiom) * 1.1)
         if rmin!=rmax:
