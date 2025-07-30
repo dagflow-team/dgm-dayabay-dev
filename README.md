@@ -8,7 +8,7 @@
 [![pages](https://img.shields.io/badge/pages-link-white.svg)](http://dagflow-team.pages.jinr.ru/dgm-dayabay-dev)
 -->
 
-Implementation of the Daya Bay modelfor `dag-modelling` framework. Development version.
+Implementation of the Daya Bay model for `dag-modelling` framework. Development version.
 
 ## Repositories
 
