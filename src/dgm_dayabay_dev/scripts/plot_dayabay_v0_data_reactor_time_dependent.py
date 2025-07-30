@@ -5,7 +5,7 @@ from __future__ import annotations
 from argparse import Namespace
 
 from matplotlib import pyplot as plt
-from matplotlib import rcParams, transforms
+from matplotlib import transforms
 
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level

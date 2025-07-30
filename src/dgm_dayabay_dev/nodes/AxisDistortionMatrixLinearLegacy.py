@@ -186,6 +186,6 @@ def _axisdistortion_linear_python(
         # left_axis = right_axis
 
 
-_axisdistortion_linear_numba: Callable[[NDArray, NDArray, NDArray, NDArray], None] = njit(
+_axisdistortion_linear_numba: Callable[[NDArray, NDArray, NDArray, NDArray, NDArray], None] = njit(
     cache=True
 )(_axisdistortion_linear_python)

@@ -37,7 +37,7 @@ from yaml import safe_load as yaml_load
 
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
-from ..models import AD_TO_EH, available_models, load_model
+from ..models import available_models, load_model
 from ..models.dayabay_labels import LATEX_SYMBOLS
 from . import (
     filter_covariance_matrix,

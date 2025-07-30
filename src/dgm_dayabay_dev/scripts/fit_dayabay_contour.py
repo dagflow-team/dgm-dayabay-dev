@@ -20,8 +20,7 @@ from typing import Any
 
 import numpy as np
 from dag_modelling.parameters.gaussian_parameter import Parameter
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.logger import INFO1, set_level
 from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from matplotlib import pyplot as plt
 from numpy.typing import NDArray

@@ -15,12 +15,11 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from matplotlib import pyplot as plt
-
-from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dag_modelling.tools.save_records import save_records
+from matplotlib import pyplot as plt
+
 from ..models import available_models, load_model
 
 if TYPE_CHECKING:
@@ -77,9 +76,7 @@ def main(opts: Namespace) -> None:
         return
 
     if opts.print_all:
-        print(
-            storage.to_table(truncate="auto", df_kwargs={"columns": opts.print_columns})
-        )
+        print(storage.to_table(truncate="auto", df_kwargs={"columns": opts.print_columns}))
     for sources in opts.print:
         for source in sources:
             print(
@@ -94,9 +91,7 @@ def main(opts: Namespace) -> None:
     if len(storage("inputs")) > 0:
         print("Not connected inputs")
         print(
-            storage("inputs").to_table(
-                truncate="auto", df_kwargs={"columns": opts.print_columns}
-            )
+            storage("inputs").to_table(truncate="auto", df_kwargs={"columns": opts.print_columns})
         )
 
     if opts.method:
@@ -121,9 +116,7 @@ def main(opts: Namespace) -> None:
         },
     }
     if opts.plots_all:
-        storage("outputs").plot(
-            folder=opts.plots_all, minimal_data_size=10, **plot_kwargs
-        )
+        storage("outputs").plot(folder=opts.plots_all, minimal_data_size=10, **plot_kwargs)
 
     if opts.plots:
         folder, *sources = opts.plots
@@ -141,9 +134,7 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.pars_datax:
-        storage["parameters.all"].to_datax_file(
-            f"output/dayabay_{opts.version}_pars_datax.tex"
-        )
+        storage["parameters.all"].to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
 
     if opts.pars_latex:
         storage["parameters.all"].to_latex_file(opts.pars_latex)
@@ -160,9 +151,7 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.pars_text:
-        storage["parameters.all"].to_text_file(
-            f"output/dayabay_{opts.version}_pars.txt"
-        )
+        storage["parameters.all"].to_text_file(f"output/dayabay_{opts.version}_pars.txt")
 
     if opts.summary:
         save_summary(model, opts.summary)
@@ -228,9 +217,7 @@ def save_summary(model: Any, filenames: Sequence[str]):
     except AttributeError:
         return
 
-    save_records(
-        data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False}
-    )
+    save_records(data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False})
 
 
 latex_substitutions = {
@@ -307,9 +294,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",
@@ -328,9 +313,7 @@ if __name__ == "__main__":
     )
 
     plot = parser.add_argument_group("plot", "plotting related options")
-    plot.add_argument(
-        "--plots-all", help="plot all the nodes to the folder", metavar="folder"
-    )
+    plot.add_argument("--plots-all", help="plot all the nodes to the folder", metavar="folder")
     plot.add_argument(
         "--plots",
         nargs="+",
@@ -340,19 +323,13 @@ if __name__ == "__main__":
 
     storage = parser.add_argument_group("storage", "storage related options")
     storage.add_argument("-P", "--print-all", action="store_true", help="print all")
-    storage.add_argument(
-        "-p", "--print", action="append", nargs="+", default=[], help="print all"
-    )
-    storage.add_argument(
-        "--print-columns", "--pc", default=None, nargs="+", help="Print columns"
-    )
+    storage.add_argument("-p", "--print", action="append", nargs="+", default=[], help="print all")
+    storage.add_argument("--print-columns", "--pc", default=None, nargs="+", help="Print columns")
     storage.add_argument(
         "--pars-datax", action="store_true", help="print parameters to latex (datax)"
     )
     storage.add_argument("--pars-latex", help="print latex table with parameters")
-    storage.add_argument(
-        "--pars-latex-split", help="print latex tables with parameters"
-    )
+    storage.add_argument("--pars-latex-split", help="print latex tables with parameters")
     storage.add_argument(
         "--pars-text", action="store_true", help="print text tables with parameters"
     )
@@ -388,9 +365,7 @@ if __name__ == "__main__":
     #     metavar=("node", "file"),
     # )
     dot.add_argument("--mindepth", "--md", default=-2, type=int, help="minimal depth")
-    dot.add_argument(
-        "--maxdepth", "--Md", default=+1, type=int, help="maximaldepth depth"
-    )
+    dot.add_argument("--maxdepth", "--Md", default=+1, type=int, help="maximaldepth depth")
     dot.add_argument("--graphs-all", help="plot graphs", metavar="folder")
     dot.add_argument(
         "--graphs",
@@ -406,14 +381,10 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
     model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     main(parser.parse_args())

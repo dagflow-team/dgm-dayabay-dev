@@ -6,7 +6,6 @@ from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from matplotlib import pyplot as plt
 from ..models.dayabay_v0 import model_dayabay_v0
-from numpy import ndarray
 from . import convert_numpy_to_lists, filter_fit, update_dict_parameters
 from yaml import safe_load
 
@@ -213,11 +212,6 @@ if __name__ == "__main__":
         choices=("linear", "exponential"),
         default="exponential",
         help="antineutrino spectrum correction mode",
-    )
-    model.add_argument(
-        "--fission-fraction-normalized",
-        action="store_true",
-        help="fission fraction correction",
     )
     model.add_argument("--seed", default=0, type=int, help="seed of randomization")
     model.add_argument(

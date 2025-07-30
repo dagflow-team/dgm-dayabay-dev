@@ -5,16 +5,14 @@ from __future__ import annotations
 from argparse import Namespace
 from typing import TYPE_CHECKING
 
-from matplotlib import pyplot as plt
-from numpy import fabs, full_like, linspace, ma
-from numpy.typing import NDArray
-
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from matplotlib import pyplot as plt
+from numpy import full_like, linspace, ma
+
 from ..models import available_models, load_model
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from typing import Any
 
 set_level(INFO1)
@@ -44,9 +42,7 @@ def main(opts: Namespace) -> None:
     curve_mono = model.storage["outputs.detector.lsnl.curves.evis_coarse_monotonous"]
     escint = model.storage["outputs.detector.lsnl.curves.escint"].data
 
-    pars = list(
-        model.storage["parameters.constrained.detector.lsnl_scale_a"].walkvalues()
-    )
+    pars = list(model.storage["parameters.constrained.detector.lsnl_scale_a"].walkvalues())
     # pars_offset = 3
     # pars = pars[pars_offset : len(pars)] + pars[:pars_offset]
 
@@ -121,9 +117,7 @@ def main(opts: Namespace) -> None:
     if error_found:
         # Rotate the ring to have elements in order from earliest to latest
         ring_lsnl = list(
-            el
-            for el in ring_lsnl[i_ring + 1 : N_ring] + ring_lsnl[: i_ring + 1]
-            if el is not None
+            el for el in ring_lsnl[i_ring + 1 : N_ring] + ring_lsnl[: i_ring + 1] if el is not None
         )
         for r, lsnl in enumerate(ring_lsnl):
             if lsnl is None:
@@ -162,11 +156,7 @@ def main(opts: Namespace) -> None:
             plt.savefig(fname)
             print(f"Write: {fname}")
 
-            if (
-                r == 0
-                or (lsnl_prev := ring_lsnl[r - 1]) is None
-                or lsnl_prev["name"] != name
-            ):
+            if r == 0 or (lsnl_prev := ring_lsnl[r - 1]) is None or lsnl_prev["name"] != name:
                 continue
 
             diff = mat - lsnl_prev["matrix"]
@@ -181,9 +171,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",
@@ -217,14 +205,10 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
     model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     main(parser.parse_args())

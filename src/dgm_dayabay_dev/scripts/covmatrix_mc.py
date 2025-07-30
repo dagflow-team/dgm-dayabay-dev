@@ -151,7 +151,7 @@ def covariance_matrix_calculation(
     observation_size = observation.data.shape[0]
     product_mean = np.zeros((observation_size, observation_size))
     observation_sum = np.zeros(observation_size)
-    for i in range(N):
+    for _ in range(N):
         variate_parameters(parameters, generator)
         observation_sum += observation.data
         product_mean += np.outer(observation.data, observation.data)

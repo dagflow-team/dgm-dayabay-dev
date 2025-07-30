@@ -22,7 +22,6 @@ from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from IPython import embed
 from LaTeXDatax import datax as datax_dump
-from matplotlib import pyplot as plt
 from ..models import load_model
 from . import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
 from yaml import safe_dump as yaml_dump

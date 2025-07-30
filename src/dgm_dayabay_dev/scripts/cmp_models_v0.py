@@ -7,7 +7,7 @@ from numpy import log, nanmax, nanmin, where
 
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
-from ..models import available_models, available_sources, load_model
+from ..models import available_models, load_model
 from nested_mapping import NestedMapping
 from nested_mapping.tools import mkmap
 

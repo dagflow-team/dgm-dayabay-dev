@@ -14,13 +14,10 @@ Example of call
       --output-show
 """
 from argparse import Namespace
-from typing import Any
 
 import numpy as np
 from IPython import embed
-from matplotlib import patches
 from matplotlib import pyplot as plt
-from matplotlib import ticker
 from matplotlib.axes import Axes
 from numpy.typing import NDArray
 from yaml import safe_load as yaml_load

@@ -2,9 +2,9 @@
 from argparse import Namespace
 
 import numpy as np
-from dag_modelling.logger import DEBUG as INFO4
-from dag_modelling.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.logger import INFO1, set_level
 from matplotlib import pyplot as plt
+
 from ..models.dayabay_v0 import model_dayabay_v0
 
 set_level(INFO1)
@@ -37,7 +37,6 @@ def main(args: Namespace) -> None:
     model = model_dayabay_v0(
         source_type=args.source_type,
         spectrum_correction_mode=args.spec,
-        fission_fraction_normalized=args.fission_fraction_normalized,
         monte_carlo_mode=args.data_mc_mode,
         concatenation_mode=args.concatenation_mode,
         seed=args.seed,
@@ -46,7 +45,7 @@ def main(args: Namespace) -> None:
     parameters = model.storage("parameters.all")
     statistic = model.storage("outputs.statistic")
 
-    model.touch()
+    model._touch()
 
     from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 
@@ -71,7 +70,7 @@ def main(args: Namespace) -> None:
     fits = dict(zip(args.statistic, [[] for _ in range(len(args.statistic))]))
     for _ in range(args.repeat):
         model.next_sample()
-        model.touch()
+        model._touch()
         observations.append(
             model.storage.get_value("outputs.eventscount.final.concatenated").data.copy()
         )
@@ -138,11 +137,6 @@ if __name__ == "__main__":
         choices=("linear", "exponential"),
         default="exponential",
         help="antineutrino spectrum correction mode",
-    )
-    model.add_argument(
-        "--fission-fraction-normalized",
-        action="store_true",
-        help="fission fraction correction",
     )
     model.add_argument("--seed", default=0, type=int, help="seed of randomization")
     model.add_argument(

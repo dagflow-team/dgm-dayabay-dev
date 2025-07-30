@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from numpy import allclose, fabs, nanmax
 from numpy.typing import NDArray
 
-from dag_modelling.logger import INFO1, INFO2, INFO3, logger, set_level
+from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
 from ..models.dayabay_v0 import model_dayabay_v0
 from nested_mapping import NestedMapping
 
