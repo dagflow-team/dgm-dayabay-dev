@@ -23,7 +23,8 @@ def test_monotonize(
     start: float | int,
     positive: bool,
     debug_graph,
-    test_name,
+    test_name: str,
+    output_path: str
 ):
     x = linspace(0.0, 10, 101)[1:]
     y = log(x)
@@ -80,7 +81,9 @@ def test_monotonize(
     ax.plot(x, ym, "x", label="monotonize 1")
     ax.plot(x, ym2, ".", label="monotonize 2")
     ax.legend()
-    fig.savefig(f"tests/output/{test_name}-plot.png")
+    fig.savefig(f"{output_path}/{test_name}-plot.png")
     plt.close()
 
-    savegraph(graph, f"tests/output/{test_name}.png")
+    fname = f"{output_path}/{test_name}.png"
+    print(f"Save graph: {fname}")
+    savegraph(graph, fname)

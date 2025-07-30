@@ -5,7 +5,7 @@ from pytest import mark
 
 
 @mark.parametrize("model_version", [model for model in available_models() if model!="latest"])
-def test_dayabay_v0(model_version: str):
+def test_dayabay_v0(model_version: str, output_path: str):
     model = load_model(model_version, close=True, strict=True)
 
     graph = model.graph
@@ -19,7 +19,7 @@ def test_dayabay_v0(model_version: str):
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate=True))
 
-        plot_graph(graph, storage)
+        plot_graph(graph, storage, output_path=output_path)
         return
 
     print(storage.to_table(truncate=True))
@@ -27,8 +27,8 @@ def test_dayabay_v0(model_version: str):
         print("Not connected inputs")
         print(storage("inputs").to_table(truncate=True))
 
-    storage.to_datax("tests/output/dayabay_v0_data.tex")
-    plot_graph(graph, storage)
+    storage.to_datax(f"{output_path}/dayabay_v0_data.tex")
+    plot_graph(graph, storage, output_path=output_path)
 
 
 @mark.parametrize("model_version", available_models())
@@ -51,8 +51,8 @@ def test_dayabay_v0_proxy_switch(model_version: str):
     assert chi2.data == 0.0
 
 
-def plot_graph(graph: Graph, storage: NodeStorage) -> None:
-    GraphDot.from_graph(graph, show="all").savegraph("tests/output/dayabay_v0.dot")
+def plot_graph(graph: Graph, storage: NodeStorage, output_path: str) -> None:
+    GraphDot.from_graph(graph, show="all").savegraph(f"{output_path}/dayabay_v0.dot")
     GraphDot.from_graph(
         graph,
         show="all",
@@ -63,16 +63,16 @@ def plot_graph(graph: Graph, storage: NodeStorage) -> None:
             "period": [0],
             "background": [0],
         },
-    ).savegraph("tests/output/dayabay_v0_reduced.dot")
+    ).savegraph(f"{output_path}/dayabay_v0_reduced.dot")
     GraphDot.from_node(
         storage["nodes.statistic.nuisance.all"],
         show="all",
         mindepth=-1,
         keep_direction=True,
-    ).savegraph("tests/output/dayabay_v0_nuisance.dot")
+    ).savegraph(f"{output_path}/dayabay_v0_nuisance.dot")
     GraphDot.from_output(
         storage["outputs.edges.energy_evis"],
         show="all",
         mindepth=-3,
         keep_direction=True,
-    ).savegraph("tests/output/dayabay_v0_top.dot")
+    ).savegraph(f"{output_path}/dayabay_v0_top.dot")

@@ -3,13 +3,6 @@ from os import environ, makedirs
 from pytest import fixture
 
 
-def pytest_sessionstart(session):
-    """Called after the Session object has been created and before performing
-    collection and entering the run test loop.
-
-    Create `tests/output` dir
-    """
-    makedirs("tests/output", exist_ok=True)
 def pytest_addoption(parser):
     parser.addoption(
         "--debug-graph",
@@ -17,6 +10,19 @@ def pytest_addoption(parser):
         default=False,
         help="set debug=True for all the graphs in tests",
     )
+
+    parser.addoption(
+        "--output-path",
+        default="output/tests",
+        help="choose the location of output materials",
+    )
+
+
+@fixture(scope="session")
+def output_path(request):
+    loc = request.config.option.output_path
+    makedirs(loc, exist_ok=True)
+    return loc
 
 
 @fixture(scope="session")
