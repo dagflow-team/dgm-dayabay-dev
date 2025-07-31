@@ -6,13 +6,14 @@ from dag_modelling.tools.logger import INFO1, set_level
 from matplotlib import pyplot as plt
 
 from dgm_dayabay_dev.models.dayabay_v0 import model_dayabay_v0
+from dag_modelling.parameters.gaussian_parameter import Parameter
+from scripts import update_dict_parameters
 
 set_level(INFO1)
 
 
 def plot_hist_mean(fits, key, title, xlabel, args) -> None:
     fig, ax = plt.subplots(1, 1)
-    print(title)
     for i, (fit_key, fit_group) in enumerate(fits.items()):
         data = np.array([fit[key] for fit in fit_group]).reshape(-1)
         ax.hist(data, label=fit_key + f" {data.mean():1.5e}", alpha=0.5, color=f"C{i}")
@@ -39,32 +40,34 @@ def main(args: Namespace) -> None:
         spectrum_correction_mode=args.spec,
         monte_carlo_mode=args.data_mc_mode,
         concatenation_mode=args.concatenation_mode,
+        parameter_values=args.par,
         seed=args.seed,
     )
 
-    parameters = model.storage("parameters.all")
+    parameters_free = model.storage("parameters.free")
+    parameters_constrained = model.storage("parameters.constrained")
     statistic = model.storage("outputs.statistic")
 
     model._touch()
 
     from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 
-    minimization_pars = [parameters[par_name] for par_name in args.min_par]
+    minimization_parameters: dict[str, Parameter] = {}
+    update_dict_parameters(minimization_parameters, args.free_parameters, parameters_free)
+    if all(["covmat" not in statistic for statistic in args.statistic]):
+        update_dict_parameters(
+            minimization_parameters,
+            args.constrained_parameters,
+            parameters_constrained,
+        )
     minimizers = dict(
         [
-            (key, IMinuitMinimizer(statistic[key], parameters=minimization_pars))
+            (key, IMinuitMinimizer(statistic[key], parameters=minimization_parameters))
             for key in args.statistic
         ]
     )
     if not minimizers:
         exit(0)
-
-    par_value_inits = []
-    for par_name, par_value in args.par:
-        par_value_inits.append(parameters[par_name].value)
-        model.set_parameters({par_name: par_value})
-    for i, (par_name, _) in enumerate(args.par):
-        model.set_parameters({par_name: par_value_inits[i]})
 
     observations = []
     fits = dict(zip(args.statistic, [[] for _ in range(len(args.statistic))]))
@@ -72,7 +75,7 @@ def main(args: Namespace) -> None:
         model.next_sample()
         model._touch()
         observations.append(
-            model.storage.get_value("outputs.eventscount.final.concatenated").data.copy()
+            model.storage["outputs.eventscount.final.concatenated.selected"].data.copy()
         )
         for key, minimizer in minimizers.items():
             minimizer.push_initial_values()
@@ -85,21 +88,21 @@ def main(args: Namespace) -> None:
     plot_hist_mean(
         fits,
         "x",
-        f"{args.concatenation}, {args.data_mc_mode}" + ", global normalization, value",
+        f"{args.concatenation_mode}, {args.data_mc_mode}" + ", global normalization, value",
         r"$N^{\mathrm{global}}$",
         args,
     )
     plot_hist_mean(
         fits,
         "errors",
-        f"{args.concatenation}, {args.data_mc_mode}" + ", global normalization, error",
+        f"{args.concatenation_mode}, {args.data_mc_mode}" + ", global normalization, error",
         r"$\sigma_{N}$",
         args,
     )
     plot_hist_mean(
         fits,
         "fun",
-        f"{args.concatenation}, {args.data_mc_mode}" + r", $\chi^2$ distribution",
+        f"{args.concatenation_mode}, {args.data_mc_mode}" + r", $\chi^2$ distribution",
         r"$\chi^2$",
         args,
     )
@@ -179,6 +182,18 @@ if __name__ == "__main__":
         default=100,
         type=int,
         help="Number of MC samples to be fitted",
+    )
+    stats.add_argument(
+        "--free-parameters",
+        default=[],
+        nargs="*",
+        help="Add free parameters to minimization process",
+    )
+    stats.add_argument(
+        "--constrained-parameters",
+        default=[],
+        nargs="*",
+        help="Add constrained parameters to minimization process",
     )
 
     outputs = parser.add_argument_group("outputs", "set outputs")

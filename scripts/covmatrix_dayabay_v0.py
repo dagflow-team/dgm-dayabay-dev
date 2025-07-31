@@ -26,10 +26,8 @@ def main(opts: Namespace) -> None:
         parameter_values=opts.setpar,
     )
 
-    ofile = File(opts.output, "w")
-
     outputs = model.storage["outputs"]
-    mode = model.concatenation_mode
+    mode = model._concatenation_mode
     edges = outputs[f"edges.energy_final"]
     prediction = outputs[f"eventscount.final.concatenated.selected"]
     jacobians = outputs[f"covariance.jacobians"]
@@ -42,6 +40,7 @@ def main(opts: Namespace) -> None:
     )
     # idx_str = tuple(".".join(idx) for idx in idx_tuple)
 
+    ofile = File(opts.output, "w")
     group = ofile.create_group(mode)
 
     group.create_dataset("elements", data=idx_tuple)
