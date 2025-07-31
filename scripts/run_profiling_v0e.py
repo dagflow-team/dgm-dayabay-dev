@@ -20,7 +20,7 @@ from dag_modelling.tools.profiling import (
     NodeProfiler,
     gather_related_nodes,
 )
-from ..models import available_models, load_model
+from dgm_dayabay_dev.models import available_models, load_model
 
 set_level(INFO1)
 

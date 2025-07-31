@@ -37,16 +37,16 @@ from yaml import safe_load as yaml_load
 
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
-from ..models import available_models, load_model
-from ..models.dayabay_labels import LATEX_SYMBOLS
-from . import (
+from dgm_dayabay_dev.models import available_models, load_model
+from dgm_dayabay_dev.models.dayabay_labels import LATEX_SYMBOLS
+from scripts import (
     filter_covariance_matrix,
     get_obs,
     plot_fit_2d,
     plot_spectra_ratio,
     plot_spectral_weights,
 )
-from .covmatrix_mc import calculate_correlation_matrix
+from scripts.covmatrix_mc import calculate_correlation_matrix
 
 set_level(INFO1)
 

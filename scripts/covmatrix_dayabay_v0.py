@@ -8,7 +8,7 @@ from h5py import File
 
 from dag_modelling.lib.calculus.jacobian import compute_covariance_matrix
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
-from ..models import available_models, load_model
+from dgm_dayabay_dev.models import available_models, load_model
 from nested_mapping import walkvalues
 
 set_level(INFO1)

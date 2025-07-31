@@ -9,7 +9,7 @@ Example of call
 
     ./scripts/fit_dayabay_model.py --version v0e \
       --mo "{dataset: b, monte_carlo_mode: poisson, seed: 1}" \
-      --chi2 full.chi2n_covmat \
+      --chi2 full.covmat.chi2n \
       --free-parameters oscprob neutrino_per_fission_factor \
       --constrained-parameters oscprob detector reactor bkg reactor_anue \
       --constrain-osc-parameters \
@@ -23,8 +23,8 @@ from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from IPython import embed
 from LaTeXDatax import datax as datax_dump
-from ..models import available_models, load_model
-from . import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
+from dgm_dayabay_dev.models import available_models, load_model
+from scripts import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
 from yaml import dump as yaml_dump
 
 set_level(INFO1)

@@ -26,8 +26,8 @@ from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 from scipy.stats import chi2, norm
 
-from ..models import available_models, load_model
-from . import update_dict_parameters
+from dgm_dayabay_dev.models import available_models, load_model
+from scripts import update_dict_parameters
 
 set_level(INFO1)
 
@@ -188,16 +188,19 @@ def main(args: Namespace) -> None:
     global_fit = minimizer.fit()
     print(global_fit)
     fun = global_fit["fun"]
-    bf_xdict = global_fit["xdict"]
-    best_fit_x = bf_xdict["oscprob.SinSq2Theta13"]
-    best_fit_y = bf_xdict["oscprob.DeltaMSq32"]
-    model.set_parameters(bf_xdict)
+    bf_x_dict = global_fit["xdict"]
+    bf_errors_dict = global_fit["errorsdict"]
+    best_fit_x = bf_x_dict["oscprob.SinSq2Theta13"]
+    best_fit_y = bf_x_dict["oscprob.DeltaMSq32"]
+    best_fit_x_error = bf_errors_dict["oscprob.SinSq2Theta13"]
+    best_fit_y_error = bf_errors_dict["oscprob.DeltaMSq32"]
+    model.set_parameters(bf_x_dict)
 
     parameters, grids, xy_grid = cartesian_product(args.scan_par)
     grid_parameters = []
     minimization_parameters_2d = minimization_parameters.copy()
     for parameter in parameters:
-        grid_parameter = minimization_parameters_2d.pop(parameter)
+        minimization_parameters_2d.pop(parameter)
         grid_parameters.append(parameter)
 
     model.next_sample(mc_parameters=False, mc_statistics=False)
@@ -211,7 +214,7 @@ def main(args: Namespace) -> None:
 
     chi2_map_1d: dict[str, NDArray | Any] = dict.fromkeys(grid_parameters)
     for parameter, grid_1d in zip(grid_parameters, grids):
-        model.set_parameters(bf_xdict)
+        model.set_parameters(bf_x_dict)
         chi2_map_1d[parameter] = np.zeros(grid_1d.shape[0])
         minimization_parameters_1d = minimization_parameters.copy()
         minimization_parameters_1d.pop(parameter)
@@ -228,7 +231,6 @@ def main(args: Namespace) -> None:
     )
 
     # TODO: profile 1d
-
     label = r"$\Delta\chi^2$"
     prepare_axes(
         axes[0, 0],
@@ -255,12 +257,11 @@ def main(args: Namespace) -> None:
     levels = convert_sigmas_to_chi2(ndof, [0, 1, 2, 3])
     axes[1, 0].grid(linestyle="--")
     axes[1, 0].tricontourf(xy_grid[:, 0], xy_grid[:, 1], chi2_map - fun, levels=levels, cmap="GnBu")
-    bf_x_error, bf_y_error, *_ = best_fit_errors
     axes[1, 0].errorbar(
         best_fit_x,
         best_fit_y,
-        xerr=bf_x_error,
-        yerr=bf_y_error,
+        xerr=best_fit_x_error,
+        yerr=best_fit_y_error,
         color="black",
         marker="o",
         markersize=3,
@@ -278,7 +279,7 @@ def main(args: Namespace) -> None:
     plt.show()
 
     if args.output_map:
-        np.save(args.output_map, np.stack((*grid.T, chi2_map), axis=1))
+        np.save(args.output_map, np.stack((*xy_grid.T, chi2_map), axis=1))
 
 
 if __name__ == "__main__":

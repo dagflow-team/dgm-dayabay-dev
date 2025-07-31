@@ -25,7 +25,7 @@ from dag_modelling.core import NodeStorage
 from dag_modelling.core.output import Output
 from dag_modelling.parameters import Parameter
 from dag_modelling.tools.logger import INFO1, set_level
-from ..models import available_models, load_model
+from dgm_dayabay_dev.models import available_models, load_model
 from nested_mapping import walkvalues
 from nested_mapping.typing import properkey
 

@@ -9,8 +9,7 @@ Example of call:
 .. code-block:: shell
 
     ./scripts/fit_dayabay_cross_model.py --config-path scripts/cross_fit_config.yaml \
-      --chi2 full.chi2n_covmat \
-      --output-plot-spectra "output/obs-{}.pdf" \
+      --chi2 full.covmat.chi2n \
       --output-fit output/fit.yaml
 """
 from argparse import Namespace
@@ -22,8 +21,8 @@ from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from IPython import embed
 from LaTeXDatax import datax as datax_dump
-from ..models import load_model
-from . import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
+from dgm_dayabay_dev.models import load_model
+from scripts import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
 from yaml import safe_dump as yaml_dump
 from yaml import safe_load as yaml_load
 
@@ -236,22 +235,6 @@ if __name__ == "__main__":
     outputs.add_argument(
         "--output-fit-tex",
         help="path to save full fit, TeX format",
-    )
-    outputs.add_argument(
-        "--output-plot-pars",
-        help="path to save plot of normalized values",
-    )
-    outputs.add_argument(
-        "--output-plot-corrmat",
-        help="path to save plot of correlation matrix of fitted parameters",
-    )
-    outputs.add_argument(
-        "--output-plot-spectra",
-        help="path to save full plot of fits",
-    )
-    outputs.add_argument(
-        "--output-plot-fit",
-        help="path to save full plot of fits",
     )
 
     args = parser.parse_args()

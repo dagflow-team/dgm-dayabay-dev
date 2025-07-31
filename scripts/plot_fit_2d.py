@@ -11,7 +11,7 @@ Example of call
       --input-fit fit-a.yaml \
       --output-fit-label-a a \
       --compare-fits fit-b.yaml fit-c.yaml \
-      --output-box \
+      --output-sigma-cross \
       --output-fit-labels-b b c \
       --output-show
 """
@@ -20,7 +20,7 @@ from argparse import Namespace
 from matplotlib import pyplot as plt
 from yaml import safe_load as yaml_load
 
-from . import plot_fit_2d
+from scripts import plot_fit_2d
 
 plt.rcParams.update(
     {
@@ -50,7 +50,7 @@ def main(args: Namespace) -> None:
         label_a=args.output_fit_label_a,
         labels_b=args.output_fit_labels_b,
         legend_title=args.output_fit_legend_title.format(**fit),
-        add_box=args.output_box,
+        add_sigma_cross=args.output_sigma_cross,
         add_global_normalization=args.global_normalization,
         add_nsigma_legend=False,
     )
@@ -85,9 +85,9 @@ if __name__ == "__main__":
         help="path to save full plot of fits",
     )
     outputs.add_argument(
-        "--output-box",
+        "--output-sigma-cross",
         action="store_true",
-        help="Draw 0.1sigma box around input_fit",
+        help="Draw 0.1sigma cross around input_fit",
     )
     outputs.add_argument("--output-fit-legend-title", default="")
     outputs.add_argument(

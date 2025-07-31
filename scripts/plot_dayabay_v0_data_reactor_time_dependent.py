@@ -9,7 +9,7 @@ from matplotlib import transforms
 
 from dag_modelling.tools.logger import DEBUG as INFO4
 from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
-from ..models import available_models, load_model
+from dgm_dayabay_dev.models import available_models, load_model
 
 set_level(INFO1)
 
@@ -43,12 +43,11 @@ def main(opts: Namespace) -> None:
         method()
 
     days_storage = storage["outputs.daily_data.days"]
-    eff_storage = storage["outputs.daily_data.detector.eff"]
-    efflivetime_storage = storage["outputs.daily_data.detector.efflivetime"]
-    rate_acc_storage = storage["outputs.daily_data.detector.rate_acc"]
+    power_storage = storage["outputs.daily_data.reactor.power"]
+    fission_fraction_storage = storage["outputs.daily_data.reactor.fission_fraction"]
 
-    ads = ["AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34"]
-    ads = {ad: i for i, ad in enumerate(ads)}
+    reactors = ["DB1", "DB2", "LA1", "LA2", "LA3", "LA4"]
+    reactors = {ad: i for i, ad in enumerate(reactors)}
 
     gridspec_kw = {
         "hspace": 0,
@@ -58,69 +57,67 @@ def main(opts: Namespace) -> None:
         "top": 0.95,
     }
     figsize = (12, 10)
-    fig_eff, axes_eff = plt.subplots(
-        8,
+    fig_power, axes_power = plt.subplots(
+        6,
         1,
         sharex=True,
         figsize=figsize,
-        subplot_kw={"ylabel": r"$\varepsilon$, %"},
+        subplot_kw={"ylabel": r"$W_{\rm th}$, %"},
         gridspec_kw=gridspec_kw,
     )
-    fig_efflivetime, axes_efflivetime = plt.subplots(
-        8,
+    fig_ff, axes_ff = plt.subplots(
+        6,
         1,
         sharex=True,
         figsize=figsize,
-        subplot_kw={"ylabel": r"T, day"},
+        subplot_kw={"ylabel": r"f, %"},
         gridspec_kw=gridspec_kw,
     )
-    fig_rate_acc, axes_rate_acc = plt.subplots(
-        8,
-        1,
-        sharex=True,
-        figsize=figsize,
-        subplot_kw={"ylabel": r"R, #/day"},
-        gridspec_kw=gridspec_kw,
-    )
-    text_offset = transforms.ScaledTranslation(0.04, 0.04, fig_eff.dpi_scale_trans)
+    text_offset = transforms.ScaledTranslation(0.04, 0.04, fig_power.dpi_scale_trans)
 
-    axes_eff[0].set_title("Efficiency (muon veto, multiplicity)")
-    axes_efflivetime[0].set_title("Effective livetime")
-    axes_rate_acc[0].set_title("Accidentals rate")
+    axes_power[0].set_title("Thermal power")
+    axes_ff[0].set_title("Fission fraction")
 
     labels_added = set()
 
-    seconds_in_day = 60 * 60 * 24
-    plot_kwargs = dict(markersize=0.5, color="C0")
-    for (period, ad), output in eff_storage.walkitems():
+    plot_kwargs0 = dict(markersize=0.5)
+    plot_kwargs = dict(color="C0", **plot_kwargs0)
+    for (reactor, period), output in power_storage.walkitems():
         data_days = days_storage[period].data
-        eff_data = output.data
-        efflivetime_data = efflivetime_storage[period, ad].data
-        rate_acc_data = rate_acc_storage[period, ad].data
+        power_data = output.data
 
-        ad_id = ads[ad]
+        reactor_id = reactors[reactor]
 
-        ax_eff = axes_eff[ad_id]
-        mask = eff_data > 0
-        ax_eff.plot(data_days[mask], eff_data[mask] * 100, ".", **plot_kwargs)
+        ax_power = axes_power[reactor_id]
+        mask = power_data > 0
+        ax_power.plot(data_days[mask], power_data[mask] * 100, ".", **plot_kwargs)
 
-        ax_efflivetime = axes_efflivetime[ad_id]
-        mask = efflivetime_data > 0
-        ax_efflivetime.plot(
-            data_days[mask], efflivetime_data[mask] / seconds_in_day, ".", **plot_kwargs
-        )
+        ax_ff = axes_ff[reactor_id]
+        for iisotope, (isotope, ff_isotope_storage) in enumerate(
+            fission_fraction_storage[reactor].items()
+        ):
+            ff_data = ff_isotope_storage[period].data
 
-        ax_rate_acc = axes_rate_acc[ad_id]
-        mask = rate_acc_data > 0
-        ax_rate_acc.plot(data_days[mask], rate_acc_data[mask], ".", **plot_kwargs)
+            ax_ff.plot(
+                data_days[mask],
+                ff_data[mask] * 100,
+                ".",
+                color=f"C{iisotope}",
+                label=isotope,
+                **plot_kwargs0,
+            )
 
-        ticks_right = bool(ad_id % 2)
-        for ax in (ax_eff, ax_efflivetime, ax_rate_acc):
-            if ad not in labels_added:
+        ticks_right = bool(reactor_id % 2)
+        for ax in (ax_power, ax_ff):
+            if reactor not in labels_added:
                 ax.text(
-                    1, 1, ad, transform=ax.transAxes - text_offset, va="top", ha="right"
+                    1,
+                    1,
+                    reactor,
+                    transform=ax.transAxes - text_offset,
+                    va="top",
+                    ha="right",
                 )
-                labels_added.add(ad)
 
             ax.tick_params(
                 axis="y",
@@ -133,30 +130,22 @@ def main(opts: Namespace) -> None:
             if ticks_right:
                 ax.yaxis.set_label_position("right")
 
-        labels_added.add(ad)
+        labels_added.add(reactor)
 
-    for axes in (axes_eff, axes_efflivetime, axes_rate_acc):
+    for axes in (axes_power, axes_ff):
         ax = axes[-1]
         ax.set_xlabel("Day since start of data taking")
         ax.set_xlim(left=0)
 
     if opts.output:
         for plot_type, fig in {
-            "eff": fig_eff,
-            "efflivetime": fig_efflivetime,
-            "rate_acc": fig_rate_acc,
+            "power": fig_power,
+            "fission_fraction": fig_ff,
         }.items():
             if "{type" not in opts.output:  # }
                 raise RuntimeError("Output format should contain {type} for plot type")
 
-            if "data-a" in model._future:
-                selection = "A"
-            elif "data-b" in model._future:
-                selection = "B"
-            else:
-                selection = "d"
-
-            fname = opts.output.format(type=plot_type, selection=selection, s=selection)
+            fname = opts.output.format(type=plot_type)
             fig.savefig(fname)
             print(f"Save plot: {fname}")
 
@@ -200,7 +189,7 @@ if __name__ == "__main__":
     plot.add_argument(
         "-o",
         "--output",
-        help='output files (supported format keys: "type", "selection")',
+        help='output files (supported format keys: "type")',
     )
     plot.add_argument("-s", "--show", action="store_true", help="show")
 

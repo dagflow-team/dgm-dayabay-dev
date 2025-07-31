@@ -10,7 +10,7 @@ from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from matplotlib import pyplot as plt
 from numpy import full_like, linspace, ma
 
-from ..models import available_models, load_model
+from dgm_dayabay_dev.models import available_models, load_model
 
 if TYPE_CHECKING:
     from typing import Any
