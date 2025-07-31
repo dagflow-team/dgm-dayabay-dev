@@ -19,9 +19,9 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "dag-modelling",
-  "dgm-fit",
-  "dgm-reactor-neutrino",
+  "dag-modelling>=0.12",
+  "dgm-fit>=0.2",
+  "dgm-reactor-neutrino>=0.2",
   "more-itertools",
 ]
 
