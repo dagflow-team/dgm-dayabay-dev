@@ -1,0 +1,1284 @@
+__common_definitions__:
+  daily_plotoptions: &daily_plotoptions
+    figure_kw: {figsize: [12.4, 4.8]}
+    subplots_adjust: {left: 0.06, right: 0.97}
+  detector_response_plotoptions: &detector_response_plotoptions
+      aspect: "equal"
+      mask_value: 0.0
+      plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5, alpha: 0.5}
+  covariance_plotoptions: &covariance_plotoptions
+      aspect: "equal"
+      mask_value: 0.0
+edges:
+  costheta:
+    text: "Positron angle cosθ"
+    latex: "Positron angle $\\cos\\theta$"
+    axis: "$\\cos\\theta$"
+    unit: "MeV"
+    plotoptions: 'none'
+  energy_common:
+    text: "Common energy (E) bin edges"
+    axis: "$E$"
+    unit: "MeV"
+    plotoptions: 'none'
+  energy_final:
+    text: "Final reconstructed energy (Erec) bin edges"
+    axis: "$E_{\\rm rec}$"
+    unit: "MeV"
+    plotoptions: 'none'
+  energy_enu:
+    text: "Neutrino energy (Eν) bin edges"
+    latex: "Neutrino energy $E_{\\nu}$ bin edges"
+    axis: "$E_{\\nu}$"
+    unit: "MeV"
+    plotoptions: 'none'
+  energy_edep:
+    text: "Deposited energy (Edep) bin edges"
+    latex: "Deposited energy $E_{\\rm dep}$ bin edges"
+    axis: "$E_{\\rm dep}$"
+    unit: "MeV"
+    plotoptions: 'none'
+  centers:
+    energy_edep:
+      text: "Deposited energy (Edep) bin centers"
+      latex: "Deposited energy $E_{\\rm dep}$ bin centers"
+      axis: "$E_{\\rm dep}$"
+      unit: "MeV"
+      plotoptions: 'none'
+  energy_escint:
+    text: "Deposited in scintillator energy (Escint) bin edges"
+    latex: "Deposited in scintillator energy $E_{\\rm scint}$ bin edges"
+    axis: "$E_{\\rm scint}$"
+    unit: "MeV"
+    plotoptions: 'none'
+  energy_evis:
+    text: "Visible energy (Evis) bin edges"
+    latex: "Visible energy $E_{\\rm vis}$ bin edges"
+    axis: "$E_{\\rm vis}$"
+    unit: "MeV"
+    plotoptions: 'none'
+  energy_erec:
+    text: "Reconstructed energy (Erec) bin edges"
+    latex: "Reconstructed energy $E_{\\rm rec}$ bin edges"
+    axis: "$E_{\\rm rec}$"
+    unit: "MeV"
+    plotoptions: 'none'
+constants:
+  Delta_Enu_Edep:
+    text: "Approximate difference Eν−Edep"
+    latex: "Approximate difference $E_{\\nu}-E_{\\rm dep}$"
+    unit: "MeV"
+    plotoptions: 'none'
+kinematics:
+  integration:
+    orders_edep:
+      text: "Evis integration orders (precision)"
+      latex: "$E_{\\rm vis}$ integration orders (precision)"
+      axis: "order"
+      plotoptions: 'none'
+    orders_costheta:
+      text: "cosθ integration orders (precision)"
+      latex: "$\\cos\\theta$ integration orders (precision)"
+      axis: "order"
+      plotoptions: 'none'
+  sampler:
+    node:
+      text: "dE, dcosθ integration sampler"
+    mesh_edep:
+      text: "Deposinted energy integration mesh"
+      axis: "$E_{\\rm dep}$"
+      unit: "MeV"
+      plotoptions: 'none'
+    mesh_costheta:
+      text: "cosθ integration mesh"
+      axis: "$\\cos\\theta$"
+      plotoptions: 'none'
+  ibd:
+    crosssection:
+      text:  "IBD cross section σ(Eν,cosθ)"
+      plot_title: 'IBD cross section $\sigma(E_{\nu}, \cos\theta)$'
+      latex: 'IBD cross section $\sigma(E_{\nu}, \cos\theta)$]'
+      axis:  '$\sigma(E_{\nu}, \cos\theta)$'
+      unit: "cm⁻²/proton"
+      latex_unit: "cm$^{-2}$"
+      plotoptions:
+        method: "slicesy"
+    enu:
+      text: "Eν mesh\\nfor integration"
+      latex: '$E_{\nu}$ mesh'
+      axis: '$E_{\nu}$'
+      unit: "MeV"
+      plotoptions:
+        method: "slicesy"
+    jacobian:
+      text: "dEν/dEdep Jacobian"
+      axis: '$dE_{\nu}/dE_{\rm dep}$'
+      latex: '$dE_{\nu}/dE_{\rm dep}$ Jacobian'
+      plotoptions:
+        method: "slicesy"
+        mask_value: 0.0
+    crosssection_jacobian:
+      text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)"
+      axis: '$\sigma(E_{\nu}, \cos\theta)\times dE_{\nu}/dE_{\rm dep}$'
+      unit: "cm⁻²/proton"
+      plotoptions:
+        method: "slicesy"
+        mask_value: 0.0
+    crosssection_jacobian_oscillations:
+      group:
+        text: "Integrable σ(Eν,cosθ)×J(Eν,cosθ)×Psur(Eν) {key}"
+        axis: '$P(E_{\nu}) \times \sigma(E_{\nu}, \cos\theta)\times dE_{\nu}/dE_{\rm dep}$'
+        unit: "cm⁻²/proton"
+        plotoptions:
+          method: "slicesy"
+          mask_value: 0.0
+  neutrino_cm2_per_MeV_per_fission_per_proton:
+    part:
+      nu_main:
+        group:
+          text: "Partial differential IBD rate (main)\\nfrom {index[1]} in {index[0]} at {index[2]}"
+          axis: "IBD rate"
+          unit: "#ν·cm²/MeV/fission/proton"
+          plotoptions:
+            method: "slicesy"
+      nu_neq:
+        group:
+          text: "Partial differential IBD rate from non-equilibrium\\nfrom {index[1]} in {index[0]} at {index[2]}"
+          axis: "IBD rate"
+          unit: "#ν·cm²/MeV/fission/proton"
+          plotoptions:
+            method: "slicesy"
+      nu_snf:
+        group:
+          text: "Partial differential IBD rate from spent nuclear fuel\\nfrom {index[0]} at {index[1]}"
+          axis: "IBD rate"
+          unit: "#ν·cm²/MeV/s/proton"
+          plotoptions:
+            method: "slicesy"
+  integral:
+    nu_main:
+      group:
+        text: "Partial integrated rate of IBD events (main)\\nfrom {index[1]} in {index[0]} at {index[2]}, integrated"
+        axis: "IBD flux"
+        unit: "#ν·cm²/fission/proton"
+        latex_unit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
+        plotoptions:
+          method: "slicesy"
+    nu_neq:
+      group:
+        text: "Partial integrated rate of IBD events from non-equilibrium\\nfrom {index[1]} in {index[0]} at {index[2]}, integrated"
+        axis: "IBD flux"
+        unit: "#ν·cm²/fission/proton"
+        latex_unit: '#$\overline{{\nu}}\cdot$cm$^2$/fission/proton'
+        plotoptions:
+          method: "slicesy"
+    nu_snf:
+      group:
+        text: "Partial integrated rate of IBD events from spent nuclear fuel\\nfrom {index[0]} at {index[1]}, integrated"
+        axis: "IBD flux"
+        unit: "#ν·cm²/s/proton"
+        latex_unit: '#$\overline{{\nu}}\cdot$cm$^2$/s/proton'
+        plotoptions:
+          method: "slicesy"
+daily_data:
+  detector:
+    days:
+      group:
+        text: "Day since DAQ start {key}"
+    eff:
+      group:
+        text: "Daily detector efficiency in {index[1]} during {index[0]}"
+        axis: '$\varepsilon$'
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+    efflivetime:
+      group:
+        text: "Daily detector effective livetime in {index[1]} during {index[0]}"
+        axis: "$T$"
+        unit: "s"
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+    livetime:
+      group:
+        text: "Daily detector wall clock livetime in {index[1]} during {index[0]}"
+        axis: "$T$"
+        unit: "s"
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+    rate_acc:
+      group:
+        text: "Daily rate of accidental background events"
+        axis: "$R$"
+        unit: "#/day"
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+    num_acc_s_day:
+      group:
+        text: "Daily # of accidental background events × day/s"
+        axis: "$N$"
+        unit: "#"
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+  reactor:
+    power:
+      group:
+        text: "Daily fractional reactor power for {index[0]} during {index[1]}"
+        axis: '$W_i/W_{{\rm tot}}$'
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+    fission_fraction:
+      group:
+        text: "Daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
+        axis: '$f_i$'
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+    fission_fraction_scaled:
+      group:
+        text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
+        axis: '$f_i$'
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+reactor:
+  energy_per_fission_weighted_MeV:
+    group:
+      text: "Partial energy per fission for {key}\\nweighted with fission fraction"
+      axis: '$f_i\overline{{e}}_i$'
+      xaxis: "Day"
+      unit: "MeV/fission"
+  energy_per_fission_average_MeV:
+    group:
+      text: "Average energy per fission in {index[0]} during {index[1]}"
+      axis: '$\overline{{e}}$'
+      xaxis: "Day"
+      unit: "MeV/fission"
+  thermal_power_nominal_MeVs:
+    group:
+      text: "Reactor {key} thermal power (fit) Wth"
+      unit: "MeV/s"
+  thermal_power_nominal_MeVs_central:
+    group:
+      text: "Reactor {key} fixed (central) thermal power Wth"
+      unit: "MeV/s"
+  thermal_power_isotope_MeV_per_second:
+    group:
+      text: "Fractional thermal power for {index[1]} in {index[0]} during {index[2]}"
+      axis: '$W_i/W_{{\rm tot}}$'
+      xaxis: "Day"
+      unit: "MeV/s"
+  fissions_per_second:
+    group:
+      text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
+      axis: "$R$"
+      xaxis: "Day"
+      unit: "#fissions/s"
+  energy_per_fission_snf_weighted_MeV:
+    group:
+      text: "Partial energy per fission for {key}\\nfor spent nuclear fuel, weighted with fission fraction"
+      unit: "MeV/fission"
+  energy_per_fission_snf_average_MeV:
+    text: "Average energy per fission for spent nuclear fuel"
+    unit: "MeV/fission"
+  fissions_per_second_snf:
+    group:
+      text: "# of fissions per second for {key}\\nfor spent nuclear fuel"
+      unit: "#fissions/s"
+  thermal_power_snf_isotope_MeV_per_second:
+    group:
+      text: "Fractional thermal power for {index[1]} in {index[0]}\\nreference for spent nuclear fuel"
+      unit: "MeV/s"
+eventscount:
+  parts:
+    nu_main:
+      group:
+        text: "Partial # of IBD events from {index[1]} of {index[0]} in {index[2]} during {index[3]}\\nfrom reactor (main)"
+        axis: "IBD events"
+        unit: "#ν"
+    nu_neq:
+      group:
+        text: "Partial # of IBD events from {index[1]} of {index[0]} in {index[2]} during {index[3]}\\nfrom non-equilibrium"
+        axis: "IBD events"
+        unit: "#ν"
+    nu_snf:
+      group:
+        text: "Partial # of IBD events from {index[0]} in {index[1]} during {index[2]}\\nfrom spent nuclear fuel"
+        axis: "IBD events"
+        unit: "#ν"
+  stages:
+    raw:
+      group:
+        text: "# of IBD events in {index[0]} during {index[1]}\\nbefore detector effects"
+        axis: "IBD events"
+        unit: "#ν"
+    iav:
+      group:
+        text: "# of IBD events (IAV) in {index[0]} during {index[1]}"
+        axis: "IBD events"
+        unit: "#ν"
+    evis:
+      group:
+        text: "# of IBD events (IAV, LSNL) in {index[0]} during {index[1]}"
+        axis: "IBD events"
+        unit: "#ν"
+    erec:
+      group:
+        text: "# of IBD events (IAV, LSNL, REC) in {index[0]} during {index[1]}"
+        axis: "IBD events"
+        unit: "#ν"
+  fine:
+    ibd_normalized:
+      group:
+        text: "Scaled (fit) # of IBD events at {index[0]} during {index[1]}\\nfine binning, global normalization and relative efficiency applied"
+        axis: "IBD events"
+        unit: "#ν"
+    ibd_normalized_detector:
+      group:
+        text: "Scaled (fit) # of IBD events at {index[0]}\\nfine binning, global normalization and relative efficiency applied"
+        axis: "IBD events"
+        unit: "#ν"
+    bkg:
+      group:
+        text: "Total # of background events at {index[0]} during {index[1]}\\nfine binning"
+        axis: "Background events"
+        unit: "#"
+    total:
+      group:
+        text: "# of IBD candidates at {index[0]} during {index[1]}\\nfine binning"
+        axis: "Events"
+        unit: "#"
+  final:
+    ibd:
+      group:
+        text: "# of IBD events at {index[0]} during {index[1]}\\nfinal binning, global normalization and relative efficiency applied"
+        axis: "IBD events"
+        unit: "#ν"
+    bkg:
+      group:
+        text: "Total # of background events at {index[0]} during {index[1]}\\nfinal binning"
+        axis: "Background events"
+        unit: "#"
+    detector_period:
+      group:
+        text: "# of IBD candidates at {index[0]} during {index[1]}\\nfinal binning"
+        axis: "Events"
+        unit: "#"
+    detector:
+      group:
+        text: "# of IBD candidates at {index[0]}\\nfinal binning"
+        axis: "Events"
+        unit: "#"
+    concatenated:
+      detector_period:
+        text: "# of IBD candidates in all detectors and all periods\\nconcatenated"
+        axis: "IBD candidates"
+        unit: "#"
+      detector:
+        text: "# of IBD candidates in all detectors\\nconcatenated"
+        axis: "IBD candidates"
+        unit: "#"
+bkg:
+  erec:
+    text: "Reconstructed energy (Erec) bin edges\\nfor background events"
+    latex: "Reconstructed energy $E_{\\rm rec}$ bin edges (for background events)"
+    axis: "$E_{\\rm rec}$"
+    unit: "MeV"
+    plotoptions: 'none'
+  count_acc_fixed_s_day:
+    group:
+      text: "# of accidental background events in {key} × day/s"
+      unit: "#"
+  count_fixed:
+    acc:
+      group:
+        text: "# of accidental background events in {index[0]} during {index[1]}\\nbefore nuisance"
+        unit: "#"
+    alphan:
+      group:
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]}\\nbefore nuisance"
+        unit: "#"
+    amc:
+      group:
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]}\\nbefore nuisance"
+        unit: "#"
+    fastn:
+      group:
+        text: "# of fast neutron background events in {index[0]} during {index[1]}\\nbefore nuisance"
+        unit: "#"
+    lihe:
+      group:
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}\\nbefore nuisance"
+        unit: "#"
+    muonx:
+      group:
+        text: "# of μ decay background events in {index[0]} during {index[1]}\\nbefore nuisance"
+        unit: "#"
+  count:
+    acc:
+      group:
+        text: "# of accidental background events in {index[0]} during {index[1]}"
+        unit: "#"
+    alphan:
+      group:
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]}"
+        unit: "#"
+    amc:
+      group:
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]}"
+        unit: "#"
+    fastn:
+      group:
+        text: "# of fast neutron background events in {index[0]} during {index[1]}"
+        unit: "#"
+    lihe:
+      group:
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}"
+        unit: "#"
+    muonx:
+      group:
+        text: "# of μ decay background events in {index[0]} during {index[1]}"
+        unit: "#"
+  spectrum:
+    acc:
+      group:
+        text: "# of accidental background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+        plotoptions: {yscale: log}
+    alphan:
+      group:
+        text: "# of ¹³C(α,n)¹⁶O background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+        plotoptions: {yscale: log}
+    amc:
+      group:
+        text: "# of ²⁴¹Am¹³C related background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+        plotoptions: {yscale: log}
+    fastn:
+      group:
+        text: "# of fast neutron background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+        plotoptions: {yscale: log}
+    lihe:
+      group:
+        text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+        plotoptions: {yscale: log}
+    muonx:
+      group:
+        text: "# of μ decay background events in {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#"
+        plotoptions: {yscale: log}
+  spectrum_shape:
+    acc:
+      group:
+        text: "Spectrum shape of accidental background events\\nin {index[0]} during {index[1]}"
+        axis: "$S$"
+    alphan:
+      group:
+        text: "Spectrum shape of ¹³C(α,n)¹⁶O background events in {key}"
+        axis: "$S$"
+    amc:
+      group:
+        text: "Spectrum shape of ²⁴¹Am¹³C related background events in {key}"
+        axis: "$S$"
+    fastn:
+      group:
+        text: "Spectrum shape of fast neutron background events in {key}"
+        axis: "$S$"
+    lihe:
+      group:
+        text: "Spectrum shape of ⁹Li/⁸He background events in {key}"
+        axis: "$S$"
+    muonx:
+      group:
+        text: "Spectrum shape of μ decay background events in {key}"
+        axis: "$S$"
+oscprob:
+  group:
+    text: "ν̅(e) survival probability {key}"
+    latex: "$\\overline{{\\nu}}_e$ survival probability between {index[0]} and {index[1]}"
+    axis: "$P_{{\\rm ee}}$"
+    plotoptions: "slicesy"
+reactor_anue:
+  neutrino_per_fission_per_MeV_nominal:
+    group:
+      text: "Nominal ν̅ spectrum for {key}, interpolated"
+      axis: "$S(E_{\\nu})$"
+      unit: "#ν/fission/MeV"
+      latex_unit: '#$\overline{{\nu}}$/fission/MeV'
+      plotoptions: "slicesy"
+  neutrino_per_fission_per_MeV_input:
+    spec:
+      group:
+        text: "Input ν̅ spectrum for {key}"
+        latex: "Input $\\overline{{\\nu}}$ spectrum for {key}"
+        axis: "$S(E_{{\\nu}})$"
+        unit: "#ν/fission/MeV"
+        latex_unit: "#$\\overline{{\\nu}}$/fission/MeV"
+    enu:
+        text: "Input ν̅ spectrum neutrino energy (Eν)"
+        latex: "Input $\\overline{\\nu}$ spectrum neutrino energy $E_{\\nu}$"
+        axis: '$E_{\nu}$'
+        unit: "MeV"
+  part:
+    neutrino_per_fission_per_MeV_main:
+      group:
+        text: "ν̅ spectrum (main) for {key}\\nfit free and constrained corrections"
+        axis: "$S(E_{\\nu})$"
+        unit: "#ν/fission/MeV"
+        latex_unit: '#$\overline{{\nu}}$/fission/MeV'
+        plotoptions: "slicesy"
+    neutrino_per_fission_per_MeV_neq_nominal:
+      group:
+        text: "Nominal ν̅ spectrum for non-equilibrium for {key}"
+        axis: '$S(E_{\nu})$'
+        unit: "#ν/fission/MeV"
+        latex_unit: '#$\overline{{\nu}}$/fission/MeV'
+        plotoptions: "slicesy"
+  spec_indexer:
+    text: "Lookup segment index\\nfor interpolation of input ν̅ spectrum"
+  spectrum_free_correction:
+    spec_model_edges:
+      text: "Eν segment edges\\nfor parametrization of reactor ν̅ spectrum shape"
+      axis: '$E_{\nu}$'
+      unit: 'MeV'
+    spec_model_widths:
+      text: "Eν segment widths\\nfor parametrization of reactor ν̅ spectrum shape"
+      axis: '$\Delta E$'
+      unit: 'MeV'
+    input:
+      text: "Free correction (parameters) for ν̅ spectrum shape\\nat input Eν"
+      axis: "$\\delta$"
+      plotoptions:
+        kwargs:
+          marker: o
+          markerfacecolor: none
+    correction:
+      text: "Free correction weights for ν̅ spectrum shape\\nat input Eν"
+      axis: "$n$"
+    interpolated:
+      text: "Free correction weights for ν̅ spectrum shape\\ninterpolated"
+      axis: "$n$"
+      plotoptions: "slicesy"
+    indexer:
+      text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape"
+  spectrum_free_correction_post:
+    spec_model_edges_edep_approx:
+      text: "Approximate Edep(Eν) segment edges\\nfor parametrization of reactor ν̅ spectrum shape (post integration mode)"
+      axis: '$E_{\rm dep}$'
+      xaxis: '$E_{\nu}$'
+      unit: "MeV"
+      xunit: "MeV"
+    interpolated:
+      text: "Free correction weights for ν̅ spectrum shape\\ninterpolated, applied at Edep after integration"
+      axis: "$n$"
+    indexer:
+      text: "Lookup segment index\\nfor interpolation of free ν̅ spectrum shape vs Edep"
+  spectrum_uncertainty:
+    enu_centers:
+      text: "Eν segment centers\\nfor parametrization of uncertainties of ν̅ spectrum shape"
+      axis: '$E_{\nu}$'
+      unit: "MeV"
+    correction_index:
+      text: "Lookup segment index\\nfor interpolation of uncertainties of ν̅ spectrum shape"
+    correction_interpolated:
+      group:
+        text: "Constrained correction factor for ν̅ spectrum shape of {key}\\ncorrelated × uncorrelated, fit, interpolated"
+        axis: '$n$'
+        plotoptions: "slicesy"
+    uncertainty:
+      corr:
+        group:
+          text: "Correlated ν̅ spectrum shape uncertainty for {key}\\nat input Eν"
+          axis: '$\sigma_{\rm corr}/S$'
+      uncorr:
+        group:
+          text: "Uncorrelated ν̅ spectrum shape uncertainty for {key}\\nat input Eν"
+          axis: '$\sigma_{\rm uncorr}/S$'
+    scale:
+      uncorr:
+        group:
+          text: "Constrained correction to ν̅ spectrum shape for {key}\\nnormal unit, uncorrelated, fit, at input Eν"
+          axis: '$\delta$'
+    correction:
+      corr:
+        group:
+          text: "Constrained correction to ν̅ spectrum shape for {key}\\ncorrelated, fit, at input Eν"
+          axis: '$n$'
+      uncorr:
+        group:
+          text: "Constrained correction to ν̅ spectrum shape for {key}\\nuncorrelated, fit, at input Eν"
+          axis: '$n$'
+      corr_factor:
+        group:
+          text: "Constrained correction factor to ν̅ spectrum shape for {key}\\ncorrelated, fit, at input Eν"
+          axis: '$n$'
+      uncorr_factor:
+        group:
+          text: "Constrained correction factor to ν̅ spectrum shape for {key}\\nuncorrelated, fit, at input Eν"
+          axis: '$n$'
+      full:
+        group:
+          text: "Constrained correction factor to ν̅ spectrum shape for {key}\\ncorrelated×uncorrelated, fit, at input Eν"
+          axis: '$n$'
+  nonequilibrium_anue:
+    correction_input:
+      enu:
+        text: "Eν segment centers\\nnon-equilibrium ν̅ spectrum shape correction"
+        axis: '$E_{\nu}$'
+        unit: "MeV"
+      nonequilibrium_correction:
+        group:
+          text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction\\nat input Eν"
+          axis: "Non-equilibrium correction"
+    correction_indexer:
+      text: "Lookup segment index\\nfor interpolation of NEQ ν̅ spectrum shape correction"
+    correction_interpolated:
+      group:
+        text: "Correction to ν̅ spectrum of {key} due to non-equilibrium correction\\ninterpolated"
+        axis: "Non-equilibrium correction"
+        plotoptions:
+          method: "slicesy"
+  snf_anue:
+    correction_input:
+      enu:
+        text: "Eν segment centers\\nspent nuclear fuel ν̅ spectrum shape correction"
+        axis: '$E_{\nu}$'
+        unit: "MeV"
+      snf_correction:
+        group:
+          text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\nat input Eν"
+          axis: "SNF correction"
+    correction_indexer:
+      text: "Lookup segment index\\nfor interpolation of SNF ν̅ spectrum shape correction"
+    correction_interpolated:
+      group:
+        text: "Correction to ν̅ spectrum due to spent nuclear fuel from {key}\\ninterpolated"
+        axis: "SNF correction"
+        plotoptions:
+          method: "slicesy"
+    neutrino_per_second_isotope:
+      group:
+        text: "Partial rate of ν̅ from {index[1]} of {index[0]}, for spent nuclear fuel"
+        axis: "SNF ν̅ rate"
+        unit: "#ν/s/MeV"
+        plotoptions:
+          method: "slicesy"
+    neutrino_per_second:
+      group:
+        text: "Rate of ν̅ from {key}, for spent nuclear fuel"
+        axis: "SNF ν̅ rate"
+        unit: "#ν/s/MeV"
+        plotoptions:
+          method: "slicesy"
+    neutrino_per_second_snf:
+      group:
+        text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
+        axis: "SNF ν̅ rate"
+        unit: "#ν/s/MeV"
+        plotoptions:
+          method: "slicesy"
+reactor_detector:
+  nfissions_daily:
+    group:
+      text: "Daily observable # of fissions at {index[2]} for {index[1]} in {index[0]} during {index[3]}"
+      axis: "$N$"
+      unit: "#fissions"
+      xaxis: "Day"
+      plotoptions: *daily_plotoptions
+  nfissions:
+    group:
+      text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during {index[3]} [#fissions]"
+  nfissions_nprotons_per_cm2:
+    group:
+      text: "#fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor main IBD flux"
+  nfissions_nprotons_per_cm2_neq:
+    group:
+      text: "Scaled (fit) #fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor non-equilibrium IBD flux"
+  livetime_nprotons_per_cm2_snf:
+    group:
+      text: "Scaled (fit) #target protons × effective livetime × baseline factor {key} [#protons·s/cm²]\\nfor spent nuclear fuel IBD flux"
+  baseline_factor_per_cm2:
+    group:
+      text: "1/(4πL²) factor {key} [cm⁻²]"
+      latex: "$1/\\left(4\\pi^2\\right)$ factor {key} [cm$^{-2}$]"
+detector:
+  nprotons:
+    group:
+      text: "Actual # of target protons in {key} [#protons]"
+  normalization:
+    group:
+      text: "Detector normalization for {key}"
+  livetime:
+    group:
+      text: "Wall clock detector livetime {key}"
+      unit: "s"
+  efflivetime:
+    group:
+      text: "Effective detector livetime {key}"
+      unit: "s"
+  efflivetime_days:
+    group:
+      text: "Effective detector livetime {key} [day]"
+  iav:
+    matrix_raw:
+      text: "IAV matrix, nominal"
+      axis: "f"
+      plotoptions: *detector_response_plotoptions
+    matrix_rescaled:
+      group:
+        text: "IAV matrix for {key}\\nwith adjusted (fit) offdiagonal elements"
+        axis: "f"
+        plotoptions: *detector_response_plotoptions
+  lsnl:
+    curves:
+      escint:
+        text: "LSNL input coarse deposited in scintillator energy for Evis(Escint)"
+        axis: '$E_{\rm scint}$'
+        unit: "MeV"
+        plotoptions: "none"
+      evis_parts:
+        group:
+          text: "Input coarse Evisᵢ(Escint) {key} curve for LSNL"
+          axis: '$E_{\rm vis}$'
+          unit: "MeV"
+      evis_parts_scaled:
+        group:
+          text: "Input scaled coarse Evisᵢ(Escint) {key} curve for LSNL"
+          axis: '$E_{\rm vis}$'
+          unit: "MeV"
+      evis_coarse:
+        text: "Input coarse Evis(Escint) for LSNL"
+        axis: '$E_{\rm vis}$'
+        unit: "MeV"
+      evis_coarse_monotonous:
+        text: "Input coarse LSNL Evis(Escint)\\nensured to be monotonous"
+        axis: '$E_{\rm vis}$'
+        unit: "MeV"
+      # evis_coarse_monotonous_scaled:
+      #   group:
+      #     text: "Input coarse LSNL Evis(Escint) for {key}\\nensured to be monotonous and scaled (fit relative energy scale)"
+      #     axis: '$E_{\rm vis}$'
+      #     unit: "MeV"
+      # evis:
+      #   group:
+      #     text: "Visible energy Evis (LSNL×relative energy scale) for {key}"
+      #     axis: '$E_{\rm vis}$'
+      #     unit: "MeV"
+      relative:
+        evis_parts:
+          group:
+            text: "Input relative coarse Evisᵢ(Escint)/Escint {key} curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_parts_scaled:
+          group:
+            text: "Input scaled relative coarse Evisᵢ(Escint)/Escint {key} curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_parts_individual:
+          group:
+            text: "Input relative coarse Evisᵢ(Escint)/Escint {key} (target) curve for LSNL"
+            axis: '$E_{\rm vis}/E_{\rm scint}$'
+        evis_coarse:
+          text: "Input relative coarse Evis(Escint)/Escint for LSNL"
+          axis: '$E_{\rm vis}/E_{\rm scint}$'
+    # indexer_fwd:
+    #   text: "Segment lookup for Evis(Escint)\\ninterpolation for LSNL correction"
+    # interpolated_fwd:
+    #   text: "Interpolated Evis(Escint) for LSNL correction"
+    #   axis: '$E_{\rm vis}$'
+    #   unit: "MeV"
+    # indexer_bkwd:
+    #   group:
+    #     text: "Segment lookup for Escint(Evis) for {key}\\ninverse interpolation for LSNL correction"
+    # interpolated_bkwd:
+    #   group:
+    #     text: "Interpolated Escint(Evis) for LSNL correction for {key}"
+    #     axis: '$E_{\rm scint}$'
+    #     unit: "MeV"
+    matrix:
+      group:
+        text: "Energy scale correction matrix for {key}\\nLSNL×relative energy scale"
+        axis: "f"
+        plotoptions: *detector_response_plotoptions
+  eres:
+    e_bincenter:
+      text: "Visible energy (Evis) bin centers"
+      unit: "MeV"
+      plotoptions: "none"
+    sigma_rel:
+      text: "Relative energy resolution width σ(Evis)/Evis"
+      axis: '$\sigma_E(E_{\rm vis})/E_{\rm vis}$'
+    matrix:
+      text: "Energy resolution matrix"
+      axis: "f"
+      plotoptions: *detector_response_plotoptions
+  rebin:
+    matrix_ibd:
+      text: "Rebinning matrix for IBD events"
+      axis: "f"
+      plotoptions: *detector_response_plotoptions
+    matrix_bkg:
+      text: "Rebinning matrix for background events"
+      axis: "f"
+      plotoptions: *detector_response_plotoptions
+mc:
+  parameters:
+    toymc:
+      text: "MC values for nuisance parameters, nomal unit"
+      axis: '$\eta_ji$'
+    inputs:
+      text: "Node to set nuisance parameters values"
+data:
+  real:
+    erec:
+      text: "Reconstructed energy (Erec) bin edges\\nfor IBD events (real data)"
+      latex: "Reconstructed energy $E_{\\rm rec}$ bin edges (for IBD events, real data)"
+      axis: "$E_{\\rm rec}$"
+      unit: "MeV"
+    fine:
+      group:
+        text: "Scaled (fit) # of IBD candidate at {index[1]} during {index[0]}\\nfine binning, real data"
+        axis: "Entries"
+        unit: "#"
+    final:
+      detector:
+        group:
+          text: "# of IBD candidates at {index[0]}\\nfinal binning, real data"
+          axis: "Entries"
+          unit: "#"
+      detector_period:
+        group:
+          text: "# of IBD candidates at {index[0]} during {index[1]}\\nfinal binning, real data"
+          axis: "Entries"
+          unit: "#"
+    concatenated:
+      detector:
+        text: "# of IBD candidates in all detectors and all periods\\nconcatenated, real data"
+        axis: "Entries"
+        unit: "#"
+        xaxis: "Bin energy/detector"
+        xunit: "#"
+      detector_period:
+        text: "# of IBD candidates in all detectors\\nconcatenated, real data"
+        axis: "Entries"
+        unit: "#"
+        xaxis: "Bin energy/detector/period"
+        xunit: "#"
+  proxy:
+    text: "Switchable node for data source of likelihood"
+    axis: "Entries"
+    unit: "#"
+    xaxis: "Bin energy/detector/period"
+    xunit: "#"
+  pseudo:
+    self:
+      text: "Pseudo data (this model) node for likelihood"
+      axis: "Entries"
+      unit: "#"
+      xaxis: "Bin energy/detector/period"
+      xunit: "#"
+covariance:
+  jacobians:
+    oscprob:
+      text: "Jacobian for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    eres:
+      text: "Jacobian for energy resolution parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    lsnl:
+      text: "Jacobian for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    iav:
+      text: "Jacobian for Inner Acrylic Vessel (IAV) parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    detector_relative:
+      text: "Jacobian for relative detector efficiency and energy scale parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    energy_per_fission:
+      text: "Jacobian for average fission energy parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    nominal_thermal_power:
+      text: "Jacobian for reactor thermal power parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    snf:
+      text: "Jacobian for spent nuclear fuel parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    neq:
+      text: "Jacobian for non-equilibrium correction parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    fission_fraction:
+      text: "Jacobian for fission fraction parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    bkg_rate:
+      text: "Jacobian for background rate parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    hm_corr:
+      text: "Jacobian for correlated ν̅ spectrum parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+    hm_uncorr:
+      text: "Jacobian for uncorrelated ν̅ spectrum parameters"
+      axis: "$J$"
+      xaxis: "Bin"
+      xunit: "#"
+      yaxis: "Parameter"
+      yunit: "#"
+      plotoptions:
+        mask_value: 0.0
+  covmat_syst:
+    oscprob:
+      text: "Systematic covariance matrix for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    eres:
+      text: "Systematic covariance matrix for energy resolution parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    lsnl:
+      text: "Systematic covariance matrix for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      unit: "#²"
+      plot_title: "Systematic covariance matrix for LSNL parameters"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    iav:
+      text: "Systematic covariance matrix for Inner Acrylic Vessel (IAV) parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    detector_relative:
+      text: "Systematic covariance matrix for relative detector efficiency\\nand relative energy scale parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    energy_per_fission:
+      text: "Systematic covariance matrix for average fission energy parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    nominal_thermal_power:
+      text: "Systematic covariance matrix for reactor thermal power parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    snf:
+      text: "Systematic covariance matrix for spent nuclear fuel parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    neq:
+      text: "Systematic covariance matrix for non-equilibrium correction parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    fission_fraction:
+      text: "Systematic covariance matrix for fission fraction parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    bkg_rate:
+      text: "Systematic covariance matrix for background rate parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    hm_corr:
+      text: "Systematic covariance matrix for correlated ν̅ spectrum parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    hm_uncorr:
+      text: "Systematic covariance matrix for uncorrelated ν̅ spectrum parameters"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    sum:
+      text: "Systematic covariance matrix"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+  data:
+    fixed:
+      text: "Statistical variance (fixed) for covariance matrix calculation"
+      axis: '$\sigma^2$'
+      unit: '#²'
+  covmat_full_p:
+    fixed_stat:
+      text: "Full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+    variable_stat:
+      text: "Full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      unit: "#²"
+      axis: '$V_{\rm syst}$'
+      plotoptions: *covariance_plotoptions
+  covmat_full_n:
+    text: "Full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    unit: "#²"
+    axis: '$V_{\rm syst}$'
+    plotoptions: *covariance_plotoptions
+  covmat_full_cnp:
+    text: "Full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    unit: "#²"
+    axis: '$V_{\rm syst}$'
+    plotoptions: *covariance_plotoptions
+cholesky:
+  stat:
+    variable:
+      text: "Pearson's statistical uncertainty, variable"
+      axis: '$\sigma$'
+      unit: '#'
+    fixed:
+      text: "Pearson's statistical uncertainty, fixed"
+      axis: '$\sigma$'
+      unit: '#'
+    data:
+      fixed:
+        text: "Neyman's statistical uncertainty"
+        axis: '$\sigma$'
+        unit: '#'
+  covmat_full_p:
+    fixed_stat:
+      text: "Cholesky decomposition of full covariance matrix\\nstat+syst, fixed Pearson's statistical uncertainties"
+      unit: "#"
+      axis: "$L$"
+      plotoptions: *covariance_plotoptions
+    variable_stat:
+      text: "Cholesky decomposition of full covariance matrix\\nstat+syst, variable Pearson's statistical uncertainties"
+      unit: "#"
+      axis: "$L$"
+      plotoptions: *covariance_plotoptions
+  covmat_full_n:
+    text: "Cholesky decomposition of full covariance matrix\\nstat+syst, Neyman's statistical uncertainties"
+    unit: "#"
+    axis: "$L$"
+    plotoptions: *covariance_plotoptions
+  covmat_full_cnp:
+    text: "Cholesky decomposition of full covariance matrix\\nstat+syst, CNP statistical uncertainties"
+    unit: "#"
+    axis: "$L$"
+    plotoptions: *covariance_plotoptions
+statistic:
+  staterr:
+    cnp:
+      text: "CNP statistical uncertainty"
+      axis: '$\sigma_{\rm CNP}$'
+      unit: "#"
+    cnp_variance:
+      text: "CNP statistical variance"
+      axis: '$\sigma^2_{\rm CNP}$'
+      unit: "#²"
+  log_prod_diag:
+    stat:
+      text: "log\\|V\\| unbiasing term for χ²\\nstat. only, variable stat uncertainties"
+    full:
+      text: "log\\|V\\| unbiasing term for χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
+  stat:
+    chi2cnp:
+      text: "Combined Neyman-Pearson's χ²\\nstat. only"
+    chi2p:
+      text: "Pearson's χ²\\nstat. only, variable stat. uncertainties"
+    chi2p_unbiased:
+      text: "Unbiased Pearson's χ²\\nstat. only, variable stat. uncertainties"
+    chi2p_iterative:
+      text: "Pearson's χ²\\nstat. only, fixed stat. uncertainties"
+    chi2n:
+      text: "Neyman's χ²\\nstat. only"
+    chi2poisson:
+      text: "Log Poisson Ratio (χ²)\\nstatistical uncertainties only"
+  full:
+    covmat:
+      chi2cnp:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum χ²"
+      chi2cnp_alt:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum variance"
+      chi2p_iterative:
+        text: "Pearson's χ²\\nstat+syst, fixed stat uncertainties, covariance matrix"
+      chi2p:
+        text: "Pearson's χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
+      chi2p_unbiased:
+        text: "Unbiased Pearson's χ²\\nstat+syst, variable stat uncertainties, covariance matrix"
+      chi2n:
+        text: "Neyman's χ²\\nstat+syst, covariance matrix"
+    pull:
+      chi2cnp:
+        text: "Combined Neyman-Pearson's χ²\\nstat+syst, nuisance terms"
+      chi2p_unbiased:
+        text: "Unbiased Pearson's χ²\\nstat+syst, variable stat uncertainties, nuisance terms"
+      chi2p_iterative:
+        text: "Pearson's χ²\\nstat+syst, fixed stat uncertainties"
+      chi2p:
+        text: "Pearson's χ²\\nstat+syst, variable stat uncertainties"
+      chi2poisson:
+        text: "Log Poisson Ratio (χ²)\\nstatistical and systematic uncertainties"
+  nuisance:
+    all:
+      text: "χ² nuisance term"
+    parts:
+      detector:
+        detector_relative:
+          text: "χ² nuisance term for relative detector efficiency and energy scale parameters"
+        eres:
+          text: "χ² nuisance term for energy resolution parameters"
+        iav_offdiag_scale_factor:
+          text: "χ² nuisance term for Inner Acrylic Vessel (IAV) parameters"
+        lsnl_scale_a:
+          text: "χ² nuisance term for Liquid Scintillator Non-Linearity (LSNL) parameters"
+      reactor:
+        fission_fraction_scale:
+          text: "χ² nuisance term for fission fraction uncertainty"
+        energy_per_fission:
+          text: "χ² nuisance term for average fission energy parameters"
+        nominal_thermal_power:
+          text: "χ² nuisance term for reactor thermal power parameters"
+        snf_scale:
+          text: "χ² nuisance term for spent nuclear fuel parameters"
+        nonequilibrium_scale:
+          text: "χ² nuisance term for non-equilibrium correction parameters"
+      reactor_anue:
+        spectrum_uncertainty:
+          corr:
+            text: "χ² nuisance term for correlated ν̅ spectrum parameters"
+          uncorr:
+            group:
+              text: "χ² nuisance term for uncorrelated ν̅ spectrum parameters for {key}"
+      oscprob:
+        text: "χ² nuisance term for constrained neutrino oscillation parameters\\nΔm²₂₁ and sin²2θ₁₂"
+      bkg:
+        rate:
+          alphan:
+            text: "χ² nuisance term for parameters for background rate\\n¹³C(α,n)¹⁶O"
+        rate_scale:
+          acc:
+            text: "χ² nuisance term for parameters for background rate\\naccidentals"
+        uncertainty_scale:
+          amc:
+            text: "χ² nuisance term for parameters for background rate\\n²⁴¹Am¹³C"
+        uncertainty_scale_by_site:
+          fastn:
+            text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
+          lihe:
+            text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
+          muonx:
+            text: "χ² nuisance term for parameters for background rate\\nμ decay"
+summary:
+  total:
+    bkg_count:
+      group:
+        text: "Total # of {index[0]} background events in {index[1]}"
+    bkg_rate_s:
+      group:
+        text: "Total rate of {index[0]} background events in {index[1]}"
+    bkg_rate:
+      group:
+        text: "Total rate {index[0]} background events in {index[1]}"
+    eff:
+      group:
+        text: "Total detector {index[0]} efficiency"
+    efflivetime:
+      group:
+        text: "Total detector {index[0]} effective livetime"
+        unit: "s"
+    livetime:
+      group:
+        text: "Total detector {index[0]} wall clock livetime"
+        unit: "s"
+  periods:
+    bkg_count:
+      group:
+        text: "Total # of {index[0]} background events in {index[2]} during {index[1]}"
+    bkg_rate_s:
+      group:
+        text: "Total rate of {index[0]} background events in {index[2]} during {index[1]}"
+    bkg_rate:
+      group:
+        text: "Total rate {index[0]} background events in {index[2]} during {index[1]}"
+    eff:
+      group:
+        text: "Total detector {index[1]} efficiency during {index[0]}"
+    efflivetime:
+      group:
+        text: "Total detector {index[1]} effective livetime during {index[0]}"
+        unit: "s"
+    livetime:
+      group:
+        text: "Total detector {index[1]} wall clock livetime during {index[0]}"
+        unit: "s"
+
