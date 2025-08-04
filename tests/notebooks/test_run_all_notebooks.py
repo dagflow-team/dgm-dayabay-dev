@@ -5,7 +5,7 @@ from nbconvert.preprocessors import ExecutePreprocessor
 from pytest import mark
 
 def ipy_notebooks():
-    return glob("../notebooks/**/*.ipynb", recursive=True)
+    return glob("extras/notebooks/**/*.ipynb", recursive=True)
 
 
 @mark.parametrize("path", ipy_notebooks())
