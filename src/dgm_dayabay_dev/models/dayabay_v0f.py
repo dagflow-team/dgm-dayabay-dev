@@ -30,9 +30,8 @@ if TYPE_CHECKING:
 FutureType = Literal[
     "reactor-28days-by-number-of-fissions",
     "reactor-35days-by-number-of-fissions",
-    "anue-model-edges-300",  # use more optimal antineutrino model segments starting from 300 keV
 ]
-_future_redundant = ["anue-model-edges-140"]
+_future_redundant = []
 _future_included = {}
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
@@ -363,24 +362,113 @@ class model_dayabay_v0f:
         path_arrays = path_data / self.source_type
 
         # Dataset items
-        dataset_path = f"dayabay_dataset_{self.dataset}"
+        path_dataset = f"dayabay_dataset_{self.dataset}"
+
+        # TODO
+        cfg_files = {
+            "antineutrino_spectrum_segment_edges": path_parameters
+            / "reactor_antineutrino_spectrum_edges_300keV.py",
+            # "antineutrino_spectrum_segment_edges": path_parameters / "reactor_antineutrino_spectrum_edges_fine_140keV.py",
+            # "antineutrino_spectrum_segment_edges": path_parameters / "reactor_antineutrino_spectrum_edges_fine_180keV.py",
+            # "antineutrino_spectrum_segment_edges": path_parameters / "reactor_antineutrino_spectrum_edges.py",
+            "parameters.survival_probability": path_parameters / "oscprob.yaml",
+            # "parameters.survival_probability": path_parameters / "oscprob_pdg2020_dataset_b.yaml",
+            "parameters.survival_probability_solar": path_parameters / "oscprob_solar.yaml",
+            "parameters.survival_probability_constants": path_parameters / "oscprob_constants.yaml",
+            "parameters.pdg_constants": path_parameters / "pdg2024.yaml",
+            "parameters.ibd_constants": path_parameters / "ibd_constants.yaml",
+            "parameters.conversion_thermal_power": path_parameters / "conversion_thermal_power.py",
+            "parameters.conversion_survival_probability": path_parameters
+            / "conversion_oscprob_argument.py",
+            "parameters.baselines": path_parameters / "baselines.yaml",
+            "parameters.detector_normalization": path_parameters / "detector_normalization.yaml",
+            "parameters.detector_efficiency": path_parameters / "detector_efficiency.yaml",
+            "parameters.detector_nprotons_nominal": path_parameters
+            / (
+                "detector_nprotons_nominal.yaml"
+                if self.dataset != "b"
+                else "detector_nprotons_nominal_dataset_b.yaml"
+            ),
+            "parameters.detector_nprotons_correction": path_parameters
+            / "detector_nprotons_correction.yaml",
+            "parameters.detector_eres": path_parameters / "detector_eres.yaml",
+            "parameters.detector_lsnl": path_parameters / "detector_lsnl.yaml",
+            "parameters.detector_iav_offdiag_scale": path_parameters
+            / "detector_iav_offdiag_scale.yaml",
+            "parameters.detector_relative": path_parameters / "detector_relative.yaml",
+            "parameters.reactor_thermal_power_nominal": path_parameters
+            / "reactor_thermal_power_nominal.yaml",
+            "parameters.reactor_energy_per_fission": path_parameters
+            / "reactor_energy_per_fission.yaml",
+            "parameters.reactor_snf": path_parameters / "reactor_snf.yaml",
+            "parameters.reactor_nonequilibrium_correction": path_parameters
+            / "reactor_nonequilibrium_correction.yaml",
+            "parameters.reactor_snf_fission_fractions": path_parameters
+            / "reactor_snf_fission_fractions.yaml",
+            "parameters.reactor_fission_fraction_scale": path_parameters
+            / "reactor_fission_fraction_scale.yaml",
+            "parameters.bkg_rate_scale_acc": path_parameters / "bkg_rate_scale_acc.yaml",
+            "parameters.bkg_rates_uncorrelated_dataset": path_parameters
+            / f"bkg_rates_uncorrelated_dataset_{self.dataset}.yaml",
+            "parameters.bkg_rates_correlated_dataset": path_parameters
+            / f"bkg_rates_correlated_dataset_{self.dataset}.yaml",
+            "parameters.bkg_rate_uncertainty_scale_amc": path_parameters
+            / "bkg_rate_uncertainty_scale_amc.yaml",
+            "parameters.bkg_rate_uncertainty_scale_site_dataset": path_parameters
+            / f"bkg_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
+            "reactor_anue_spectrum": path_arrays
+            / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
+            "reactor_anue_spectrum_uncertainty": path_arrays
+            / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
+            "nonequilibrium_correction": path_arrays
+            / f"nonequilibrium_correction.{self.source_type}",
+            "snf_correction": path_arrays / f"snf_correction.{self.source_type}",
+            "daily_detector_data": path_arrays
+            / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
+            "daily_reactor_data": path_arrays / f"reactor_power_28days.{self.source_type}",
+            "iav_matrix": path_arrays / f"detector_IAV_matrix_P12.{self.source_type}",
+            "lsnl_curves": path_arrays / f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
+            "background_spectra": path_arrays
+            / f"{path_dataset}/{path_dataset}_bkg_spectra_{{}}.{self.source_type}",
+        }
+
+
+        # TODO
+        reactor_average_options = {
+            "reactor-28days": path_arrays / f"reactor_power_28days.{self.source_type}",
+            "reactor-35days-by-number-of-fissions": path_arrays
+            / f"reactor_power_35days_by_number_of_fissions.{self.source_type}",
+            "reactor-35days-by-number-of-neutrinos": path_arrays
+            / f"reactor_power_35days_by_number_of_neutrinos.{self.source_type}",
+            "reactor-35days-by-power": path_arrays
+            / f"reactor_power_35days_by_power.{self.source_type}",
+            "reactor-28days-by-number-of-fissions": path_arrays
+            / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
+            "reactor-28days-by-number-of-neutrinos": path_arrays
+            / f"reactor_power_28days_by_number_of_neutrinos.{self.source_type}",
+            "reactor-28days-by-power": path_arrays
+            / f"reactor_power_28days_by_power.{self.source_type}",
+            "reactor-7days": path_arrays / f"reactor_thermal_power_weekly.{self.source_type}",
+        }
+        for opt, file in reactor_average_options.items():
+            if opt in self._future:
+                cfg_files["daily_reactor_data"] = file
+
+                logger.warning(f"Override default reactor average data with: {file} [{opt}]")
+                for other_opt in reactor_average_options:
+                    if other_opt!=opt and other_opt in self._future:
+                        raise RuntimeError(f"Conflicting future options: {opt} and {other_opt}")
+
+                break
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        if "anue-model-edges-300" in self._future:
-            logger.warning("Use fine antineutrino spectrum model (300+ keV)")
-            antineutrino_model_edges = LoadPy(
-                path_parameters / "reactor_antineutrino_spectrum_edges_300keV.py",
-                variable="edges",
-                type=ndarray,
-            )
-        else:
-            antineutrino_model_edges = LoadPy(
-                path_parameters / "reactor_antineutrino_spectrum_edges.py",
-                variable="edges",
-                type=ndarray,
-            )
+        antineutrino_model_edges = LoadPy(
+            cfg_files["antineutrino_spectrum_segment_edges"],
+            variable="edges",
+            type=ndarray,
+        )
 
         # Provide some convenience substitutions for labels
         index_names = {
@@ -607,21 +695,17 @@ class model_dayabay_v0f:
             # - Free sin²2θ₁₃ and Δm²₃₂
             # - Constrained sin²2θ₁₃ and Δm²₃₂
             # - Fixed: Neutrino Mass Ordering
-            if self.dataset != "b":
-                load_parameters(path="oscprob", load=path_parameters / "oscprob.yaml")
-            else:
-                logger.warning("Dataset B: Use PDG 2020 oscillation parameters for the cross check")
-                load_parameters(
-                    path="oscprob",
-                    load=path_parameters / "oscprob_pdg2020_dataset_b.yaml",
-                )
+            load_parameters(path="oscprob", load=cfg_files["parameters.survival_probability"])
 
             load_parameters(
                 path="oscprob",
-                load=path_parameters / "oscprob_solar.yaml",
+                load=cfg_files["parameters.survival_probability_solar"],
                 joint_nuisance=True,
             )
-            load_parameters(path="oscprob", load=path_parameters / "oscprob_constants.yaml")
+            load_parameters(
+                path="oscprob", load=cfg_files["parameters.survival_probability_constants"]
+            )
+
             # The parameters are located in "parameters.oscprob" folder as defined by
             # the `path` argument.
             # The annotated table with values may be then printed for any storage as
@@ -646,8 +730,8 @@ class model_dayabay_v0f:
             # Load fixed parameters for Inverse Beta Decay (IBD) cross section:
             # - particle masses and lifetimes
             # - constants for Vogel-Beacom IBD cross section
-            load_parameters(path="ibd", load=path_parameters / "pdg2024.yaml")
-            load_parameters(path="ibd.csc", load=path_parameters / "ibd_constants.yaml")
+            load_parameters(path="ibd", load=cfg_files["parameters.pdg_constants"])
+            load_parameters(path="ibd.csc", load=cfg_files["parameters.ibd_constants"])
 
             # Load the conversion constants from metric to natural units:
             # - reactor thermal power
@@ -655,36 +739,26 @@ class model_dayabay_v0f:
             # `scipy.constants` are used to provide the numbers.
             # There are no constants, except maybe 1, 1/3 and π, defined within the
             # code. All the numbers are read based on the configuration files.
-            load_parameters(path="conversion", load=path_parameters / "conversion_thermal_power.py")
             load_parameters(
-                path="conversion",
-                load=path_parameters / "conversion_oscprob_argument.py",
+                path="conversion", load=cfg_files["parameters.conversion_thermal_power"]
+            )
+            load_parameters(
+                path="conversion", load=cfg_files["parameters.conversion_survival_probability"]
             )
 
             # Load reactor-detector baselines
-            load_parameters(load=path_parameters / "baselines.yaml")
+            load_parameters(load=cfg_files["parameters.baselines"])
 
             # IBD and detector normalization parameters:
             # - free global IBD normalization factor
             # - fixed detector efficiency (variation is managed by uncorrelated
             #   "detector_relative.efficiency_factor")
             # - fixed correction to the number of protons in each detector
-            load_parameters(path="detector", load=path_parameters / "detector_normalization.yaml")
-            load_parameters(path="detector", load=path_parameters / "detector_efficiency.yaml")
-            if self.dataset != "b":
-                load_parameters(
-                    path="detector",
-                    load=path_parameters / "detector_nprotons_nominal.yaml",
-                )
-            else:
-                logger.warning("Dataset B: use modified number of nominal protons")
-                load_parameters(
-                    path="detector",
-                    load=path_parameters / "detector_nprotons_nominal_dataset_b.yaml",
-                )
+            load_parameters(path="detector", load=cfg_files["parameters.detector_normalization"])
+            load_parameters(path="detector", load=cfg_files["parameters.detector_efficiency"])
+            load_parameters(path="detector", load=cfg_files["parameters.detector_nprotons_nominal"])
             load_parameters(
-                path="detector",
-                load=path_parameters / "detector_nprotons_correction.yaml",
+                path="detector", load=cfg_files["parameters.detector_nprotons_correction"]
             )
 
             # Detector energy scale parameters:
@@ -693,15 +767,15 @@ class model_dayabay_v0f:
             #   Non-Linearity (LSNL) parameters
             # - constrained uncorrelated between detectors energy distortion related to
             #   Inner Acrylic Vessel
-            load_parameters(path="detector", load=path_parameters / "detector_eres.yaml")
+            load_parameters(path="detector", load=cfg_files["parameters.detector_eres"])
             load_parameters(
                 path="detector",
-                load=path_parameters / "detector_lsnl.yaml",
+                load=cfg_files["parameters.detector_lsnl"],
                 replicate=index["lsnl_nuisance"],
             )
             load_parameters(
                 path="detector",
-                load=path_parameters / "detector_iav_offdiag_scale.yaml",
+                load=cfg_files["parameters.detector_iav_offdiag_scale"],
                 replicate=index["detector"],
             )
             # Here we use `replicate` argument and pass a list of values. The parameters
@@ -719,7 +793,7 @@ class model_dayabay_v0f:
             # the parameters of each detector are correlated between each other.
             load_parameters(
                 path="detector",
-                load=path_parameters / "detector_relative.yaml",
+                load=cfg_files["parameters.detector_relative"],
                 replicate=index["detector"],
                 keys_order=(
                     ("pargroup", "par", "detector"),
@@ -739,25 +813,23 @@ class model_dayabay_v0f:
             # - fixed values of the fission fractions for the SNF calculation
             load_parameters(
                 path="reactor",
-                load=path_parameters / "reactor_thermal_power_nominal.yaml",
+                load=cfg_files["parameters.reactor_thermal_power_nominal"],
                 replicate=index["reactor"],
             )
-            load_parameters(
-                path="reactor", load=path_parameters / "reactor_energy_per_fission.yaml"
-            )
+            load_parameters(path="reactor", load=cfg_files["parameters.reactor_energy_per_fission"])
             load_parameters(
                 path="reactor",
-                load=path_parameters / "reactor_snf.yaml",
+                load=cfg_files["parameters.reactor_snf"],
                 replicate=index["reactor"],
             )
             load_parameters(
                 path="reactor",
-                load=path_parameters / "reactor_nonequilibrium_correction.yaml",
+                load=cfg_files["parameters.reactor_nonequilibrium_correction"],
                 replicate=combinations["reactor.isotope_neq"],
             )
             load_parameters(
                 path="reactor",
-                load=path_parameters / "reactor_snf_fission_fractions.yaml",
+                load=cfg_files["parameters.reactor_snf_fission_fractions"],
             )
             # The nominal thermal power is replicated for each reactor, making its
             # uncertainty uncorrelated. Energy per fission (and fission fraction) has
@@ -774,7 +846,7 @@ class model_dayabay_v0f:
             # index is modified to have `isotope` as the innermost part.
             load_parameters(
                 path="reactor",
-                load=path_parameters / "reactor_fission_fraction_scale.yaml",
+                load=cfg_files["parameters.reactor_fission_fraction_scale"],
                 replicate=index["reactor"],
                 keys_order=(
                     ("par", "isotope", "reactor"),
@@ -787,26 +859,25 @@ class model_dayabay_v0f:
             # detectors during 3 periods of data taking.
             load_parameters(
                 path="bkg.rate_scale",
-                load=path_parameters / "bkg_rate_scale_acc.yaml",
+                load=cfg_files["parameters.bkg_rate_scale_acc"],
                 replicate=combinations["period.detector"],
             )
             load_parameters(
                 path="bkg.rate",
-                load=path_parameters / f"bkg_rates_uncorrelated_dataset_{self.dataset}.yaml",
+                load=cfg_files["parameters.bkg_rates_uncorrelated_dataset"],
             )
             load_parameters(
                 path="bkg.rate",
-                load=path_parameters / f"bkg_rates_correlated_dataset_{self.dataset}.yaml",
+                load=cfg_files["parameters.bkg_rates_correlated_dataset"],
                 sigma_visible=True,
             )
             load_parameters(
                 path="bkg.uncertainty_scale",
-                load=path_parameters / "bkg_rate_uncertainty_scale_amc.yaml",
+                load=cfg_files["parameters.bkg_rate_uncertainty_scale_amc"],
             )
             load_parameters(
                 path="bkg.uncertainty_scale_by_site",
-                load=path_parameters
-                / f"bkg_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
+                load=cfg_files["parameters.bkg_rate_uncertainty_scale_site_dataset"],
                 replicate=combinations["site.period"],
                 ignore_keys=inactive_backgrounds,
             )
@@ -1181,26 +1252,14 @@ class model_dayabay_v0f:
             # consistent X axes.
             # Note, that each Y node (called spec) will have an reference to the X node,
             # so it could be used when plotting.
-            if "anue-spectra-sysu" not in self._future:
-                load_graph(
-                    name="reactor_anue.neutrino_per_fission_per_MeV_input",
-                    filenames=path_arrays
-                    / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
-                    x="enu",
-                    y="spec",
-                    merge_x=True,
-                    replicate_outputs=index["isotope"],
-                )
-            elif "anue-spectra-sysu" in self._future:
-                logger.warning("Future: use SYSU antineutrino spectra")
-                load_graph(
-                    name="reactor_anue.neutrino_per_fission_per_MeV_input",
-                    filenames=path_arrays / f"reactor_anue_spectrum_sysu.{self.source_type}",
-                    x="enu",
-                    y="spec",
-                    merge_x=True,
-                    replicate_outputs=index["isotope"],
-                )
+            load_graph(
+                name="reactor_anue.neutrino_per_fission_per_MeV_input",
+                filenames=cfg_files["reactor_anue_spectrum"],
+                x="enu",
+                y="spec",
+                merge_x=True,
+                replicate_outputs=index["isotope"],
+            )
 
             # The input antineutrino spectra have step of 50 keV. They now should be
             # interpolated to the integration mesh. Similarly to integration nodes,
@@ -1285,7 +1344,7 @@ class model_dayabay_v0f:
                 x="enu",
                 y="nonequilibrium_correction",
                 merge_x=True,
-                filenames=path_arrays / f"nonequilibrium_correction.{self.source_type}",
+                filenames=cfg_files["nonequilibrium_correction"],
                 replicate_outputs=index["isotope_neq"],
             )
 
@@ -1325,7 +1384,7 @@ class model_dayabay_v0f:
                 x="enu",
                 y="snf_correction",
                 merge_x=True,
-                filenames=path_arrays / f"snf_correction.{self.source_type}",
+                filenames=cfg_files["snf_correction"],
                 replicate_outputs=index["reactor"],
             )
             Interpolator.replicate(
@@ -1514,8 +1573,7 @@ class model_dayabay_v0f:
             # respectively.
             load_graph(
                 name="reactor_anue.spectrum_uncertainty",
-                filenames=path_arrays
-                / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
+                filenames=cfg_files["reactor_anue_spectrum_uncertainty"],
                 x="enu_centers",
                 y="uncertainty",
                 merge_x=True,
@@ -1705,8 +1763,7 @@ class model_dayabay_v0f:
             # - efflivetime - effective livetime = livetime*eff.
             load_record_data(
                 name="daily_data.detector_all",
-                filenames=path_arrays
-                / f"{dataset_path}/{dataset_path}_daily_detector_data.{self.source_type}",
+                filenames=cfg_files["daily_detector_data"],
                 replicate_outputs=index["detector"],
                 columns=("day", "ndet", "livetime", "eff", "efflivetime", "rate_acc"),
                 skip=inactive_detectors,
@@ -1734,31 +1791,13 @@ class model_dayabay_v0f:
             # - ndays - length of the period in days.
             # - power - average thermal power, relative to nominal.
             # - u235, u238, pu239, pu241 - fission fractions of corresponding isotope.
-            if "reactor-28days-by-number-of-fissions" in self._future:
-                logger.warning("Future: use merged reactor data, period: 35 days")
-                load_record_data(
-                    name="daily_data.reactor_all",
-                    filenames=path_arrays
-                    / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
-                    replicate_outputs=index["reactor"],
-                    columns=("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
-                )
-            elif "reactor-35days-by-number-of-neutrinos" in self._future:
-                logger.warning("Future: use merged reactor data, period: 35 days")
-                load_record_data(
-                    name="daily_data.reactor_all",
-                    filenames=path_arrays
-                    / f"reactor_power_35days_by_number_of_neutrinos.{self.source_type}",
-                    replicate_outputs=index["reactor"],
-                    columns=("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
-                )
-            else:
-                load_record_data(
-                    name="daily_data.reactor_all",
-                    filenames=path_arrays / f"reactor_thermal_power_weekly.{self.source_type}",
-                    replicate_outputs=index["reactor"],
-                    columns=("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
-                )
+            load_record_data(
+                name="daily_data.reactor_all",
+                filenames=cfg_files["daily_reactor_data"],
+                replicate_outputs=index["reactor"],
+                columns=("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+            )
+
             # Reactor data is then converted from monthly (TODO: specify) to daily (no
             # interpolation) and split them into data taking periods. The data is read
             # from "daily_data.reactor_all" and stored in "daily_data.reactor".
@@ -2255,23 +2294,13 @@ class model_dayabay_v0f:
             # applied to has consistent edges. It will also define the edges for the
             # output histogram. The edges are used for automated plotting for X axis and
             # its label.
-            if self.dataset != "b":
-                load_array(
-                    name="detector.iav",
-                    filenames=path_arrays / f"detector_IAV_matrix_P14A_LS.{self.source_type}",
-                    replicate_outputs=("matrix_raw",),
-                    name_function={"matrix_raw": "iav_matrix"},
-                    array_kwargs={"edges": (edges_energy_escint, edges_energy_edep)},
-                )
-            else:
-                logger.warning("Dataset B: use alternative IAV matrix")
-                load_array(
-                    name="detector.iav",
-                    filenames=path_arrays / f"detector_IAV_matrix_P12.{self.source_type}",
-                    replicate_outputs=("matrix_raw",),
-                    name_function={"matrix_raw": "iav_matrix"},
-                    array_kwargs={"edges": (edges_energy_escint, edges_energy_edep)},
-                )
+            load_array(
+                name="detector.iav",
+                filenames=cfg_files["iav_matrix"],
+                replicate_outputs=("matrix_raw",),
+                name_function={"matrix_raw": "iav_matrix"},
+                array_kwargs={"edges": (edges_energy_escint, edges_energy_edep)},
+            )
 
             # The IAV distortion has an uncorrelated between detector uncertainty,
             # introduced as a factor, which scales the off-diagonal elements of the IAV
@@ -2326,7 +2355,7 @@ class model_dayabay_v0f:
                 x="escint",
                 y="evis_parts",
                 merge_x=True,
-                filenames=path_arrays / f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
+                filenames=cfg_files["lsnl_curves"],
                 replicate_outputs=index["lsnl"],
             )
 
@@ -2472,8 +2501,6 @@ class model_dayabay_v0f:
             # - forward — modify Escint bin edges with energy scale conversion.
             # - backward — modify Evis bin edges with inverse energy scale conversion.
             # Interpolate Evis(Escint)
-
-            logger.warning("Future: pointwise LSNL matrix computation")
 
             # TODO: documentation
             Product.replicate(
@@ -2661,8 +2688,7 @@ class model_dayabay_v0f:
                 y="spectrum_shape",
                 merge_x=True,
                 normalize=True,
-                filenames=path_arrays
-                / f"{dataset_path}/{dataset_path}_bkg_spectra_{{}}.{self.source_type}",
+                filenames=cfg_files["background_spectra"],
                 replicate_files=index["period"],
                 replicate_outputs=combinations["bkg.detector"],
                 skip=inactive_combinations,
@@ -2847,7 +2873,7 @@ class model_dayabay_v0f:
                 y="fine",
                 merge_x=True,
                 filenames=path_arrays
-                / f"{dataset_path}/{dataset_path}_ibd_spectra_{{}}.{self.source_type}",
+                / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}",
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
