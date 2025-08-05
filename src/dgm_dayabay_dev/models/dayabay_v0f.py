@@ -164,7 +164,7 @@ class model_dayabay_v0f:
         self,
         *,
         source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
-        dataset: Literal["a", "b"] = "a",
+        dataset: Literal["a", "b"] = "b",
         binning: Literal["a", "b", "c"] = "a",
         strict: bool = True,
         close: bool = True,
