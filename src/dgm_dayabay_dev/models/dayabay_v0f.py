@@ -425,7 +425,7 @@ class model_dayabay_v0f:
             "snf_correction": path_arrays / f"snf_correction.{self.source_type}",
             "daily_detector_data": path_arrays
             / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_arrays / f"reactor_power_28days.{self.source_type}",
+            "daily_reactor_data": path_arrays / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
             "iav_matrix": path_arrays / f"detector_IAV_matrix_P12.{self.source_type}",
             "lsnl_curves": path_arrays / f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
             "background_spectra": path_arrays
