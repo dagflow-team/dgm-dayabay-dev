@@ -31,7 +31,7 @@ _dayabay_models = {
     "v0e": model_dayabay_v0e,
     "v0f": model_dayabay_v0f,
 }
-_dayabay_models["latest"] = _dayabay_models["v0e"]
+_dayabay_models["latest"] = _dayabay_models["v0f"]
 
 _available_sources = ("tsv", "hdf5", "root", "npz")
 
