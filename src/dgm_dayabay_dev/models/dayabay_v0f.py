@@ -46,7 +46,7 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
 
 
 class model_dayabay_v0f:
-    """The Daya Bay analysis implementation version v0e.
+    """The Daya Bay analysis implementation version v0f.
 
     Purpose:
         - Copy of model v0d with removed old options.
@@ -177,7 +177,7 @@ class model_dayabay_v0f:
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
-        path_data: str | Path = "data/dayabay-v0e"
+        path_data: str | Path = "data/dayabay-v0f"
     ):
         """Model initialization.
 
