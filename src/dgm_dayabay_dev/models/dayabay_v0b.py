@@ -118,6 +118,7 @@ class model_dayabay_v0b:
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         merge_integration: bool = False,
         parameter_values: dict[str, float | str] = {},
+        path_data: str | Path = "data/dayabay-v0b",
         future: Collection[
             Literal[
                 "all", "pdg", "xsec", "conversion", "hm-spectra",
@@ -135,7 +136,7 @@ class model_dayabay_v0b:
 
         self.graph = None
         self.storage = NodeStorage()
-        self._path_data = Path("data/dayabay-v0b")
+        self._path_data = Path(path_data)
         self._source_type = source_type
         self._override_indices = override_indices
         self._spectrum_correction_mode = spectrum_correction_mode

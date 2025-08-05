@@ -200,6 +200,7 @@ class model_dayabay_v0e:
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         lsnl_matrix_mode: Literal["exact", "linear", "linear-unprotected", "pointwise"] = "exact",
         parameter_values: dict[str, float | str] = {},
+        path_data: str | Path = "data/dayabay-v0e",
         future: Collection[FutureType] = set(),
     ):
         """Model initialization.
@@ -236,7 +237,7 @@ class model_dayabay_v0e:
         }
 
         self.storage = NodeStorage()
-        self.path_data = Path("data/dayabay-v0e")
+        self.path_data = Path(path_data)
         self._source_type = source_type
         self._dataset = dataset
         self._binning = binning
@@ -247,6 +248,7 @@ class model_dayabay_v0e:
         self.monte_carlo_mode = monte_carlo_mode
         self._random_generator = self._create_random_generator(seed)
 
+        logger.log(INFO, f"Model version: {type(self).__name__}")
         logger.log(INFO, f"Dataset: {self._dataset}")
         logger.log(INFO, f"Source type: {self._source_type}")
         logger.log(INFO, f"Data path: {self.path_data!s}")
