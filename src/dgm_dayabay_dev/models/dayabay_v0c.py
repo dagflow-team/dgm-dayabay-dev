@@ -156,6 +156,7 @@ class model_dayabay_v0c:
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
+        path_data: str | Path = "data/dayabay-v0c"
     ):
         """Model initialization.
 
@@ -174,7 +175,7 @@ class model_dayabay_v0c:
         self._close = close
 
         self.storage = NodeStorage()
-        self.path_data = Path("data/dayabay-v0c")
+        self.path_data = Path(path_data)
         self.source_type = source_type
         self.spectrum_correction_mode = spectrum_correction_mode
         self.concatenation_mode = concatenation_mode
