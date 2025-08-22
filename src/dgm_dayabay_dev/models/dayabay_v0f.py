@@ -207,8 +207,8 @@ class model_dayabay_v0f:
         assert concatenation_mode in {"detector", "detector_period"}
 
         self.storage = NodeStorage()
-        self.path_data = Path(path_data) / self.source_type
         self._source_type = source_type
+        self.path_data = Path(path_data) / self.source_type
         self._dataset = dataset
         self._binning = binning
         self.spectrum_correction_interpolation_mode = spectrum_correction_interpolation_mode
