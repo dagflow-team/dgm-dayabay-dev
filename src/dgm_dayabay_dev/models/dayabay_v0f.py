@@ -127,7 +127,7 @@ class model_dayabay_v0f:
         "graph",
         "index",
         "combinations",
-        "path_data",
+        "_path_data",
         "spectrum_correction_interpolation_mode",
         "spectrum_correction_location",
         "concatenation_mode",
@@ -146,12 +146,12 @@ class model_dayabay_v0f:
     graph: Graph
     index: dict[str, tuple[str, ...]]
     combinations: dict[str, tuple[tuple[str, ...], ...]]
-    path_data: Path
+    _path_data: Path
     spectrum_correction_interpolation_mode: Literal["linear", "exponential"]
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
-    _source_type: Literal["tsv", "hdf5", "root", "npz"]
+    _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
     _dataset: Literal["a", "b"]  # todo: doc
     _binning: Literal["a", "b", "c"]
     _strict: bool
@@ -163,7 +163,7 @@ class model_dayabay_v0f:
     def __init__(
         self,
         *,
-        source_type: Literal["tsv", "hdf5", "root", "npz"] = "npz",
+        source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"] = "default:hdf5",
         dataset: Literal["a", "b"] = "b",
         binning: Literal["a", "b", "c"] = "a",
         strict: bool = True,
@@ -177,7 +177,7 @@ class model_dayabay_v0f:
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
-        path_data: str | Path = "data/dayabay-v0f"
+        path_data: str | Path | None = None
     ):
         """Model initialization.
 
@@ -195,7 +195,7 @@ class model_dayabay_v0f:
         self._strict = strict
         self._close = close
 
-        assert source_type in {"tsv", "hdf5", "root", "npz"}
+        assert source_type in {"tsv", "hdf5", "root", "npz", "default:hdf5"}
         assert dataset in {"a", "b"}
 
         assert spectrum_correction_interpolation_mode in {"linear", "exponential"}
@@ -206,9 +206,19 @@ class model_dayabay_v0f:
         assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
         assert concatenation_mode in {"detector", "detector_period"}
 
+        if source_type=="default:hdf5":
+            source_type = "hdf5"
+        match (path_data, source_type):
+            case str() | Path(), str():
+                self._source_type = source_type
+                self._path_data = Path(path_data)
+            case None, str():
+                self._source_type = source_type
+                self._path_data = Path("data/dayabay-v0f") / source_type
+            case _, _:
+                raise RuntimeError(f"Unsupported combination of path/source_type options: {path_data}/{source_type}")
+
         self.storage = NodeStorage()
-        self._source_type = source_type
-        self.path_data = Path(path_data) / self.source_type
         self._dataset = dataset
         self._binning = binning
         self.spectrum_correction_interpolation_mode = spectrum_correction_interpolation_mode
@@ -248,6 +258,10 @@ class model_dayabay_v0f:
     @property
     def source_type(self) -> Literal["tsv", "hdf5", "npz", "root"]:
         return self._source_type
+
+    @property
+    def path_data(self) -> Path:
+        return self._path_data
 
     @property
     def dataset(self) -> Literal["a", "b"]:
@@ -330,6 +344,7 @@ class model_dayabay_v0f:
         storage = self.storage
 
         path_parameters = self.path_data / "parameters"
+        path_data = self.path_data
 
         # Dataset items
         path_dataset = f"dayabay_dataset_{self.dataset}"
@@ -382,19 +397,19 @@ class model_dayabay_v0f:
             / "bkg_rate_uncertainty_scale_amc.yaml",
             "parameters.bkg_rate_uncertainty_scale_site_dataset": path_parameters
             / f"bkg_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
-            "reactor_anue_spectrum": path_data_typed
+            "reactor_anue_spectrum": path_data
             / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
-            "reactor_anue_spectrum_uncertainty": path_data_typed
+            "reactor_anue_spectrum_uncertainty": path_data
             / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
-            "nonequilibrium_correction": path_data_typed
+            "nonequilibrium_correction": path_data
             / f"nonequilibrium_correction.{self.source_type}",
-            "snf_correction": path_data_typed / f"snf_correction.{self.source_type}",
-            "daily_detector_data": path_data_typed
+            "snf_correction": path_data / f"snf_correction.{self.source_type}",
+            "daily_detector_data": path_data
             / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_data_typed / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
-            "iav_matrix": path_data_typed / f"detector_iav_matrix.{self.source_type}",
-            "lsnl_curves": path_data_typed / f"detector_lsnl_curves.{self.source_type}",
-            "background_spectra": path_data_typed
+            "daily_reactor_data": path_data / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
+            "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
+            "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
+            "background_spectra": path_data
             / f"{path_dataset}/{path_dataset}_bkg_spectra_{{}}.{self.source_type}",
         }
 
@@ -2809,7 +2824,7 @@ class model_dayabay_v0f:
                 x="erec",
                 y="fine",
                 merge_x=True,
-                filenames=path_data_typed
+                filenames=path_data
                 / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}",
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
