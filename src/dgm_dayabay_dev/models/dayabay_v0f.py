@@ -207,7 +207,7 @@ class model_dayabay_v0f:
         assert concatenation_mode in {"detector", "detector_period"}
 
         self.storage = NodeStorage()
-        self.path_data = Path(path_data)
+        self.path_data = Path(path_data) / self.source_type
         self._source_type = source_type
         self._dataset = dataset
         self._binning = binning
@@ -328,10 +328,8 @@ class model_dayabay_v0f:
 
         # Initialize the storage and paths
         storage = self.storage
-        path_data = self.path_data
 
-        path_parameters = path_data / "parameters"
-        path_arrays = path_data / self.source_type
+        path_parameters = self.path_data / "parameters"
 
         # Dataset items
         path_dataset = f"dayabay_dataset_{self.dataset}"
@@ -384,19 +382,19 @@ class model_dayabay_v0f:
             / "bkg_rate_uncertainty_scale_amc.yaml",
             "parameters.bkg_rate_uncertainty_scale_site_dataset": path_parameters
             / f"bkg_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
-            "reactor_anue_spectrum": path_arrays
+            "reactor_anue_spectrum": path_data_typed
             / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
-            "reactor_anue_spectrum_uncertainty": path_arrays
+            "reactor_anue_spectrum_uncertainty": path_data_typed
             / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
-            "nonequilibrium_correction": path_arrays
+            "nonequilibrium_correction": path_data_typed
             / f"nonequilibrium_correction.{self.source_type}",
-            "snf_correction": path_arrays / f"snf_correction.{self.source_type}",
-            "daily_detector_data": path_arrays
+            "snf_correction": path_data_typed / f"snf_correction.{self.source_type}",
+            "daily_detector_data": path_data_typed
             / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_arrays / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
-            "iav_matrix": path_arrays / f"detector_iav_matrix.{self.source_type}",
-            "lsnl_curves": path_arrays / f"detector_lsnl_curves.{self.source_type}",
-            "background_spectra": path_arrays
+            "daily_reactor_data": path_data_typed / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
+            "iav_matrix": path_data_typed / f"detector_iav_matrix.{self.source_type}",
+            "lsnl_curves": path_data_typed / f"detector_lsnl_curves.{self.source_type}",
+            "background_spectra": path_data_typed
             / f"{path_dataset}/{path_dataset}_bkg_spectra_{{}}.{self.source_type}",
         }
 
@@ -2811,7 +2809,7 @@ class model_dayabay_v0f:
                 x="erec",
                 y="fine",
                 merge_x=True,
-                filenames=path_arrays
+                filenames=path_data_typed
                 / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}",
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
