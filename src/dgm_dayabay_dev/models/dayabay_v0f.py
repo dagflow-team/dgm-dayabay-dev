@@ -285,6 +285,7 @@ class model_dayabay_v0f:
             Product,
             ProductShiftedScaled,
             Sum,
+            Abs,
         )
         from dag_modelling.lib.axis import BinCenter, BinWidth
         from dag_modelling.lib.common import Array, Concatenation, Proxy, View
@@ -330,7 +331,7 @@ class model_dayabay_v0f:
         storage = self.storage
         path_data = self.path_data
 
-        path_parameters = path_data / "parameters"
+        path_parameters = path_data / "parameters-common"
         path_arrays = path_data / self.source_type
 
         # Dataset items
@@ -394,8 +395,8 @@ class model_dayabay_v0f:
             "daily_detector_data": path_arrays
             / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
             "daily_reactor_data": path_arrays / f"reactor_power_28days_by_number_of_fissions.{self.source_type}",
-            "iav_matrix": path_arrays / f"detector_IAV_matrix_P12.{self.source_type}",
-            "lsnl_curves": path_arrays / f"detector_LSNL_curves_Jan2022_newE_v1.{self.source_type}",
+            "iav_matrix": path_arrays / f"detector_iav_matrix.{self.source_type}",
+            "lsnl_curves": path_arrays / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_arrays
             / f"{path_dataset}/{path_dataset}_bkg_spectra_{{}}.{self.source_type}",
         }
@@ -1929,9 +1930,18 @@ class model_dayabay_v0f:
                 outputs.get_dict("daily_data.reactor.power"),
                 outputs.get_dict("daily_data.reactor.fission_fraction_scaled"),
                 outputs.get_dict("reactor.thermal_power_nominal_MeVs"),
+                name="reactor.thermal_power_isotope_MeV_per_second_unstable",
+                replicate_outputs=combinations["reactor.isotope.period"],
+            )
+
+            # Compute absollute value of previous transformation. It is needed because
+            # sometime minimization procedure goes to the non-physical values of
+            # fission fraction. This transforamtion limits possible variations.
+            Abs.replicate(
                 name="reactor.thermal_power_isotope_MeV_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],
             )
+            outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second_unstable") >> inputs.get_dict("reactor.thermal_power_isotope_MeV_per_second")
 
             # Compute number of fissions per second related to each isotope in each
             # reactor and each period: divide partial thermal power by average energy
