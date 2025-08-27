@@ -1741,14 +1741,14 @@ class model_dayabay_v0f:
             # - period - number of period for which data is presented, 0-based.
             # - day - number of the first day of the period relative to the start of the
             #         data taking, 0-based.
-            # - ndays - length of the period in days.
+            # - n_days - length of the period in days.
             # - power - average thermal power, relative to nominal.
             # - u235, u238, pu239, pu241 - fission fractions of corresponding isotope.
             load_record_data(
                 name="daily_data.reactor_all",
                 filenames=cfg_file_mapping["daily_reactor_data"],
                 replicate_outputs=index["reactor"],
-                columns=("period", "day", "ndet", "ndays", "power") + index["isotope_lower"],
+                columns=("period", "day", "n_det", "n_days", "power") + index["isotope_lower"],
             )
 
             # Reactor data is then converted from monthly (TODO: specify) to daily (no
