@@ -343,9 +343,8 @@ class model_dayabay_v0f:
 
         # Initialize the storage and paths
         storage = self.storage
-
-        path_parameters = path_data / "parameters-common"
-        path_arrays = path_data / self.source_type
+        path_data = self.path_data
+        path_parameters = path_data / "parameters"
 
         # Dataset items
         path_dataset = f"dayabay_dataset_{self.dataset}"
