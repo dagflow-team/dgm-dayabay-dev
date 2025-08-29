@@ -397,10 +397,10 @@ class model_dayabay_v0f:
             / "bkg_rate_uncertainty_scale_amc.yaml",
             "parameters.bkg_rate_uncertainty_scale_site_dataset": path_parameters
             / f"bkg_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
-            "reactor_anue_spectrum": path_data
-            / f"reactor_anue_spectrum_interp_scaled_approx_50keV.{self.source_type}",
-            "reactor_anue_spectrum_uncertainty": path_data
-            / f"reactor_anue_spectrum_unc_interp_scaled_approx_50keV.{self.source_type}",
+            "reactor_anue_spectra": path_data
+            / f"reactor_antineutrino_spectra_hm.{self.source_type}",
+            "reactor_anue_spectra_uncertainties": path_data
+            / f"reactor_antineutrino_spectra_hm_uncertainties.{self.source_type}",
             "nonequilibrium_correction": path_data
             / f"nonequilibrium_correction.{self.source_type}",
             "snf_correction": path_data / f"snf_correction.{self.source_type}",
@@ -1206,7 +1206,7 @@ class model_dayabay_v0f:
             # so it could be used when plotting.
             load_graph(
                 name="reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames=cfg_file_mapping["reactor_anue_spectrum"],
+                filenames=cfg_file_mapping["reactor_anue_spectra"],
                 x="enu",
                 y="spec",
                 merge_x=True,
@@ -1525,7 +1525,7 @@ class model_dayabay_v0f:
             # respectively.
             load_graph(
                 name="reactor_anue.spectrum_uncertainty",
-                filenames=cfg_file_mapping["reactor_anue_spectrum_uncertainty"],
+                filenames=cfg_file_mapping["reactor_anue_spectra_uncertainties"],
                 x="enu_centers",
                 y="uncertainty",
                 merge_x=True,
