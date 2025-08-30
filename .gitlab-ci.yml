@@ -7,7 +7,7 @@ tests:
 
   variables:
     # DATA_BRANCH: main
-    DATA_BRANCH: "chore/update-names"
+    DATA_BRANCH: "chore/update-data-names"
   script:
     - apt-get update
     - apt-get -y install libgraphviz-dev graphviz git-lfs
