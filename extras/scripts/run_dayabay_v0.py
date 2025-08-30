@@ -103,7 +103,7 @@ def main(opts: Namespace) -> None:
     plot_overlay_priority = [
         model.index["isotope"],
         model.index["reactor"],
-        model.index["bkg"],
+        model.index["background"],
         model.index["detector"],
         model.index["lsnl"],
     ]
