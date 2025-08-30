@@ -265,7 +265,10 @@ def split_refine_reactor_data(
     day = source["day"]
     ndays = source["ndays"]
     core = source["core"]
-    ndet = source["ndet"]
+    try:
+        ndet = source["n_det"]
+    except KeyError:
+        ndet = source["ndet"]
 
     if not (ndays == 7).all():
         raise ValueError("refine_reactor_data expects weekly information")
