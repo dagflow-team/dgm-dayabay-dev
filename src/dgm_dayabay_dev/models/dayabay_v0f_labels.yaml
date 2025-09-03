@@ -504,7 +504,7 @@ survival_probability:
     latex: "$\\overline{{\\nu}}_e$ survival probability between {index[0]} and {index[1]}"
     axis: "$P_{{\\rm ee}}$"
     plotoptions: "slicesy"
-reactor_anue:
+reactor_antineutrino:
   neutrino_per_fission_per_MeV_nominal:
     group:
       text: "Nominal ν̅ spectrum for {key}, interpolated"
@@ -626,7 +626,7 @@ reactor_anue:
         group:
           text: "Constrained correction factor to ν̅ spectrum shape for {key}\\ncorrelated×uncorrelated, fit, at input Eν"
           axis: '$n$'
-  nonequilibrium_anue:
+  nonequilibrium_antineutrino:
     correction_input:
       enu:
         text: "Eν segment centers\\nnon-equilibrium ν̅ spectrum shape correction"
@@ -644,7 +644,7 @@ reactor_anue:
         axis: "Non-equilibrium correction"
         plotoptions:
           method: "slicesy"
-  snf_anue:
+  snf_antineutrino:
     correction_input:
       enu:
         text: "Eν segment centers\\nspent nuclear fuel ν̅ spectrum shape correction"
@@ -1212,7 +1212,7 @@ statistic:
           text: "χ² nuisance term for spent nuclear fuel parameters"
         nonequilibrium_scale:
           text: "χ² nuisance term for non-equilibrium correction parameters"
-      reactor_anue:
+      reactor_antineutrino:
         spectrum_uncertainty:
           corr:
             text: "χ² nuisance term for correlated ν̅ spectrum parameters"

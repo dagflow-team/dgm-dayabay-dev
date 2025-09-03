@@ -40,8 +40,8 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "neq": "reactor.nonequilibrium_scale",
     "fission_fraction": "reactor.fission_fraction_scale",
     "background_rate": "background",
-    "hm_corr": "reactor_anue.spectrum_uncertainty.corr",
-    "hm_uncorr": "reactor_anue.spectrum_uncertainty.uncorr",
+    "hm_corr": "reactor_antineutrino.spectrum_uncertainty.corr",
+    "hm_uncorr": "reactor_antineutrino.spectrum_uncertainty.uncorr",
 }
 
 
@@ -400,9 +400,9 @@ class model_dayabay_v0f:
             / "background_rate_uncertainty_scale_amc.yaml",
             "parameters.background_rate_uncertainty_scale_site_dataset": path_parameters
             / f"background_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
-            "reactor_anue_spectra": path_data
+            "reactor_antineutrino_spectra": path_data
             / f"reactor_antineutrino_spectra_hm.{self.source_type}",
-            "reactor_anue_spectra_uncertainties": path_data
+            "reactor_antineutrino_spectra_uncertainties": path_data
             / f"reactor_antineutrino_spectra_hm_uncertainties.{self.source_type}",
             "nonequilibrium_correction": path_data
             / f"nonequilibrium_correction.{self.source_type}",
@@ -481,11 +481,11 @@ class model_dayabay_v0f:
             #                  Non-Equilibrium correction applied
             #     - "nu_neq": antineutrinos from Non-Equilibrium correction
             #     - "nu_snf": antineutrinos from Spent Nuclear Fuel
-            "anue_source": ("nu_main", "nu_neq", "nu_snf"),
+            "antineutrino_source": ("nu_main", "nu_neq", "nu_snf"),
             # Model related antineutrino spectrum correction type:
             #     - uncorrelated
             #     - correlated
-            "anue_unc": ("uncorr", "corr"),
+            "antineutrino_unc": ("uncorr", "corr"),
             # Part of the Liquid scintillator non-linearity (LSNL) parametrization
             "lsnl": ("nominal", "pull0", "pull1", "pull2", "pull3"),
             # Nuisance related part of the Liquid scintillator non-linearity (LSNL)
@@ -541,7 +541,7 @@ class model_dayabay_v0f:
             "detector.period",
             "site.period",
             "period.detector",
-            "anue_unc.isotope",
+            "antineutrino_unc.isotope",
             "background.detector",
             "background_stable.detector",
             "background.detector.period",
@@ -561,10 +561,10 @@ class model_dayabay_v0f:
                 items.append(it)
             combinations[combname] = tuple(items)
 
-        # Special treatment is needed for combinations of anue_source and isotope as
+        # Special treatment is needed for combinations of antineutrino_source and isotope as
         # nu_neq is related to only a fraction of isotopes, while nu_snf does not index
         # isotopes at all
-        combinations["anue_source.reactor.isotope.detector"] = (
+        combinations["antineutrino_source.reactor.isotope.detector"] = (
             tuple(("nu_main",) + cmb for cmb in combinations["reactor.isotope.detector"])
             + tuple(("nu_neq",) + cmb for cmb in combinations["reactor.isotope_neq.detector"])
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
@@ -972,15 +972,15 @@ class model_dayabay_v0f:
             # Finally, create a node with segment edges for modelling the reactor
             # electron antineutrino spectra.
             Array.replicate(
-                name="reactor_anue.spectrum_free_correction.spec_model_edges",
+                name="reactor_antineutrino.spectrum_free_correction.spec_model_edges",
                 array=antineutrino_model_edges,
             )
 
             # Define supplementary width of the model of spectra. May be used for
             # plotting.
             BinWidth.replicate(
-                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
-                name="reactor_anue.spectrum_free_correction.spec_model_widths",
+                outputs.get_value("reactor_antineutrino.spectrum_free_correction.spec_model_edges"),
+                name="reactor_antineutrino.spectrum_free_correction.spec_model_widths",
             )
 
             # Introduce Δ=Eν-Edep=m(n)-m(p)-m(e) approximately connecting neutrino and
@@ -995,9 +995,9 @@ class model_dayabay_v0f:
             # Convert antineutrino energy of the edges of antineutrino spectrum
             # parametrization approximately to deposited energy.
             Difference.replicate(
-                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
+                outputs.get_value("reactor_antineutrino.spectrum_free_correction.spec_model_edges"),
                 outputs.get_value("constants.Delta_Enu_Edep"),
-                name="reactor_anue.spectrum_free_correction_post.spec_model_edges_edep_approx",
+                name="reactor_antineutrino.spectrum_free_correction_post.spec_model_edges_edep_approx",
             )
 
             # Initialize the integration nodes. The product of reactor electron
@@ -1036,8 +1036,8 @@ class model_dayabay_v0f:
             # numpy.meshgrid function. A dedicated integrator node, which does the
             # actual integration, is created for each integrable function. In the
             # Daya Bay case the integrator part is replicated: an instance created for
-            # each combination of "anue_source.reactor.isotope.detector" indices. Note,
-            # that NEQ part (anue_source) has no contribution from ²³⁸U and SNF part has
+            # each combination of "antineutrino_source.reactor.isotope.detector" indices. Note,
+            # that NEQ part (antineutrino_source) has no contribution from ²³⁸U and SNF part has
             # not isotope index at all. In particular 384 integration nodes are created.
             Integrator.replicate(
                 "gl2d",
@@ -1050,7 +1050,7 @@ class model_dayabay_v0f:
                     "orders_x": "sampler.orders_edep",
                     "orders_y": "sampler.orders_costheta",
                 },
-                replicate_outputs=combinations["anue_source.reactor.isotope.detector"],
+                replicate_outputs=combinations["antineutrino_source.reactor.isotope.detector"],
             )
             # Pass the integration orders to the sampler inputs. The operator `>>` is
             # used to make a connection `input >> output` or batch connection
@@ -1212,15 +1212,15 @@ class model_dayabay_v0f:
             # nodes, so the user can modify the data before feeding it into the graph.
             #
             # The appropriate loader is chosen based on extension. The objects are
-            # loaded and stored in the "reactor_anue.neutrino_per_fission_per_MeV_input"
+            # loaded and stored in the "reactor_antineutrino.neutrino_per_fission_per_MeV_input"
             # location. As `merge_x` flag is specified, only on X array is stored with
             # no index. A dedicated check is performed to ensure the graphs have
             # consistent X axes.
             # Note, that each Y node (called spec) will have an reference to the X node,
             # so it could be used when plotting.
             load_graph(
-                name="reactor_anue.neutrino_per_fission_per_MeV_input",
-                filenames=cfg_file_mapping["reactor_anue_spectra"],
+                name="reactor_antineutrino.neutrino_per_fission_per_MeV_input",
+                filenames=cfg_file_mapping["reactor_antineutrino_spectra"],
                 x="enu",
                 y="spec",
                 merge_x=True,
@@ -1240,26 +1240,26 @@ class model_dayabay_v0f:
             Interpolator.replicate(
                 method="exp",
                 names={
-                    "indexer": "reactor_anue.spec_indexer",
-                    "interpolator": "reactor_anue.neutrino_per_fission_per_MeV_nominal",
+                    "indexer": "reactor_antineutrino.spec_indexer",
+                    "interpolator": "reactor_antineutrino.neutrino_per_fission_per_MeV_nominal",
                 },
                 replicate_outputs=index["isotope"],
             )
             # Connect the common neutrino energy mesh as coarse input of the
             # interpolator.
             outputs.get_value(
-                "reactor_anue.neutrino_per_fission_per_MeV_input.enu"
-            ) >> inputs.get_value("reactor_anue.neutrino_per_fission_per_MeV_nominal.xcoarse")
+                "reactor_antineutrino.neutrino_per_fission_per_MeV_input.enu"
+            ) >> inputs.get_value("reactor_antineutrino.neutrino_per_fission_per_MeV_nominal.xcoarse")
             # Connect the input antineutrino spectra as coarse Y inputs of the
             # interpolator. This is performed for each of the 4 isotopes.
             outputs.get_dict(
-                "reactor_anue.neutrino_per_fission_per_MeV_input.spec"
-            ) >> inputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal.ycoarse")
+                "reactor_antineutrino.neutrino_per_fission_per_MeV_input.spec"
+            ) >> inputs.get_dict("reactor_antineutrino.neutrino_per_fission_per_MeV_nominal.ycoarse")
             # The interpolators are using the same target mesh for all the same target
             # mesh. Use the neutrino energy mesh provided by interpolator as an input to
             # fine X of the interpolation.
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_anue.neutrino_per_fission_per_MeV_nominal.xfine"
+                "reactor_antineutrino.neutrino_per_fission_per_MeV_nominal.xfine"
             )
 
             # The antineutrino spectrum in this analysis is a subject of five
@@ -1306,7 +1306,7 @@ class model_dayabay_v0f:
             # corresponding NEQ (1.) corrections to 3 out of 4 isotopes. The correction
             # C should be applied to spectrum as follows: S'(Eν)=S(Eν)(1+C(Eν))
             load_graph(
-                name="reactor_anue.nonequilibrium_anue.correction_input",
+                name="reactor_antineutrino.nonequilibrium_antineutrino.correction_input",
                 x="enu",
                 y="nonequilibrium_correction",
                 merge_x=True,
@@ -1320,8 +1320,8 @@ class model_dayabay_v0f:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "reactor_anue.nonequilibrium_anue.correction_indexer",
-                    "interpolator": "reactor_anue.nonequilibrium_anue.correction_interpolated",
+                    "indexer": "reactor_antineutrino.nonequilibrium_antineutrino.correction_indexer",
+                    "interpolator": "reactor_antineutrino.nonequilibrium_antineutrino.correction_interpolated",
                 },
                 replicate_outputs=index["isotope_neq"],
                 underflow="constant",
@@ -1330,15 +1330,15 @@ class model_dayabay_v0f:
             # Similarly to the case of antineutrino spectrum connect coarse X, a few
             # coarse Y and target mesh to the interpolator nodes.
             outputs.get_value(
-                "reactor_anue.nonequilibrium_anue.correction_input.enu"
+                "reactor_antineutrino.nonequilibrium_antineutrino.correction_input.enu"
             ) >> inputs.get_value(
-                "reactor_anue.nonequilibrium_anue.correction_interpolated.xcoarse"
+                "reactor_antineutrino.nonequilibrium_antineutrino.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "reactor_anue.nonequilibrium_anue.correction_input.nonequilibrium_correction"
-            ) >> inputs.get_dict("reactor_anue.nonequilibrium_anue.correction_interpolated.ycoarse")
+                "reactor_antineutrino.nonequilibrium_antineutrino.correction_input.nonequilibrium_correction"
+            ) >> inputs.get_dict("reactor_antineutrino.nonequilibrium_antineutrino.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_anue.nonequilibrium_anue.correction_interpolated.xfine"
+                "reactor_antineutrino.nonequilibrium_antineutrino.correction_interpolated.xfine"
             )
 
             # Now load the SNF (2.) correction. The SNF correction is different from NEQ
@@ -1346,7 +1346,7 @@ class model_dayabay_v0f:
             # use reactor index for it. Aside from index the loading and interpolation
             # procedure is similar to that of NEQ correction.
             load_graph(
-                name="reactor_anue.snf_anue.correction_input",
+                name="reactor_antineutrino.snf_antineutrino.correction_input",
                 x="enu",
                 y="snf_correction",
                 merge_x=True,
@@ -1356,21 +1356,21 @@ class model_dayabay_v0f:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "reactor_anue.snf_anue.correction_indexer",
-                    "interpolator": "reactor_anue.snf_anue.correction_interpolated",
+                    "indexer": "reactor_antineutrino.snf_antineutrino.correction_indexer",
+                    "interpolator": "reactor_antineutrino.snf_antineutrino.correction_interpolated",
                 },
                 replicate_outputs=index["reactor"],
                 underflow="constant",
                 overflow="constant",
             )
-            outputs.get_value("reactor_anue.snf_anue.correction_input.enu") >> inputs.get_value(
-                "reactor_anue.snf_anue.correction_interpolated.xcoarse"
+            outputs.get_value("reactor_antineutrino.snf_antineutrino.correction_input.enu") >> inputs.get_value(
+                "reactor_antineutrino.snf_antineutrino.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "reactor_anue.snf_anue.correction_input.snf_correction"
-            ) >> inputs.get_dict("reactor_anue.snf_anue.correction_interpolated.ycoarse")
+                "reactor_antineutrino.snf_antineutrino.correction_input.snf_correction"
+            ) >> inputs.get_dict("reactor_antineutrino.snf_antineutrino.correction_interpolated.ycoarse")
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_anue.snf_anue.correction_interpolated.xfine"
+                "reactor_antineutrino.snf_antineutrino.correction_interpolated.xfine"
             )
 
             # Finally create the parametrization of the correction to the shape of
@@ -1397,7 +1397,7 @@ class model_dayabay_v0f:
             # for the Array nodes, which already have data, but may be not the case for
             # other nodes.
             make_y_parameters_for_x(
-                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
+                outputs.get_value("reactor_antineutrino.spectrum_free_correction.spec_model_edges"),
                 namefmt="spec_scale_{:02d}",
                 format="value",
                 state="variable",
@@ -1419,12 +1419,12 @@ class model_dayabay_v0f:
             # parameters.
             Concatenation.replicate(
                 parameters.get_dict("all.neutrino_per_fission_factor"),
-                name="reactor_anue.spectrum_free_correction.input",
+                name="reactor_antineutrino.spectrum_free_correction.input",
             )
             # For convenience purposes let us assign `spec_model_edges` as X axis for
             # the array of parameters.
-            outputs.get_value("reactor_anue.spectrum_free_correction.input").dd.axes_meshes = (
-                outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
+            outputs.get_value("reactor_antineutrino.spectrum_free_correction.input").dd.axes_meshes = (
+                outputs.get_value("reactor_antineutrino.spectrum_free_correction.spec_model_edges"),
             )
 
             # Depending on chosen method, convert the parameters to the correction
@@ -1433,14 +1433,14 @@ class model_dayabay_v0f:
                 # Exponentiate the array of values. No `>>` is used as the array is
                 # passed as an argument and the connection is done internally.
                 Exp.replicate(
-                    outputs.get_value("reactor_anue.spectrum_free_correction.input"),
-                    name="reactor_anue.spectrum_free_correction.correction",
+                    outputs.get_value("reactor_antineutrino.spectrum_free_correction.input"),
+                    name="reactor_antineutrino.spectrum_free_correction.correction",
                 )
             else:
                 # Instead of exponent use linear `1+x` approach. First, create an array
                 # with [1].
                 Array.from_value(
-                    "reactor_anue.spectrum_free_correction.unity",
+                    "reactor_antineutrino.spectrum_free_correction.unity",
                     1.0,
                     dtype="d",
                     mark="1",
@@ -1453,16 +1453,16 @@ class model_dayabay_v0f:
                 # operation has the shape of the spectral parameters and 1 is added to
                 # each element.
                 Sum.replicate(
-                    outputs.get_value("reactor_anue.spectrum_free_correction.unity"),
-                    outputs.get_value("reactor_anue.spectrum_free_correction.input"),
-                    name="reactor_anue.spectrum_free_correction.correction",
+                    outputs.get_value("reactor_antineutrino.spectrum_free_correction.unity"),
+                    outputs.get_value("reactor_antineutrino.spectrum_free_correction.input"),
+                    name="reactor_antineutrino.spectrum_free_correction.correction",
                 )
                 # For convenience purposes assign `spec_model_edges` as X axis for the
                 # array of scale factors.
                 outputs.get_value(
-                    "reactor_anue.spectrum_free_correction.correction"
+                    "reactor_antineutrino.spectrum_free_correction.correction"
                 ).dd.axes_meshes = (
-                    outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
+                    outputs.get_value("reactor_antineutrino.spectrum_free_correction.spec_model_edges"),
                 )
 
             # Interpolate the spectral correction exponentially. The extrapolation will
@@ -1471,18 +1471,18 @@ class model_dayabay_v0f:
             Interpolator.replicate(
                 method="exp",
                 names={
-                    "indexer": "reactor_anue.spectrum_free_correction.indexer",
-                    "interpolator": "reactor_anue.spectrum_free_correction.interpolated",
+                    "indexer": "reactor_antineutrino.spectrum_free_correction.indexer",
+                    "interpolator": "reactor_antineutrino.spectrum_free_correction.interpolated",
                 },
             )
             outputs.get_value(
-                "reactor_anue.spectrum_free_correction.spec_model_edges"
-            ) >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.xcoarse")
+                "reactor_antineutrino.spectrum_free_correction.spec_model_edges"
+            ) >> inputs.get_value("reactor_antineutrino.spectrum_free_correction.interpolated.xcoarse")
             outputs.get_value(
-                "reactor_anue.spectrum_free_correction.correction"
-            ) >> inputs.get_value("reactor_anue.spectrum_free_correction.interpolated.ycoarse")
+                "reactor_antineutrino.spectrum_free_correction.correction"
+            ) >> inputs.get_value("reactor_antineutrino.spectrum_free_correction.interpolated.ycoarse")
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_anue.spectrum_free_correction.interpolated.xfine"
+                "reactor_antineutrino.spectrum_free_correction.interpolated.xfine"
             )
 
             # Alternative post-fit spectrum correction.
@@ -1490,18 +1490,18 @@ class model_dayabay_v0f:
             Interpolator.replicate(
                 method="exp",
                 names={
-                    "indexer": "reactor_anue.spectrum_free_correction_post.indexer",
-                    "interpolator": "reactor_anue.spectrum_free_correction_post.interpolated",
+                    "indexer": "reactor_antineutrino.spectrum_free_correction_post.indexer",
+                    "interpolator": "reactor_antineutrino.spectrum_free_correction_post.interpolated",
                 },
             )
             outputs.get_value(
-                "reactor_anue.spectrum_free_correction_post.spec_model_edges_edep_approx"
-            ) >> inputs.get_value("reactor_anue.spectrum_free_correction_post.interpolated.xcoarse")
+                "reactor_antineutrino.spectrum_free_correction_post.spec_model_edges_edep_approx"
+            ) >> inputs.get_value("reactor_antineutrino.spectrum_free_correction_post.interpolated.xcoarse")
             outputs.get_value(
-                "reactor_anue.spectrum_free_correction.correction"
-            ) >> inputs.get_value("reactor_anue.spectrum_free_correction_post.interpolated.ycoarse")
+                "reactor_antineutrino.spectrum_free_correction.correction"
+            ) >> inputs.get_value("reactor_antineutrino.spectrum_free_correction_post.interpolated.ycoarse")
             outputs.get_value("edges.centers.energy_edep") >> inputs.get_value(
-                "reactor_anue.spectrum_free_correction_post.interpolated.xfine"
+                "reactor_antineutrino.spectrum_free_correction_post.interpolated.xfine"
             )
 
             # Load the uncertainties, related to Huber+Mueller antineutrino spectrum
@@ -1535,21 +1535,21 @@ class model_dayabay_v0f:
             # Huber+Mueller uncertainties provided for 250 keV bins are scaled down to
             # 50 keV bins assuming the fine bins have no correlations between each
             # other. Both correlated and uncorrelated uncertainties are read as
-            # controlled by index `anue_unc` with values `corr` and `uncorr`
+            # controlled by index `antineutrino_unc` with values `corr` and `uncorr`
             # respectively.
             load_graph(
-                name="reactor_anue.spectrum_uncertainty",
-                filenames=cfg_file_mapping["reactor_anue_spectra_uncertainties"],
+                name="reactor_antineutrino.spectrum_uncertainty",
+                filenames=cfg_file_mapping["reactor_antineutrino_spectra_uncertainties"],
                 x="enu_centers",
                 y="uncertainty",
                 merge_x=True,
-                replicate_outputs=combinations["anue_unc.isotope"],
+                replicate_outputs=combinations["antineutrino_unc.isotope"],
             )
 
             # Create a set of parameters ηᵢₖ using a convenience method
             # `make_y_parameters_for_x`. For each isotope for each point of neutrino
             # energy of correction parametrization create a variable parameter
-            # `reactor_anue.spectrum_uncertainty.uncorr.{isotope}.unc_scale_{index}`
+            # `reactor_antineutrino.spectrum_uncertainty.uncorr.{isotope}.unc_scale_{index}`
             # with central value 0 and uncertainty 1. Labels will reflect the value of
             # energy. The last point may be disabled with `disable_last_one` in case the
             # constant interpolation is used.
@@ -1559,11 +1559,11 @@ class model_dayabay_v0f:
             # nodes overload the graph too much.
             for isotope in index["isotope"]:
                 make_y_parameters_for_x(
-                    outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers"),
+                    outputs.get_value("reactor_antineutrino.spectrum_uncertainty.enu_centers"),
                     namefmt="unc_scale_{:03d}",
                     format=("value", "sigma_absolute"),
                     state="variable",
-                    key=f"reactor_anue.spectrum_uncertainty.uncorr.{isotope}",
+                    key=f"reactor_antineutrino.spectrum_uncertainty.uncorr.{isotope}",
                     values=(0.0, 1.0),
                     labels=f"Edge {{i:02d}} ({{value:.2f}} MeV) uncorrelated {index_names[isotope]} spectrum correction",
                     disable_last_one=False,  # True for the constant interpolation, last edge is unused
@@ -1573,7 +1573,7 @@ class model_dayabay_v0f:
             # Create a single nuisance parameter for the correlated uncertainty
             # correction.
             load_parameters(
-                path="reactor_anue.spectrum_uncertainty",
+                path="reactor_antineutrino.spectrum_uncertainty",
                 format=("value", "sigma_absolute"),
                 state="variable",
                 parameters={"corr": (0.0, 1.0)},
@@ -1584,8 +1584,8 @@ class model_dayabay_v0f:
             # nuisance parameter is modified it also affects the corresponding array
             # element and thus is propagated to the calculation.
             Concatenation.replicate(
-                parameters.get_dict("constrained.reactor_anue.spectrum_uncertainty.uncorr"),
-                name="reactor_anue.spectrum_uncertainty.scale.uncorr",
+                parameters.get_dict("constrained.reactor_antineutrino.spectrum_uncertainty.uncorr"),
+                name="reactor_antineutrino.spectrum_uncertainty.scale.uncorr",
                 replicate_outputs=index["isotope"],
             )
 
@@ -1593,18 +1593,18 @@ class model_dayabay_v0f:
             # parameters and corresponding uncorrelated uncertainty. The result is
             # ηᵢₖσᵢₖ.
             Product.replicate(
-                outputs.get_dict("reactor_anue.spectrum_uncertainty.scale.uncorr"),
-                outputs.get_dict("reactor_anue.spectrum_uncertainty.uncertainty.uncorr"),
-                name="reactor_anue.spectrum_uncertainty.correction.uncorr",
+                outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.scale.uncorr"),
+                outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.uncertainty.uncorr"),
+                name="reactor_antineutrino.spectrum_uncertainty.correction.uncorr",
                 replicate_outputs=index["isotope"],
             )
 
             # For each isotope compute an element-wise product of nuisance parameter and
             # corresponding correlated uncertainty. The result is ζΣᵢₖ.
             Product.replicate(
-                parameters.get_value("constrained.reactor_anue.spectrum_uncertainty.corr"),
-                outputs.get_dict("reactor_anue.spectrum_uncertainty.uncertainty.corr"),
-                name="reactor_anue.spectrum_uncertainty.correction.corr",
+                parameters.get_value("constrained.reactor_antineutrino.spectrum_uncertainty.corr"),
+                outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.uncertainty.corr"),
+                name="reactor_antineutrino.spectrum_uncertainty.correction.corr",
                 replicate_outputs=index["isotope"],
             )
 
@@ -1619,23 +1619,23 @@ class model_dayabay_v0f:
             )
             # Add it to uncorrelated correction...
             Sum.replicate(
-                outputs.get_dict("reactor_anue.spectrum_uncertainty.correction.uncorr"),
+                outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.correction.uncorr"),
                 single_unity,
-                name="reactor_anue.spectrum_uncertainty.correction.uncorr_factor",
+                name="reactor_antineutrino.spectrum_uncertainty.correction.uncorr_factor",
                 replicate_outputs=index["isotope"],
             )
             # And to correlated correction...
             Sum.replicate(
-                outputs.get_dict("reactor_anue.spectrum_uncertainty.correction.corr"),
+                outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.correction.corr"),
                 single_unity,
-                name="reactor_anue.spectrum_uncertainty.correction.corr_factor",
+                name="reactor_antineutrino.spectrum_uncertainty.correction.corr_factor",
                 replicate_outputs=index["isotope"],
             )
             # Multiply results together.
             Product.replicate(
-                outputs.get_dict("reactor_anue.spectrum_uncertainty.correction.uncorr_factor"),
-                outputs.get_dict("reactor_anue.spectrum_uncertainty.correction.corr_factor"),
-                name="reactor_anue.spectrum_uncertainty.correction.full",
+                outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.correction.uncorr_factor"),
+                outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.correction.corr_factor"),
+                name="reactor_antineutrino.spectrum_uncertainty.correction.full",
                 replicate_outputs=index["isotope"],
             )
 
@@ -1644,21 +1644,21 @@ class model_dayabay_v0f:
             Interpolator.replicate(
                 method="linear",
                 names={
-                    "indexer": "reactor_anue.spectrum_uncertainty.correction_index",
-                    "interpolator": "reactor_anue.spectrum_uncertainty.correction_interpolated",
+                    "indexer": "reactor_antineutrino.spectrum_uncertainty.correction_index",
+                    "interpolator": "reactor_antineutrino.spectrum_uncertainty.correction_interpolated",
                 },
                 replicate_outputs=index["isotope"],
             )
-            outputs.get_value("reactor_anue.spectrum_uncertainty.enu_centers") >> inputs.get_value(
-                "reactor_anue.spectrum_uncertainty.correction_interpolated.xcoarse"
+            outputs.get_value("reactor_antineutrino.spectrum_uncertainty.enu_centers") >> inputs.get_value(
+                "reactor_antineutrino.spectrum_uncertainty.correction_interpolated.xcoarse"
             )
             outputs.get_dict(
-                "reactor_anue.spectrum_uncertainty.correction.full"
+                "reactor_antineutrino.spectrum_uncertainty.correction.full"
             ) >> inputs.get_dict(
-                "reactor_anue.spectrum_uncertainty.correction_interpolated.ycoarse"
+                "reactor_antineutrino.spectrum_uncertainty.correction_interpolated.ycoarse"
             )
             kinematic_integrator_enu >> inputs.get_value(
-                "reactor_anue.spectrum_uncertainty.correction_interpolated.xfine"
+                "reactor_antineutrino.spectrum_uncertainty.correction_interpolated.xfine"
             )
 
             # Finally apply all the corrections 1, 3 and 4 to the antineutrino spectra.
@@ -1668,17 +1668,17 @@ class model_dayabay_v0f:
             # to the nominal antineutrino spectrum.
             if self.spectrum_correction_location == "before-integration":
                 Product.replicate(
-                    outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs.get_value("reactor_anue.spectrum_free_correction.interpolated"),
-                    outputs.get_dict("reactor_anue.spectrum_uncertainty.correction_interpolated"),
-                    name="reactor_anue.part.neutrino_per_fission_per_MeV_main",
+                    outputs.get_dict("reactor_antineutrino.neutrino_per_fission_per_MeV_nominal"),
+                    outputs.get_value("reactor_antineutrino.spectrum_free_correction.interpolated"),
+                    outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.correction_interpolated"),
+                    name="reactor_antineutrino.part.neutrino_per_fission_per_MeV_main",
                     replicate_outputs=index["isotope"],
                 )
             else:
                 Product.replicate(
-                    outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                    outputs.get_dict("reactor_anue.spectrum_uncertainty.correction_interpolated"),
-                    name="reactor_anue.part.neutrino_per_fission_per_MeV_main",
+                    outputs.get_dict("reactor_antineutrino.neutrino_per_fission_per_MeV_nominal"),
+                    outputs.get_dict("reactor_antineutrino.spectrum_uncertainty.correction_interpolated"),
+                    name="reactor_antineutrino.part.neutrino_per_fission_per_MeV_main",
                     replicate_outputs=index["isotope"],
                 )
 
@@ -1687,9 +1687,9 @@ class model_dayabay_v0f:
             # As long as ²³⁸U spectrum has no NEQ correction we use a truncated index
             # `isotope_neq` and explicitly allow to skip ²³⁸U from the nominal spectra.
             Product.replicate(
-                outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
-                outputs.get_dict("reactor_anue.nonequilibrium_anue.correction_interpolated"),
-                name="reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal",
+                outputs.get_dict("reactor_antineutrino.neutrino_per_fission_per_MeV_nominal"),
+                outputs.get_dict("reactor_antineutrino.nonequilibrium_antineutrino.correction_interpolated"),
+                name="reactor_antineutrino.part.neutrino_per_fission_per_MeV_neq_nominal",
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=("U238",),
                 replicate_outputs=index["isotope_neq"],
@@ -2103,22 +2103,22 @@ class model_dayabay_v0f:
             )
 
             Product.replicate(
-                outputs.get_dict("reactor_anue.neutrino_per_fission_per_MeV_nominal"),
+                outputs.get_dict("reactor_antineutrino.neutrino_per_fission_per_MeV_nominal"),
                 outputs.get_dict("reactor.fissions_per_second_snf"),
-                name="reactor_anue.snf_anue.neutrino_per_second_isotope",
+                name="reactor_antineutrino.snf_antineutrino.neutrino_per_second_isotope",
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
             Sum.replicate(
-                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_isotope"),
-                name="reactor_anue.snf_anue.neutrino_per_second",
+                outputs.get_dict("reactor_antineutrino.snf_antineutrino.neutrino_per_second_isotope"),
+                name="reactor_antineutrino.snf_antineutrino.neutrino_per_second",
                 replicate_outputs=index["reactor"],
             )
 
             Product.replicate(
-                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second"),
-                outputs.get_dict("reactor_anue.snf_anue.correction_interpolated"),
-                name="reactor_anue.snf_anue.neutrino_per_second_snf",
+                outputs.get_dict("reactor_antineutrino.snf_antineutrino.neutrino_per_second"),
+                outputs.get_dict("reactor_antineutrino.snf_antineutrino.correction_interpolated"),
+                name="reactor_antineutrino.snf_antineutrino.neutrino_per_second_snf",
                 replicate_outputs=index["reactor"],
             )
 
@@ -2129,7 +2129,7 @@ class model_dayabay_v0f:
             # - snf - extra antineutrino flux from SNF, assumed to be located at the
             #         same position as reactors.
             # Later the relevant numbers will be organized in storage with keys
-            # `nu_main`, `nu_neq` and `nu_snf`, which represent the `anue_source` index.
+            # `nu_main`, `nu_neq` and `nu_snf`, which represent the `antineutrino_source` index.
 
             # The following part is related to the calculation of a product of
             # flux × oscillation probability × cross section [Nν·cm²/fission/proton]
@@ -2159,7 +2159,7 @@ class model_dayabay_v0f:
             # The result has three indices: isotope, reactor, detector.
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs.get_dict("reactor_anue.part.neutrino_per_fission_per_MeV_main"),
+                outputs.get_dict("reactor_antineutrino.part.neutrino_per_fission_per_MeV_main"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
                 replicate_outputs=combinations["reactor.isotope.detector"],
             )
@@ -2168,7 +2168,7 @@ class model_dayabay_v0f:
             # (applies to 3 isotopes out of 4).
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs.get_dict("reactor_anue.part.neutrino_per_fission_per_MeV_neq_nominal"),
+                outputs.get_dict("reactor_antineutrino.part.neutrino_per_fission_per_MeV_neq_nominal"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
                 replicate_outputs=combinations["reactor.isotope_neq.detector"],
             )
@@ -2176,7 +2176,7 @@ class model_dayabay_v0f:
             # And for SNF.
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
-                outputs.get_dict("reactor_anue.snf_anue.neutrino_per_second_snf"),
+                outputs.get_dict("reactor_antineutrino.snf_antineutrino.neutrino_per_second_snf"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
@@ -2243,8 +2243,8 @@ class model_dayabay_v0f:
             if self.spectrum_correction_location == "after-integration":
                 Product.replicate(
                     outputs.get_dict("eventscount.stages.raw"),
-                    outputs.get_value("reactor_anue.spectrum_free_correction_post.interpolated"),
-                    name="eventscount.stages.raw_anue_spectrum_corrected",
+                    outputs.get_value("reactor_antineutrino.spectrum_free_correction_post.interpolated"),
+                    name="eventscount.stages.raw_antineutrino_spectrum_corrected",
                     replicate_outputs=combinations["detector.period"],
                 )
 
@@ -2314,7 +2314,7 @@ class model_dayabay_v0f:
             # relevant IAV smearing input.
             if self.spectrum_correction_location == "after-integration":
                 outputs.get_dict(
-                    "eventscount.stages.raw_anue_spectrum_corrected"
+                    "eventscount.stages.raw_antineutrino_spectrum_corrected"
                 ) >> inputs.get_dict("eventscount.stages.iav.vector")
             else:
                 outputs.get_dict("eventscount.stages.raw") >> inputs.get_dict(
