@@ -49,13 +49,7 @@ class model_dayabay_v0f:
     """The Daya Bay analysis implementation version v0f.
 
     Purpose:
-        - Copy of model v0d with removed old options.
-
-    Updates:
-        - Add multiple options for antineutrino model edges.
-        - Add alternative method to apply antineutrino spectrum corrections.
-            + original: apply to the antineutrino spectrum before the integration.
-            + new: apply Edep spectrum after the integration.
+        - Copy of model v0e and deprecate all future options.
 
     Attributes
     ----------
