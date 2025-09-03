@@ -6,7 +6,7 @@ requires = [ "packaging", "setuptools", "wheel" ]
 [project]
 name = "dgm-dayabay-dev"
 version = "0.2"
-description = "Implementation of the Daya Bay modelfor dag-modelling framework. Development version."
+description = "Implementation of the Daya Bay model for dag-modelling framework. Development version."
 readme = "README.md"
 license = "MIT"
 maintainers = [ { name = "DAGModelling Team", email = "dagflow@jinr.ru" } ]
