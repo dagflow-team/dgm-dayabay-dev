@@ -1956,7 +1956,7 @@ class model_dayabay_v0f:
                 outputs.get_dict("daily_data.reactor.power"),
                 outputs.get_dict("daily_data.reactor.fission_fraction_scaled"),
                 outputs.get_dict("reactor.thermal_power_nominal_MeVs"),
-                name="reactor.thermal_power_isotope_MeV_per_second_unstable",
+                name="reactor.thermal_power_isotope_MeV_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],
             )
 
@@ -1964,18 +1964,18 @@ class model_dayabay_v0f:
             # sometime minimization procedure goes to the non-physical values of
             # fission fraction. This transforamtion limits possible variations.
             Abs.replicate(
-                name="reactor.thermal_power_isotope_MeV_per_second",
+                name="reactor.thermal_power_abs_isotope_MeV_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],
             )
             outputs.get_dict(
-                "reactor.thermal_power_isotope_MeV_per_second_unstable"
-            ) >> inputs.get_dict("reactor.thermal_power_isotope_MeV_per_second")
+                "reactor.thermal_power_isotope_MeV_per_second"
+            ) >> inputs.get_dict("reactor.thermal_power_abs_isotope_MeV_per_second")
 
             # Compute number of fissions per second related to each isotope in each
             # reactor and each period: divide partial thermal power by average energy
             # per fission.
             Division.replicate(
-                outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second"),
+                outputs.get_dict("reactor.thermal_power_abs_isotope_MeV_per_second"),
                 outputs.get_dict("reactor.energy_per_fission_average_MeV"),
                 name="reactor.fissions_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],

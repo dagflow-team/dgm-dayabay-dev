@@ -265,6 +265,12 @@ reactor:
       axis: '$W_i/W_{{\rm tot}}$'
       xaxis: "Day"
       unit: "MeV/s"
+  thermal_power_abs_isotope_MeV_per_second:
+    group:
+      text: "Fractional thermal power for {index[1]} in {index[0]} during {index[2]}\\nabsolute value"
+      axis: '$\left|W_i/W_{{\rm tot}}\right|$'
+      xaxis: "Day"
+      unit: "MeV/s"
   fissions_per_second:
     group:
       text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
