@@ -103,7 +103,7 @@ def main(opts: Namespace) -> None:
     plot_overlay_priority = [
         model.index["isotope"],
         model.index["reactor"],
-        model.index["bkg"],
+        model.index["background"],
         model.index["detector"],
         model.index["lsnl"],
     ]
@@ -300,7 +300,7 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="hdf5",
+        default="default:hdf5",
         help="Data source type",
     )
     parser.add_argument(

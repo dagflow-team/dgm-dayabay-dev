@@ -130,8 +130,14 @@ def refine_reactor_data(
     for corename in reactors:
         period = source["period", corename]
         day = source["day", corename]
-        ndays = source["ndays", corename]
-        ndet = source["ndet", corename]
+        try:
+            ndays = source["n_days", corename]
+        except KeyError:
+            ndays = source["ndays", corename]
+        try:
+            ndet = source["n_det", corename]
+        except KeyError:
+            ndet = source["ndet", corename]
 
         ndays0 = ndays[0]
         if not (ndays[:-1] == ndays0).all():
@@ -259,7 +265,10 @@ def split_refine_reactor_data(
     day = source["day"]
     ndays = source["ndays"]
     core = source["core"]
-    ndet = source["ndet"]
+    try:
+        ndet = source["n_det"]
+    except KeyError:
+        ndet = source["ndet"]
 
     if not (ndays == 7).all():
         raise ValueError("refine_reactor_data expects weekly information")
