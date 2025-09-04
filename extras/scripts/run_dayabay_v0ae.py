@@ -103,7 +103,7 @@ def main(opts: Namespace) -> None:
     plot_overlay_priority = [
         model.index["isotope"],
         model.index["reactor"],
-        model.index["background"],
+        model.index["bkg"],
         model.index["detector"],
         model.index["lsnl"],
     ]
@@ -377,8 +377,8 @@ if __name__ == "__main__":
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
         "--version",
-        default="latest",
-        choices=available_models(),
+        default="v0e",
+        choices=["v0", "v0a", "v0b", "v0c", "v0d", "v0d"],
         help="model version",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")

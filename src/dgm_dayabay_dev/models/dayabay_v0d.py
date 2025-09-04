@@ -283,8 +283,8 @@ class model_dayabay_v0d:
             InverseSquareLaw,
             NueSurvivalProbability,
         )
-        from ..bundles.refine_detector_data import refine_detector_data
-        from ..bundles.refine_reactor_data import refine_reactor_data
+        from ..bundles.refine_detector_data_v0af import refine_detector_data
+        from ..bundles.refine_reactor_data_v0af import refine_reactor_data
         from ..bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from nested_mapping.tools import remap_items
         from numpy import arange, concatenate, linspace, ones
