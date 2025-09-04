@@ -330,8 +330,6 @@ class model_dayabay_v0f:
         from nested_mapping.tools import remap_items
         from numpy import arange, concatenate, linspace
 
-        from dgm_dayabay_dev.nodes.Monotonize import Monotonize
-
         from ..bundles.refine_detector_data import refine_detector_data
         from ..bundles.refine_lsnl_data import refine_lsnl_data
         from ..bundles.refine_reactor_data import refine_reactor_data
@@ -2418,34 +2416,6 @@ class model_dayabay_v0f:
                 outputs.get_value("detector.lsnl.curves.relative.evis_parts.nominal"),
                 outputs.get_dict("detector.lsnl.curves.relative.evis_parts_scaled"),
                 name="detector.lsnl.curves.relative.evis_coarse",
-            )
-
-            # The algorithm to adjust a histogram based on distorted X axes is tuned for
-            # the monotonous (no extrema) absolute distortion curves. While it is true
-            # for the nominal curve and the cases of small distortions some parameter
-            # space with large distortions (≥5σ off) may introduce some minima. We
-            # protect the absolute LSNL curve by artificially forcing it to be
-            # monotonous. Since this is needed only for large distortions it is not
-            # expected to affect the results.
-            #
-            # `Monotonize` node has the following options:
-            # - index_fraction — starting point. 0.5 means starting from the middle and
-            #   checking values outwards.
-            # - gradient — gradient to be enforced.
-            # - with_x — specifies whether X values would be also provided and used for
-            #   gradient calculation.
-            Monotonize.replicate(
-                name="detector.lsnl.curves.evis_coarse_monotonous",
-                index_fraction=0.5,
-                gradient=1.0,
-                with_x=True,
-            )
-            # Pass relevant Escint and Evis (absolute LSNL correction) to the inputs.
-            outputs.get_value("detector.lsnl.curves.escint") >> inputs.get_value(
-                "detector.lsnl.curves.evis_coarse_monotonous.x"
-            )
-            outputs.get_value("detector.lsnl.curves.evis_coarse") >> inputs.get_value(
-                "detector.lsnl.curves.evis_coarse_monotonous.y"
             )
 
             # Uncorrelated between detector energy scale correction is applied together

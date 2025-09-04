@@ -762,20 +762,6 @@ detector:
         text: "Input coarse Evis(Escint) for LSNL"
         axis: '$E_{\rm vis}$'
         unit: "MeV"
-      evis_coarse_monotonous:
-        text: "Input coarse LSNL Evis(Escint)\\nensured to be monotonous"
-        axis: '$E_{\rm vis}$'
-        unit: "MeV"
-      # evis_coarse_monotonous_scaled:
-      #   group:
-      #     text: "Input coarse LSNL Evis(Escint) for {key}\\nensured to be monotonous and scaled (fit relative energy scale)"
-      #     axis: '$E_{\rm vis}$'
-      #     unit: "MeV"
-      # evis:
-      #   group:
-      #     text: "Visible energy Evis (LSNL×relative energy scale) for {key}"
-      #     axis: '$E_{\rm vis}$'
-      #     unit: "MeV"
       relative:
         evis_parts:
           group:
@@ -792,20 +778,6 @@ detector:
         evis_coarse:
           text: "Input relative coarse Evis(Escint)/Escint for LSNL"
           axis: '$E_{\rm vis}/E_{\rm scint}$'
-    # indexer_fwd:
-    #   text: "Segment lookup for Evis(Escint)\\ninterpolation for LSNL correction"
-    # interpolated_fwd:
-    #   text: "Interpolated Evis(Escint) for LSNL correction"
-    #   axis: '$E_{\rm vis}$'
-    #   unit: "MeV"
-    # indexer_bkwd:
-    #   group:
-    #     text: "Segment lookup for Escint(Evis) for {key}\\ninverse interpolation for LSNL correction"
-    # interpolated_bkwd:
-    #   group:
-    #     text: "Interpolated Escint(Evis) for LSNL correction for {key}"
-    #     axis: '$E_{\rm scint}$'
-    #     unit: "MeV"
     matrix:
       group:
         text: "Energy scale correction matrix for {key}\\nLSNL×relative energy scale"
