@@ -2,13 +2,7 @@
 
 from __future__ import annotations
 
-import os
-
-# Force single threaded mode. Must be done before numpy is loaded.
-num_threads = "1"
-os.environ["OMP_NUM_THREADS"] = num_threads
-os.environ["OPENBLAS_NUM_THREADS"] = num_threads
-os.environ["MKL_NUM_THREADS"] = num_threads
+from dgm_dayabay_dev import disable_implicit_numpy_threading # isort:skip
 
 from argparse import Namespace
 from contextlib import suppress
@@ -20,7 +14,7 @@ from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dag_modelling.tools.save_records import save_records
 from matplotlib import pyplot as plt
 
-from dgm_dayabay_dev.models import available_models, load_model
+from dgm_dayabay_dev.models import load_model
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

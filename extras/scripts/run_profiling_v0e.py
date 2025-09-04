@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-# disable numpy multithreading
-import os
-os.environ['OPENBLAS_NUM_THREADS'] = '1'
-os.environ['MKL_NUM_THREADS'] = '1'
+from dgm_dayabay_dev import disable_implicit_numpy_threading # isort:skip
 
 from argparse import Namespace
 from datetime import datetime

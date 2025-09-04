@@ -2,13 +2,7 @@
 
 from __future__ import annotations
 
-import os
-
-# Force single threaded mode. Must be done before numpy is loaded.
-num_threads = "1"
-os.environ["OMP_NUM_THREADS"] = num_threads
-os.environ["OPENBLAS_NUM_THREADS"] = num_threads
-os.environ["MKL_NUM_THREADS"] = num_threads
+from dgm_dayabay_dev import disable_implicit_numpy_threading # isort:skip
 
 from argparse import Namespace
 from contextlib import suppress
