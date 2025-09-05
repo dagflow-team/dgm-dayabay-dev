@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
+# isort: off
 from __future__ import annotations
 
-from dag_modelling.tools import disable_implicit_numpy_multithreading # isort:skip
+from dag_modelling.tools import disable_implicit_numpy_multithreading
+
+# isort: on
 
 from argparse import Namespace
 from contextlib import suppress

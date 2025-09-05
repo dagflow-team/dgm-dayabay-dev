@@ -1,7 +1,11 @@
 #!/usr/bin/env python
+
+# isort: off
 from __future__ import annotations
 
-from dag_modelling.tools import disable_implicit_numpy_multithreading # isort:skip
+from dag_modelling.tools import disable_implicit_numpy_multithreading
+
+# isort: on
 
 from argparse import Namespace
 from datetime import datetime
@@ -58,6 +62,7 @@ NODE_PROFILE_NODES = [
     "IntegratorCore",
 ]
 
+
 def main(opts: Namespace) -> None:
     if opts.verbose:
         opts.verbose = min(opts.verbose, 3)
@@ -81,12 +86,8 @@ def main(opts: Namespace) -> None:
     storage = model.storage
     all_nodes = model.graph._nodes
 
-    params_variable = [
-        s._value_node for s in storage["parameters.variable"].walkvalues()
-    ]
-    params_free = [
-        s.output.node for s in storage["parameters.free"].walkvalues()
-    ]
+    params_variable = [s._value_node for s in storage["parameters.variable"].walkvalues()]
+    params_free = [s.output.node for s in storage["parameters.free"].walkvalues()]
 
     assert len(set(params_variable)) == len(params_variable), "duplicates"
     assert len(set(params_free)) == len(params_free), "duplicates"
@@ -120,9 +121,7 @@ def main(opts: Namespace) -> None:
         st = time()
         node_profiler.estimate_target_nodes()
         report = node_profiler.print_report(sort_by="%_of_total", rows=100)
-        report.to_csv(
-            outpath / f"node_{stat_name}_{cur_time}.tsv", sep="\t", index=False
-        )
+        report.to_csv(outpath / f"node_{stat_name}_{cur_time}.tsv", sep="\t", index=False)
         print(f"\nNode profiling took {time() - st:.2f} seconds.")
 
         framework_profiler = FrameworkProfiler(
@@ -188,9 +187,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",
@@ -224,14 +221,10 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     profiling_specs = parser.add_argument_group("profiling", "profiling options")
     profiling_specs.add_argument(
