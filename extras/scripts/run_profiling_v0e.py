@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-from dgm_dayabay_dev import disable_implicit_numpy_threading # isort:skip
+from dag_modelling.tools import disable_implicit_numpy_multithreading # isort:skip
 
 from argparse import Namespace
 from datetime import datetime
