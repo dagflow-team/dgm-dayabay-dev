@@ -12,8 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from time import time
 
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.logger import set_verbosity
 from dag_modelling.tools.profiling import (
     FitSimulationProfiler,
     FrameworkProfiler,
@@ -21,9 +20,8 @@ from dag_modelling.tools.profiling import (
     NodeProfiler,
     gather_related_nodes,
 )
-from dgm_dayabay_dev.models import available_models, load_model
 
-set_level(INFO1)
+from dgm_dayabay_dev.models import available_models, load_model
 
 # nodes that are executed more than 1 time during the fit process
 NODE_PROFILE_NODES = [
@@ -65,8 +63,7 @@ NODE_PROFILE_NODES = [
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        opts.verbose = min(opts.verbose, 3)
-        set_level(globals()[f"INFO{opts.verbose}"])
+        set_verbosity(opts.verbose)
 
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
     model = load_model(
@@ -187,7 +184,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",

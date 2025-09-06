@@ -24,7 +24,7 @@ from numpy.typing import NDArray
 from dag_modelling.core import NodeStorage
 from dag_modelling.core.output import Output
 from dag_modelling.parameters import Parameter
-from dag_modelling.tools.logger import INFO1, set_level
+from dag_modelling.tools.logger import set_verbosity
 from dgm_dayabay_dev.models import available_models, load_model
 from nested_mapping import walkvalues
 from nested_mapping.typing import properkey
@@ -45,8 +45,6 @@ SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "hm_corr",
     "hm_uncorr",
 }
-
-set_level(INFO1)
 
 
 def variate_parameters(parameters: list[Parameter], generator: np.random.Generator) -> None:
@@ -250,8 +248,7 @@ def calculate_correlation_matrix(covariance_matrix: NDArray) -> NDArray:
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        opts.verbose = min(opts.verbose, 3)
-        set_level(globals()[f"INFO{opts.verbose}"])
+        set_verbosity(opts.verbose)
 
     model = load_model(
         opts.version,
@@ -326,7 +323,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",

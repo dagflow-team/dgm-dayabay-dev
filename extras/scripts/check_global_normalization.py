@@ -2,14 +2,12 @@
 from argparse import Namespace
 
 import numpy as np
-from dag_modelling.tools.logger import INFO1, set_level
+from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
 
 from dgm_dayabay_dev.models.dayabay_v0 import model_dayabay_v0
 from dag_modelling.parameters.gaussian_parameter import Parameter
 from scripts import update_dict_parameters
-
-set_level(INFO1)
 
 
 def plot_hist_mean(fits, key, title, xlabel, args) -> None:
@@ -34,6 +32,8 @@ def plot_hist_mean(fits, key, title, xlabel, args) -> None:
 
 
 def main(args: Namespace) -> None:
+    if args.verbose:
+        set_verbosity(args.verbose)
 
     model = model_dayabay_v0(
         source_type=args.source_type,
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
 
     input = parser.add_argument_group("input", "input related options")
     input.add_argument(

@@ -18,25 +18,21 @@ Example of call
 from argparse import Namespace
 
 from dag_modelling.parameters import Parameter
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.logger import set_verbosity
 from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from IPython import embed
 from LaTeXDatax import datax as datax_dump
-from dgm_dayabay_dev.models import available_models, load_model
 from scripts import convert_numpy_to_lists, do_fit, filter_fit, update_dict_parameters
 from yaml import dump as yaml_dump
 
-set_level(INFO1)
+from dgm_dayabay_dev.models import available_models, load_model
 
 DATA_INDICES = {"model": 0, "loaded": 1}
 
 
 def main(args: Namespace) -> None:
-
     if args.verbose:
-        args.verbose = min(args.verbose, 3)
-        set_level(globals()[f"INFO{args.verbose}"])
+        set_verbosity(args.verbose)
 
     model = load_model(
         args.version,
@@ -66,7 +62,7 @@ def main(args: Namespace) -> None:
             parameters=minimization_parameters,
             limits={"oscprob.SinSq2Theta13": (0, 1), "oscprob.DeltaMSq32": (2e-3, 3e-3)},
             nbins=model.nbins,
-            verbose=args.verbose > 1,
+            verbose=args.verbose > 2,
         )
         fit = do_fit(minimizer, model, "iterative" in args.chi2)
         if args.profile_parameters:
@@ -81,7 +77,7 @@ def main(args: Namespace) -> None:
             exit()
 
     minimizer = IMinuitMinimizer(
-        chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=args.verbose > 1
+        chi2, parameters=minimization_parameters, nbins=model.nbins, verbose=args.verbose > 2
     )
 
     if args.interactive:
@@ -122,7 +118,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "--interactive",
         action="store_true",

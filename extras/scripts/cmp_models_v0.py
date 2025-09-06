@@ -2,14 +2,13 @@
 
 from argparse import Namespace
 
+from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
-from numpy import log, nanmax, nanmin, where
-
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
-from dgm_dayabay_dev.models import available_models, load_model
 from nested_mapping import NestedMapping
 from nested_mapping.tools import mkmap
+from numpy import log, nanmax, nanmin, where
+
+from dgm_dayabay_dev.models import available_models, load_model
 
 plt.style.use(
     {
@@ -26,13 +25,9 @@ plt.style.use(
     }
 )
 
-set_level(INFO1)
-
-
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        opts.verbose = min(opts.verbose, 3)
-        set_level(globals()[f"INFO{opts.verbose}"])
+        set_verbosity(opts.verbose)
 
     logger.info(f"Create model A: {opts.version_a}")
     modelA = load_model(
@@ -171,7 +166,7 @@ def plot(
         axr.set_ylabel(f"log({label_a}/{label_b})", size="small")
         rmin = min(nanmin(lratiom) * 0.9, nanmin(lratiom) * 1.1)
         rmax = max(nanmax(lratiom) * 0.9, nanmax(lratiom) * 1.1)
-        if rmin!=rmax:
+        if rmin != rmax:
             axr.set_ylim(rmin, rmax)
         if opts.ylim:
             axr.set_ylim(*opts.ylim)
@@ -187,9 +182,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
@@ -202,12 +195,8 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model A version",
     )
-    model.add_argument(
-        "--model-options-a", "--mo-a", default={}, help="Model options as yaml dict"
-    )
-    model.add_argument(
-        "--model-options-b", "--mo-b", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options-a", "--mo-a", default={}, help="Model options as yaml dict")
+    model.add_argument("--model-options-b", "--mo-b", default={}, help="Model options as yaml dict")
     model.add_argument(
         "--hist",
         default="outputs.eventscount.fine.ibd_normalized_detector",

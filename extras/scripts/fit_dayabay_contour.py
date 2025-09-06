@@ -20,16 +20,14 @@ from typing import Any
 
 import numpy as np
 from dag_modelling.parameters.gaussian_parameter import Parameter
-from dag_modelling.tools.logger import INFO1, set_level
+from dag_modelling.tools.logger import set_verbosity
 from dgm_fit.iminuit_minimizer import IMinuitMinimizer
 from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 from scipy.stats import chi2, norm
-
-from dgm_dayabay_dev.models import available_models, load_model
 from scripts import update_dict_parameters
 
-set_level(INFO1)
+from dgm_dayabay_dev.models import available_models, load_model
 
 DATA_INDICES = {"model": 0, "loaded": 1}
 
@@ -160,6 +158,8 @@ def cartesian_product(
 
 
 def main(args: Namespace) -> None:
+    if args.verbose:
+        set_verbosity(args.verbose)
 
     model = load_model(
         args.version,
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(

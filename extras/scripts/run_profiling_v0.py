@@ -8,26 +8,25 @@ from pathlib import Path
 from time import time
 from typing import TYPE_CHECKING
 
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.lib.common import Array
+from dag_modelling.tools.logger import set_verbosity
 from dag_modelling.tools.profiling import (
     FitSimulationProfiler,
     FrameworkProfiler,
     MemoryProfiler,
     NodeProfiler,
 )
-from dag_modelling.lib.common import Array
 from dag_modelling.tools.save_records import save_records
-from dgm_dayabay_dev.models import available_models, load_model
 from scripts import update_dict_parameters
+
+from dgm_dayabay_dev.models import available_models, load_model
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from dag_modelling.parameters import Parameter
     from typing import Any
 
+    from dag_modelling.parameters import Parameter
 
-set_level(INFO1)
 
 PROFILE_NODES = [
     "Product",
@@ -65,15 +64,11 @@ def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
     all_nodes = model.graph._nodes
 
     # nodes that are executed more than 1 time during the fit process
-    many_execution_nodes = list(
-        filter(lambda x: type(x).__name__ in PROFILE_NODES, all_nodes)
-    )
+    many_execution_nodes = list(filter(lambda x: type(x).__name__ in PROFILE_NODES, all_nodes))
 
     # NOTE: maby there is a better way to obtain paramters
     minimization_pars: dict[str, Parameter] = {}
-    update_dict_parameters(
-        minimization_pars, ["oscprob", "detector"], fit_params["free"]
-    )
+    update_dict_parameters(minimization_pars, ["oscprob", "detector"], fit_params["free"])
     update_dict_parameters(
         minimization_pars,
         ["oscprob", "detector", "reactor", "bkg"],
@@ -139,8 +134,7 @@ def profile(model, opts: Namespace, fit_params: NodeStorage, stat):
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        opts.verbose = min(opts.verbose, 3)
-        set_level(globals()[f"INFO{opts.verbose}"])
+        set_verbosity(opts.verbose)
 
     override_indices = {idxdef[0]: tuple(idxdef[1:]) for idxdef in opts.index}
     model = load_model(
@@ -197,26 +191,18 @@ def main(opts: Namespace) -> None:
             )
 
     if opts.pars_datax:
-        storage["parameters.all"].to_datax_file(
-            f"output/dayabay_{opts.version}_pars_datax.tex"
-        )
+        storage["parameters.all"].to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
 
     if opts.pars_latex:
-        storage["parameters.all"].to_latex_file(
-            f"output/dayabay_{opts.version}_pars.tex"
-        )
+        storage["parameters.all"].to_latex_file(f"output/dayabay_{opts.version}_pars.tex")
 
     if opts.pars_text:
-        storage["parameters.all"].to_text_file(
-            f"output/dayabay_{opts.version}_pars.txt"
-        )
+        storage["parameters.all"].to_text_file(f"output/dayabay_{opts.version}_pars.txt")
 
     if opts.summary:
         save_summary(model, opts.summary)
 
-    profile(
-        model, opts, storage["parameters"], storage["outputs.statistic.full.chi2cnp"]
-    )
+    profile(model, opts, storage["parameters"], storage["outputs.statistic.full.chi2cnp"])
 
 
 def save_summary(model: Any, filenames: Sequence[str]):
@@ -227,18 +213,14 @@ def save_summary(model: Any, filenames: Sequence[str]):
     except AttributeError:
         return
 
-    save_records(
-        data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False}
-    )
+    save_records(data, filenames, tsv_allow_no_key=True, to_records_kwargs={"index": False})
 
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",
@@ -254,9 +236,7 @@ if __name__ == "__main__":
     )
 
     plot = parser.add_argument_group("plot", "plotting related options")
-    plot.add_argument(
-        "--plot-all", help="plot all the nodes to the folder", metavar="folder"
-    )
+    plot.add_argument("--plot-all", help="plot all the nodes to the folder", metavar="folder")
     plot.add_argument(
         "--plot",
         nargs="+",
@@ -266,9 +246,7 @@ if __name__ == "__main__":
 
     storage = parser.add_argument_group("storage", "storage related options")
     storage.add_argument("-P", "--print-all", action="store_true", help="print all")
-    storage.add_argument(
-        "-p", "--print", action="append", nargs="+", default=[], help="print all"
-    )
+    storage.add_argument("-p", "--print", action="append", nargs="+", default=[], help="print all")
     storage.add_argument(
         "--pars-datax", action="store_true", help="print parameters to latex (datax)"
     )
@@ -308,15 +286,11 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
     model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     profiling_specs = parser.add_argument_group("profiling", "profiling options")
     profiling_specs.add_argument(
