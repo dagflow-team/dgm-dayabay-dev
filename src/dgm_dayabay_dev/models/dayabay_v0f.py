@@ -129,6 +129,7 @@ class model_dayabay_v0f:
         "_source_type",
         "_dataset",
         "_binning",
+        "_lsnl_extrapolation_mode",
         "_strict",
         "_close",
         "_covariance_matrix",
@@ -148,6 +149,7 @@ class model_dayabay_v0f:
     _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
     _dataset: Literal["a", "b"]  # todo: doc
     _binning: Literal["a", "b", "c"]
+    _lsnl_extrapolation_mode: Literal["absolute", "relative"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -160,6 +162,7 @@ class model_dayabay_v0f:
         source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"] = "default:hdf5",
         dataset: Literal["a", "b"] = "b",
         binning: Literal["a", "b", "c"] = "a",
+        lsnl_extrapolation_mode: Literal["absolute", "relative"] = "absolute",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -217,6 +220,7 @@ class model_dayabay_v0f:
         self.storage = NodeStorage()
         self._dataset = dataset
         self._binning = binning
+        self._lsnl_extrapolation_mode = lsnl_extrapolation_mode
         self.spectrum_correction_interpolation_mode = spectrum_correction_interpolation_mode
         self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
@@ -2345,6 +2349,7 @@ class model_dayabay_v0f:
                 refine_times=4,
                 newmin=0.5,
                 newmax=12.1,
+                extrapolation_mode = self._lsnl_extrapolation_mode
                 # savgol_filter_smoothen = (10, 4)
             )
 
