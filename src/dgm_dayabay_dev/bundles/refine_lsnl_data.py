@@ -1,13 +1,12 @@
+from typing import Literal
+
+from nested_mapping.nested_mapping import NestedMapping
 from numpy import arange, concatenate, linspace
 from numpy.typing import NDArray
 from scipy.interpolate import interp1d
 
-from nested_mapping.nested_mapping import NestedMapping
 
-
-def refine_lsnl_data(
-    storage: NestedMapping, *, xname: str, nominalname: str, **kwargs
-) -> None:
+def refine_lsnl_data(storage: NestedMapping, *, xname: str, nominalname: str, **kwargs) -> None:
     xcoarse = storage[xname]
 
     refiner = RefineGraph(xcoarse, **kwargs)
@@ -32,6 +31,7 @@ class RefineGraph:
         "newmin",
         "newmax",
         "savgol_filter_smoothen",
+        "extrapolation_mode",
     )
     xcoarse: NDArray
     xfine_bound: NDArray
@@ -41,6 +41,7 @@ class RefineGraph:
     newmin: float
     newmax: float
     savgol_filter_smoothen: tuple[int, int] | None
+    extrapolation_mode: Literal["absolute", "relative"]
 
     def __init__(
         self,
@@ -50,12 +51,14 @@ class RefineGraph:
         newmin: float,
         newmax: float,
         savgol_filter_smoothen: tuple[int, int] | None = None,
+        extrapolation_mode: Literal["absolute", "relative"] = "absolute",
     ):
         self.xcoarse = xcoarse
         self.refine_times = refine_times
         self.newmin = newmin
         self.newmax = newmax
         self.savgol_filter_smoothen = savgol_filter_smoothen
+        self.extrapolation_mode = extrapolation_mode
 
         self._process_x()
 
@@ -83,9 +86,9 @@ class RefineGraph:
 
         if self.newmax is not None:
             stepright = self.xfine_bound[-1] - self.xfine_bound[-2]
-            xstack[-1] = arange(
-                self.xfine_bound[-1], self.newmax + stepright * 1.0e-6, stepright
-            )[1:]
+            xstack[-1] = arange(self.xfine_bound[-1], self.newmax + stepright * 1.0e-6, stepright)[
+                1:
+            ]
 
         self.xfine_extended = concatenate(xstack)
         self.xfine_extended_stack = tuple(xstack)
@@ -100,9 +103,20 @@ class RefineGraph:
         nominal: NDArray,
     ) -> NDArray:
         skip_diff = y is nominal
+
         yabs = self._method_reltoabs(y)
         yfine = self._method_interpolate(yabs)
-        yunbound = self._method_extrapolate(yfine)
+        match self.extrapolation_mode:
+            case "absolute":
+                yunbound = self._method_extrapolate(yfine)
+
+            case "relative":
+                yfine_rel = yfine / self.xfine_bound
+                yunbound_rel = self._method_extrapolate(yfine_rel)
+                yunbound = yunbound_rel * self.xfine_extended
+
+            case _:
+                raise RuntimeError(f"Invalid extrapolation mode {self.extrapolation_mode}")
 
         if skip_diff:
             return yunbound
