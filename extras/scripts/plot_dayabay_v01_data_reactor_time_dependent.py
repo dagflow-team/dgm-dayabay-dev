@@ -10,7 +10,6 @@ from matplotlib import transforms
 
 from dgm_dayabay_dev.models import available_models, load_model
 
-
 plt.rcParams.update(
     {
         "axes.grid": False,
