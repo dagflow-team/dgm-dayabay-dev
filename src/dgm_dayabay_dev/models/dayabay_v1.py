@@ -231,7 +231,7 @@ class model_dayabay_v1:
         )
         logger.log(
             INFO,
-            f"Spectrum location: {self.spectrum_correction_location}",
+            f"Spectrum correction location: {self.spectrum_correction_location.replace('-', ' ')}",
         )
         assert self.spectrum_correction_interpolation_mode in {"linear", "exponential"}
         assert self.spectrum_correction_location in {
