@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 from argparse import Namespace
-from typing import TYPE_CHECKING
 
 from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
-from numpy import full_like, linspace, ma
 
 from dgm_dayabay_dev.models import available_models, load_model
-
-if TYPE_CHECKING:
-    from typing import Any
 
 
 def main(opts: Namespace) -> None:
@@ -31,7 +26,6 @@ def main(opts: Namespace) -> None:
         lsnl_extrapolation_mode=opts.lsnl_extrapolation_mode,
     )
 
-    curve = model.storage["outputs.detector.lsnl.curves.evis_coarse"]
     escint = model.storage["outputs.detector.lsnl.curves.escint"].data
     curves = model.storage["outputs.detector.lsnl.curves.evis_parts"]
 
