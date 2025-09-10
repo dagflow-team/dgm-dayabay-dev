@@ -342,7 +342,7 @@ class model_dayabay_v1a:
             "parameters.detector_normalization": path_parameters / "detector_normalization.yaml",
             "parameters.detector_efficiency": path_parameters / "detector_efficiency.yaml",
             "parameters.detector_n_protons_nominal": path_parameters
-            / "detector_n_protons_nominal_dataset_b.yaml",
+            / "detector_n_protons_nominal.yaml",
             "parameters.detector_n_protons_correction": path_parameters
             / "detector_n_protons_correction.yaml",
             "parameters.detector_eres": path_parameters / "detector_eres.yaml",
@@ -364,13 +364,13 @@ class model_dayabay_v1a:
             "parameters.background_rate_scale_accidentals": path_parameters
             / "background_rate_scale_accidentals.yaml",
             "parameters.background_rates_uncorrelated_dataset": path_parameters
-            / f"background_rates_uncorrelated_dataset_b.yaml",
+            / f"background_rates_uncorrelated.yaml",
             "parameters.background_rates_correlated_dataset": path_parameters
-            / f"background_rates_correlated_dataset_b.yaml",
+            / f"background_rates_correlated.yaml",
             "parameters.background_rate_uncertainty_scale_amc": path_parameters
             / "background_rate_uncertainty_scale_amc.yaml",
             "parameters.background_rate_uncertainty_scale_site_dataset": path_parameters
-            / f"background_rate_uncertainty_scale_site_dataset_b.yaml",
+            / f"background_rate_uncertainty_scale_site.yaml",
             "reactor_antineutrino_spectra": path_data
             / f"reactor_antineutrino_spectra_hm.{self.source_type}",
             "reactor_antineutrino_spectra_uncertainties": path_data
@@ -383,8 +383,8 @@ class model_dayabay_v1a:
             "daily_reactor_data": path_data / f"reactors_operation_data_28days.{self.source_type}",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
-            "background_spectra": path_data
-            / "dayabay_dataset/dayabay_background_spectra_{}."f"{self.source_type}",
+            "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
+            f"{self.source_type}",
         }
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
@@ -2830,6 +2830,7 @@ class model_dayabay_v1a:
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_detectors,
+                dtype="d",
                 name_function=lambda _, idx: f"ibd_spectrum_{idx[1]}",
             )
 

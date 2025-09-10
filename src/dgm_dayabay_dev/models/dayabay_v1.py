@@ -2860,6 +2860,7 @@ class model_dayabay_v1:
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
+                dtype="d",
                 name_function=lambda _, idx: f"ibd_spectrum_{idx[1]}",
             )
 
