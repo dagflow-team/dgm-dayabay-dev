@@ -125,7 +125,6 @@ class model_dayabay_v1:
         "monte_carlo_mode",
         "_source_type",
         "_dataset",
-        "_binning",
         "_strict",
         "_close",
         "_covariance_matrix",
@@ -144,7 +143,6 @@ class model_dayabay_v1:
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
     _dataset: Literal["a", "b"]  # todo: doc
-    _binning: Literal["a", "b", "c"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -156,7 +154,6 @@ class model_dayabay_v1:
         *,
         source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"] = "default:hdf5",
         dataset: Literal["a", "b"] = "b",
-        binning: Literal["a", "b", "c"] = "a",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -213,7 +210,6 @@ class model_dayabay_v1:
 
         self.storage = NodeStorage()
         self._dataset = dataset
-        self._binning = binning
         self.spectrum_correction_interpolation_mode = spectrum_correction_interpolation_mode
         self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
@@ -905,17 +901,7 @@ class model_dayabay_v1:
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
             #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
-            match self._binning:
-                case "a":
-                    in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
-                case "b":
-                    in_edges_final = concatenate(
-                        ([0.7], arange(1.0, 7.0, 0.25), arange(7.0, 8.1, 0.5), [9.5], [12])
-                    )
-                case "c":
-                    in_edges_final = concatenate(([0.7], arange(1.2, 8.01, 0.20), [12.0]))
-                case _:
-                    raise RuntimeError(f"No binning for option {self._binning}")
+            in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
             in_edges_costheta = [-1, 1]
 
             # Instantiate the storage nodes for bin edges. In what follows all the
