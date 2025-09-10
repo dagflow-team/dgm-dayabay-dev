@@ -199,7 +199,7 @@ class model_dayabay_v1a:
                 self._path_data = Path(path_data)
             case None, str():
                 self._source_type = source_type
-                self._path_data = Path("data/dayabay-v1") / source_type
+                self._path_data = Path("data/dayabay-v1a") / source_type
             case _, _:
                 raise RuntimeError(
                     f"Unsupported combination of path/source_type options: {path_data}/{source_type}"
@@ -324,9 +324,6 @@ class model_dayabay_v1a:
         path_data = self.path_data
         path_parameters = path_data / "parameters"
 
-        # Dataset items
-        path_dataset = f"dayabay_dataset_b"
-
         # TODO: doc
         cfg_file_mapping = {
             "antineutrino_spectrum_segment_edges": path_parameters
@@ -382,12 +379,12 @@ class model_dayabay_v1a:
             / f"nonequilibrium_correction.{self.source_type}",
             "snf_correction": path_data / f"snf_correction.{self.source_type}",
             "daily_detector_data": path_data
-            / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
+            / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
             "daily_reactor_data": path_data / f"reactors_operation_data_28days.{self.source_type}",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data
-            / f"{path_dataset}/{path_dataset}_background_spectra_{{}}.{self.source_type}",
+            / "dayabay_dataset/dayabay_background_spectra_{}."f"{self.source_type}",
         }
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
@@ -820,7 +817,7 @@ class model_dayabay_v1a:
             load_parameters(
                 path="background.uncertainty_scale_by_site",
                 load=cfg_file_mapping["parameters.background_rate_uncertainty_scale_site_dataset"],
-                replicate=combinations["site.period"]
+                replicate=combinations["site.period"],
             )
 
             # Additionally a few constants are provided.
@@ -2829,7 +2826,7 @@ class model_dayabay_v1a:
                 y="fine",
                 merge_x=True,
                 filenames=path_data
-                / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}",
+                / "dayabay_dataset/dayabay_ibd_spectra_{}."f"{self.source_type}",
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_detectors,
