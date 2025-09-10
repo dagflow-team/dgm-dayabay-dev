@@ -47,7 +47,7 @@ class model_dayabay_v1a:
     release.
 
     Purpose:
-        - Finalize the model v0f.
+        - Remove dataset A
 
     Attributes
     ----------
@@ -363,13 +363,13 @@ class model_dayabay_v1a:
             / "reactor_fission_fraction_scale.yaml",
             "parameters.background_rate_scale_accidentals": path_parameters
             / "background_rate_scale_accidentals.yaml",
-            "parameters.background_rates_uncorrelated_dataset": path_parameters
+            "parameters.background_rates_uncorrelated": path_parameters
             / f"background_rates_uncorrelated.yaml",
-            "parameters.background_rates_correlated_dataset": path_parameters
+            "parameters.background_rates_correlated": path_parameters
             / f"background_rates_correlated.yaml",
             "parameters.background_rate_uncertainty_scale_amc": path_parameters
             / "background_rate_uncertainty_scale_amc.yaml",
-            "parameters.background_rate_uncertainty_scale_site_dataset": path_parameters
+            "parameters.background_rate_uncertainty_scale_site": path_parameters
             / f"background_rate_uncertainty_scale_site.yaml",
             "reactor_antineutrino_spectra": path_data
             / f"reactor_antineutrino_spectra_hm.{self.source_type}",
@@ -803,11 +803,11 @@ class model_dayabay_v1a:
             )
             load_parameters(
                 path="background.rate",
-                load=cfg_file_mapping["parameters.background_rates_uncorrelated_dataset"],
+                load=cfg_file_mapping["parameters.background_rates_uncorrelated"],
             )
             load_parameters(
                 path="background.rate",
-                load=cfg_file_mapping["parameters.background_rates_correlated_dataset"],
+                load=cfg_file_mapping["parameters.background_rates_correlated"],
                 sigma_visible=True,
             )
             load_parameters(
@@ -816,7 +816,7 @@ class model_dayabay_v1a:
             )
             load_parameters(
                 path="background.uncertainty_scale_by_site",
-                load=cfg_file_mapping["parameters.background_rate_uncertainty_scale_site_dataset"],
+                load=cfg_file_mapping["parameters.background_rate_uncertainty_scale_site"],
                 replicate=combinations["site.period"],
             )
 
@@ -866,7 +866,7 @@ class model_dayabay_v1a:
             # In this section the actual parts of the calculation are created as nodes.
             # First of all the binning is defined for the histograms.
             # - internal binning for the integration: 240 bins of 50 keV from 0 to 241.
-            # - final binning for the statistical analysis: 20 keV from 1.2 MeV to 2 MeV
+            # - final binning for the statistical analysis: 20 keV from 1.3 MeV to 2 MeV
             #   with two wide bins below from 0.7 MeV and above up to 12 MeV.
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
             #   integration of the Inverse Beta Decay (IBD) cross section.
