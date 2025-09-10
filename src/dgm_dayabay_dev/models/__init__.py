@@ -2,6 +2,7 @@ from typing import Mapping
 
 from dag_modelling.tools.logger import logger
 
+from .dayabay_labels import LATEX_SYMBOLS
 from .dayabay_v0 import model_dayabay_v0
 from .dayabay_v0b import model_dayabay_v0b
 from .dayabay_v0c import model_dayabay_v0c
@@ -10,9 +11,6 @@ from .dayabay_v0e import model_dayabay_v0e
 from .dayabay_v0f import model_dayabay_v0f
 from .dayabay_v1 import model_dayabay_v1
 from .dayabay_v1a import model_dayabay_v1a
-
-from .dayabay_labels import LATEX_SYMBOLS
-
 
 AD_TO_EH = {
     "AD11": "EH1",
@@ -43,8 +41,30 @@ _available_sources = ("tsv", "hdf5", "root", "npz")
 def available_models() -> tuple[str, ...]:
     return tuple(_dayabay_models.keys())
 
+
+def available_models_limited(*, first: str, last: str | None = None) -> tuple[str,...]:
+    names = tuple(_dayabay_models.keys())
+    assert names
+    i = 0
+    for i, name in enumerate(names):
+        if name == first:
+            break
+
+    if last is None:
+        return names[i:]
+
+    ret = []
+    for i in range(i, len(names)):
+        ret.append(name := names[i])
+        if name == last:
+            break
+
+    return tuple(ret)
+
+
 def available_sources() -> tuple[str, ...]:
     return _available_sources
+
 
 def load_model(version, model_options: Mapping | str = {}, **kwargs):
     if isinstance(model_options, str):
@@ -53,9 +73,7 @@ def load_model(version, model_options: Mapping | str = {}, **kwargs):
         model_options = load(model_options, Loader)
 
     if not isinstance(model_options, dict):
-        raise RuntimeError(
-            "model_options expects a python dictionary or yaml dictionary"
-        )
+        raise RuntimeError("model_options expects a python dictionary or yaml dictionary")
 
     model_options = dict(model_options, **kwargs)
 

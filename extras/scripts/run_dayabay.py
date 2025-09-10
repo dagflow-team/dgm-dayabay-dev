@@ -15,7 +15,7 @@ from dag_modelling.tools.logger import set_verbosity
 from dag_modelling.tools.save_records import save_records
 from matplotlib import pyplot as plt
 
-from dgm_dayabay_dev.models import load_model
+from dgm_dayabay_dev.models import load_model, available_models_limited
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -370,7 +370,7 @@ if __name__ == "__main__":
     model.add_argument(
         "--version",
         default="latest",
-        choices=["latest", "v0f", "v1"],
+        choices=available_models_limited(first="v0f"),
         help="model version",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
