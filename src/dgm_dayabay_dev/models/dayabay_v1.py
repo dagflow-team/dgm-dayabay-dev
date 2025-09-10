@@ -896,7 +896,7 @@ class model_dayabay_v1:
             # In this section the actual parts of the calculation are created as nodes.
             # First of all the binning is defined for the histograms.
             # - internal binning for the integration: 240 bins of 50 keV from 0 to 241.
-            # - final binning for the statistical analysis: 20 keV from 1.2 MeV to 2 MeV
+            # - final binning for the statistical analysis: 20 keV from 1.3 MeV to 2 MeV
             #   with two wide bins below from 0.7 MeV and above up to 12 MeV.
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
             #   integration of the Inverse Beta Decay (IBD) cross section.
@@ -1190,7 +1190,7 @@ class model_dayabay_v1:
             # items with names "U235", "U238", "Pu239" and "Pu241" (from
             # index["isotope"]) as follows:
             # - hdf5: open with filename, request (X,Y) dataset by name.
-            # - npz: open with filename, get (X,Y)  array from a dictionary by name.
+            # - npz: open with filename, get (X,Y) array from a dictionary by name.
             # - root: open with filename, get TH1D object by name. Build graph by taking
             #         **left edges** of the bins and their heights. `uproot` is used to
             #         load ROOT files by default. If `$ROOTSYS` is defined, then ROOT is
