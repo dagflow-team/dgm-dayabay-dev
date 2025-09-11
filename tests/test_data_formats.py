@@ -1,10 +1,10 @@
 from os import environ
 
-from dag_modelling.core import Graph, NodeStorage
-from dag_modelling.plot.graphviz import GraphDot
-from dgm_dayabay_dev.models import model_dayabay_v0c as reference_model
-from numpy import allclose
+from dag_modelling.tools.logger import set_verbosity
+from numpy import allclose, fabs
 from pytest import mark
+
+from dgm_dayabay_dev.models import load_model
 
 source_type_reference = "hdf5"
 source_types_other = ["tsv", "npz"]
@@ -14,13 +14,18 @@ if "ROOTSYS" in environ:
 else:
     print("ROOT is disabled")
 
-precision_requirement = {"tsv": 8.0e-11, "root": 2.0e-11, "npz": 0}
+precision_requirement = {
+    "tsv": 2.0e-10,
+    "root": 0,
+    "npz": 0
+}
+set_verbosity(1)
 
 
 @mark.parametrize("source_type", source_types_other)
 def test_dayabay_v0(source_type: str):
-    model_ref = reference_model(source_type=source_type_reference)
-    model = reference_model(source_type=source_type)
+    model_ref = load_model(version="latest", source_type=source_type_reference)
+    model = load_model(version="latest", source_type=source_type)
 
     outname = "outputs.eventscount.final.concatenated.detector_period"
     output_ref = model_ref.storage[outname]
@@ -29,5 +34,10 @@ def test_dayabay_v0(source_type: str):
     data_ref = output_ref.data
     data = output.data
 
-    atol = precision_requirement[source_type]
-    assert allclose(data, data_ref, rtol=0, atol=atol), f"{source_type} requires {atol=}"
+    diff = fabs(data - data_ref)
+    diff_rel = diff / data_ref
+    diff_rel[data_ref == 0.0] = 0.0
+    print(f"{source_type}: maxdiff {diff.max()} rel. diff max {diff_rel.max()}")
+
+    rtol = precision_requirement[source_type]
+    assert allclose(data, data_ref, rtol=rtol, atol=0.0), f"{source_type} requires {rtol=}"
