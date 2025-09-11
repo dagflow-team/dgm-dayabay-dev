@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from argparse import Namespace
 
+from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
 from matplotlib import transforms
 
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgm_dayabay_dev.models import available_models, load_model
-
-set_level(INFO1)
 
 plt.rcParams.update(
     {
@@ -24,8 +21,7 @@ plt.rcParams.update(
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        opts.verbose = min(opts.verbose, 3)
-        set_level(globals()[f"INFO{opts.verbose}"])
+        set_verbosity(opts.verbose)
 
     model = load_model(
         opts.version,
@@ -157,9 +153,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "--source-type",
         "--source",
@@ -175,15 +169,11 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
     model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     plot = parser.add_argument_group("pars", "plots")
     plot.add_argument(

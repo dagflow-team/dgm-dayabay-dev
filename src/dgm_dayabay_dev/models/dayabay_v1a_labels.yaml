@@ -413,10 +413,6 @@ background:
       group:
         text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}\\nbefore nuisance"
         unit: "#"
-    muon_decay:
-      group:
-        text: "# of μ decay background events in {index[0]} during {index[1]}\\nbefore nuisance"
-        unit: "#"
   count:
     accidentals:
       group:
@@ -437,10 +433,6 @@ background:
     lithium_helium:
       group:
         text: "# of ⁹Li/⁸He background events in {index[0]} during {index[1]}"
-        unit: "#"
-    muon_decay:
-      group:
-        text: "# of μ decay background events in {index[0]} during {index[1]}"
         unit: "#"
   spectrum:
     accidentals:
@@ -473,12 +465,6 @@ background:
         axis: "$N$"
         unit: "#"
         plotoptions: {yscale: log}
-    muon_decay:
-      group:
-        text: "# of μ decay background events in {index[0]} during {index[1]}"
-        axis: "$N$"
-        unit: "#"
-        plotoptions: {yscale: log}
   spectrum_shape:
     accidentals:
       group:
@@ -499,10 +485,6 @@ background:
     lithium_helium:
       group:
         text: "Spectrum shape of ⁹Li/⁸He background events in {key}"
-        axis: "$S$"
-    muon_decay:
-      group:
-        text: "Spectrum shape of μ decay background events in {key}"
         axis: "$S$"
 survival_probability:
   group:
@@ -1214,8 +1196,6 @@ statistic:
             text: "χ² nuisance term for parameters for background rate\\nfast neutrons"
           lithium_helium:
             text: "χ² nuisance term for parameters for background rate\\n⁹Li/⁸He"
-          muon_decay:
-            text: "χ² nuisance term for parameters for background rate\\nμ decay"
 summary:
   total:
     background_count:

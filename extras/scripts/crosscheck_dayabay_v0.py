@@ -5,17 +5,15 @@ from contextlib import suppress
 from itertools import islice, permutations
 from typing import Any, Callable, Literal
 
+from dag_modelling.core.output import Output
+from dag_modelling.tools.logger import INFO1, INFO2, logger, set_verbosity
 from h5py import Dataset, File, Group
 from matplotlib import pyplot as plt
+from nested_mapping import NestedMapping
 from numpy import allclose, array, fabs, ma, nanmax
 from numpy.typing import NDArray
 
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
-from dag_modelling.core.output import Output
 from dgm_dayabay_dev.models.dayabay_v0 import model_dayabay_v0
-from nested_mapping import NestedMapping
-
-set_level(INFO2)
 
 
 def strip_last_day_periods_6_8(key: str, key2: str, data: NDArray):
@@ -161,8 +159,7 @@ class Comparator:
         self.opts = opts
 
         if opts.verbose:
-            opts.verbose = min(opts.verbose, 3)
-            set_level(globals()[f"INFO{opts.verbose}"])
+            set_verbosity(opts.verbose)
 
         self.outputs_dgm = self.model.storage("outputs")
         self.parameters_dgm = self.model.storage("parameters.all")
@@ -206,9 +203,7 @@ class Comparator:
 
                     if (mode := cmpopts.get("mode", None)) is not None:
                         if mode != self.opts.mode:
-                            logger.log(
-                                INFO1, f"Skip {self._skey_dgm}: not in {mode} mode"
-                            )
+                            logger.log(INFO1, f"Skip {self._skey_dgm}: not in {mode} mode")
                             continue
                 case str():
                     self._skey_gna = cmpopts
@@ -347,7 +342,7 @@ class Comparator:
         shape = self._data_g.shape
         if ndim == 1:
             return self.plot_1d()
-        elif ndim == 2 and shape[0]==shape[1]:
+        elif ndim == 2 and shape[0] == shape[1]:
             return self.plot_mat()
         else:
             return self.plot_1d()
@@ -405,9 +400,7 @@ class Comparator:
         plt.figure()
         ax = plt.subplot(111, xlabel="", ylabel="dgm/GNA-1", title=self.key_dgm)
         with suppress(ValueError):
-            ax.plot(
-                self._data_d / self._data_g - 1, f"{mstyle}-", label="dgm/GNA-1", **pargs
-            )
+            ax.plot(self._data_d / self._data_g - 1, f"{mstyle}-", label="dgm/GNA-1", **pargs)
         ax.grid()
         ax.legend()
 
@@ -453,9 +446,7 @@ class Comparator:
     def shapestrings(self) -> str:
         return f"dgm: {self._data_d.shape}, gna: {self._data_g.shape}"
 
-    def compare_nested(
-        self, storage_gna: Group, storage_dgm: NestedMapping, compare: Callable
-    ):
+    def compare_nested(self, storage_gna: Group, storage_dgm: NestedMapping, compare: Callable):
         for key_d, output_dgm in storage_dgm.walkitems():
             try:
                 self.data_d = output_dgm.data
@@ -479,9 +470,7 @@ class Comparator:
                 compare()
                 break
             else:
-                raise RuntimeError(
-                    f"Was not able to find a match for {self._skey2_dgm}"
-                )
+                raise RuntimeError(f"Was not able to find a match for {self._skey2_dgm}")
 
     @property
     def atol(self) -> float:
@@ -514,7 +503,7 @@ class Comparator:
 
 
 def add_colorbar(colormapable, **kwargs):
-    """Add a colorbar to the axis with height aligned to the axis"""
+    """Add a colorbar to the axis with height aligned to the axis."""
     rasterized = kwargs.pop("rasterized", True)
     minorticks = kwargs.pop("minorticks", False)
     label = kwargs.pop("label", None)
@@ -555,9 +544,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
 
     input = parser.add_argument_group("input", "input related options")
     input.add_argument("input", type=File, help="input file to compare to")
@@ -572,25 +559,21 @@ if __name__ == "__main__":
     )
 
     crosscheck = parser.add_argument_group("comparison", "comparison related options")
-    crosscheck.add_argument(
-        "-l", "--last", action="store_true", help="process only the last item"
-    )
+    crosscheck.add_argument("-l", "--last", action="store_true", help="process only the last item")
     crosscheck.add_argument(
         "-e", "--embed-on-failure", action="store_true", help="embed on failure"
     )
+    crosscheck.add_argument("-p", "--plot-on-failure", action="store_true", help="plot on failure")
+    crosscheck.add_argument("-x", "--exit-on-failure", action="store_true", help="exit on failure")
     crosscheck.add_argument(
-        "-p", "--plot-on-failure", action="store_true", help="plot on failure"
-    )
-    crosscheck.add_argument(
-        "-x", "--exit-on-failure", action="store_true", help="exit on failure"
-    )
-    crosscheck.add_argument(
-        "-m", "--mode", choices=("default", "split-reactor"), default="default", help="comparison mode"
+        "-m",
+        "--mode",
+        choices=("default", "split-reactor"),
+        default="default",
+        help="comparison mode",
     )
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     c = Comparator(parser.parse_args())

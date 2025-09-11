@@ -16,18 +16,15 @@ Example of call
 from argparse import Namespace
 
 import numpy as np
+from dag_modelling.tools.logger import set_verbosity
 from IPython import embed
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from numpy.typing import NDArray
+from scripts import FFormatter, calculate_ratio_error, get_obs
 from yaml import safe_load as yaml_load
 
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgm_dayabay_dev.models import available_models, load_model
-from scripts import FFormatter, calculate_ratio_error, get_obs
-
-set_level(INFO1)
 
 DATA_INDICES = {"model": 0, "loaded": 1}
 AD_TO_EH = {
@@ -154,10 +151,8 @@ def sum_by_eh(dict_obs: dict[str, NDArray]) -> dict:
 
 
 def main(args: Namespace) -> None:
-
     if args.verbose:
-        args.verbose = min(args.verbose, 3)
-        set_level(globals()[f"INFO{args.verbose}"])
+        set_verbosity(args.verbose)
 
     with open(args.input_fit, "r") as f:
         fit = yaml_load(f)
@@ -271,7 +266,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "--interactive",
         action="store_true",

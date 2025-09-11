@@ -2,14 +2,11 @@
 from argparse import Namespace
 
 from dag_modelling.parameters import Parameter
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
+from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
 from dgm_dayabay_dev.models.dayabay_v0 import model_dayabay_v0
 from scripts import convert_numpy_to_lists, filter_fit, update_dict_parameters
 from yaml import safe_load
-
-set_level(INFO1)
 
 
 dgm_parameters_to_gna = {
@@ -78,6 +75,8 @@ def compare_gna(dgm_fit: dict, gna_fit_filename: str) -> None:
 
 
 def main(args: Namespace) -> None:
+    if args.verbose:
+        set_verbosity(args.verbose)
 
     model = model_dayabay_v0(
         source_type=args.source_type,
@@ -180,7 +179,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", default=0, action="count", help="verbosity level")
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
 
     input = parser.add_argument_group("input", "input related options")
     input.add_argument(

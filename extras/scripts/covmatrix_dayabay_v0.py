@@ -4,20 +4,17 @@ from __future__ import annotations
 
 from argparse import Namespace
 
-from h5py import File
-
 from dag_modelling.lib.calculus.jacobian import compute_covariance_matrix
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
-from dgm_dayabay_dev.models import available_models, load_model
+from dag_modelling.tools.logger import logger, set_verbosity
+from h5py import File
 from nested_mapping import walkvalues
 
-set_level(INFO1)
+from dgm_dayabay_dev.models import available_models, load_model
 
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        opts.verbose = min(opts.verbose, 3)
-        set_level(globals()[f"INFO{opts.verbose}"])
+        set_verbosity(opts.verbose)
 
     model = load_model(
         opts.version,
@@ -34,9 +31,7 @@ def main(opts: Namespace) -> None:
     covmats = outputs[f"covariance.covmat_syst"]
 
     idx_tuple = (
-        model.index["detector"]
-        if mode == "detector"
-        else model.combinations["detector.period"]
+        model.index["detector"] if mode == "detector" else model.combinations["detector.period"]
     )
     # idx_str = tuple(".".join(idx) for idx in idx_tuple)
 
@@ -88,9 +83,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("output", help="output h5py file")
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "-s",
         "--source-type",
@@ -107,14 +100,10 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--setpar", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--setpar", nargs=2, action="append", default=[], help="set parameter value")
 
     covariance = parser.add_argument_group("covariance", "setup covariance")
     covariance.add_argument(

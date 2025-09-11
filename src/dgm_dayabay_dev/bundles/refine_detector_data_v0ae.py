@@ -22,7 +22,7 @@ def refine_detector_data(
         step = day[1:] - day[:-1]
         assert (step == 1).all(), "Expect detector data for each day"
 
-        ndet = source["n_det", det]
+        ndet = source["ndet", det]
         for periodname in periods:
             period_ndet = int(periodname[0])
             mask_period = ndet == period_ndet

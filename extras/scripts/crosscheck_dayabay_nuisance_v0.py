@@ -5,26 +5,25 @@ from contextlib import suppress
 from itertools import permutations
 from typing import Any, Generator, Literal, Mapping
 
+from dag_modelling.tools.logger import set_verbosity, INFO1, INFO2, logger
 from h5py import File
 from matplotlib import pyplot as plt
+from nested_mapping import NestedMapping
 from numpy import allclose, fabs, nanmax
 from numpy.typing import NDArray
 
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, logger, set_level
 from dgm_dayabay_dev.models.dayabay_v0 import model_dayabay_v0
-from nested_mapping import NestedMapping
-
-set_level(INFO1)
 
 
-def minus_one(parname: tuple[str,...], *values: float) -> tuple[float,...]:
+def minus_one(parname: tuple[str, ...], *values: float) -> tuple[float, ...]:
     match parname:
         case ("spectrum_correction", "corr_unc"):
             return values
 
     return tuple(v - 1.0 for v in values)
 
-def hmuncmapping(key: tuple[str,...]) -> tuple[str,...]:
+
+def hmuncmapping(key: tuple[str, ...]) -> tuple[str, ...]:
     match key:
         case ("corr_unc",):
             return ("corr",)
@@ -34,11 +33,13 @@ def hmuncmapping(key: tuple[str,...]) -> tuple[str,...]:
 
     raise RuntimeError(f"Do not know how to map {key}")
 
-def default_setter(parname: tuple[str,...], par, value: float, normvalue: float) -> float:
+
+def default_setter(parname: tuple[str, ...], par, value: float, normvalue: float) -> float:
     par.value = value
     return value
 
-def uncorr_normalized_setter(key: tuple[str,...], par, value: float, normvalue: float) -> float:
+
+def uncorr_normalized_setter(key: tuple[str, ...], par, value: float, normvalue: float) -> float:
     match key:
         case ("spectrum_correction", "uncorr_unc", *_):
             par.normvalue = normvalue
@@ -48,6 +49,7 @@ def uncorr_normalized_setter(key: tuple[str,...], par, value: float, normvalue: 
     par.value = value
     return value
 
+
 comparison = {
     "default": {"rtol": 1.0e-8},
     "OffdiagScale": {"location": "all.detector.iav_offdiag_scale_factor", "rtol": 1.0e-8},
@@ -56,16 +58,36 @@ comparison = {
     "bkg_rate_amc": {"location": "all.bkg.rate.amc", "rtol": 1.0e-8},
     "bkg_rate_fastn": {"location": "all.bkg.rate.fastn", "rtol": 1.0e-8},
     "bkg_rate_lihe": {"location": "all.bkg.rate.lihe", "rtol": 1.0e-8},
-    "effunc_uncorr": {"location": "all.detector.detector_relative", "keys_mapping": lambda t: (t+("efficiency_factor",)), "rtol": 1.0e-8},
-    "escale": {"location": "all.detector.detector_relative", "keys_mapping": lambda t: (t+("energy_scale_factor",)), "rtol": 1.0e-8},
-    "eres": {"location": "all.detector.eres", "keys_mapping": {("a",): ("a_nonuniform",), ("b",): ("b_stat",), ("c",): ("c_noise",), }, "rtol": 1.0e-8},
+    "effunc_uncorr": {
+        "location": "all.detector.detector_relative",
+        "keys_mapping": lambda t: (t + ("efficiency_factor",)),
+        "rtol": 1.0e-8,
+    },
+    "escale": {
+        "location": "all.detector.detector_relative",
+        "keys_mapping": lambda t: (t + ("energy_scale_factor",)),
+        "rtol": 1.0e-8,
+    },
+    "eres": {
+        "location": "all.detector.eres",
+        "keys_mapping": {
+            ("a",): ("a_nonuniform",),
+            ("b",): ("b_stat",),
+            ("c",): ("c_noise",),
+        },
+        "rtol": 1.0e-8,
+    },
     "global_norm": {"location": "all.detector.global_normalization", "rtol": 1.0e-8},
     "lsnl_weight": {"location": "all.detector.lsnl_scale_a", "rtol": 1.0e-8},
     "DeltaMSq12": {"location": "all.oscprob.DeltaMSq21", "rtol": 1.0e-8},
     "DeltaMSq23": {"location": "all.oscprob.DeltaMSq32", "rtol": 1.0e-8},
     "SinSqDouble12": {"location": "all.oscprob.SinSq2Theta12", "rtol": 1.0e-8},
     "SinSqDouble13": {"location": "all.oscprob.SinSq2Theta13", "rtol": 1.0e-8},
-    "spectral_weights": {"location": "all.neutrino_per_fission_factor", "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),), "rtol": 1.0e-8},
+    "spectral_weights": {
+        "location": "all.neutrino_per_fission_factor",
+        "keys_mapping": lambda s: (s[0].replace("anue_weight", "spec_scale"),),
+        "rtol": 1.0e-8,
+    },
     # Reactor
     "nominal_thermal_power": {"location": "all.reactor.nominal_thermal_power", "rtol": 1.0e-8},
     "fission_fractions_corr": {"location": "all.reactor.fission_fraction_scale", "rtol": 1.0e-8},
@@ -77,10 +99,10 @@ comparison = {
         "location": "all.reactor_anue.spectrum_uncertainty",
         "keys_mapping": hmuncmapping,
         "atol": 0.3,
-        "rtol": 1.e-4,
+        "rtol": 1.0e-4,
         "value_fcn": minus_one,
-        "value_setter": uncorr_normalized_setter
-        }
+        "value_setter": uncorr_normalized_setter,
+    },
 }
 
 
@@ -194,8 +216,7 @@ class NuisanceComparator:
         self.opts = opts
 
         if opts.verbose:
-            opts.verbose = min(opts.verbose, 3)
-            set_level(globals()[f"INFO{opts.verbose}"])
+            set_verbosity(opts.verbose)
 
         self.skey_gna = "fine"
         self.skey_dgm = opts.object
@@ -205,7 +226,9 @@ class NuisanceComparator:
         with suppress(StopIteration):
             self.process()
 
-        logger.info(f"Processed {self.n_pars} parameters ({self.n_values} values) and {self.n_hists} histograms: {self.n_success} sucess / {self.n_fail} fail")
+        logger.info(
+            f"Processed {self.n_pars} parameters ({self.n_values} values) and {self.n_hists} histograms: {self.n_success} sucess / {self.n_fail} fail"
+        )
 
     def _skip_par(self, parname: str) -> bool:
         parname = parname.lower()
@@ -248,8 +271,7 @@ class NuisanceComparator:
 
             value_fcn = self.cmpopts.get("value_fcn", lambda s, *v: v)
             self.value_central, self.value_left, self.value_right = value_fcn(
-                paritems,
-                *results["values"]
+                paritems, *results["values"]
             )
             _, normvalue_left, normvalue_right = results["normvalues"]
 
@@ -269,9 +291,7 @@ class NuisanceComparator:
             setter = self.cmpopts.get("value_setter", default_setter)
 
             if par.value != self.value_central:
-                logger.error(
-                    f"Parameters not consistent: dgm={par.value} gna={self.value_central}"
-                )
+                logger.error(f"Parameters not consistent: dgm={par.value} gna={self.value_central}")
                 continue
 
             results_left = results["minus"]
@@ -298,9 +318,7 @@ class NuisanceComparator:
             self.n_pars += 1
             self.n_values += 3
 
-    def check_default(
-        self, label="default", *, save: bool = False, check_change: bool = True
-    ):
+    def check_default(self, label="default", *, save: bool = False, check_change: bool = True):
         default = self.opts.input["default"]
         self.skey_par_gna = "default"
         self.skey_par_dgm = label
@@ -329,12 +347,7 @@ class NuisanceComparator:
         change2_dgm = 0.0
         for ad, addir in results.items():
             for period, data in addir.items():
-                if (
-                    period == "6AD"
-                    and ad in ("AD22", "AD34")
-                    or period == "7AD"
-                    and ad == "AD11"
-                ):
+                if period == "6AD" and ad in ("AD22", "AD34") or period == "7AD" and ad == "AD11":
                     continue
                 self.skey2_gna = f".{ad}.{period}"
                 self.index = (ad, period)
@@ -358,9 +371,7 @@ class NuisanceComparator:
 
         if check_change:
             if change2_dgm == 0.0 or change2_gna == 0.0:
-                logger.error(
-                    f"FAIL: data unchanged dgm²={change2_dgm} gna²={change2_gna}"
-                )
+                logger.error(f"FAIL: data unchanged dgm²={change2_dgm} gna²={change2_gna}")
                 return False
         return is_ok
 
@@ -472,15 +483,11 @@ class NuisanceComparator:
 
         dgm_reference = self.outputs_dgm_default[self.index]
         with suppress(ValueError):
-            ax.plot(
-                self.data_dgm / dgm_reference - 1, style, label="dgm/default", **pargs
-            )
+            ax.plot(self.data_dgm / dgm_reference - 1, style, label="dgm/default", **pargs)
 
         gna_reference = self.outputs_gna_default[self.index]
         with suppress(ValueError):
-            ax.plot(
-                self.data_gna / gna_reference - 1, style, label="gna/default", **pargs
-            )
+            ax.plot(self.data_gna / gna_reference - 1, style, label="gna/default", **pargs)
         ax.legend()
         ax.grid()
 
@@ -582,9 +589,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
 
     input = parser.add_argument_group("input", "input related options")
     input.add_argument("input", type=File, help="input file to compare to")
@@ -605,23 +610,13 @@ if __name__ == "__main__":
     )
 
     crosscheck = parser.add_argument_group("comparison", "comparison related options")
-    crosscheck.add_argument(
-        "-l", "--last", action="store_true", help="process only the last item"
-    )
+    crosscheck.add_argument("-l", "--last", action="store_true", help="process only the last item")
     crosscheck.add_argument(
         "-e", "--embed-on-failure", action="store_true", help="embed on failure"
     )
-    crosscheck.add_argument(
-        "-p", "--plot-on-failure", action="store_true", help="plot on failure"
-    )
-    crosscheck.add_argument(
-        "--plot-filter", help="plot only comparisons with substring"
-    )
-    crosscheck.add_argument(
-        "-x", "--exit-on-failure", action="store_true", help="exit on failure"
-    )
-    crosscheck.add_argument(
-        "--pars", nargs="+", help="patterns to search in parameter names"
-    )
+    crosscheck.add_argument("-p", "--plot-on-failure", action="store_true", help="plot on failure")
+    crosscheck.add_argument("--plot-filter", help="plot only comparisons with substring")
+    crosscheck.add_argument("-x", "--exit-on-failure", action="store_true", help="exit on failure")
+    crosscheck.add_argument("--pars", nargs="+", help="patterns to search in parameter names")
 
     c = NuisanceComparator(parser.parse_args())

@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from argparse import Namespace
 
+from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
 from matplotlib import transforms
 
-from dag_modelling.tools.logger import DEBUG as INFO4
-from dag_modelling.tools.logger import INFO1, INFO2, INFO3, set_level
 from dgm_dayabay_dev.models import available_models, load_model
-
-set_level(INFO1)
 
 plt.rcParams.update(
     {
@@ -24,8 +21,7 @@ plt.rcParams.update(
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
-        opts.verbose = min(opts.verbose, 3)
-        set_level(globals()[f"INFO{opts.verbose}"])
+        set_verbosity(opts.verbose)
 
     model = load_model(
         opts.version,
@@ -44,8 +40,8 @@ def main(opts: Namespace) -> None:
 
     days_storage = storage["outputs.daily_data.days"]
     eff_storage = storage["outputs.daily_data.detector.eff"]
-    efflivetime_storage = storage["outputs.daily_data.detector.efflivetime"]
-    rate_acc_storage = storage["outputs.daily_data.detector.rate_acc"]
+    eff_livetime_storage = storage["outputs.daily_data.detector.eff_livetime"]
+    rate_accidentals_storage = storage["outputs.daily_data.detector.rate_accidentals"]
 
     ads = ["AD11", "AD12", "AD21", "AD22", "AD31", "AD32", "AD33", "AD34"]
     ads = {ad: i for i, ad in enumerate(ads)}
@@ -66,7 +62,7 @@ def main(opts: Namespace) -> None:
         subplot_kw={"ylabel": r"$\varepsilon$, %"},
         gridspec_kw=gridspec_kw,
     )
-    fig_efflivetime, axes_efflivetime = plt.subplots(
+    fig_eff_livetime, axes_eff_livetime = plt.subplots(
         8,
         1,
         sharex=True,
@@ -74,7 +70,7 @@ def main(opts: Namespace) -> None:
         subplot_kw={"ylabel": r"T, day"},
         gridspec_kw=gridspec_kw,
     )
-    fig_rate_acc, axes_rate_acc = plt.subplots(
+    fig_rate_accidentals, axes_rate_accidentals = plt.subplots(
         8,
         1,
         sharex=True,
@@ -85,8 +81,8 @@ def main(opts: Namespace) -> None:
     text_offset = transforms.ScaledTranslation(0.04, 0.04, fig_eff.dpi_scale_trans)
 
     axes_eff[0].set_title("Efficiency (muon veto, multiplicity)")
-    axes_efflivetime[0].set_title("Effective livetime")
-    axes_rate_acc[0].set_title("Accidentals rate")
+    axes_eff_livetime[0].set_title("Effective livetime")
+    axes_rate_accidentals[0].set_title("Accidentals rate")
 
     labels_added = set()
 
@@ -95,8 +91,8 @@ def main(opts: Namespace) -> None:
     for (period, ad), output in eff_storage.walkitems():
         data_days = days_storage[period].data
         eff_data = output.data
-        efflivetime_data = efflivetime_storage[period, ad].data
-        rate_acc_data = rate_acc_storage[period, ad].data
+        eff_livetime_data = eff_livetime_storage[period, ad].data
+        rate_accidentals_data = rate_accidentals_storage[period, ad].data
 
         ad_id = ads[ad]
 
@@ -104,22 +100,20 @@ def main(opts: Namespace) -> None:
         mask = eff_data > 0
         ax_eff.plot(data_days[mask], eff_data[mask] * 100, ".", **plot_kwargs)
 
-        ax_efflivetime = axes_efflivetime[ad_id]
-        mask = efflivetime_data > 0
-        ax_efflivetime.plot(
-            data_days[mask], efflivetime_data[mask] / seconds_in_day, ".", **plot_kwargs
+        ax_eff_livetime = axes_eff_livetime[ad_id]
+        mask = eff_livetime_data > 0
+        ax_eff_livetime.plot(
+            data_days[mask], eff_livetime_data[mask] / seconds_in_day, ".", **plot_kwargs
         )
 
-        ax_rate_acc = axes_rate_acc[ad_id]
-        mask = rate_acc_data > 0
-        ax_rate_acc.plot(data_days[mask], rate_acc_data[mask], ".", **plot_kwargs)
+        ax_rate_accidentals = axes_rate_accidentals[ad_id]
+        mask = rate_accidentals_data > 0
+        ax_rate_accidentals.plot(data_days[mask], rate_accidentals_data[mask], ".", **plot_kwargs)
 
         ticks_right = bool(ad_id % 2)
-        for ax in (ax_eff, ax_efflivetime, ax_rate_acc):
+        for ax in (ax_eff, ax_eff_livetime, ax_rate_accidentals):
             if ad not in labels_added:
-                ax.text(
-                    1, 1, ad, transform=ax.transAxes - text_offset, va="top", ha="right"
-                )
+                ax.text(1, 1, ad, transform=ax.transAxes - text_offset, va="top", ha="right")
                 labels_added.add(ad)
 
             ax.tick_params(
@@ -135,7 +129,7 @@ def main(opts: Namespace) -> None:
 
         labels_added.add(ad)
 
-    for axes in (axes_eff, axes_efflivetime, axes_rate_acc):
+    for axes in (axes_eff, axes_eff_livetime, axes_rate_accidentals):
         ax = axes[-1]
         ax.set_xlabel("Day since start of data taking")
         ax.set_xlim(left=0)
@@ -143,8 +137,8 @@ def main(opts: Namespace) -> None:
     if opts.output:
         for plot_type, fig in {
             "eff": fig_eff,
-            "efflivetime": fig_efflivetime,
-            "rate_acc": fig_rate_acc,
+            "eff_livetime": fig_eff_livetime,
+            "rate_accidentals": fig_rate_accidentals,
         }.items():
             if "{type" not in opts.output:  # }
                 raise RuntimeError("Output format should contain {type} for plot type")
@@ -168,9 +162,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument(
-        "-v", "--verbose", default=0, action="count", help="verbosity level"
-    )
+    parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
         "--source-type",
         "--source",
@@ -186,15 +178,11 @@ if __name__ == "__main__":
         choices=available_models(),
         help="model version",
     )
-    model.add_argument(
-        "--model-options", "--mo", default={}, help="Model options as yaml dict"
-    )
+    model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
     model.add_argument("--method", help="Call model's method")
 
     pars = parser.add_argument_group("pars", "setup pars")
-    pars.add_argument(
-        "--par", nargs=2, action="append", default=[], help="set parameter value"
-    )
+    pars.add_argument("--par", nargs=2, action="append", default=[], help="set parameter value")
 
     plot = parser.add_argument_group("pars", "plots")
     plot.add_argument(
