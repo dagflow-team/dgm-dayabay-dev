@@ -371,7 +371,7 @@ if __name__ == "__main__":
     model.add_argument(
         "--version",
         default="v0e",
-        choices=["v0", "v0a", "v0b", "v0c", "v0d", "v0d"],
+        choices=["v0", "v0a", "v0b", "v0c", "v0d", "v0e"],
         help="model version",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
