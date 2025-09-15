@@ -127,7 +127,7 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.pars_datax:
-        storage["parameters.all"].to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
+        storage["parameters.all"].to_datax(f"output/dayabay_{opts.version}_pars_datax.tex")
 
     if opts.pars_latex:
         storage["parameters.all"].to_latex_file(opts.pars_latex)
