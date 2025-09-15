@@ -13,9 +13,8 @@ from typing import TYPE_CHECKING
 
 from dag_modelling.tools.logger import set_verbosity
 from dag_modelling.tools.save_records import save_records
+from dgm_dayabay_dev.models import available_models_limited, load_model
 from matplotlib import pyplot as plt
-
-from dgm_dayabay_dev.models import load_model, available_models_limited
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
