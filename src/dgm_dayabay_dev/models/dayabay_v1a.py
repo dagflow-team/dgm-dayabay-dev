@@ -3001,6 +3001,48 @@ class model_dayabay_v1a:
                 replicate_outputs=combinations["period.detector"],
             )
 
+            Division.replicate(
+                outputs("summary.total.ibd_candidates"),
+                outputs("summary.total.eff_livetime"),
+                name="summary.total.rate_ibd_candidates_s",
+                replicate_outputs=combinations["detector"],
+            )
+
+            Division.replicate(
+                outputs("summary.periods.ibd_candidates"),
+                outputs("summary.periods.eff_livetime"),
+                name="summary.periods.rate_ibd_candidates_s",
+                replicate_outputs=combinations["period.detector"],
+            )
+
+            Product.replicate(
+                outputs("summary.total.rate_ibd_candidates_s"),
+                parameters["constant.conversion.seconds_in_day"],
+                name="summary.total.rate_ibd_candidates",
+                replicate_outputs=combinations["detector"],
+            )
+
+            Product.replicate(
+                outputs("summary.periods.rate_ibd_candidates_s"),
+                parameters["constant.conversion.seconds_in_day"],
+                name="summary.periods.rate_ibd_candidates",
+                replicate_outputs=combinations["period.detector"],
+            )
+
+            Difference.replicate(
+                outputs("summary.total.rate_ibd_candidates"),
+                outputs("summary.total.background_rate"),
+                name="summary.total.rate_ibd",
+                replicate_outputs=combinations["detector"],
+            )
+
+            Difference.replicate(
+                outputs("summary.periods.rate_ibd_candidates"),
+                outputs("summary.periods.background_rate"),
+                name="summary.periods.rate_ibd",
+                replicate_outputs=combinations["period.detector"],
+            )
+
             #
             # Statistic
             #
@@ -3456,6 +3498,7 @@ class model_dayabay_v1a:
             "rate_amc": source_fmt.format(name="background_rate.amc"),
             "rate_alpha_neutron": source_fmt.format(name="background_rate.alpha_neutron"),
             "rate_background_total": source_fmt.format(name="background_rate_total"),
+            "rate_ibd": source_fmt.format(name="rate_ibd"),
         }
 
         rows = list(self.index["detector"])
@@ -3467,7 +3510,6 @@ class model_dayabay_v1a:
                 source = self.storage["outputs"].get_dict(path)
             except KeyError:
                 print("error", key)
-                import IPython; IPython.embed(colors='neutral') # fmt: skip
                 continue
             for k, output in source.walkitems():
                 data = output.data
