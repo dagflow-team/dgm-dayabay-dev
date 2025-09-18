@@ -30,7 +30,6 @@ def main(opts: Namespace) -> None:
         parameter_values=opts.par,
     )
 
-    # chi2 = model.storage["outputs.statistic.full.chi2p_iterative"]
     chi2 = model.storage["outputs.statistic.stat.chi2p"]
 
     matrix = model.storage["outputs.detector.lsnl.matrix.AD11"]
@@ -38,8 +37,6 @@ def main(opts: Namespace) -> None:
     escint = model.storage["outputs.detector.lsnl.curves.escint"].data
 
     pars = list(model.storage["parameters.constrained.detector.lsnl_scale_a"].walkvalues())
-    # pars_offset = 3
-    # pars = pars[pars_offset : len(pars)] + pars[:pars_offset]
 
     def reset_pars():
         for ipar in pars:
@@ -50,7 +47,7 @@ def main(opts: Namespace) -> None:
     chi2.data
 
     npoints = 5 + 1
-    x = linspace(-1.0, 1.0, npoints)
+    lsnl_a = linspace(-1.0, 1.0, npoints)
 
     N_ring = min(npoints * 2, 20)
     i_ring = -1
@@ -58,10 +55,10 @@ def main(opts: Namespace) -> None:
     error_found = False
 
     for ipar, par in enumerate(pars):
-        y = full_like(x, -1)
+        y = full_like(lsnl_a, -1)
         reset_pars()
 
-        for i, val in enumerate(x):
+        for i, val in enumerate(lsnl_a):
             par.value = val
             print(par.name, i, val)
             y[i] = chi2.data[0]
@@ -75,27 +72,16 @@ def main(opts: Namespace) -> None:
                     "curve": curve.data.copy(),
                 }
 
-            # if i > 1:
-            #     diff = y[i] - y[i - 1]
-            #     diff0 = y[i - 1] - y[i - 2]
-            #     if (
-            #         not error_found
-            #         and (diff * diff0) < 0
-            #         and fabs(diff) > (2 * fabs(diff0))
-            #     ):
-            #         error_found = True
-            #         print("Found", par.name, i, val)
-
-        plt.plot(x, y, ":", alpha=0.8, label=f"{par.name} fwd", color=f"C{ipar+1}")
+        plt.plot(lsnl_a, y, ":", alpha=0.8, label=f"{par.name} fwd", color=f"C{ipar+1}")
 
         reset_pars()
-        y = full_like(x, -1)
-        for i, val in reversed(list(enumerate(x))):
+        y = full_like(lsnl_a, -1)
+        for i, val in reversed(list(enumerate(lsnl_a))):
             par.value = val
             print(par.name, i, val)
             y[i] = chi2.data[0]
 
-        plt.plot(x, y, "--", alpha=0.5, label=f"{par.name} bkw", color=f"C{ipar+1}")
+        plt.plot(lsnl_a, y, "--", alpha=0.5, label=f"{par.name} bkw", color=f"C{ipar+1}")
 
         if "pull1" in par.name:
             error_found = True
@@ -119,7 +105,7 @@ def main(opts: Namespace) -> None:
             mat = lsnl["matrix"]
             i = lsnl["index"]
             name = lsnl["name"]
-            e = float(x[i])
+            e = float(lsnl_a[i])
             plt.matshow(ma.array(mat, mask=(mat == 0.0)), vmin=0, vmax=1)
             plt.gca().set_title(f"{name} {i=}, {e=}")
             fname = f"output/test_lsnl_mat_{r}_mat.pdf"
@@ -163,7 +149,7 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="hdf5",
+        default="default:hdf5",
         help="Data source type",
     )
 

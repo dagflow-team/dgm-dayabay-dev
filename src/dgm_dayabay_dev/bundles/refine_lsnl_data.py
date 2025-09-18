@@ -105,13 +105,13 @@ class RefineGraph:
         skip_diff = y is nominal
 
         yabs = self._method_reltoabs(y)
-        yfine = self._method_interpolate(yabs)
+        yfine_abs = self._method_interpolate(yabs)
         match self.extrapolation_mode:
             case "absolute":
-                yunbound = self._method_extrapolate(yfine)
+                yunbound = self._method_extrapolate(yfine_abs)
 
             case "relative":
-                yfine_rel = yfine / self.xfine_bound
+                yfine_rel = yfine_abs / self.xfine_bound
                 yunbound_rel = self._method_extrapolate(yfine_rel)
                 yunbound = yunbound_rel * self.xfine_extended
 
