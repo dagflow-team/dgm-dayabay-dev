@@ -119,7 +119,7 @@ class model_dayabay_v0e:
             - "poisson" - Poisson fluctuations.
     path_data : Path
         Path to the data.
-    source_type : str, default="npz"
+    source_type : str, default="default:hdf5"
         Type of the data to read ("tsv", "hdf5", "root" or "npz").
 
     Technical attributes

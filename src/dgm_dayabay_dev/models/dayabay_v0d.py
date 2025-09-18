@@ -113,7 +113,7 @@ class model_dayabay_v0d:
     path_data : Path
         path to the data
 
-    source_type : str, default="npz"
+    source_type : str, default="default:hdf5"
         type of the data to read ("tsv", "hdf5", "root" or "npz")
 
     Technical attributes

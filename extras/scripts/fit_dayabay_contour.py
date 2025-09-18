@@ -300,7 +300,7 @@ if __name__ == "__main__":
         "--source-type",
         "--source",
         choices=("tsv", "hdf5", "root", "npz"),
-        default="npz",
+        default="default:hdf5",
         help="Data source type",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
