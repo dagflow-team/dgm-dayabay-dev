@@ -95,6 +95,8 @@ class model_dayabay_v1a:
         Path to the data.
     source_type : str, default="default:hdf5"
         Type of the data to read ("tsv", "hdf5", "root" or "npz").
+    leading_mass_splitting_3l_name: Literal["DeltaMSq32", "DeltaMSq31"], default="DeltaMSq32"
+        Leading mass splitting
 
     Technical attributes
     --------------------
@@ -120,6 +122,7 @@ class model_dayabay_v1a:
         "index",
         "combinations",
         "_path_data",
+        "_leading_mass_splitting_3l_name",
         "spectrum_correction_interpolation_mode",
         "spectrum_correction_location",
         "concatenation_mode",
@@ -137,6 +140,7 @@ class model_dayabay_v1a:
     index: dict[str, tuple[str, ...]]
     combinations: dict[str, tuple[tuple[str, ...], ...]]
     _path_data: Path
+    _leading_mass_splitting_3l_name: Literal["DeltaMSq32", "DeltaMSq31"]
     spectrum_correction_interpolation_mode: Literal["linear", "exponential"]
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
@@ -155,6 +159,7 @@ class model_dayabay_v1a:
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
+        leading_mass_splitting_3l_name: Literal["DeltaMSq32", "DeltaMSq31"] = "DeltaMSq32",
         spectrum_correction_interpolation_mode: Literal["linear", "exponential"] = "exponential",
         spectrum_correction_location: Literal[
             "before-integration", "after-integration"
@@ -206,6 +211,7 @@ class model_dayabay_v1a:
                 )
 
         self.storage = NodeStorage()
+        self._leading_mass_splitting_3l_name = leading_mass_splitting_3l_name
         self.spectrum_correction_interpolation_mode = spectrum_correction_interpolation_mode
         self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
@@ -1098,6 +1104,7 @@ class model_dayabay_v1a:
             # MeV, while the unit for distance may be chosen between "m" and "km".
             NueSurvivalProbability.replicate(
                 name="survival_probability",
+                leading_mass_splitting_3l_name=self._leading_mass_splitting_3l_name,
                 distance_unit="m",
                 replicate_outputs=combinations["reactor.detector"],
                 surprobArgConversion=True,
