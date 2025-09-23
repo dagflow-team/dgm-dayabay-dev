@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.2.2] - 2025-09-??
 
 - [feature] Add key `leading_mass_splitting_3l_name` to switch between |Δm²₃₂| and |Δm²₃₁| to v1a version. In Day Bay official analysis |Δm²₃₂| as leading mass splitting
+- [feature] Add key `override_cfg_files` that allows to override paths to configuration files. Key is supported for models v1+
 
 ## [0.2.1] - 2025-09-08
 
