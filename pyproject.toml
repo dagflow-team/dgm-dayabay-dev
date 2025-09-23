@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
   "dag-modelling>=0.13",
   "dgm-fit>=0.2",
-  "dgm-reactor-neutrino>=0.2",
+  "dgm-reactor-neutrino@git+https://git.jinr.ru/dagflow-team/dgm-reactor-neutrino",
   "more-itertools",
 ]
 
