@@ -319,7 +319,7 @@ class model_dayabay_v1a:
         }
 
         for cfg_name, path in override_cfg_files.items():
-            cfg_file_mapping[cfg_name] = Path(path)
+            cfg_file_mapping.update({cfg_name: Path(path)})
 
         return cfg_file_mapping
 
