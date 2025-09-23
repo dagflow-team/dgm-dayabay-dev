@@ -94,6 +94,10 @@ class model_dayabay_v1:
         Path to the data.
     source_type : str, default="default:hdf5"
         Type of the data to read ("tsv", "hdf5", "root" or "npz").
+    nbins : int
+        Number of bins in the final observation
+    dataset : str, default="b"
+        Type of dataset of final observation ("a", "b")
 
     Technical attributes
     --------------------
@@ -157,6 +161,7 @@ class model_dayabay_v1:
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
+        override_cfg_files: Mapping[str, str] = {},
         spectrum_correction_interpolation_mode: Literal["linear", "exponential"] = "exponential",
         spectrum_correction_location: Literal[
             "before-integration", "after-integration"
@@ -167,18 +172,36 @@ class model_dayabay_v1:
         parameter_values: dict[str, float | str] = {},
         path_data: str | Path | None = None,
     ):
-        """Model initialization.
+        """__init__.
 
         Parameters
         ----------
-        seed: int
-              random seed to be passed to random generator for ToyMC
-        override_indices : dict[str, Sequence[str]]
-                           dictionary with indices to override self.index.
-                           may be used to reduce the number of detectors or reactors in
-                           the model
-
-        for the description of other parameters, see description of the class.
+        source_type : Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
+            Type of the data to read
+        dataset : Literal["a", "b"]
+            Type of dataset of final observation
+        strict : bool
+            Strict mode
+        close : bool
+            if True the graph is closed and memory is allocated may be used to debug corrupt model
+        override_indices : Mapping[str, Sequence[str]]
+            Dictionary with indices to override self.index
+        override_cfg_files : Mapping[str, str]
+            Dictionary with paths to custom inputs for chosen data inputs
+        spectrum_correction_interpolation_mode : Literal["linear", "exponential"]
+            Mode of how the parameters of the free spectrum model are treated
+        spectrum_correction_location : Literal["before-integration", "after-integration"]
+            Place, where the spectrum correction is applied
+        seed : int
+            Seed for ToyMC
+        monte_carlo_mode : Literal["asimov", "normal-stats", "poisson"]
+            Type of MC
+        concatenation_mode : Literal["detector", "detector_period"]
+            Concatenation mode of the final observation
+        parameter_values : dict[str, float | str]
+            Values of parameters to be pushed in model
+        path_data : str | Path | None
+            Path to the data
         """
         self._strict = strict
         self._close = close
@@ -239,10 +262,92 @@ class model_dayabay_v1:
         self.combinations = {}
 
         override_indices = {k: tuple(v) for k, v in override_indices.items()}
-        self.build(override_indices)
+
+        # TODO: doc
+        cfg_file_mapping = self._build_cfg_file_mapping(override_cfg_files)
+
+        self.build(cfg_file_mapping, override_indices)
 
         if parameter_values:
             self.set_parameters(parameter_values)
+
+    def _build_cfg_file_mapping(self, override_cfg_files: Mapping[str, str]) -> dict[str, Path]:
+        path_data = self.path_data
+        path_parameters = path_data / "parameters"
+
+        # Dataset items
+        path_dataset = f"dayabay_dataset_{self.dataset}"
+        cfg_file_mapping = {
+            "antineutrino_spectrum_segment_edges": path_parameters
+            / "reactor_antineutrino_spectrum_edges.py",
+            "parameters.survival_probability": path_parameters / "survival_probability.yaml",
+            "parameters.survival_probability_solar": path_parameters
+            / "survival_probability_solar.yaml",
+            "parameters.survival_probability_constants": path_parameters
+            / "survival_probability_constants.yaml",
+            "parameters.pdg_constants": path_parameters / "pdg2024.yaml",
+            "parameters.ibd_constants": path_parameters / "ibd_constants.yaml",
+            "parameters.conversion_thermal_power": path_parameters / "conversion_thermal_power.py",
+            "parameters.conversion_survival_probability": path_parameters
+            / "conversion_survival_probability_argument.py",
+            "parameters.baselines": path_parameters / "baselines.yaml",
+            "parameters.detector_normalization": path_parameters / "detector_normalization.yaml",
+            "parameters.detector_efficiency": path_parameters / "detector_efficiency.yaml",
+            "parameters.detector_n_protons_nominal": path_parameters
+            / (
+                "detector_n_protons_nominal.yaml"
+                if self.dataset != "b"
+                else "detector_n_protons_nominal_dataset_b.yaml"
+            ),
+            "parameters.detector_n_protons_correction": path_parameters
+            / "detector_n_protons_correction.yaml",
+            "parameters.detector_eres": path_parameters / "detector_eres.yaml",
+            "parameters.detector_lsnl": path_parameters / "detector_lsnl.yaml",
+            "parameters.detector_iav_offdiag_scale": path_parameters
+            / "detector_iav_offdiag_scale.yaml",
+            "parameters.detector_relative": path_parameters / "detector_relative.yaml",
+            "parameters.reactor_thermal_power_nominal": path_parameters
+            / "reactor_thermal_power_nominal.yaml",
+            "parameters.reactor_energy_per_fission": path_parameters
+            / "reactor_energy_per_fission.yaml",
+            "parameters.reactor_snf": path_parameters / "reactor_snf.yaml",
+            "parameters.reactor_nonequilibrium_correction": path_parameters
+            / "reactor_nonequilibrium_correction.yaml",
+            "parameters.reactor_snf_fission_fractions": path_parameters
+            / "reactor_snf_fission_fractions.yaml",
+            "parameters.reactor_fission_fraction_scale": path_parameters
+            / "reactor_fission_fraction_scale.yaml",
+            "parameters.background_rate_scale_accidentals": path_parameters
+            / "background_rate_scale_accidentals.yaml",
+            "parameters.background_rates_uncorrelated_dataset": path_parameters
+            / f"background_rates_uncorrelated_dataset_{self.dataset}.yaml",
+            "parameters.background_rates_correlated_dataset": path_parameters
+            / f"background_rates_correlated_dataset_{self.dataset}.yaml",
+            "parameters.background_rate_uncertainty_scale_amc": path_parameters
+            / "background_rate_uncertainty_scale_amc.yaml",
+            "parameters.background_rate_uncertainty_scale_site_dataset": path_parameters
+            / f"background_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
+            "reactor_antineutrino_spectra": path_data
+            / f"reactor_antineutrino_spectra_hm.{self.source_type}",
+            "reactor_antineutrino_spectra_uncertainties": path_data
+            / f"reactor_antineutrino_spectra_hm_uncertainties.{self.source_type}",
+            "nonequilibrium_correction": path_data
+            / f"nonequilibrium_correction.{self.source_type}",
+            "snf_correction": path_data / f"snf_correction.{self.source_type}",
+            "daily_detector_data": path_data
+            / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
+            "daily_reactor_data": path_data / f"reactors_operation_data_28days.{self.source_type}",
+            "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
+            "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
+            "background_spectra": path_data
+            / f"{path_dataset}/{path_dataset}_background_spectra_{{}}.{self.source_type}",
+            "dataset": path_data / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}"
+        }
+
+        for cfg_name, path in override_cfg_files.items():
+            cfg_file_mapping.update({cfg_name: Path(path)})
+
+        return cfg_file_mapping
 
     @property
     def source_type(self) -> Literal["tsv", "hdf5", "npz", "root"]:
@@ -260,7 +365,7 @@ class model_dayabay_v1:
     def nbins(self) -> int:
         return self.storage["outputs.eventscount.final.concatenated.selected"].data.shape[0]
 
-    def build(self, override_indices: dict[str, tuple[str, ...]] = {}):
+    def build(self, cfg_file_mapping: dict[str, Path], override_indices: dict[str, tuple[str, ...]] = {}):
         """Actually build the model.
 
         Steps:
@@ -330,78 +435,6 @@ class model_dayabay_v1:
 
         # Initialize the storage and paths
         storage = self.storage
-        path_data = self.path_data
-        path_parameters = path_data / "parameters"
-
-        # Dataset items
-        path_dataset = f"dayabay_dataset_{self.dataset}"
-
-        # TODO: doc
-        cfg_file_mapping = {
-            "antineutrino_spectrum_segment_edges": path_parameters
-            / "reactor_antineutrino_spectrum_edges.py",
-            "parameters.survival_probability": path_parameters / "survival_probability.yaml",
-            "parameters.survival_probability_solar": path_parameters
-            / "survival_probability_solar.yaml",
-            "parameters.survival_probability_constants": path_parameters
-            / "survival_probability_constants.yaml",
-            "parameters.pdg_constants": path_parameters / "pdg2024.yaml",
-            "parameters.ibd_constants": path_parameters / "ibd_constants.yaml",
-            "parameters.conversion_thermal_power": path_parameters / "conversion_thermal_power.py",
-            "parameters.conversion_survival_probability": path_parameters
-            / "conversion_survival_probability_argument.py",
-            "parameters.baselines": path_parameters / "baselines.yaml",
-            "parameters.detector_normalization": path_parameters / "detector_normalization.yaml",
-            "parameters.detector_efficiency": path_parameters / "detector_efficiency.yaml",
-            "parameters.detector_n_protons_nominal": path_parameters
-            / (
-                "detector_n_protons_nominal.yaml"
-                if self.dataset != "b"
-                else "detector_n_protons_nominal_dataset_b.yaml"
-            ),
-            "parameters.detector_n_protons_correction": path_parameters
-            / "detector_n_protons_correction.yaml",
-            "parameters.detector_eres": path_parameters / "detector_eres.yaml",
-            "parameters.detector_lsnl": path_parameters / "detector_lsnl.yaml",
-            "parameters.detector_iav_offdiag_scale": path_parameters
-            / "detector_iav_offdiag_scale.yaml",
-            "parameters.detector_relative": path_parameters / "detector_relative.yaml",
-            "parameters.reactor_thermal_power_nominal": path_parameters
-            / "reactor_thermal_power_nominal.yaml",
-            "parameters.reactor_energy_per_fission": path_parameters
-            / "reactor_energy_per_fission.yaml",
-            "parameters.reactor_snf": path_parameters / "reactor_snf.yaml",
-            "parameters.reactor_nonequilibrium_correction": path_parameters
-            / "reactor_nonequilibrium_correction.yaml",
-            "parameters.reactor_snf_fission_fractions": path_parameters
-            / "reactor_snf_fission_fractions.yaml",
-            "parameters.reactor_fission_fraction_scale": path_parameters
-            / "reactor_fission_fraction_scale.yaml",
-            "parameters.background_rate_scale_accidentals": path_parameters
-            / "background_rate_scale_accidentals.yaml",
-            "parameters.background_rates_uncorrelated_dataset": path_parameters
-            / f"background_rates_uncorrelated_dataset_{self.dataset}.yaml",
-            "parameters.background_rates_correlated_dataset": path_parameters
-            / f"background_rates_correlated_dataset_{self.dataset}.yaml",
-            "parameters.background_rate_uncertainty_scale_amc": path_parameters
-            / "background_rate_uncertainty_scale_amc.yaml",
-            "parameters.background_rate_uncertainty_scale_site_dataset": path_parameters
-            / f"background_rate_uncertainty_scale_site_dataset_{self.dataset}.yaml",
-            "reactor_antineutrino_spectra": path_data
-            / f"reactor_antineutrino_spectra_hm.{self.source_type}",
-            "reactor_antineutrino_spectra_uncertainties": path_data
-            / f"reactor_antineutrino_spectra_hm_uncertainties.{self.source_type}",
-            "nonequilibrium_correction": path_data
-            / f"nonequilibrium_correction.{self.source_type}",
-            "snf_correction": path_data / f"snf_correction.{self.source_type}",
-            "daily_detector_data": path_data
-            / f"{path_dataset}/{path_dataset}_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_data / f"reactors_operation_data_28days.{self.source_type}",
-            "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
-            "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
-            "background_spectra": path_data
-            / f"{path_dataset}/{path_dataset}_background_spectra_{{}}.{self.source_type}",
-        }
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
@@ -2856,8 +2889,7 @@ class model_dayabay_v1:
                 x="erec",
                 y="fine",
                 merge_x=True,
-                filenames=path_data
-                / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}",
+                filenames=cfg_file_mapping["dataset"],
                 replicate_files=index["period"],
                 replicate_outputs=combinations["detector"],
                 skip=inactive_combinations,
