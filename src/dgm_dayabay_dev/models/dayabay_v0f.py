@@ -1150,6 +1150,7 @@ class model_dayabay_v0f:
             NueSurvivalProbability.replicate(
                 name="survival_probability",
                 distance_unit="m",
+                leading_mass_splitting_3l_name="DeltaMSq32",
                 replicate_outputs=combinations["reactor.detector"],
                 surprobArgConversion=True,
             )

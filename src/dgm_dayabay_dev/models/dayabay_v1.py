@@ -339,7 +339,7 @@ class model_dayabay_v1:
         # TODO: doc
         cfg_file_mapping = {
             "antineutrino_spectrum_segment_edges": path_parameters
-            / "reactor_antineutrino_spectrum_edges_300keV.py",
+            / "reactor_antineutrino_spectrum_edges.py",
             "parameters.survival_probability": path_parameters / "survival_probability.yaml",
             "parameters.survival_probability_solar": path_parameters
             / "survival_probability_solar.yaml",
@@ -1129,6 +1129,7 @@ class model_dayabay_v1:
             NueSurvivalProbability.replicate(
                 name="survival_probability",
                 distance_unit="m",
+                leading_mass_splitting_3l_name="DeltaMSq32",
                 replicate_outputs=combinations["reactor.detector"],
                 surprobArgConversion=True,
             )
