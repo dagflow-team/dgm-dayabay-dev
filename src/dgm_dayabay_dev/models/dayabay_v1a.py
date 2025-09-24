@@ -57,7 +57,7 @@ class model_dayabay_v1a:
         Graph instance.
     index : dict[str, tuple[str, ...]]
         Dictionary with all possible names for replicated items, e.g.
-        "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
+        "detector": ("AD11", "AD12", ...); reactor: ("R1", ...); ...
         index is setup within the model.
     combinations : dict[str, tuple[tuple[str, ...], ...]]
         Lists of all combinations of values of 1 and more indices,
@@ -475,7 +475,7 @@ class model_dayabay_v1a:
             # applied
             "isotope_neq": ("U235", "Pu239", "Pu241"),
             # Nuclear reactors
-            "reactor": ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4"),
+            "reactor": ("R1", "R2", "R3", "R4", "R5", "R6"),
             # Sources of antineutrinos:
             #     - "nu_main": for antineutrinos from reactor cores with no
             #                  Non-Equilibrium correction applied
@@ -511,7 +511,7 @@ class model_dayabay_v1a:
         # Collection combinations between 2 and more indices. Ensure some combinations,
         # e.g. detectors not present at certain periods, are excluded.
         # For example, combinations["reactor.detector"] contains:
-        # (("DB1", "AD11"), ("DB1", "AD12"), ..., ("DB2", "AD11"), ...)
+        # (("R1", "AD11"), ("R1", "AD12"), ..., ("R2", "AD11"), ...)
         #
         # The dictionary combinations is one of the main elements to loop over and match
         # parts of the computational graph
@@ -1123,20 +1123,20 @@ class model_dayabay_v1a:
             )
             # If created in the verbose mode one can see, that the following items are
             # created:
-            # - nodes.survival_probability.DB1.AD11
-            # - nodes.survival_probability.DB1.AD12
+            # - nodes.survival_probability.R1.AD11
+            # - nodes.survival_probability.R1.AD12
             # - ...
-            # - inputs.survival_probability.enu.DB1.AD11
-            # - inputs.survival_probability.enu.DB1.AD12
+            # - inputs.survival_probability.enu.R1.AD11
+            # - inputs.survival_probability.enu.R1.AD12
             # - ...
-            # - inputs.survival_probability.L.DB1.AD11
-            # - inputs.survival_probability.L.DB1.AD12
+            # - inputs.survival_probability.L.R1.AD11
+            # - inputs.survival_probability.L.R1.AD12
             # - ...
-            # - inputs.survival_probability.surprobArgConversion.DB1.AD11
-            # - inputs.survival_probability.surprobArgConversion.DB1.AD12
+            # - inputs.survival_probability.surprobArgConversion.R1.AD11
+            # - inputs.survival_probability.surprobArgConversion.R1.AD12
             # - ...
-            # - outputs.survival_probability.DB1.AD11
-            # - outputs.survival_probability.DB1.AD12
+            # - outputs.survival_probability.R1.AD11
+            # - outputs.survival_probability.R1.AD12
             # - ...
             # On one hand each node with its inputs and outputs may be accessed via
             # "nodes.survival_probability.<reactor>.<detector>" address. On the other hand all the
@@ -1149,10 +1149,10 @@ class model_dayabay_v1a:
             # Connect the corresponding baselines:
             parameters.get_dict("constant.baseline") >> inputs.get_dict("survival_probability.L")
             # The matching is done based on the index with order being ignored. Thus
-            # baselines stored as "DB1.AD11" or "AD11.DB1" both may be connected to the
-            # input "DB1.AD11". Moreover, if the left part has fewer indices, the
-            # connection will be broad casted, e.g. "DB1" on the left will be connected
-            # to all the indices on the right, containing "DB1".
+            # baselines stored as "R1.AD11" or "AD11.R1" both may be connected to the
+            # input "R1.AD11". Moreover, if the left part has fewer indices, the
+            # connection will be broad casted, e.g. "R1" on the left will be connected
+            # to all the indices on the right, containing "R1".
             #
             # Provide a conversion constant to convert the argument of sin²(...Δm²L/E)
             # from chosen units to natural ones.
