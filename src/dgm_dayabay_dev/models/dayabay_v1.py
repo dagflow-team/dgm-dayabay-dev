@@ -92,8 +92,6 @@ class model_dayabay_v1:
             - "poisson" - Poisson fluctuations.
     path_data : Path
         Path to the data.
-    source_type : str, default="default:hdf5"
-        Type of the data to read ("tsv", "hdf5", "root" or "npz").
     nbins : int
         Number of bins in the final observation
     dataset : str, default="b"
@@ -156,7 +154,6 @@ class model_dayabay_v1:
     def __init__(
         self,
         *,
-        source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"] = "default:hdf5",
         dataset: Literal["a", "b"] = "b",
         strict: bool = True,
         close: bool = True,
@@ -176,8 +173,6 @@ class model_dayabay_v1:
 
         Parameters
         ----------
-        source_type : Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
-            Type of the data to read
         dataset : Literal["a", "b"]
             Type of dataset of final observation
         strict : bool
@@ -206,7 +201,6 @@ class model_dayabay_v1:
         self._strict = strict
         self._close = close
 
-        assert source_type in {"tsv", "hdf5", "root", "npz", "default:hdf5"}
         assert dataset in {"a", "b"}
 
         assert spectrum_correction_interpolation_mode in {"linear", "exponential"}
@@ -217,19 +211,18 @@ class model_dayabay_v1:
         assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
         assert concatenation_mode in {"detector", "detector_period"}
 
-        if source_type == "default:hdf5":
-            source_type = "hdf5"
-        match (path_data, source_type):
-            case str() | Path(), str():
-                self._source_type = source_type
+        match path_data:
+            case str() | Path():
                 self._path_data = Path(path_data)
-            case None, str():
-                self._source_type = source_type
-                self._path_data = Path("data/dayabay-v1") / source_type
-            case _, _:
+            case None:
+                self._path_data = Path("data/dayabay-v1/hdf5")
+            case _:
                 raise RuntimeError(
-                    f"Unsupported combination of path/source_type options: {path_data}/{source_type}"
+                    f"Unsupported path option: {path_data}"
                 )
+
+        from ..tools import auto_detect_source_type
+        self._source_type = auto_detect_source_type(self._path_data)
 
         self.storage = NodeStorage()
         self._dataset = dataset
