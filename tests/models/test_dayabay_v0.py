@@ -67,12 +67,12 @@ def plot_graph(graph: Graph, storage: NodeStorage, output_path: str) -> None:
     GraphDot.from_node(
         storage["nodes.statistic.nuisance.all"],
         show="all",
-        mindepth=-1,
+        min_depth=-1,
         keep_direction=True,
     ).savegraph(f"{output_path}/dayabay_v0_nuisance.dot")
     GraphDot.from_output(
         storage["outputs.edges.energy_evis"],
         show="all",
-        mindepth=-3,
+        min_depth=-3,
         keep_direction=True,
     ).savegraph(f"{output_path}/dayabay_v0_top.dot")
