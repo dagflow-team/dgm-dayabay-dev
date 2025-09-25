@@ -23,9 +23,10 @@ set_verbosity(1)
 
 
 @mark.parametrize("source_type", source_types_other)
-def test_dayabay_v0(source_type: str):
-    model_ref = load_model(version="latest", source_type=source_type_reference)
-    model = load_model(version="latest", source_type=source_type)
+def test_dayabay_source_type(source_type: str):
+    # TODO: automize test with `latest` version
+    model_ref = load_model(version="v1a", path_data=f"data/dayabay-v1a/{source_type_reference}")
+    model = load_model(version="v1a", path_data=f"data/dayabay-v1a/{source_type}")
 
     outname = "outputs.eventscount.final.concatenated.detector_period"
     output_ref = model_ref.storage[outname]
