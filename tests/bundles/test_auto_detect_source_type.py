@@ -1,4 +1,4 @@
-from dgm_dayabay_dev.bundles.auto_detect_source_type import auto_detect_source_type
+from dgm_dayabay_dev.tools import auto_detect_source_type
 from pathlib import Path
 from pytest import mark, raises
 
@@ -13,7 +13,7 @@ def test_data_exists(extension):
 def test_data_not_exists():
     data_path = Path("data/not/exists")
 
-    with raises(FileNotFoundError) as excinfo:
+    with raises(RuntimeError) as excinfo:
         auto_detect_source_type(data_path)
 
         assert str(data_path) in str(excinfo.value)

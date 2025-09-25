@@ -204,7 +204,7 @@ class model_dayabay_v1a:
                     f"Unsupported path option: {path_data}"
                 )
 
-        from ..bundles.auto_detect_source_type import auto_detect_source_type
+        from ..tools import auto_detect_source_type
         self._source_type = auto_detect_source_type(self._path_data)
 
         self.storage = NodeStorage()
