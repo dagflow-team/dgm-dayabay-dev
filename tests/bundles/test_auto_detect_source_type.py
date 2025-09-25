@@ -1,4 +1,4 @@
-from dgm_dayabay_dev.bundles import auto_detect_source_type
+from dgm_dayabay_dev.bundles.auto_detect_source_type import auto_detect_source_type
 from pathlib import Path
 from pytest import mark, raises
 
@@ -17,4 +17,3 @@ def test_data_not_exists():
         auto_detect_source_type(data_path)
 
         assert str(data_path) in str(excinfo.value)
-
