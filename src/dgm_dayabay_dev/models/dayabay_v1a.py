@@ -57,7 +57,7 @@ class model_dayabay_v1a:
         Graph instance.
     index : dict[str, tuple[str, ...]]
         Dictionary with all possible names for replicated items, e.g.
-        "detector": ("AD11", "AD12", ...); reactor: ("DB1", ...); ...
+        "detector": ("AD11", "AD12", ...); reactor: ("R1", ...); ...
         index is setup within the model.
     combinations : dict[str, tuple[tuple[str, ...], ...]]
         Lists of all combinations of values of 1 and more indices,
@@ -155,7 +155,6 @@ class model_dayabay_v1a:
     def __init__(
         self,
         *,
-        source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"] = "default:hdf5",
         strict: bool = True,
         close: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
@@ -187,8 +186,6 @@ class model_dayabay_v1a:
         self._strict = strict
         self._close = close
 
-        assert source_type in {"tsv", "hdf5", "root", "npz", "default:hdf5"}
-
         assert spectrum_correction_interpolation_mode in {"linear", "exponential"}
         assert spectrum_correction_location in {
             "before-integration",
@@ -197,19 +194,18 @@ class model_dayabay_v1a:
         assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
         assert concatenation_mode in {"detector", "detector_period"}
 
-        if source_type == "default:hdf5":
-            source_type = "hdf5"
-        match (path_data, source_type):
-            case str() | Path(), str():
-                self._source_type = source_type
+        match path_data:
+            case str() | Path():
                 self._path_data = Path(path_data)
-            case None, str():
-                self._source_type = source_type
-                self._path_data = Path("data/dayabay-v1a") / source_type
-            case _, _:
+            case None:
+                self._path_data = Path("data/dayabay-v1a/hdf5")
+            case _:
                 raise RuntimeError(
-                    f"Unsupported combination of path/source_type options: {path_data}/{source_type}"
+                    f"Unsupported path option: {path_data}"
                 )
+
+        from ..tools import auto_detect_source_type
+        self._source_type = auto_detect_source_type(self._path_data)
 
         self.storage = NodeStorage()
         self._leading_mass_splitting_3l_name = leading_mass_splitting_3l_name
@@ -310,7 +306,7 @@ class model_dayabay_v1a:
             "snf_correction": path_data / f"snf_correction.{self.source_type}",
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_data / f"reactors_operation_data_28days.{self.source_type}",
+            "daily_reactor_data": path_data / f"reactors_operation_data.{self.source_type}",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
@@ -475,7 +471,7 @@ class model_dayabay_v1a:
             # applied
             "isotope_neq": ("U235", "Pu239", "Pu241"),
             # Nuclear reactors
-            "reactor": ("DB1", "DB2", "LA1", "LA2", "LA3", "LA4"),
+            "reactor": ("R1", "R2", "R3", "R4", "R5", "R6"),
             # Sources of antineutrinos:
             #     - "nu_main": for antineutrinos from reactor cores with no
             #                  Non-Equilibrium correction applied
@@ -511,7 +507,7 @@ class model_dayabay_v1a:
         # Collection combinations between 2 and more indices. Ensure some combinations,
         # e.g. detectors not present at certain periods, are excluded.
         # For example, combinations["reactor.detector"] contains:
-        # (("DB1", "AD11"), ("DB1", "AD12"), ..., ("DB2", "AD11"), ...)
+        # (("R1", "AD11"), ("R1", "AD12"), ..., ("R2", "AD11"), ...)
         #
         # The dictionary combinations is one of the main elements to loop over and match
         # parts of the computational graph
@@ -1123,20 +1119,20 @@ class model_dayabay_v1a:
             )
             # If created in the verbose mode one can see, that the following items are
             # created:
-            # - nodes.survival_probability.DB1.AD11
-            # - nodes.survival_probability.DB1.AD12
+            # - nodes.survival_probability.R1.AD11
+            # - nodes.survival_probability.R1.AD12
             # - ...
-            # - inputs.survival_probability.enu.DB1.AD11
-            # - inputs.survival_probability.enu.DB1.AD12
+            # - inputs.survival_probability.enu.R1.AD11
+            # - inputs.survival_probability.enu.R1.AD12
             # - ...
-            # - inputs.survival_probability.L.DB1.AD11
-            # - inputs.survival_probability.L.DB1.AD12
+            # - inputs.survival_probability.L.R1.AD11
+            # - inputs.survival_probability.L.R1.AD12
             # - ...
-            # - inputs.survival_probability.surprobArgConversion.DB1.AD11
-            # - inputs.survival_probability.surprobArgConversion.DB1.AD12
+            # - inputs.survival_probability.surprobArgConversion.R1.AD11
+            # - inputs.survival_probability.surprobArgConversion.R1.AD12
             # - ...
-            # - outputs.survival_probability.DB1.AD11
-            # - outputs.survival_probability.DB1.AD12
+            # - outputs.survival_probability.R1.AD11
+            # - outputs.survival_probability.R1.AD12
             # - ...
             # On one hand each node with its inputs and outputs may be accessed via
             # "nodes.survival_probability.<reactor>.<detector>" address. On the other hand all the
@@ -1149,10 +1145,10 @@ class model_dayabay_v1a:
             # Connect the corresponding baselines:
             parameters.get_dict("constant.baseline") >> inputs.get_dict("survival_probability.L")
             # The matching is done based on the index with order being ignored. Thus
-            # baselines stored as "DB1.AD11" or "AD11.DB1" both may be connected to the
-            # input "DB1.AD11". Moreover, if the left part has fewer indices, the
-            # connection will be broad casted, e.g. "DB1" on the left will be connected
-            # to all the indices on the right, containing "DB1".
+            # baselines stored as "R1.AD11" or "AD11.R1" both may be connected to the
+            # input "R1.AD11". Moreover, if the left part has fewer indices, the
+            # connection will be broad casted, e.g. "R1" on the left will be connected
+            # to all the indices on the right, containing "R1".
             #
             # Provide a conversion constant to convert the argument of sin²(...Δm²L/E)
             # from chosen units to natural ones.
@@ -3001,6 +2997,48 @@ class model_dayabay_v1a:
                 replicate_outputs=combinations["period.detector"],
             )
 
+            Division.replicate(
+                outputs("summary.total.ibd_candidates"),
+                outputs("summary.total.eff_livetime"),
+                name="summary.total.rate_ibd_candidates_s",
+                replicate_outputs=combinations["detector"],
+            )
+
+            Division.replicate(
+                outputs("summary.periods.ibd_candidates"),
+                outputs("summary.periods.eff_livetime"),
+                name="summary.periods.rate_ibd_candidates_s",
+                replicate_outputs=combinations["period.detector"],
+            )
+
+            Product.replicate(
+                outputs("summary.total.rate_ibd_candidates_s"),
+                parameters["constant.conversion.seconds_in_day"],
+                name="summary.total.rate_ibd_candidates",
+                replicate_outputs=combinations["detector"],
+            )
+
+            Product.replicate(
+                outputs("summary.periods.rate_ibd_candidates_s"),
+                parameters["constant.conversion.seconds_in_day"],
+                name="summary.periods.rate_ibd_candidates",
+                replicate_outputs=combinations["period.detector"],
+            )
+
+            Difference.replicate(
+                outputs("summary.total.rate_ibd_candidates"),
+                outputs("summary.total.background_rate"),
+                name="summary.total.rate_ibd",
+                replicate_outputs=combinations["detector"],
+            )
+
+            Difference.replicate(
+                outputs("summary.periods.rate_ibd_candidates"),
+                outputs("summary.periods.background_rate"),
+                name="summary.periods.rate_ibd",
+                replicate_outputs=combinations["period.detector"],
+            )
+
             #
             # Statistic
             #
@@ -3456,6 +3494,7 @@ class model_dayabay_v1a:
             "rate_amc": source_fmt.format(name="background_rate.amc"),
             "rate_alpha_neutron": source_fmt.format(name="background_rate.alpha_neutron"),
             "rate_background_total": source_fmt.format(name="background_rate_total"),
+            "rate_ibd": source_fmt.format(name="rate_ibd"),
         }
 
         rows = list(self.index["detector"])
@@ -3467,7 +3506,6 @@ class model_dayabay_v1a:
                 source = self.storage["outputs"].get_dict(path)
             except KeyError:
                 print("error", key)
-                import IPython; IPython.embed(colors='neutral') # fmt: skip
                 continue
             for k, output in source.walkitems():
                 data = output.data

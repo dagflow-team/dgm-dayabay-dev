@@ -13,9 +13,8 @@ from typing import TYPE_CHECKING
 
 from dag_modelling.tools.logger import set_verbosity
 from dag_modelling.tools.save_records import save_records
+from dgm_dayabay_dev.models import available_models_limited, load_model
 from matplotlib import pyplot as plt
-
-from dgm_dayabay_dev.models import load_model, available_models_limited
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -45,7 +44,6 @@ def main(opts: Namespace) -> None:
         model_options=opts.model_options,
         close=opts.close,
         strict=opts.strict,
-        source_type=opts.source_type,
         override_indices=override_indices,
         parameter_values=opts.par,
     )
@@ -126,7 +124,7 @@ def main(opts: Namespace) -> None:
         )
 
     if opts.pars_datax:
-        storage["parameters.all"].to_datax_file(f"output/dayabay_{opts.version}_pars_datax.tex")
+        storage["parameters.all"].to_datax(f"output/dayabay_{opts.version}_pars_datax.tex")
 
     if opts.pars_latex:
         storage["parameters.all"].to_latex_file(opts.pars_latex)
@@ -158,8 +156,8 @@ def main(opts: Namespace) -> None:
         path = Path(opts.graphs_all)
         storage["parameter_group.all"].savegraphs(
             path / "parameters",
-            mindepth=opts.mindepth,
-            maxdepth=opts.maxdepth,
+            min_depth=opts.mindepth,
+            max_depth=opts.maxdepth,
             keep_direction=True,
             show="all",
             accept_index=graph_accept_index,
@@ -168,8 +166,8 @@ def main(opts: Namespace) -> None:
         with suppress(KeyError):
             storage["parameters.sigma"].savegraphs(
                 path / "parameters" / "sigma",
-                mindepth=opts.mindepth,
-                maxdepth=opts.maxdepth,
+                min_depth=opts.mindepth,
+                max_depth=opts.maxdepth,
                 keep_direction=True,
                 show="all",
                 accept_index=graph_accept_index,
@@ -177,8 +175,8 @@ def main(opts: Namespace) -> None:
             )
         storage["nodes"].savegraphs(
             path,
-            mindepth=opts.mindepth,
-            maxdepth=opts.maxdepth,
+            min_depth=opts.mindepth,
+            max_depth=opts.maxdepth,
             keep_direction=True,
             show="all",
             accept_index=graph_accept_index,
@@ -192,8 +190,8 @@ def main(opts: Namespace) -> None:
             nodes = storage("nodes")[nodepath]
             nodes.savegraphs(
                 f"{folder}/{nodepath.replace('.', '/')}",
-                mindepth=opts.mindepth,
-                maxdepth=opts.maxdepth,
+                min_depth=opts.mindepth,
+                max_depth=opts.maxdepth,
                 keep_direction=True,
                 show="all",
                 accept_index=graph_accept_index,
@@ -288,14 +286,6 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
     parser.add_argument(
-        "-s",
-        "--source-type",
-        "--source",
-        choices=("tsv", "hdf5", "root", "npz"),
-        default="default:hdf5",
-        help="Data source type",
-    )
-    parser.add_argument(
         "--interactive",
         action="store_true",
         help="Start IPython session",
@@ -356,8 +346,8 @@ if __name__ == "__main__":
     #     help="plot the graph starting from the node",
     #     metavar=("node", "file"),
     # )
-    dot.add_argument("--mindepth", "--md", default=-2, type=int, help="minimal depth")
-    dot.add_argument("--maxdepth", "--Md", default=+1, type=int, help="maximaldepth depth")
+    dot.add_argument("--min_depth", "--md", default=-2, type=int, help="minimal depth")
+    dot.add_argument("--max_depth", "--Md", default=+1, type=int, help="maximaldepth depth")
     dot.add_argument("--graphs-all", help="plot graphs", metavar="folder")
     dot.add_argument(
         "--graphs",
