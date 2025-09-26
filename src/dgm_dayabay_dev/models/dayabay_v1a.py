@@ -3356,6 +3356,9 @@ class model_dayabay_v1a:
 
         self._setup_labels()
 
+        # Model will load real data
+        self.switch_data("observed")
+
         # Ensure stem nodes are calculated
         self._touch()
 
@@ -3412,6 +3415,20 @@ class model_dayabay_v1a:
             value = float(svalue)
             par = parameters_storage[parname]
             setter(par, value)
+
+    def switch_data(self, type: Literal["asimov", "observed"]) -> None:
+        """Switch data.proxy output.
+
+        Parameters
+        ----------
+        type : Literal["asimov", "observed"]
+            Choice for switching, Asimov or real data observation
+
+        Returns
+        -------
+        None
+        """
+        self.storage["node.data.proxy"].switch_input({"asimov": 0, "observed": 1})
 
     def next_sample(self, *, mc_parameters: bool = True, mc_statistics: bool = True) -> None:
         if mc_parameters:
