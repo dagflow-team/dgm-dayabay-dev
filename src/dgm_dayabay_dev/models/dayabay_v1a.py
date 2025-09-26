@@ -3430,7 +3430,7 @@ class model_dayabay_v1a:
         """
         if key not in {"asimov", "real"}:
             raise KeyError(f"Switch to `{key}` is not supported, `asimov`, `real` supported only")
-        self.storage["node.data.proxy"].switch_input({"asimov": 0, "real": 1}[key])
+        self.storage["nodes.data.proxy"].switch_input({"asimov": 0, "real": 1}[key])
 
     def next_sample(self, *, mc_parameters: bool = True, mc_statistics: bool = True) -> None:
         if mc_parameters:
