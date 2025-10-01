@@ -6,13 +6,8 @@ from os.path import relpath
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from dag_modelling.bundles.file_reader import FileReader
-from dag_modelling.bundles.load_array import load_array
-from dag_modelling.bundles.load_graph import load_graph, load_graph_data
-from dag_modelling.bundles.load_parameters import load_parameters
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import INFO, logger
-from dag_modelling.tools.schema import LoadYaml
 from nested_mapping import NestedMapping
 from numpy import ndarray
 from numpy.random import Generator
@@ -253,7 +248,7 @@ class model_dayabay_v1a:
         # Dataset items
         cfg_file_mapping = {
             "antineutrino_spectrum_segment_edges": path_parameters
-            / "reactor_antineutrino_spectrum_edges.py",
+            / "reactor_antineutrino_spectrum_edges.tsv",
             "parameters.survival_probability": path_parameters / "survival_probability.yaml",
             "parameters.survival_probability_solar": path_parameters
             / "survival_probability_solar.yaml",
@@ -311,7 +306,7 @@ class model_dayabay_v1a:
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
             f"{self.source_type}",
-            "dataset": path_data / "dayabay_dataset/dayabay_ibd_spectra_{}."f"{self.source_type}",
+            "dataset": path_data / "dayabay_dataset/dayabay_ibd_spectra_{}." f"{self.source_type}",
         }
 
         for cfg_name, path in override_cfg_files.items():
@@ -331,7 +326,9 @@ class model_dayabay_v1a:
     def nbins(self) -> int:
         return self.storage["outputs.eventscount.final.concatenated.selected"].data.shape[0]
 
-    def build(self, cfg_file_mapping: dict[str, Path], override_indices: dict[str, tuple[str, ...]] = {}):
+    def build(
+        self, cfg_file_mapping: dict[str, Path], override_indices: dict[str, tuple[str, ...]] = {}
+    ):
         """Actually build the model.
 
         Steps:
@@ -350,7 +347,11 @@ class model_dayabay_v1a:
         #
         # Import necessary nodes and loaders
         #
+        from dag_modelling.bundles.file_reader import FileReader
+        from dag_modelling.bundles.load_array import load_array
+        from dag_modelling.bundles.load_graph import load_graph, load_graph_data
         from dag_modelling.bundles.load_hist import load_hist
+        from dag_modelling.bundles.load_parameters import load_parameters
         from dag_modelling.bundles.load_record import load_record_data
         from dag_modelling.bundles.make_y_parameters_for_x import make_y_parameters_for_x
         from dag_modelling.lib.arithmetic import (
@@ -364,12 +365,7 @@ class model_dayabay_v1a:
         from dag_modelling.lib.axis import BinCenter, BinWidth
         from dag_modelling.lib.common import Array, Concatenation, Proxy, View
         from dag_modelling.lib.exponential import Exp
-        from dag_modelling.lib.hist import (
-            AxisDistortionMatrix,
-            AxisDistortionMatrixLinear,
-            AxisDistortionMatrixPointwise,
-            Rebin,
-        )
+        from dag_modelling.lib.hist import AxisDistortionMatrixPointwise, Rebin
         from dag_modelling.lib.integration import Integrator
         from dag_modelling.lib.interpolation import Interpolator
         from dag_modelling.lib.linalg import Cholesky, VectorMatrixProduct
@@ -385,7 +381,6 @@ class model_dayabay_v1a:
             MonteCarlo,
         )
         from dag_modelling.lib.summation import ArraySum, SumMatOrDiag, WeightedSumArgs
-        from dag_modelling.tools.schema import LoadPy
         from dgm_reactor_neutrino import (
             IBDXsecVBO1Group,
             InverseSquareLaw,
@@ -404,11 +399,9 @@ class model_dayabay_v1a:
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        antineutrino_model_edges = LoadPy(
-            cfg_file_mapping["antineutrino_spectrum_segment_edges"],
-            variable="edges",
-            type=ndarray,
-        )
+        antineutrino_model_edges = FileReader.record[
+            cfg_file_mapping["antineutrino_spectrum_segment_edges"]
+        ]["E_neutrino_MeV"]
 
         # Provide some convenience substitutions for labels
         index_names = {
@@ -3449,6 +3442,8 @@ class model_dayabay_v1a:
         return dict(_SYSTEMATIC_UNCERTAINTIES_GROUPS)
 
     def _setup_labels(self):
+        from dag_modelling.tools.schema import LoadYaml
+
         labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
 
         processed_keys_set = set()
