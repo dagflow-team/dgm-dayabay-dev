@@ -4,7 +4,9 @@ from typing import Literal
 
 def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "npz"]:
     extensions = set()
-    for filepath in filter(lambda path: path.is_file(), path_data.rglob("*.*")):
+    for filepath in filter(
+        lambda path: path.is_file() and not path.parent.stem == "parameters", path_data.rglob("*.*")
+    ):
         extensions.add(filepath.suffix[1:])
     extensions -= {"py", "yaml"}
     if len(extensions) == 1:
