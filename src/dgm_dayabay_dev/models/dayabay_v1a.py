@@ -195,11 +195,10 @@ class model_dayabay_v1a:
             case None:
                 self._path_data = Path("data/dayabay-v1a/hdf5")
             case _:
-                raise RuntimeError(
-                    f"Unsupported path option: {path_data}"
-                )
+                raise RuntimeError(f"Unsupported path option: {path_data}")
 
         from ..tools import auto_detect_source_type
+
         self._source_type = auto_detect_source_type(self._path_data)
 
         self.storage = NodeStorage()
@@ -434,6 +433,18 @@ class model_dayabay_v1a:
                 "AD33",
                 "AD34",
             ),
+            # A subset of detector names, which are considered for the χ² calculation.
+            # Will be applied for selection of the histograms for the model prediction and real data.
+            "detector_included": (
+                "AD11",
+                "AD12",
+                "AD21",
+                "AD22",
+                "AD31",
+                "AD32",
+                "AD33",
+                "AD34",
+            ),
             # Source of background events:
             #     - accidentals: accidental coincidences
             #     - lithium_helium: ⁹Li and ⁸He related events
@@ -490,6 +501,14 @@ class model_dayabay_v1a:
 
         # Optionally override (reduce) indices
         index.update(override_indices)
+
+        # Check that the detector indices are consistent.
+        detectors = index["detector"]
+        detectors_included = set(index["detector_included"])
+        assert detectors_included.issubset(
+            detectors
+        ), f"index['detector_included'] is not consistent with index['detector']: {detectors_included} ⊈ {detectors}"
+        index["detector_excluded"] = tuple(d for d in detectors if not d in detectors_included)
 
         # Check there are now overlaps
         index_all = index["isotope"] + index["detector"] + index["reactor"] + index["period"]
@@ -2772,15 +2791,21 @@ class model_dayabay_v1a:
                 replicate_outputs=combinations["detector.period"],
             )
 
+            remap_items(
+                outputs.get_dict("eventscount.final.detector_period"),
+                outputs.create_child("eventscount.final.detector_period_selected"),
+                skip_indices_target=index["detector_excluded"],
+            )
+
             Concatenation.replicate(
-                outputs("eventscount.final.detector_period"),
+                outputs("eventscount.final.detector_period_selected"),
                 name="eventscount.final.concatenated.detector_period",
             )
 
             Sum.replicate(
-                outputs("eventscount.final.detector_period"),
+                outputs("eventscount.final.detector_period_selected"),
                 name="eventscount.final.detector",
-                replicate_outputs=index["detector"],
+                replicate_outputs=index["detector_included"],
             )
 
             Concatenation.replicate(
@@ -2856,15 +2881,21 @@ class model_dayabay_v1a:
             )
             outputs["data.real.fine"] >> inputs.get_dict("data.real.final.detector_period")
 
+            remap_items(
+                outputs.get_dict("data.real.final.detector_period"),
+                outputs.create_child("data.real.final.detector_period_selected"),
+                skip_indices_target=index["detector_excluded"],
+            )
+
             Concatenation.replicate(
-                outputs("data.real.final.detector_period"),
+                outputs("data.real.final.detector_period_selected"),
                 name="data.real.concatenated.detector_period",
             )
 
             Sum.replicate(
-                outputs("data.real.final.detector_period"),
+                outputs("data.real.final.detector_period_selected"),
                 name="data.real.final.detector",
-                replicate_outputs=index["detector"],
+                replicate_outputs=index["detector_included"],
             )
 
             Concatenation.replicate(
