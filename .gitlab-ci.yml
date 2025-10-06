@@ -3,7 +3,7 @@ stages:
   - publish
 
 tests:
-  image: 'python:3.11.13-slim'
+  image: 'python:3.11.13-bullseye'
   stage: tests
 
   variables:
