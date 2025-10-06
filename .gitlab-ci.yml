@@ -1,8 +1,9 @@
 stages:
   - tests
+  - publish
 
 tests:
-  image: 'python:3.11.7-bullseye'
+  image: 'python:3.11.13-bullseye'
   stage: tests
 
   variables:
@@ -13,9 +14,9 @@ tests:
     - python3 -m venv venv
     - source venv/bin/activate
     - git lfs install --skip-repo
-    - pip install --upgrade wheel setuptools pip
-    - pip install cython
-    - pip install -e ".[test]"
+    - pip install --no-cache-dir --upgrade wheel setuptools pip
+    - pip install --no-cache-dir cython
+    - pip install --no-cache-dir -e ".[test]"
     - ipython kernel install --name "python3" --user
     - git clone --branch $DATA_BRANCH --depth=1 https://gitlab-ci-token:${CI_JOB_TOKEN}@git.jinr.ru/dag-computing/dayabay-data-all.git data
     - coverage run --source=. -m pytest
@@ -33,3 +34,12 @@ tests:
     - master
     - main
     - merge_requests
+
+pypi:
+  image: 'python:3.11.13-slim'
+  stage: publish
+  script:
+    - pip install twine build
+    - twine upload --non-interactive --repository pypi dist/* -u $PYPI_TWINE_USERNAME -p $PYPI_TWINE_PASSWORD dist/*
+  rules:
+  - if: $CI_COMMIT_TAG
