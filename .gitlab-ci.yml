@@ -1,5 +1,6 @@
 stages:
   - tests
+  - publish
 
 tests:
   image: 'python:3.11.13-slim'
@@ -36,6 +37,7 @@ tests:
 
 pypi:
   image: 'python:3.11.13-slim'
+  stage: publish
   script:
     - pip install twine build
     - twine upload --non-interactive --repository pypi dist/* -u $PYPI_TWINE_USERNAME -p $PYPI_TWINE_PASSWORD dist/*
