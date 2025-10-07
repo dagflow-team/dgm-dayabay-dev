@@ -20,7 +20,7 @@ def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "
         Type of source data
     """
     extensions = {path.suffix[1:] for path in filter(
-        lambda path: path.is_file(), path_data.rglob("[!p]*.*")
+        lambda path: path.is_file() and "parameters" not in path.parts, path_data.rglob("*.*")
     )}
     extensions -= {"py", "yaml"}
     if len(extensions) == 1:
