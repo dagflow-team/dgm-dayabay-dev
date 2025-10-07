@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import INFO, logger
 from nested_mapping import NestedMapping
-from numpy import ndarray
+from numpy import ascontiguousarray, ndarray
 from numpy.random import Generator
 from pandas import DataFrame
 
@@ -17,6 +17,7 @@ from pandas import DataFrame
 
 if TYPE_CHECKING:
     from dag_modelling.core.meta_node import MetaNode
+    from numpy.typing import NDArray
 
 # Define a dictionary of groups of nuisance parameters in a format `name: path`,
 # where path denotes the location of the parameters in the storage.
@@ -86,6 +87,8 @@ class model_dayabay_v1a:
             - "normal-stats" - normal fluctuations with statistical,
               errors,
             - "poisson" - Poisson fluctuations.
+    _final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
+        Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     path_data : Path
         Path to the data.
     source_type : str, default="default:hdf5"
@@ -122,6 +125,7 @@ class model_dayabay_v1a:
         "spectrum_correction_location",
         "concatenation_mode",
         "monte_carlo_mode",
+        "_final_erec_bin_edges",
         "_source_type",
         "_strict",
         "_close",
@@ -140,6 +144,7 @@ class model_dayabay_v1a:
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
+    _final_erec_bin_edges: Path | NDArray | None
     _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
     _strict: bool
     _close: bool
@@ -164,6 +169,7 @@ class model_dayabay_v1a:
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
         path_data: str | Path | None = None,
+        final_erec_bin_edges: str | Path | Sequence[int | float] | NDArray | None = None,
     ):
         """Model initialization.
 
@@ -207,6 +213,17 @@ class model_dayabay_v1a:
         self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
         self.monte_carlo_mode = monte_carlo_mode
+        match final_erec_bin_edges:
+            case str() | Path():
+                self._final_erec_bin_edges = Path(final_erec_bin_edges)
+            case Sequence() | ndarray():
+                self._final_erec_bin_edges = ascontiguousarray(final_erec_bin_edges, dtype="d")
+            case None:
+                self._final_erec_bin_edges = None
+            case _:
+                raise RuntimeError(
+                    f"Invalid 'final_erec_bin_edges type: {type(final_erec_bin_edges).__name__}"
+                )
         self._random_generator = self._create_random_generator(seed)
 
         logger.log(INFO, f"Model version: {type(self).__name__}")
@@ -248,6 +265,7 @@ class model_dayabay_v1a:
         cfg_file_mapping = {
             "antineutrino_spectrum_segment_edges": path_parameters
             / "reactor_antineutrino_spectrum_edges.tsv",
+            "final_erec_bin_edges": path_parameters / "final_erec_bin_edges.tsv",
             "parameters.survival_probability": path_parameters / "survival_probability.yaml",
             "parameters.survival_probability_solar": path_parameters
             / "survival_probability_solar.yaml",
@@ -307,6 +325,11 @@ class model_dayabay_v1a:
             f"{self.source_type}",
             "dataset": path_data / "dayabay_dataset/dayabay_ibd_spectra_{}." f"{self.source_type}",
         }
+        match self._final_erec_bin_edges:
+            case Path():
+                cfg_file_mapping["final_erec_bin_edges"] = self._final_erec_bin_edges
+            case ndarray():
+                del cfg_file_mapping["final_erec_bin_edges"]
 
         for cfg_name, path in override_cfg_files.items():
             cfg_file_mapping.update({cfg_name: Path(path)})
@@ -897,8 +920,15 @@ class model_dayabay_v1a:
             # - cosθ (positron angle) edges [-1,1] are defined explicitly for the
             #   integration of the Inverse Beta Decay (IBD) cross section.
             in_edges_fine = linspace(0, 12, 241)
-            in_edges_final = concatenate(([0.7], arange(1.3, 7.41, 0.25), [12.0]))
             in_edges_costheta = [-1, 1]
+
+            if isinstance(self._final_erec_bin_edges, ndarray):
+                in_edges_final = self._final_erec_bin_edges
+                logger.info(f"Final Erec bin edges passed via argument: {in_edges_final!s}")
+            else:
+                in_edges_final = FileReader.record[cfg_file_mapping["final_erec_bin_edges"]][
+                    "E_rec_MeV"
+                ]
 
             # Instantiate the storage nodes for bin edges. In what follows all the
             # nodes, outputs and inputs are automatically added to the relevant storage
