@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.0] - 2025-10-07
+
+- feature: configure the final binning (v1a) via configuration file of an argument.
+
 ## [0.3.0] - 2025-10-06
 
 - feature: model `v1a`, add `detector_included` index to select detectors for the χ² construction.
