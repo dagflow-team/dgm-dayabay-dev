@@ -523,7 +523,10 @@ class model_dayabay_v1a:
         index["isotope_lower"] = tuple(isotope.lower() for isotope in index["isotope"])
 
         # Optionally override (reduce) indices
-        index.update(override_indices)
+        for index_name, index_values in override_indices.items():
+            if index_name not in index:
+                raise RuntimeError(f"Invalide index {index_name} found when overriding indices")
+            index[index_name] = index_values
 
         # Check that the detector indices are consistent.
         detectors = index["detector"]
