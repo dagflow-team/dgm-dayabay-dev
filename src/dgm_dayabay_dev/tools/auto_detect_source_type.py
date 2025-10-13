@@ -1,5 +1,4 @@
 from pathlib import Path
-from sys import exit
 from typing import Literal
 
 from dag_modelling.tools.logger import logger
@@ -41,8 +40,9 @@ def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "
     if len(extensions) == 1:
         source_type = extensions.pop()
         if source_type not in {"tsv", "hdf5", "root", "npz", "bz2"}:
-            logger.critical(f"Unexpected data extension: {source_type}")
-            exit(1)
+            message = f"Unexpected data extension: {source_type}"
+            logger.critical(message)
+            raise RuntimeError(message)
 
         if source_type == "bz2":
             source_type = "tsv"
@@ -52,11 +52,13 @@ def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "
         return source_type  # pyright: ignore [reportReturnType]
 
     elif len(extensions) > 1:
-        logger.critical(f"Find to many possibly loaded extensions: {', '.join(extensions)}")
-        exit(1)
+        message = f"Find to many possibly loaded extensions: {', '.join(extensions)}"
+        logger.critical(message)
+        raise RuntimeError(message)
 
-    logger.critical(f"Data directory `{path_data}` may not exists")
-    exit(1)
+    message = f"Data directory `{path_data}` may not exists"
+    logger.critical(message)
+    raise RuntimeError(message)
 
 
 def read_source_type_from_manifest(path_data: Path) -> Literal["tsv", "hdf5", "root", "npz"] | None:
@@ -69,17 +71,20 @@ def read_source_type_from_manifest(path_data: Path) -> Literal["tsv", "hdf5", "r
     try:
         source_type = manifest["version"]
     except KeyError:
-        logger.critical(f"Can not obtain 'version' from Manifest.yaml")
-        exit(1)
+        message = f"Can not obtain 'version' from Manifest.yaml"
+        logger.critical(message)
+        raise RuntimeError(message)
 
     try:
         source_type = manifest["metadata"]["format"]
     except (KeyError, TypeError):
-        logger.critical(f"Can not obtain ['metadata']['format'] from the Manifest.yaml")
-        exit(1)
+        message = f"Can not obtain ['metadata']['format'] from the Manifest.yaml"
+        logger.critical(message)
+        raise RuntimeError(message)
 
     if source_type not in {"tsv", "hdf5", "root", "npz"}:
-        logger.critical(f"Source type {source_type}, reported by Manifest.yaml is not supported")
-        exit(1)
+        message = f"Source type {source_type}, reported by Manifest.yaml is not supported"
+        logger.critical(message)
+        raise RuntimeError(message)
 
     return source_type
