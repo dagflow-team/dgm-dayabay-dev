@@ -1992,12 +1992,23 @@ class model_dayabay_v1a:
                 replicate_outputs=combinations["reactor.isotope.period"],
             )
 
+            # Compute absollute value of previous transformation. It is needed because
+            # sometime minimization procedure goes to the non-physical values of
+            # fission fraction. This transforamtion limits possible variations.
+            Abs.replicate(
+                name="daily_data.reactor.fission_fraction_scaled_abs",
+                replicate_outputs=combinations["reactor.isotope.period"],
+            )
+            outputs.get_dict("daily_data.reactor.fission_fraction_scaled") >> inputs.get_dict(
+                "daily_data.reactor.fission_fraction_scaled_abs"
+            )
+
             # Using daily fission fractions compute weighted energy per fission in each
             # isotope in each reactor during each period. This is an intermediate step
             # to obtain average energy per fission in each reactor.
             Product.replicate(
                 parameters.get_dict("all.reactor.energy_per_fission"),
-                outputs.get_dict("daily_data.reactor.fission_fraction_scaled"),
+                outputs.get_dict("daily_data.reactor.fission_fraction_scaled_abs"),
                 name="reactor.energy_per_fission_weighted_MeV",
                 replicate_outputs=combinations["reactor.isotope.period"],
             )
@@ -2016,28 +2027,17 @@ class model_dayabay_v1a:
             # thermal power.
             Product.replicate(
                 outputs.get_dict("daily_data.reactor.power"),
-                outputs.get_dict("daily_data.reactor.fission_fraction_scaled"),
+                outputs.get_dict("daily_data.reactor.fission_fraction_scaled_abs"),
                 outputs.get_dict("reactor.thermal_power_nominal_MeVs"),
                 name="reactor.thermal_power_isotope_MeV_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],
-            )
-
-            # Compute absollute value of previous transformation. It is needed because
-            # sometime minimization procedure goes to the non-physical values of
-            # fission fraction. This transforamtion limits possible variations.
-            Abs.replicate(
-                name="reactor.thermal_power_abs_isotope_MeV_per_second",
-                replicate_outputs=combinations["reactor.isotope.period"],
-            )
-            outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second") >> inputs.get_dict(
-                "reactor.thermal_power_abs_isotope_MeV_per_second"
             )
 
             # Compute number of fissions per second related to each isotope in each
             # reactor and each period: divide partial thermal power by average energy
             # per fission.
             Division.replicate(
-                outputs.get_dict("reactor.thermal_power_abs_isotope_MeV_per_second"),
+                outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second"),
                 outputs.get_dict("reactor.energy_per_fission_average_MeV"),
                 name="reactor.fissions_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],

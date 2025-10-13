@@ -238,6 +238,12 @@ daily_data:
         axis: '$f_i$'
         xaxis: "Day"
         plotoptions: *daily_plotoptions
+    fission_fraction_scaled_abs:
+      group:
+        text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} during {index[2]} (absolute values)"
+        axis: '$|f_i|$'
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
 reactor:
   energy_per_fission_weighted_MeV:
     group:
@@ -263,12 +269,6 @@ reactor:
     group:
       text: "Fractional thermal power for {index[1]} in {index[0]} during {index[2]}"
       axis: '$W_i/W_{{\rm tot}}$'
-      xaxis: "Day"
-      unit: "MeV/s"
-  thermal_power_abs_isotope_MeV_per_second:
-    group:
-      text: "Fractional thermal power for {index[1]} in {index[0]} during {index[2]}\\nabsolute value"
-      axis: '$\left|W_i/W_{{\rm tot}}\right|$'
       xaxis: "Day"
       unit: "MeV/s"
   fissions_per_second:
