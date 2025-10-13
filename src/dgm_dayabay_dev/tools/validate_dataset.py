@@ -1,8 +1,44 @@
 from pathlib import Path
 from typing import Literal
 
+from colorama import Fore
 from dag_modelling.tools.logger import logger
 from dag_modelling.tools.schema import LoadYaml
+from semver import Version
+
+
+def validate_dataset_get_source_type(
+    path_data: Path,
+    meta_name: str,
+    *,
+    version_min: str,
+    version_max: str
+) -> Literal["tsv", "hdf5", "root", "npz"]:
+    source_type, version = load_manifest(path_data, meta_name)
+    if source_type is None:
+        source_type = auto_detect_source_type(path_data)
+        logger.info(f"Source type automatically detected: {source_type}")
+        return source_type
+    assert version
+
+    logger.info(f"Source type from Manifest.yaml: {source_type}")
+    logger.info(f"Dataset version: {version!s}")
+
+    version_min_v = Version.parse(version_min)
+    version_max_v = Version.parse(version_max)
+
+    if version < version_min_v:
+        message = f"Dataset version {version!s} should be ≥{version_min} and <{version_max}"
+        logger.critical(message)
+        logger.info("Consider updating the dataset")
+        raise RuntimeError(message)
+    if version >= version_max_v:
+        message = f"Dataset version {version!s} should be ≥{version_min} and <{version_max}"
+        logger.critical(message)
+        logger.info("Consider updating the model")
+        raise RuntimeError(message)
+
+    return source_type
 
 
 def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "npz"]:
@@ -26,10 +62,6 @@ def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "
     Literal["tsv", "hdf5", "root", "npz"]
         Type of source data
     """
-    if (source_type := read_source_type_from_manifest(path_data)) is not None:
-        logger.info(f"Source type from Manifest.yaml: {source_type}")
-        return source_type
-
     extensions = {
         path.suffix[1:]
         for path in filter(
@@ -47,8 +79,6 @@ def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "
         if source_type == "bz2":
             source_type = "tsv"
 
-        logger.info(f"Source type automatically detected: {source_type}")
-
         return source_type  # pyright: ignore [reportReturnType]
 
     elif len(extensions) > 1:
@@ -61,30 +91,43 @@ def auto_detect_source_type(path_data: Path) -> Literal["tsv", "hdf5", "root", "
     raise RuntimeError(message)
 
 
-def read_source_type_from_manifest(path_data: Path) -> Literal["tsv", "hdf5", "root", "npz"] | None:
-    manifest_name = path_data / "Manifest.yaml"
+def load_manifest(
+    path_data: Path, meta_name: str
+) -> tuple[Literal["tsv", "hdf5", "root", "npz"] | None, Version | None]:
+    manifest_name = path_data / meta_name
     if not manifest_name.is_file():
-        logger.warning(f"Manifest.yaml is not found. Try to deduce the source type...")
-        return
+        logger.warning(
+            f"{Fore.RED}"
+            f"Manifest.yaml not found. Version checking disabled. Trying to deduce the source type..."
+            f"{Fore.RESET}"
+        )
+        return None, None
 
     manifest = LoadYaml(manifest_name)
     try:
-        source_type = manifest["version"]
-    except KeyError:
-        message = f"Can not obtain 'version' from Manifest.yaml"
+        version_str = manifest["version"]
+    except KeyError as e:
+        message = "Can not obtain 'version' from Manifest.yaml"
         logger.critical(message)
-        raise RuntimeError(message)
+        raise RuntimeError(message) from e
+
+    try:
+        version = Version.parse(version_str)
+    except ValueError as e:
+        message = "Version format is not valid: {version_str}"
+        logger.critical(message)
+        raise RuntimeError(message) from e
 
     try:
         source_type = manifest["metadata"]["format"]
-    except (KeyError, TypeError):
+    except (KeyError, TypeError) as e:
         message = f"Can not obtain ['metadata']['format'] from the Manifest.yaml"
         logger.critical(message)
-        raise RuntimeError(message)
+        raise RuntimeError(message) from e
 
     if source_type not in {"tsv", "hdf5", "root", "npz"}:
         message = f"Source type {source_type}, reported by Manifest.yaml is not supported"
         logger.critical(message)
         raise RuntimeError(message)
 
-    return source_type
+    return source_type, version
