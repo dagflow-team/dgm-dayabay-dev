@@ -2,6 +2,7 @@ from os import remove
 from pathlib import Path
 
 from pytest import mark, raises
+from yaml import safe_dump
 
 from dgm_dayabay_dev.tools.validate_dataset import (
     auto_detect_source_type,
@@ -69,54 +70,48 @@ metadata:
             temp_dir, meta_name, version_min="0.0.1", version_max="0.1.0"
         )
 
-    temp_file.write_text(
-        """\
-version: "trash"
-metadata:
-  format: "hdf5"
-  description: "Official data of the Daya Bay reactor electron antineutrino experiment"
-            """
-    )
-    with raises(RuntimeError):
-        source_type = validate_dataset_get_source_type(
-            temp_dir, meta_name, version_min="0.1.0", version_max="0.2.0"
-        )
 
-    temp_file.write_text(
-        """\
-version: "0.1.0"
-metadata_bad:
-  format: "hdf5"
-  description: "Official data of the Daya Bay reactor electron antineutrino experiment"
-            """
-    )
-    with raises(RuntimeError):
-        source_type = validate_dataset_get_source_type(
-            temp_dir, meta_name, version_min="0.1.0", version_max="0.2.0"
-        )
+@mark.parametrize(
+    "config",
+    [
+        {
+            "version": "invalid",
+            "metadata": {
+                "format": "hdf5",
+                "description": "Official data of the Daya Bay reactor electron antineutrino experiment",
+            },
+        },
+        {
+            "version": "0.1.0",
+            "metadata_bad": {
+                "format": "hdf5",
+                "description": "Official data of the Daya Bay reactor electron antineutrino experiment",
+            },
+        },
+        {
+            "version": "0.1.0",
+            "metadata": {
+                "invalid_format": "hdf5",
+                "description": "Official data of the Daya Bay reactor electron antineutrino experiment",
+            },
+        },
+        {
+            "version": "0.1.0",
+            "metadata": {
+                "format": "hdf5_invalid",
+                "description": "Official data of the Daya Bay reactor electron antineutrino experiment",
+            },
+        },
+    ],
+)
+def test_validate_dataset_bad_config(tmp_path, config):
+    temp_dir = tmp_path / "test_validate_dataset_bad"
+    temp_dir.mkdir()
 
-    temp_file.write_text(
-        """\
-version: "0.1.0"
-metadata:
-  format_bad: "hdf5"
-  description: "Official data of the Daya Bay reactor electron antineutrino experiment"
-            """
-    )
+    meta_name = "data_info.yaml"
+    temp_file = temp_dir / meta_name
+    temp_file.write_text(safe_dump(config))
     with raises(RuntimeError):
-        source_type = validate_dataset_get_source_type(
-            temp_dir, meta_name, version_min="0.1.0", version_max="0.2.0"
-        )
-
-    temp_file.write_text(
-        """\
-version: "0.1.0"
-metadata:
-  format: "hdf5_bad"
-  description: "Official data of the Daya Bay reactor electron antineutrino experiment"
-            """
-    )
-    with raises(RuntimeError):
-        source_type = validate_dataset_get_source_type(
+        validate_dataset_get_source_type(
             temp_dir, meta_name, version_min="0.1.0", version_max="0.2.0"
         )
