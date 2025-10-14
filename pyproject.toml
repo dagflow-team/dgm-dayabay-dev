@@ -56,6 +56,10 @@ exclude = [
 [tool.black]
 line-length = 100
 
+[tool.docformatter]
+wrap-summaries = 100
+wrap-descriptions = 100
+
 [tool.isort]
 profile = "black"
 line_length = 100
