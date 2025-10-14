@@ -203,9 +203,14 @@ class model_dayabay_v1a:
             case _:
                 raise RuntimeError(f"Unsupported path option: {path_data}")
 
-        from ..tools import auto_detect_source_type
+        from ..tools.validate_dataset import validate_dataset_get_source_type
 
-        self._source_type = auto_detect_source_type(self._path_data)
+        self._source_type = validate_dataset_get_source_type(
+            self._path_data,
+            "dataset_info.yaml",
+            version_min="0.1.0",
+            version_max="1.0.0"
+        )
 
         self.storage = NodeStorage()
         self._leading_mass_splitting_3l_name = leading_mass_splitting_3l_name
@@ -227,7 +232,6 @@ class model_dayabay_v1a:
         self._random_generator = self._create_random_generator(seed)
 
         logger.log(INFO, f"Model version: {type(self).__name__}")
-        logger.log(INFO, f"Source type: {self._source_type}")
         logger.log(INFO, f"Data path: {self.path_data!s}")
         logger.log(INFO, f"Concatenation mode: {self.concatenation_mode}")
         logger.log(

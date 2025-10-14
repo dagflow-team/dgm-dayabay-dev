@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.4.1] - 2025-10-xx
 
-- chore: check overridden indices exist.
+- feature: validate the version from `data_information.yaml` and use it to determine the
+  `source_type` (data format).
+- feature: check overridden indices exist (model v1a).
 - fix: apply `Abs` transformation to scaled fission fractions. Fit becomes much stable.
 
 ## [0.4.0] - 2025-10-07

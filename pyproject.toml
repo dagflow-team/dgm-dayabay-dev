@@ -19,13 +19,24 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+  "colorama",
   "dag-modelling>=0.14.1",
   "dgm-fit>=0.2",
   "dgm-reactor-neutrino>=0.2.1",
   "more-itertools",
+  "semver",
 ]
 
-optional-dependencies.test = [ "coverage", "nbconvert", "parameterized", "pytest", "pytest-cov", "ipython", "ipykernel", "ipywidgets" ]
+optional-dependencies.test = [
+  "coverage",
+  "ipykernel",
+  "ipython",
+  "ipywidgets",
+  "nbconvert",
+  "parameterized",
+  "pytest",
+  "pytest-cov",
+]
 
 urls."Bug Tracker" = "https://github.com/dagflow-team/dgm-dayabay-dev/issues"
 urls."DAGModelling Team" = "https://github.com/dagflow-team"
@@ -44,6 +55,10 @@ exclude = [
 
 [tool.black]
 line-length = 100
+
+[tool.docformatter]
+wrap-summaries = 100
+wrap-descriptions = 100
 
 [tool.isort]
 profile = "black"
