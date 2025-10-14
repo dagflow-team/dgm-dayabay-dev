@@ -43,7 +43,8 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
 
 
 class model_dayabay_v1:
-    """The Daya Bay model implementation version v1. A candidate for the public release.
+    """The Daya Bay model implementation version v1. A candidate for the public
+    release.
 
     Purpose:
         - Finalize the model v0f.
@@ -217,12 +218,17 @@ class model_dayabay_v1:
             case None:
                 self._path_data = Path("data/dayabay-v1/hdf5")
             case _:
-                raise RuntimeError(
-                    f"Unsupported path option: {path_data}"
-                )
+                raise RuntimeError(f"Unsupported path option: {path_data}")
 
         from ..tools import auto_detect_source_type
-        self._source_type = auto_detect_source_type(self._path_data)
+        from ..tools.validate_dataset import validate_dataset_get_source_type
+
+        self._source_type = validate_dataset_get_source_type(
+            self._path_data,
+            "dataset_info.yaml",
+            version_min="0.1.0",
+            version_max="1.0.0"
+        )
 
         self.storage = NodeStorage()
         self._dataset = dataset
@@ -234,7 +240,6 @@ class model_dayabay_v1:
 
         logger.log(INFO, f"Model version: {type(self).__name__}")
         logger.log(INFO, f"Dataset: {self._dataset}")
-        logger.log(INFO, f"Source type: {self._source_type}")
         logger.log(INFO, f"Data path: {self.path_data!s}")
         logger.log(INFO, f"Concatenation mode: {self.concatenation_mode}")
         logger.log(
@@ -334,7 +339,8 @@ class model_dayabay_v1:
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data
             / f"{path_dataset}/{path_dataset}_background_spectra_{{}}.{self.source_type}",
-            "dataset": path_data / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}"
+            "dataset": path_data
+            / f"{path_dataset}/{path_dataset}_ibd_spectra_{{}}.{self.source_type}",
         }
 
         for cfg_name, path in override_cfg_files.items():
@@ -358,7 +364,9 @@ class model_dayabay_v1:
     def nbins(self) -> int:
         return self.storage["outputs.eventscount.final.concatenated.selected"].data.shape[0]
 
-    def build(self, cfg_file_mapping: dict[str, Path], override_indices: dict[str, tuple[str, ...]] = {}):
+    def build(
+        self, cfg_file_mapping: dict[str, Path], override_indices: dict[str, tuple[str, ...]] = {}
+    ):
         """Actually build the model.
 
         Steps:
