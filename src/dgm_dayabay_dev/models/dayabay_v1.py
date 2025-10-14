@@ -220,7 +220,6 @@ class model_dayabay_v1:
             case _:
                 raise RuntimeError(f"Unsupported path option: {path_data}")
 
-        from ..tools import auto_detect_source_type
         from ..tools.validate_dataset import validate_dataset_get_source_type
 
         self._source_type = validate_dataset_get_source_type(
