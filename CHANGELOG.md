@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.1] - 2025-10-xx
+
+- feature: validate the version from `data_information.yaml` and use it to determine the
+  `source_type` (data format).
+- feature: check overridden indices exist (model v1a).
+- fix: apply `Abs` transformation to scaled fission fractions. Fit becomes much stable.
+- fix: update keys related to graph visualization for [scripts/scripts/run_dayabay.py](extras/scripts/run_dayabay.py).
+
 ## [0.4.0] - 2025-10-07
 
 - feature: configure the final binning (v1a) via configuration file of an argument.
