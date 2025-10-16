@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.4.1] - 2025-10-xx
+## [0.4.1] - 2025-10-16
 
 - feature: validate the version from `data_information.yaml` and use it to determine the
   `source_type` (data format).
