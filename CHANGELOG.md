@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   `source_type` (data format).
 - feature: check overridden indices exist (model v1a).
 - fix: apply `Abs` transformation to scaled fission fractions. Fit becomes much stable.
+- fix: update keys related to graph visualization for [scripts/scripts/run_dayabay.py](extras/scripts/run_dayabay.py).
 
 ## [0.4.0] - 2025-10-07
 
