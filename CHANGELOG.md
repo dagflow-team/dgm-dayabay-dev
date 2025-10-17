@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.2.3] - 2025-10-17
+## [0.4.2] - 2025-10-17
 
 - chore: disable `numba` caching as it may cause problems for parallel execution. Configurable.
 - chore: step `dgm-reactor-neutrino` dependence version to 0.2.2.
