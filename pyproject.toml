@@ -35,6 +35,7 @@ optional-dependencies.test = [
   "ipywidgets",
   "nbconvert",
   "parameterized",
+  "pygraphviz",
   "pytest",
   "pytest-cov",
 ]
@@ -57,11 +58,11 @@ exclude = [
 [tool.black]
 line-length = 100
 
-[tool.docformatter]
-wrap-summaries = 100
-wrap-descriptions = 100
-
 [tool.isort]
 profile = "black"
 line_length = 100
 multi_line_output = 5
+
+[tool.docformatter]
+wrap-summaries = 100
+wrap-descriptions = 100
