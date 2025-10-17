@@ -253,7 +253,6 @@ class model_dayabay_v1a:
 
         override_indices = {k: tuple(v) for k, v in override_indices.items()}
 
-        # TODO: doc
         cfg_file_mapping = self._build_cfg_file_mapping(override_cfg_files)
 
         self.build(cfg_file_mapping, override_indices)
