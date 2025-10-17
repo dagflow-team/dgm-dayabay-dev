@@ -2,33 +2,32 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from numpy import allclose
-from numba import njit
-
+from dag_modelling.core.global_parameters import NUMBA_CACHE_ENABLE
 from dag_modelling.core.node import Node
 from dag_modelling.core.type_functions import (
     check_dimension_of_inputs,
-    check_size_of_inputs,
     check_inputs_have_same_dtype,
     check_inputs_have_same_shape,
+    check_size_of_inputs,
     copy_from_inputs_to_outputs,
     evaluate_dtype_of_outputs,
 )
+from numba import njit
+from numpy import allclose
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from numpy.typing import NDArray
-
     from dag_modelling.core.input import Input
     from dag_modelling.core.output import Output
+    from numpy.typing import NDArray
 
 
 class AxisDistortionMatrixLinearLegacy(Node):
     """For a given historam and distorted X axis compute the conversion matrix.
 
-    Distortion is assumed to be linear. This is a legacy version of
-    AxisDistortionMatrixLinear to be compatible with GNA implementation.
+    Distortion is assumed to be linear. This is a legacy version of AxisDistortionMatrixLinear to be
+    compatible with GNA implementation.
     """
 
     __slots__ = (
@@ -109,7 +108,9 @@ def _axisdistortion_linear_python(
 ):
     # in general, target edges may be different (finer than original), the code should be able to handle it.
     # but currently we just check that edges are the same.
-    assert edges_original is edges_target or allclose(edges_original, edges_target, atol=0.0, rtol=0.0)
+    assert edges_original is edges_target or allclose(
+        edges_original, edges_target, atol=0.0, rtol=0.0
+    )
     min_target = edges_target[0]
     nbinsx = edges_original.size - 1
     nbinsy = edges_target.size - 1
@@ -187,5 +188,5 @@ def _axisdistortion_linear_python(
 
 
 _axisdistortion_linear_numba: Callable[[NDArray, NDArray, NDArray, NDArray, NDArray], None] = njit(
-    cache=True
+    cache=NUMBA_CACHE_ENABLE
 )(_axisdistortion_linear_python)
