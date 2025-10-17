@@ -2,25 +2,24 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from numba import njit
-
 from dag_modelling.core.exception import InitializationError
+from dag_modelling.core.global_parameters import NUMBA_CACHE_ENABLE
 from dag_modelling.core.node import Node
 from dag_modelling.core.type_functions import (
     check_dimension_of_inputs,
     check_inputs_have_same_shape,
     copy_from_inputs_to_outputs,
 )
+from numba import njit
 
 if TYPE_CHECKING:
+    from dag_modelling.core.input import Input
+    from dag_modelling.core.output import Output
     from numpy import double
     from numpy.typing import NDArray
 
-    from dag_modelling.core.input import Input
-    from dag_modelling.core.output import Output
 
-
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE_ENABLE)
 def _monotonize_with_x(
     x: NDArray[double],
     y: NDArray[double],
@@ -53,7 +52,7 @@ def _monotonize_with_x(
         i -= 1
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE_ENABLE)
 def _monotonize_without_x(
     y: NDArray[double],
     result: NDArray[double],
@@ -86,8 +85,7 @@ def _monotonize_without_x(
 
 
 class Monotonize(Node):
-    r"""
-    Monotonizes a function.
+    r"""Monotonizes a function.
 
     inputs:
         `y`: f(x) array
@@ -138,7 +136,9 @@ class Monotonize(Node):
             self._x = self._add_input("x", positional=False)  # input: "x"
         self._y = self._add_input("y", positional=True)  # input: "y"
         self._result = self._add_output("result")  # output: 0
-        self._functions_dict.update({"with_x": self._function_with_x, "without_x": self._function_without_x})
+        self._functions_dict.update(
+            {"with_x": self._function_with_x, "without_x": self._function_without_x}
+        )
 
     @property
     def gradient(self) -> float:
@@ -153,13 +153,15 @@ class Monotonize(Node):
         return self._index
 
     def _function_with_x(self) -> None:
-        _monotonize_with_x(self._x.data, self._y.data, self._result._data, self.gradient, self.index)
+        _monotonize_with_x(
+            self._x.data, self._y.data, self._result._data, self.gradient, self.index
+        )
 
     def _function_without_x(self) -> None:
         _monotonize_without_x(self._y.data, self._result._data, self.gradient, self.index)
 
     def _type_function(self) -> None:
-        """A output takes this function to determine the dtype and shape"""
+        """A output takes this function to determine the dtype and shape."""
         self._x = self.inputs.get("x")
         isGivenX = self._x is not None
         inputsToCheck = ("x", "y") if isGivenX else "y"
