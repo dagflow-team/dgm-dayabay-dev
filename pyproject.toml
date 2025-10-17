@@ -5,7 +5,7 @@ requires = [ "packaging", "setuptools", "wheel" ]
 
 [project]
 name = "dgm-dayabay-dev"
-version = "0.4.1"
+version = "0.4.2"
 description = "Implementation of the Daya Bay model for dag-modelling framework. Development version."
 readme = "README.md"
 license = "MIT"
@@ -22,7 +22,8 @@ dependencies = [
   "colorama",
   "dag-modelling>=0.14.1",
   "dgm-fit>=0.2",
-  "dgm-reactor-neutrino>=0.2.1",
+  # "dgm-reactor-neutrino>=0.2.2",
+  "dgm-reactor-neutrino @ git+https://git.jinr.ru/dagflow-team/dgm-reactor-neutrino.git@feat/njit-nocache",
   "more-itertools",
   "semver",
 ]
