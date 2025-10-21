@@ -11,6 +11,7 @@ from .dayabay_v0e import model_dayabay_v0e
 from .dayabay_v0f import model_dayabay_v0f
 from .dayabay_v1 import model_dayabay_v1
 from .dayabay_v1a import model_dayabay_v1a
+from .dayabay_v1a_distorted import model_dayabay_v1a_distorted
 
 AD_TO_EH = {
     "AD11": "EH1",
@@ -32,6 +33,7 @@ _dayabay_models = {
     "v0f": model_dayabay_v0f,
     "v1": model_dayabay_v1,
     "v1a": model_dayabay_v1a,
+    "v1a_distorted": model_dayabay_v1a_distorted,
 }
 _dayabay_models["latest"] = _dayabay_models["v1a"]
 
