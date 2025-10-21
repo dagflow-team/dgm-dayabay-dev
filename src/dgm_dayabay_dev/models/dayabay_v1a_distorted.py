@@ -1305,7 +1305,7 @@ class model_dayabay_v1a_distorted:
                 "constant.survival_probability"
             )
 
-            # Initialize two survival probability instances for fak distortion:
+            # Initialize two survival probability instances for fake distortion:
             # - target (fake) to be used as nominator
             # - source (quasi truth) to be used as denominator
             NueSurvivalProbability.replicate(
