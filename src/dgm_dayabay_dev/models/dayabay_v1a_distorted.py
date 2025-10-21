@@ -878,6 +878,111 @@ class model_dayabay_v1a_distorted:
                 },
             )
 
+            # Load "worst case distortion" parameters
+            load_parameters(
+                path="survival_probability_fake",
+                format="value",
+                state="fixed",
+                parameters={"baseline": 2000.0},
+                labels={
+                    "baseline": {
+                        "text": "Fake baseline for oscillation-like spectrum distortion [m]",
+                        "mark": "L'",
+                    }
+                },
+            )
+
+            load_parameters(
+                path="survival_probability_fake.target",
+                **{
+                    "format": "value",
+                    "state": "fixed",
+                    "parameters": {
+                        "nmo": 1,
+                        "SinSq2Theta13": 0.0856,
+                        "DeltaMSq31": 0.0025413,
+                        "DeltaMSq32": 0.002453,
+                        "DeltaMSq21": 0.0000753,
+                        "SinSq2Theta12": 0.851,
+                    },
+                    "labels": {
+                        "SinSq2Theta13": {
+                            "text": "Fake neutrino mixing amplitude sin²2θ₁₃'",
+                            "latex": "Fake neutrino mixing amplitude $\\sin^{2}2\\theta_{13}'$",
+                            "mark": "sin²2θ₁₃'",
+                        },
+                        "DeltaMSq31": {
+                            "text": "Fake neutrino mass splitting Δm²₃₁' [eV²]",
+                            "latex": "Fake neutrino mass splitting $\\Delta m^{2}_{31}'$ [eV$^2$]",
+                            "mark": "Δm²₃₁'",
+                        },
+                        "DeltaMSq32": {
+                            "text": "Fake neutrino mass splitting Δm²₃₂' [eV²]",
+                            "latex": "Fake neutrino mass splitting $\\Delta m^{2}_{32}'$ [eV$^2$]",
+                            "mark": "Δm²₃₂'",
+                        },
+                        "DeltaMSq21": {
+                            "text": "Fake solar neutrino mass splitting Δm²₂₁' [eV²]",
+                            "latex": "Fake solar neutrino mass splitting $\\Delta m^{2}_{21}'$ [eV$^2$]",
+                            "mark": "Δm²₂₁'",
+                        },
+                        "SinSq2Theta12": {
+                            "text": "Fake solar neutrino mixing angle sin²2θ₁₂'",
+                            "latex": "Fake solar neutrino mixing angle $\\sin^{2}2\\theta_{12}'$",
+                            "mark": "sin²2θ₁₂'",
+                        },
+                        "nmo": {"text": "Fake neutrino mass ordering: NO=1, IO=-1", "mark": "NMO'"},
+                    },
+                },
+            )
+
+            load_parameters(
+                path="survival_probability_fake.source",
+                **{
+                    "format": "value",
+                    "state": "fixed",
+                    "parameters": {
+                        "nmo": 1,
+                        "SinSq2Theta13": 0.0856,
+                        "DeltaMSq31": 0.0025413,
+                        "DeltaMSq32": 0.002453,
+                        "DeltaMSq21": 0.0000753,
+                        "SinSq2Theta12": 0.851,
+                    },
+                    "labels": {
+                        "SinSq2Theta13": {
+                            "text": "Compensated neutrino mixing amplitude sin²2θ₁₃⁰",
+                            "latex": "Compensated neutrino mixing amplitude $\\sin^{2}2\\theta_{13}^0$",
+                            "mark": "sin²2θ₁₃⁰",
+                        },
+                        "DeltaMSq31": {
+                            "text": "Compensated neutrino mass splitting Δm²₃₁⁰ [eV²]",
+                            "latex": "Compensated neutrino mass splitting $\\Delta m^{2}_{31}^0$ [eV$^2$]",
+                            "mark": "Δm²₃₁⁰",
+                        },
+                        "DeltaMSq32": {
+                            "text": "Compensated neutrino mass splitting Δm²₃₂⁰ [eV²]",
+                            "latex": "Compensated neutrino mass splitting $\\Delta m^{2}_{32}^0$ [eV$^2$]",
+                            "mark": "Δm²₃₂⁰",
+                        },
+                        "DeltaMSq21": {
+                            "text": "Compensated solar neutrino mass splitting Δm²₂₁⁰ [eV²]",
+                            "latex": "Compensated solar neutrino mass splitting $\\Delta m^{2}_{21}^0$ [eV$^2$]",
+                            "mark": "Δm²₂₁⁰",
+                        },
+                        "SinSq2Theta12": {
+                            "text": "Compensated solar neutrino mixing angle sin²2θ₁₂⁰",
+                            "latex": "Compensated solar neutrino mixing angle $\\sin^{2}2\\theta_{12}⁰$",
+                            "mark": "sin²2θ₁₂⁰",
+                        },
+                        "nmo": {
+                            "text": "Compensated neutrino mass ordering: NO=1, IO=-1",
+                            "mark": "NMO⁰",
+                        },
+                    },
+                },
+            )
+
             # Provide a few variable for handy read/write access of the model objects,
             # including:
             # - `nodes` - nested dictionary with nodes. Node is an instantiated function
@@ -1149,6 +1254,7 @@ class model_dayabay_v1a_distorted:
                 replicate_outputs=combinations["reactor.detector"],
                 surprobArgConversion=True,
             )
+
             # If created in the verbose mode one can see, that the following items are
             # created:
             # - nodes.survival_probability.R1.AD11
@@ -1197,6 +1303,51 @@ class model_dayabay_v1a_distorted:
             )
             nodes.get_dict("survival_probability") << parameters.get_dict(
                 "constant.survival_probability"
+            )
+
+            # Initialize two survival probability instances for fak distortion:
+            # - target (fake) to be used as nominator
+            # - source (quasi truth) to be used as denominator
+            NueSurvivalProbability.replicate(
+                name="survival_probability_fake.source",
+                leading_mass_splitting_3l_name=self._leading_mass_splitting_3l_name,
+                distance_unit="m",
+                surprobArgConversion=True,
+            )
+            NueSurvivalProbability.replicate(
+                name="survival_probability_fake.target",
+                leading_mass_splitting_3l_name=self._leading_mass_splitting_3l_name,
+                distance_unit="m",
+                surprobArgConversion=True,
+            )
+            kinematic_integrator_enu >> inputs.get_value("survival_probability_fake.source.enu")
+            kinematic_integrator_enu >> inputs.get_value("survival_probability_fake.target.enu")
+
+            parameters.get_value("constant.survival_probability_fake.baseline") >> inputs.get_value(
+                "survival_probability_fake.source.L"
+            )
+            parameters.get_value("constant.survival_probability_fake.baseline") >> inputs.get_value(
+                "survival_probability_fake.target.L"
+            )
+
+            parameters.get_value(
+                "all.conversion.survival_probability_argument_factor"
+            ) >> inputs.get_value("survival_probability_fake.source.surprobArgConversion")
+            parameters.get_value(
+                "all.conversion.survival_probability_argument_factor"
+            ) >> inputs.get_value("survival_probability_fake.target.surprobArgConversion")
+
+            nodes.get_value("survival_probability_fake.source") << parameters.get_dict(
+                "all.survival_probability_fake.source"
+            )
+            nodes.get_value("survival_probability_fake.target") << parameters.get_dict(
+                "all.survival_probability_fake.target"
+            )
+
+            Division.replicate(
+                outputs.get_value("survival_probability_fake.target"),
+                outputs.get_value("survival_probability_fake.source"),
+                name="survival_probability_fake.spectrum_distortion",
             )
 
             # The third component is the antineutrino spectrum as dN/dE per fission. We
@@ -2211,6 +2362,7 @@ class model_dayabay_v1a_distorted:
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
                 outputs.get_dict("reactor_antineutrino.part.neutrino_per_fission_per_MeV_main"),
+                outputs.get_value("survival_probability_fake.spectrum_distortion"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
                 replicate_outputs=combinations["reactor.isotope.detector"],
             )
@@ -2222,6 +2374,7 @@ class model_dayabay_v1a_distorted:
                 outputs.get_dict(
                     "reactor_antineutrino.part.neutrino_per_fission_per_MeV_neq_nominal"
                 ),
+                outputs.get_value("survival_probability_fake.spectrum_distortion"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
                 replicate_outputs=combinations["reactor.isotope_neq.detector"],
             )
@@ -2230,6 +2383,7 @@ class model_dayabay_v1a_distorted:
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
                 outputs.get_dict("reactor_antineutrino.snf_antineutrino.neutrino_per_second_snf"),
+                outputs.get_value("survival_probability_fake.spectrum_distortion"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )
