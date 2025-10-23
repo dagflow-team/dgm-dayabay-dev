@@ -94,7 +94,7 @@ class model_dayabay_v1a_distorted:
     pull_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
         "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
-        List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will be empty.
+        List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     path_data : Path
@@ -230,6 +230,9 @@ class model_dayabay_v1a_distorted:
 
         if not covariance_groups:
             covariance_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
+
+        if not pull_groups:
+            pull_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
 
         pull_covariance_intersect = set(pull_groups).intersection(set(covariance_groups))
         if pull_covariance_intersect:
