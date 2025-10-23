@@ -87,7 +87,12 @@ class model_dayabay_v1a:
             - "normal-stats" - normal fluctuations with statistical,
               errors,
             - "poisson" - Poisson fluctuations.
-    _final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
+    covariance_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
+        "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
+        "hm_corr", "hm_uncorr"]], default=[]
+        List of nuicance groups to be added to covariance matrix. If no parameters passed,
+        full covariance matrix will be created.
+    final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     path_data : Path
         Path to the data.
