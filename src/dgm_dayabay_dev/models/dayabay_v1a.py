@@ -3160,7 +3160,7 @@ class model_dayabay_v1a:
                     outputs[f"statistic.nuisance.parts.{self.systematic_uncertainties_groups()[group]}"] for group
                     in self._pull_groups
                 ],
-                name="statistic.nuisance.extra_pull"
+                name="statistic.nuisance.pull_extra"
             )
 
             MonteCarlo.replicate(
