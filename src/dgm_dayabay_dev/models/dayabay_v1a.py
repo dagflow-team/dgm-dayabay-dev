@@ -136,7 +136,7 @@ class model_dayabay_v1a:
         "monte_carlo_mode",
         "_covariance_groups",
         "_pull_groups",
-        "_final_erec_bin_edges",
+        "_arrays_dict",
         "_source_type",
         "_strict",
         "_close",
@@ -165,7 +165,7 @@ class model_dayabay_v1a:
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
     ]]
-    _final_erec_bin_edges: Path | NDArray | None
+    _arrays_dict: dict[str, Path | NDArray | None]
     _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
     _strict: bool
     _close: bool
@@ -190,6 +190,7 @@ class model_dayabay_v1a:
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
         path_data: str | Path | None = None,
+        antineutrino_spectrum_segment_edges: str | Path | None = None,
         final_erec_bin_edges: str | Path | Sequence[int | float] | NDArray | None = None,
         covariance_groups: list[Literal[
             "survival_probability", "eres", "lsnl", "iav",
@@ -239,6 +240,12 @@ class model_dayabay_v1a:
         if pull_covariance_intersect:
             logger.log(INFO, f"Pull groups intersect with covariance groups: {pull_covariance_intersect}")
 
+        if antineutrino_spectrum_segment_edges is not None and override_cfg_files.get("antineutrino_spectrum_segment_edges"):
+            raise RuntimeError("Antineutrino bin edges couldn't be overloaded via `antineutrino_spectrum_segment_edges` and `override_cfg_files` simultaneously")
+
+        if final_erec_bin_edges is not None and override_cfg_files.get("final_erec_bin_edges"):
+            raise RuntimeError("Final Erec bin edges couldn't be overloaded via `final_erec_bin_edges` and `override_cfg_files` simultaneously")
+
         match path_data:
             case str() | Path():
                 self._path_data = Path(path_data)
@@ -264,17 +271,12 @@ class model_dayabay_v1a:
         self.monte_carlo_mode = monte_carlo_mode
         self._covariance_groups = covariance_groups
         self._pull_groups = pull_groups
-        match final_erec_bin_edges:
-            case str() | Path():
-                self._final_erec_bin_edges = Path(final_erec_bin_edges)
-            case Sequence() | ndarray():
-                self._final_erec_bin_edges = ascontiguousarray(final_erec_bin_edges, dtype="d")
-            case None:
-                self._final_erec_bin_edges = None
-            case _:
-                raise RuntimeError(
-                    f"Invalid 'final_erec_bin_edges type: {type(final_erec_bin_edges).__name__}"
-                )
+
+        from ..tools.validate_load_array import validate_load_array
+        self._arrays_dict = {
+            "antineutrino_spectrum_segment_edges": validate_load_array(antineutrino_spectrum_segment_edges),
+            "final_erec_bin_edges": validate_load_array(final_erec_bin_edges),
+        }
         self._random_generator = self._create_random_generator(seed)
 
         logger.log(INFO, f"Model version: {type(self).__name__}")
@@ -374,14 +376,15 @@ class model_dayabay_v1a:
             f"{self.source_type}",
             "dataset": path_data / "dayabay_dataset/dayabay_ibd_spectra_{}." f"{self.source_type}",
         }
-        match self._final_erec_bin_edges:
-            case Path():
-                cfg_file_mapping["final_erec_bin_edges"] = self._final_erec_bin_edges
-            case ndarray():
-                del cfg_file_mapping["final_erec_bin_edges"]
-
         for cfg_name, path in override_cfg_files.items():
             cfg_file_mapping.update({cfg_name: Path(path)})
+
+        for array_name, array in self._arrays_dict.items():
+            match array:
+                case ndarray():
+                    del cfg_file_mapping[array_name]
+                case Path():
+                    cfg_file_mapping[array_name] = array
 
         return cfg_file_mapping
 
@@ -470,9 +473,13 @@ class model_dayabay_v1a:
         # Read Eν edges for the parametrization of free antineutrino spectrum model
         # Loads the python file and returns variable "edges", which should be defined
         # in the file and has type `ndarray`.
-        antineutrino_model_edges = FileReader.record[
-            cfg_file_mapping["antineutrino_spectrum_segment_edges"]
-        ]["E_neutrino_MeV"]
+        if isinstance(self._arrays_dict["antineutrino_spectrum_segment_edges"], ndarray):
+            antineutrino_model_edges = self._arrays_dict["antineutrino_spectrum_segment_edges"]
+            logger.info(f"Antineutrino model bin edges passed via argument: {antineutrino_model_edges!s}")
+        else:
+            antineutrino_model_edges = FileReader.record[
+                cfg_file_mapping["antineutrino_spectrum_segment_edges"]
+            ]["E_neutrino_MeV"]
 
         # Provide some convenience substitutions for labels
         index_names = {
@@ -974,8 +981,8 @@ class model_dayabay_v1a:
             in_edges_fine = linspace(0, 12, 241)
             in_edges_costheta = [-1, 1]
 
-            if isinstance(self._final_erec_bin_edges, ndarray):
-                in_edges_final = self._final_erec_bin_edges
+            if isinstance(self._arrays_dict["final_erec_bin_edges"], ndarray):
+                in_edges_final = self._arrays_dict["final_erec_bin_edges"]
                 logger.info(f"Final Erec bin edges passed via argument: {in_edges_final!s}")
             else:
                 in_edges_final = FileReader.record[cfg_file_mapping["final_erec_bin_edges"]][
