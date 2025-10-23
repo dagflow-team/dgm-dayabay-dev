@@ -91,6 +91,11 @@ class model_dayabay_v1a_distorted:
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to covariance matrix. If no parameters passed,
         full covariance matrix will be created.
+    pull_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
+        "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
+        "hm_corr", "hm_uncorr"]], default=[]
+        List of nuicance groups to be added to partial sum of pull terms. If no parameters passed,
+        all nuisance parameters will be summed up.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     path_data : Path
@@ -154,6 +159,11 @@ class model_dayabay_v1a_distorted:
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
     ]]
+    _pull_groups: list[Literal[
+            "survival_probability", "eres", "lsnl", "iav",
+            "detector_relative", "energy_per_fission", "nominal_thermal_power",
+            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
+    ]]
     _final_erec_bin_edges: Path | NDArray | None
     _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
     _strict: bool
@@ -181,6 +191,11 @@ class model_dayabay_v1a_distorted:
         path_data: str | Path | None = None,
         final_erec_bin_edges: str | Path | Sequence[int | float] | NDArray | None = None,
         covariance_groups: list[Literal[
+            "survival_probability", "eres", "lsnl", "iav",
+            "detector_relative", "energy_per_fission", "nominal_thermal_power",
+            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
+        ]] = [],
+        pull_groups: list[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
@@ -216,6 +231,9 @@ class model_dayabay_v1a_distorted:
         if not covariance_groups:
             covariance_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
 
+        if not pull_groups:
+            pull_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
+
         match path_data:
             case str() | Path():
                 self._path_data = Path(path_data)
@@ -237,6 +255,7 @@ class model_dayabay_v1a_distorted:
         self.concatenation_mode = concatenation_mode
         self.monte_carlo_mode = monte_carlo_mode
         self._covariance_groups = covariance_groups
+        self._pull_groups = pull_groups
         match final_erec_bin_edges:
             case str() | Path():
                 self._final_erec_bin_edges = Path(final_erec_bin_edges)
@@ -3265,6 +3284,14 @@ class model_dayabay_v1a_distorted:
             # Create Nuisance parameters
             Sum.replicate(
                 outputs("statistic.nuisance.parts"), name="statistic.nuisance.all"
+            )
+
+            Sum.replicate(
+                *[
+                    outputs[f"statistic.nuisance.parts.{self.systematic_uncertainties_groups()[group]}"] for group
+                    in filter(lambda group: group not in self._covariance_groups, self._pull_groups)
+                ],
+                name="statistic.nuisance.partial"
             )
 
             MonteCarlo.replicate(
