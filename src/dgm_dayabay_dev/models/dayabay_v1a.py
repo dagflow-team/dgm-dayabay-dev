@@ -461,7 +461,7 @@ class model_dayabay_v1a:
             NueSurvivalProbability,
         )
         from nested_mapping.tools import remap_items
-        from numpy import arange, concatenate, linspace
+        from numpy import linspace
 
         from ..bundles.refine_detector_data import refine_detector_data
         from ..bundles.refine_lsnl_data import refine_lsnl_data
