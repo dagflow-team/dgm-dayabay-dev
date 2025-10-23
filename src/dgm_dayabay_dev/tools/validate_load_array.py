@@ -17,6 +17,6 @@ def validate_load_array(array: str | Path | Sequence[int | float] | NDArray | No
             result = None
         case _:
             raise RuntimeError(
-                f"Invalid {f'{array=}'.split('=')[0]} type: {type(array).__name__}"
+                f"Invalid array type: {type(array).__name__}"
             )
     return result
