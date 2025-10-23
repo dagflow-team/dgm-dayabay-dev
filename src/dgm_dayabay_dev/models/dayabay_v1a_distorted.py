@@ -94,8 +94,7 @@ class model_dayabay_v1a_distorted:
     pull_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
         "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
-        List of nuicance groups to be added to partial sum of pull terms. If no parameters passed,
-        all nuisance parameters will be summed up.
+        List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will be empty.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     path_data : Path
@@ -135,6 +134,7 @@ class model_dayabay_v1a_distorted:
         "concatenation_mode",
         "monte_carlo_mode",
         "_covariance_groups",
+        "_pull_groups",
         "_final_erec_bin_edges",
         "_source_type",
         "_strict",
@@ -231,8 +231,9 @@ class model_dayabay_v1a_distorted:
         if not covariance_groups:
             covariance_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
 
-        if not pull_groups:
-            pull_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
+        pull_covariance_intersect = set(pull_groups).intersection(set(covariance_groups))
+        if pull_covariance_intersect:
+            logger.log(INFO, f"Pull groups intersect with covariance groups: {pull_covariance_intersect}")
 
         match path_data:
             case str() | Path():
@@ -3039,13 +3040,11 @@ class model_dayabay_v1a_distorted:
             #
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
-            for (
-                name,
-                parameters_source,
-            ) in filter(lambda item: item[0] in self._covariance_groups, self.systematic_uncertainties_groups().items()):
+            for group in self._covariance_groups:
                 self._covariance_matrix.add_covariance_for(
-                    name, parameters_nuisance_normalized[parameters_source]
-                )
+                    group, parameters_nuisance_normalized[
+                    self.systematic_uncertainties_groups()[group]
+                ])
             self._covariance_matrix.add_covariance_sum()
 
             (
@@ -3285,13 +3284,12 @@ class model_dayabay_v1a_distorted:
             Sum.replicate(
                 outputs("statistic.nuisance.parts"), name="statistic.nuisance.all"
             )
-
             Sum.replicate(
                 *[
                     outputs[f"statistic.nuisance.parts.{self.systematic_uncertainties_groups()[group]}"] for group
-                    in filter(lambda group: group not in self._covariance_groups, self._pull_groups)
+                    in self._pull_groups
                 ],
-                name="statistic.nuisance.partial"
+                name="statistic.nuisance.extra_pull"
             )
 
             MonteCarlo.replicate(
