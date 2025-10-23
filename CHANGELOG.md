@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.5.0] - 2025-10-xx
 
-- feat: add `v1a_distorted` to study extreme spectral distortions.
+- feature: add `v1a_distorted` to study extreme spectral distortions.
+- feature: add `covariance_groups` parameter to control passed nuisance parameters to covarince matrix, works only with `strict=False`. Supported for `v1a` and `v1a_distorted`.
+- feature: add `pull_groups` parameter to control passed nuisance parameters to `nuisance.extra_pull`, works only with `strict=False`. Supported for `v1a` and `v1a_distorted`.
 
 ## [0.4.2] - 2025-10-17
 
