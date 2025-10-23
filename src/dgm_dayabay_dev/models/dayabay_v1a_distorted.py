@@ -124,6 +124,7 @@ class model_dayabay_v1a_distorted:
         "spectrum_correction_location",
         "concatenation_mode",
         "monte_carlo_mode",
+        "_covariance_groups",
         "_final_erec_bin_edges",
         "_source_type",
         "_strict",
@@ -143,6 +144,11 @@ class model_dayabay_v1a_distorted:
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
+    _covariance_groups: list[Literal[
+            "survival_probability", "eres", "lsnl", "iav",
+            "detector_relative", "energy_per_fission", "nominal_thermal_power",
+            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
+    ]]
     _final_erec_bin_edges: Path | NDArray | None
     _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
     _strict: bool
@@ -169,6 +175,11 @@ class model_dayabay_v1a_distorted:
         parameter_values: dict[str, float | str] = {},
         path_data: str | Path | None = None,
         final_erec_bin_edges: str | Path | Sequence[int | float] | NDArray | None = None,
+        covariance_groups: list[Literal[
+            "survival_probability", "eres", "lsnl", "iav",
+            "detector_relative", "energy_per_fission", "nominal_thermal_power",
+            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
+        ]] = []
     ):
         """Model initialization.
 
@@ -194,6 +205,12 @@ class model_dayabay_v1a_distorted:
         assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
         assert concatenation_mode in {"detector", "detector_period"}
 
+        for covariance_group in covariance_groups:
+            assert covariance_group in _SYSTEMATIC_UNCERTAINTIES_GROUPS
+
+        if not covariance_groups:
+            covariance_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
+
         match path_data:
             case str() | Path():
                 self._path_data = Path(path_data)
@@ -214,6 +231,7 @@ class model_dayabay_v1a_distorted:
         self.spectrum_correction_location = spectrum_correction_location
         self.concatenation_mode = concatenation_mode
         self.monte_carlo_mode = monte_carlo_mode
+        self._covariance_groups = covariance_groups
         match final_erec_bin_edges:
             case str() | Path():
                 self._final_erec_bin_edges = Path(final_erec_bin_edges)
@@ -3000,7 +3018,7 @@ class model_dayabay_v1a_distorted:
             for (
                 name,
                 parameters_source,
-            ) in self.systematic_uncertainties_groups().items():
+            ) in filter(lambda item: item[0] in self._covariance_groups, self.systematic_uncertainties_groups().items()):
                 self._covariance_matrix.add_covariance_for(
                     name, parameters_nuisance_normalized[parameters_source]
                 )
@@ -3016,8 +3034,6 @@ class model_dayabay_v1a_distorted:
                 parameters_nuisance_normalized.walkvalues()
             )
             npars_nuisance = len(list_parameters_nuisance_normalized)
-            if npars_cov != npars_nuisance:
-                raise RuntimeError("Some parameters are missing from covariance matrix")
 
             parinp_mc = ParArrayInput(
                 name="mc.parameters.inputs",
