@@ -16,7 +16,7 @@ class TestModel:
 
     @classmethod
     def setup_class(cls):
-        cls.model = load_model(cls.model_version, close=True, strict=False)
+        cls.model = load_model(cls.model_version, close=True, strict=False, monte_carlo_mode="poisson")
 
     def test_dayabay_v0(self, output_path: str):
         graph = self.model.graph
