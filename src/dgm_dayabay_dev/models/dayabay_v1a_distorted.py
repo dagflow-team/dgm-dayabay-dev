@@ -139,11 +139,10 @@ class model_dayabay_v1a_distorted:
         "spectrum_correction_location",
         "concatenation_mode",
         "monte_carlo_mode",
-        "_arrays_dict",
         "_covariance_groups",
         "_pull_groups",
-        "_final_erec_bin_edges",
         "_is_absolute_efficiency_fixed",
+        "_arrays_dict",
         "_source_type",
         "_strict",
         "_close",
@@ -173,7 +172,7 @@ class model_dayabay_v1a_distorted:
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
     ]]
-    _final_erec_bin_edges: Path | NDArray | None
+    _arrays_dict: dict[str, Path | NDArray | None]
     _is_absolute_efficiency_fixed: bool
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
@@ -297,17 +296,12 @@ class model_dayabay_v1a_distorted:
         self._covariance_groups = covariance_groups
         self._pull_groups = pull_groups
         self._is_absolute_efficiency_fixed = is_absolute_efficiency_fixed
-        match final_erec_bin_edges:
-            case str() | Path():
-                self._final_erec_bin_edges = Path(final_erec_bin_edges)
-            case Sequence() | ndarray():
-                self._final_erec_bin_edges = ascontiguousarray(final_erec_bin_edges, dtype="d")
-            case None:
-                self._final_erec_bin_edges = None
-            case _:
-                raise RuntimeError(
-                    f"Invalid 'final_erec_bin_edges type: {type(final_erec_bin_edges).__name__}"
-                )
+
+        from ..tools.validate_load_array import validate_load_array
+        self._arrays_dict = {
+            "antineutrino_spectrum_segment_edges": validate_load_array(antineutrino_spectrum_segment_edges),
+            "final_erec_bin_edges": validate_load_array(final_erec_bin_edges),
+        }
         self._random_generator = self._create_random_generator(seed)
 
         logger.log(INFO, f"Model version: {type(self).__name__}")

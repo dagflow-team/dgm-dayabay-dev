@@ -162,6 +162,7 @@ class model_dayabay_v1a:
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
+    _arrays_dict: dict[str, Path | NDArray | None]
     _covariance_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
@@ -173,6 +174,7 @@ class model_dayabay_v1a:
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
     ]]
     _arrays_dict: dict[str, Path | NDArray | None]
+    _is_absolute_efficiency_fixed: bool
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
@@ -260,6 +262,12 @@ class model_dayabay_v1a:
                 f"{systematic_groups_pull_covariance_intersect}"
             )
 
+        from ..tools.validate_load_array import validate_load_array
+        self._arrays_dict = {
+            "antineutrino_spectrum_segment_edges": validate_load_array(antineutrino_spectrum_segment_edges),
+            "final_erec_bin_edges": validate_load_array(final_erec_bin_edges),
+        }
+
         if antineutrino_spectrum_segment_edges is not None and override_cfg_files.get("antineutrino_spectrum_segment_edges"):
             raise RuntimeError("Antineutrino bin edges couldn't be overloaded via `antineutrino_spectrum_segment_edges` and `override_cfg_files` simultaneously")
 
@@ -277,10 +285,7 @@ class model_dayabay_v1a:
         from ..tools.validate_dataset import validate_dataset_get_source_type
 
         self._source_type = validate_dataset_get_source_type(
-            self._path_data,
-            "dataset_info.yaml",
-            version_min="0.1.0",
-            version_max="1.0.0"
+            self._path_data, "dataset_info.yaml", version_min="0.1.0", version_max="1.0.0"
         )
 
         self.storage = NodeStorage()
@@ -2941,13 +2946,11 @@ class model_dayabay_v1a:
             #
             self._covariance_matrix = CovarianceMatrixGroup(store_to="covariance")
 
-            for (
-                name,
-                parameters_source,
-            ) in self.systematic_uncertainties_groups().items():
+            for group in self._covariance_groups:
                 self._covariance_matrix.add_covariance_for(
-                    name, parameters_nuisance_normalized[parameters_source]
-                )
+                    group, parameters_nuisance_normalized[
+                    self.systematic_uncertainties_groups()[group]
+                ])
             self._covariance_matrix.add_covariance_sum()
 
             (
