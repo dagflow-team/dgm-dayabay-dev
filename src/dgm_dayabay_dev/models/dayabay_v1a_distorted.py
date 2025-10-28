@@ -158,12 +158,12 @@ class model_dayabay_v1a_distorted:
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _arrays_dict: dict[str, Path | NDArray | None]
-    _covariance_groups: Iterable[Literal[
+    _covariance_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
     ]] | KeysView
-    _pull_groups: Iterable[Literal[
+    _pull_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
@@ -195,12 +195,12 @@ class model_dayabay_v1a_distorted:
         path_data: str | Path | None = None,
         antineutrino_spectrum_segment_edges: str | Path | None = None,
         final_erec_bin_edges: str | Path | Sequence[int | float] | NDArray | None = None,
-        covariance_groups: Iterable[Literal[
+        covariance_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
         ]] | KeysView = [],
-        pull_groups: Iterable[Literal[
+        pull_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
