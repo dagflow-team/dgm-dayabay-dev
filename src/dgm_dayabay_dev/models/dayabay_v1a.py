@@ -4,6 +4,7 @@ from itertools import product
 from os.path import relpath
 from pathlib import Path
 from typing import TYPE_CHECKING
+from collections.abc import Mapping, Sequence
 
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import INFO, logger
@@ -15,8 +16,7 @@ from pandas import DataFrame
 # pyright: reportUnusedExpression=false
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-    from typing import Iterable, KeysView, Literal
+    from typing import KeysView, Literal
 
     from dag_modelling.core.meta_node import MetaNode
     from numpy.typing import NDArray
@@ -235,9 +235,9 @@ class model_dayabay_v1a:
         if not covariance_groups:
             covariance_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
 
-        set_covariance_groups = set(covariance_groups)
-        set_pull_groups = set(pull_groups)
-        pull_covariance_intersect = set_pull_groups.intersection(set_covariance_groups)
+        covariance_groups_set = set(covariance_groups)
+        pull_groups_set = set(pull_groups)
+        pull_covariance_intersect = pull_groups_set.intersection(covariance_groups_set)
         if pull_covariance_intersect:
             logger.log(
                 INFO,
@@ -246,11 +246,11 @@ class model_dayabay_v1a:
 
         systematic_groups_pull_covariance_intersect = set(
             _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
-        ).difference(set_covariance_groups).difference(set_pull_groups)
+        ).difference(covariance_groups_set).difference(pull_groups_set)
         if systematic_groups_pull_covariance_intersect:
             logger.log(
                 INFO,
-                "Several systematic groups are missed from `pull_groups` and `covariance_groups`: "
+                "Several systematic groups are missing from `pull_groups` and `covariance_groups`: "
                 f"{systematic_groups_pull_covariance_intersect}"
             )
 
