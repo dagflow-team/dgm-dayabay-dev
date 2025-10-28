@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
+from collections.abc import Mapping, Sequence
 
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import INFO, logger
 from nested_mapping import NestedMapping
-from numpy import ascontiguousarray, ndarray
+from numpy import ndarray
 from numpy.random import Generator
 from pandas import DataFrame
 
 # pyright: reportUnusedExpression=false
 
 if TYPE_CHECKING:
+    from typing import KeysView, Literal
+
     from dag_modelling.core.meta_node import MetaNode
     from numpy.typing import NDArray
 
@@ -158,18 +160,18 @@ class model_dayabay_v1a:
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
-    _covariance_groups: list[Literal[
+    _covariance_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
-    ]]
-    _pull_groups: list[Literal[
+    ]] | KeysView
+    _pull_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
     ]]
     _arrays_dict: dict[str, Path | NDArray | None]
-    _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
+    _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -195,12 +197,12 @@ class model_dayabay_v1a:
         path_data: str | Path | None = None,
         antineutrino_spectrum_segment_edges: str | Path | None = None,
         final_erec_bin_edges: str | Path | Sequence[int | float] | NDArray | None = None,
-        covariance_groups: list[Literal[
+        covariance_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
-        ]] = [],
-        pull_groups: list[Literal[
+        ]] | KeysView = [],
+        pull_groups: Sequence[Literal[
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
@@ -237,12 +239,24 @@ class model_dayabay_v1a:
         if not covariance_groups:
             covariance_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
 
-        if not pull_groups:
-            pull_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
-
-        pull_covariance_intersect = set(pull_groups).intersection(set(covariance_groups))
+        covariance_groups_set = set(covariance_groups)
+        pull_groups_set = set(pull_groups)
+        pull_covariance_intersect = pull_groups_set.intersection(covariance_groups_set)
         if pull_covariance_intersect:
-            logger.log(INFO, f"Pull groups intersect with covariance groups: {pull_covariance_intersect}")
+            logger.log(
+                INFO,
+                "Pull groups intersect with covariance groups: "
+                f"{pull_covariance_intersect}")
+
+        systematic_groups_pull_covariance_intersect = set(
+            _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
+        ).difference(covariance_groups_set).difference(pull_groups_set)
+        if systematic_groups_pull_covariance_intersect:
+            logger.log(
+                INFO,
+                "Several systematic groups are missing from `pull_groups` and `covariance_groups`: "
+                f"{systematic_groups_pull_covariance_intersect}"
+            )
 
         if antineutrino_spectrum_segment_edges is not None and override_cfg_files.get("antineutrino_spectrum_segment_edges"):
             raise RuntimeError("Antineutrino bin edges couldn't be overloaded via `antineutrino_spectrum_segment_edges` and `override_cfg_files` simultaneously")
@@ -2936,7 +2950,6 @@ class model_dayabay_v1a:
                 >> self._covariance_matrix
             )
 
-            npars_cov = self._covariance_matrix.get_parameters_count()
             list_parameters_nuisance_normalized = list(
                 parameters_nuisance_normalized.walkvalues()
             )
@@ -3168,13 +3181,16 @@ class model_dayabay_v1a:
             Sum.replicate(
                 outputs("statistic.nuisance.parts"), name="statistic.nuisance.all"
             )
-            Sum.replicate(
-                *[
-                    outputs[f"statistic.nuisance.parts.{self.systematic_uncertainties_groups()[group]}"] for group
-                    in self._pull_groups
-                ],
-                name="statistic.nuisance.pull_extra"
-            )
+            if self._pull_groups:
+                Sum.replicate(
+                    *[
+                        outputs[f"statistic.nuisance.parts.{self.systematic_uncertainties_groups()[group]}"] for group
+                        in self._pull_groups
+                    ],
+                    name="statistic.nuisance.pull_extra"
+                )
+            else:
+                Array.replicate(name="statistic.nuisance.pull_extra", array=[0])
 
             MonteCarlo.replicate(
                 name="data.pseudo.self",
