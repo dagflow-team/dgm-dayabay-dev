@@ -98,8 +98,8 @@ class model_dayabay_v1a:
         List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
-    is_correlated_efficiency_fixed : bool, default=True
-        Switch detector correlated efficiency from fixed to constrained parameter.
+    is_absolute_efficiency_fixed : bool, default=True
+        Switch detector absolute correlated efficiency from fixed to constrained parameter.
     path_data : Path
         Path to the data.
     source_type : str, default="hdf5"
@@ -138,7 +138,7 @@ class model_dayabay_v1a:
         "monte_carlo_mode",
         "_covariance_groups",
         "_pull_groups",
-        "_is_correlated_efficiency_fixed",
+        "_is_absolute_efficiency_fixed",
         "_arrays_dict",
         "_source_type",
         "_strict",
@@ -205,7 +205,7 @@ class model_dayabay_v1a:
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
         ]] = [],
-        is_correlated_efficiency_fixed: bool = True,
+        is_absolute_efficiency_fixed: bool = True,
     ):
         """Model initialization.
 
@@ -275,7 +275,7 @@ class model_dayabay_v1a:
         self.monte_carlo_mode = monte_carlo_mode
         self._covariance_groups = covariance_groups
         self._pull_groups = pull_groups
-        self._is_correlated_efficiency_fixed = is_correlated_efficiency_fixed
+        self._is_absolute_efficiency_fixed = is_absolute_efficiency_fixed
 
         from ..tools.validate_load_array import validate_load_array
         self._arrays_dict = {
@@ -344,6 +344,7 @@ class model_dayabay_v1a:
             "parameters.detector_iav_offdiag_scale": path_parameters
             / "detector_iav_offdiag_scale.yaml",
             "parameters.detector_relative": path_parameters / "detector_relative.yaml",
+            "parameters.detector_absolute": path_parameters / "extra/detector_absolute.yaml",
             "parameters.reactor_thermal_power_nominal": path_parameters
             / "reactor_thermal_power_nominal.yaml",
             "parameters.reactor_energy_per_fission": path_parameters
@@ -849,6 +850,13 @@ class model_dayabay_v1a:
                     ("pargroup", "par", "detector"),
                     ("pargroup", "detector", "par"),
                 ),
+            )
+
+            # Absolute correlated between detectors efficiency factor
+            load_parameters(
+                path="detector",
+                load=cfg_file_mapping["parameters.detector_absolute"],
+                state="fixed" if self._is_absolute_efficiency_fixed else "variable",
             )
             # By default extra index is appended at the end of the key (path). A
             # `keys_order` argument is used to change the order of the keys from
