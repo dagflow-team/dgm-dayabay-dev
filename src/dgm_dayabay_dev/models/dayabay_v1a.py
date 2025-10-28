@@ -2694,6 +2694,7 @@ class model_dayabay_v1a:
             Product.replicate(
                 parameters.get_value("all.detector.global_normalization"),
                 parameters.get_dict("selected.detector.parameters_relative.efficiency_factor"),
+                parameters.get_value("all.detector.detector_absolute.efficiency_factor"),
                 name="detector.normalization",
                 replicate_outputs=index["detector"],
             )
