@@ -5,7 +5,6 @@ from dgm_dayabay_dev.models import model_dayabay_v1a
 
 
 def test_dayabay_v1a_custom_cov_pull():
-    nbins = 12
     model = model_dayabay_v1a(
         covariance_groups=["eres"],
         pull_groups=["eres"],
