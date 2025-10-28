@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from itertools import product
 from os.path import relpath
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, KeysView, Literal
+from typing import TYPE_CHECKING
 
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import INFO, logger
@@ -16,6 +15,9 @@ from pandas import DataFrame
 # pyright: reportUnusedExpression=false
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from typing import Iterable, KeysView, Literal
+
     from dag_modelling.core.meta_node import MetaNode
     from numpy.typing import NDArray
 
@@ -166,7 +168,7 @@ class model_dayabay_v1a:
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
     ]]
     _arrays_dict: dict[str, Path | NDArray | None]
-    _source_type: Literal["tsv", "hdf5", "root", "npz", "default:hdf5"]
+    _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
     _random_generator: Generator
@@ -248,7 +250,7 @@ class model_dayabay_v1a:
         if systematic_groups_pull_covariance_intersect:
             logger.log(
                 INFO,
-                "Several systematic groups are missed from `pull_groups` or `covariance_groups`: "
+                "Several systematic groups are missed from `pull_groups` and `covariance_groups`: "
                 f"{systematic_groups_pull_covariance_intersect}"
             )
 
@@ -2935,7 +2937,6 @@ class model_dayabay_v1a:
                 >> self._covariance_matrix
             )
 
-            npars_cov = self._covariance_matrix.get_parameters_count()
             list_parameters_nuisance_normalized = list(
                 parameters_nuisance_normalized.walkvalues()
             )
