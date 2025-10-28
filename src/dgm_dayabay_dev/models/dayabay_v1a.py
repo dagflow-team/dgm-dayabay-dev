@@ -98,12 +98,14 @@ class model_dayabay_v1a:
         List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
+    is_correlated_efficiency_fixed : bool, default=True
+        Switch detector correlated efficiency from fixed to constrained parameter.
     path_data : Path
         Path to the data.
-    source_type : str, default="default:hdf5"
+    source_type : str, default="hdf5"
         Type of the data to read ("tsv", "hdf5", "root" or "npz").
     leading_mass_splitting_3l_name: Literal["DeltaMSq32", "DeltaMSq31"], default="DeltaMSq32"
-        Leading mass splitting
+        Leading mass splitting.
 
     Technical attributes
     --------------------
@@ -113,14 +115,14 @@ class model_dayabay_v1a:
             - any labels were not applied.
     _close : bool, default=True
         if True the graph is closed and memory is allocated
-        may be used to debug corrupt model
+        may be used to debug corrupt model.
     _random_generator : Generator
-        numpy random generator to be used for ToyMC
+        numpy random generator to be used for ToyMC.
     _covariance_matrix : MetaNode
-        covariance matrix, computed on this model
+        covariance matrix, computed on this model.
     _frozen_nodes : dict[str, tuple]
         storage with nodes, which are being fixed at their values and
-        require manual intervention in order to be recalculated
+        require manual intervention in order to be recalculated.
     """
 
     __slots__ = (
@@ -136,6 +138,7 @@ class model_dayabay_v1a:
         "monte_carlo_mode",
         "_covariance_groups",
         "_pull_groups",
+        "_is_correlated_efficiency_fixed",
         "_arrays_dict",
         "_source_type",
         "_strict",
@@ -201,7 +204,8 @@ class model_dayabay_v1a:
             "survival_probability", "eres", "lsnl", "iav",
             "detector_relative", "energy_per_fission", "nominal_thermal_power",
             "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
-        ]] = []
+        ]] = [],
+        is_correlated_efficiency_fixed: bool = True,
     ):
         """Model initialization.
 
@@ -271,6 +275,7 @@ class model_dayabay_v1a:
         self.monte_carlo_mode = monte_carlo_mode
         self._covariance_groups = covariance_groups
         self._pull_groups = pull_groups
+        self._is_correlated_efficiency_fixed = is_correlated_efficiency_fixed
 
         from ..tools.validate_load_array import validate_load_array
         self._arrays_dict = {
