@@ -12,7 +12,9 @@ def test_dayabay_v1a_custom_cov_pull():
     )
 
     assert len(model.storage["outputs.covariance.jacobians"]) == 1
-    assert len(model.storage["nodes.statistic.nuisance.pull_extra"].inputs[0].parent_node.inputs) == 3
+    assert (
+        len(model.storage["nodes.statistic.nuisance.pull_extra"].inputs[0].parent_node.inputs) == 3
+    )
 
 
 def test_dayabay_v1a_edges_loading():
