@@ -1,54 +1,61 @@
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.plot.graphviz import GraphDot
-from dgm_dayabay_dev.models import available_models, load_model
+from parameterized import parameterized_class
 from pytest import mark
 
+from dgm_dayabay_dev.models import available_models, load_model
 
-@mark.parametrize("model_version", [model for model in available_models() if model!="latest"])
-def test_dayabay_v0(model_version: str, output_path: str):
-    model = load_model(model_version, close=True, strict=True)
 
-    graph = model.graph
-    storage = model.storage
+@parameterized_class(
+    [{"model_version": version} for version in available_models() if version != "latest"]
+)
+@mark.usefixtures("output_path")
+class TestModel:
+    model_version = None
+    model = None
 
-    if not graph.closed:
-        print("Nodes")
-        print(storage("nodes").to_table(truncate=True))
-        print("Outputs")
-        print(storage("outputs").to_table(truncate=True))
-        print("Not connected inputs")
-        print(storage("inputs").to_table(truncate=True))
+    @classmethod
+    def setup_class(cls):
+        cls.model = load_model(cls.model_version, close=True, strict=False, monte_carlo_mode="poisson")
 
+    def test_dayabay_v0(self, output_path: str):
+        graph = self.model.graph
+        storage = self.model.storage
+
+        if not graph.closed:
+            print("Nodes")
+            print(storage("nodes").to_table(truncate=True))
+            print("Outputs")
+            print(storage("outputs").to_table(truncate=True))
+            print("Not connected inputs")
+            print(storage("inputs").to_table(truncate=True))
+
+            plot_graph(graph, storage, output_path=output_path)
+            return
+
+        print(storage.to_table(truncate=True))
+        if len(storage("inputs")) > 0:
+            print("Not connected inputs")
+            print(storage("inputs").to_table(truncate=True))
+
+        storage.to_datax(f"{output_path}/dayabay_v0_data.tex")
         plot_graph(graph, storage, output_path=output_path)
-        return
 
-    print(storage.to_table(truncate=True))
-    if len(storage("inputs")) > 0:
-        print("Not connected inputs")
-        print(storage("inputs").to_table(truncate=True))
+    def test_dayabay_v0_proxy_switch(self):
+        model = self.model
 
-    storage.to_datax(f"{output_path}/dayabay_v0_data.tex")
-    plot_graph(graph, storage, output_path=output_path)
+        storage = model.storage
 
+        proxy_node = storage["nodes.data.proxy"]
+        obs = storage.get_value("outputs.eventscount.final.concatenated.selected")
+        chi2 = storage["outputs.statistic.stat.chi2p"]
+        assert chi2.data != 0.0
 
-@mark.parametrize("model_version", available_models())
-def test_dayabay_v0_proxy_switch(model_version: str):
-    if model_version == "latest":
-        return
-    model = load_model(model_version, close=True, strict=True, monte_carlo_mode="poisson")
-
-    storage = model.storage
-
-    proxy_node = storage["nodes.data.proxy"]
-    obs = storage.get_value("outputs.eventscount.final.concatenated.selected")
-    chi2 = storage["outputs.statistic.stat.chi2p"]
-    assert chi2.data != 0.0
-
-    proxy_node.open()
-    obs >> proxy_node
-    proxy_node.close()
-    proxy_node.switch_input(-1)
-    assert chi2.data == 0.0
+        proxy_node.open()
+        obs >> proxy_node
+        proxy_node.close()
+        proxy_node.switch_input(-1)
+        assert chi2.data == 0.0
 
 
 def plot_graph(graph: Graph, storage: NodeStorage, output_path: str) -> None:
