@@ -98,8 +98,6 @@ class model_dayabay_v1a:
         "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
-    antineutrino_spectrum_segment_edges : Path | Sequence[int | float] | NDArray | None, default=None
-        Text file with bin edges for the antineutrino spectrum or the edges themselves, which is relevant for the χ² calculation.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     is_absolute_efficiency_fixed : bool, default=True
