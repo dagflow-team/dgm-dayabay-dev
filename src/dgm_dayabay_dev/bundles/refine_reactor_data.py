@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from numba import njit
-from numpy import empty, isnan
+from numpy import empty, isnan, logical_or
 from numpy.typing import NDArray
 
 from nested_mapping import NestedMapping
@@ -149,7 +149,7 @@ def refine_reactor_data(
 
         target["days"] = (days_storage := {})
         for period in periods:
-            mask_period = ndet == period
+            mask_period = logical_or((ndet == period), (ndet==0))
             periodname = f"{period}AD"
 
             mask = mask_period
