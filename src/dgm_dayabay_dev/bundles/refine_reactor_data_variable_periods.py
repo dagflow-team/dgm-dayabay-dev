@@ -1,10 +1,9 @@
 from collections.abc import Sequence
 
+from nested_mapping import NestedMapping
 from numba import njit
 from numpy import empty, isnan, logical_or
 from numpy.typing import NDArray
-
-from nested_mapping import NestedMapping
 
 
 @njit
@@ -18,18 +17,22 @@ def weekly_to_daily(array: NDArray) -> NDArray:
 
 
 @njit
-def inperiod_to_daily(array: NDArray, ndays: int) -> NDArray:
-    ret = empty(array.shape[0] * ndays)
+def inperiod_to_daily(array: NDArray, ndays: NDArray) -> NDArray:
+    ndays_total = ndays.sum()
+    ret = empty(ndays_total)
 
-    for i in range(ndays):
-        ret[i::ndays] = array
+    i = 0
+    for ndays_i in ndays:
+        ret[i:i+ndays_i] = array
+        i+=ndays_i
 
     return ret
 
 
-@njit
-def periods_to_days(array: NDArray, ndays: int) -> NDArray:
-    ret = empty(array.shape[0] * ndays)
+# @njit
+def periods_to_days(array: NDArray, ndays: NDArray) -> NDArray:
+    ndays_total = ndays.sum()
+    ret = empty(ndays_total)
 
     for i in range(ndays):
         ret[i::ndays] = array
@@ -133,23 +136,15 @@ def refine_reactor_data(
         ndays = source["n_days", corename]
         ndet = source["n_det", corename]
 
-        ndays0 = ndays[0]
-        if not (ndays[:-1] == ndays0).all():
-            raise ValueError(
-                "refine_reactor_data expects information with constant periodicity"
-            )
-
         power = source["power"][corename]
         fission_fractions = {key: source[key.lower(), corename] for key in isotopes}
 
         step = period[1:] - period[:-1]
-        assert (
-            step == 1
-        ).all(), "Expect reactor data for with distinct period, no gaps"
+        assert (step == 1).all(), "Expect reactor data for with distinct period, no gaps"
 
         target["days"] = (days_storage := {})
         for period in periods:
-            mask_period = logical_or((ndet == period), (ndet==0))
+            mask_period = logical_or((ndet == period), (ndet == 0))
             periodname = f"{period}AD"
 
             mask = mask_period
@@ -157,13 +152,13 @@ def refine_reactor_data(
                 periodname,
                 corename,
             )
-            target[("power",) + key] = inperiod_to_daily(power[mask], ndays0)
+            target[("power",) + key] = inperiod_to_daily(power[mask], ndays)
             for isotope in isotopes:
                 target[("fission_fraction",) + key + (isotope,)] = inperiod_to_daily(
-                    fission_fractions[isotope][mask], ndays0
+                    fission_fractions[isotope][mask], ndays
                 )
 
-            days = periods_to_days(day[mask], ndays0)
+            days = periods_to_days(day[mask], ndays)
             days_stored = days_storage.setdefault(periodname, days)
             if days is not days_stored:
                 assert all(days == days_stored)
