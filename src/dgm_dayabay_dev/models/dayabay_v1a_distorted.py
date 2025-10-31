@@ -4,14 +4,14 @@ from itertools import product
 from os.path import relpath
 from pathlib import Path
 from typing import TYPE_CHECKING
-from collections.abc import Mapping, Sequence
 
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import INFO, logger
 from nested_mapping import NestedMapping
-from numpy import ndarray
+from numpy import ascontiguousarray, ndarray
 from numpy.random import Generator
 from pandas import DataFrame
+from collections.abc import Mapping, Sequence
 
 # pyright: reportUnusedExpression=false
 
@@ -40,12 +40,11 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
 }
 
 
-class model_dayabay_v1a:
-    """The Daya Bay model implementation version v1. A candidate for the public
-    release.
+class model_dayabay_v1a_distorted:
+    """The Daya Bay model implementation version v1a_distorted.
 
     Purpose:
-        - Remove dataset A
+        - Introduce spectral distortion for sensitivity studies.
 
     Attributes
     ----------
@@ -98,6 +97,8 @@ class model_dayabay_v1a:
         "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
+    antineutrino_spectrum_segment_edges : Path | Sequence[int | float] | NDArray | None, default=None
+        Text file with bin edges for the antineutrino spectrum or the edges themselves, which is relevant for the χ² calculation.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     is_absolute_efficiency_fixed : bool, default=True
@@ -283,7 +284,7 @@ class model_dayabay_v1a:
         from ..tools.validate_dataset import validate_dataset_get_source_type
 
         self._source_type = validate_dataset_get_source_type(
-            self._path_data, "dataset_info.yaml", version_min="0.1.0", version_max="1.0.0"
+            self._path_data, "dataset_info.yaml", version_min="0.2.0", version_max="1.0.0"
         )
 
         self.storage = NodeStorage()
@@ -336,71 +337,51 @@ class model_dayabay_v1a:
         path_data = self.path_data
         path_parameters = path_data / "parameters"
 
+        # fmt: off
         # Dataset items
         cfg_file_mapping = {
-            "antineutrino_spectrum_segment_edges": path_parameters
-            / "reactor_antineutrino_spectrum_edges.tsv",
-            "final_erec_bin_edges": path_parameters / "final_erec_bin_edges.tsv",
-            "parameters.survival_probability": path_parameters / "survival_probability.yaml",
-            "parameters.survival_probability_solar": path_parameters
-            / "survival_probability_solar.yaml",
-            "parameters.survival_probability_constants": path_parameters
-            / "survival_probability_constants.yaml",
-            "parameters.pdg_constants": path_parameters / "pdg2024.yaml",
-            "parameters.ibd_constants": path_parameters / "ibd_constants.yaml",
-            "parameters.conversion_thermal_power": path_parameters / "conversion_thermal_power.py",
-            "parameters.conversion_survival_probability": path_parameters
-            / "conversion_survival_probability_argument.py",
-            "parameters.baselines": path_parameters / "baselines.yaml",
-            "parameters.detector_normalization": path_parameters / "detector_normalization.yaml",
-            "parameters.detector_efficiency": path_parameters / "detector_efficiency.yaml",
-            "parameters.detector_n_protons_nominal": path_parameters
-            / "detector_n_protons_nominal.yaml",
-            "parameters.detector_n_protons_correction": path_parameters
-            / "detector_n_protons_correction.yaml",
-            "parameters.detector_eres": path_parameters / "detector_eres.yaml",
-            "parameters.detector_lsnl": path_parameters / "detector_lsnl.yaml",
-            "parameters.detector_iav_offdiag_scale": path_parameters
-            / "detector_iav_offdiag_scale.yaml",
-            "parameters.detector_relative": path_parameters / "detector_relative.yaml",
-            "parameters.detector_absolute": path_parameters / "extra/detector_absolute.yaml",
-            "parameters.reactor_thermal_power_nominal": path_parameters
-            / "reactor_thermal_power_nominal.yaml",
-            "parameters.reactor_energy_per_fission": path_parameters
-            / "reactor_energy_per_fission.yaml",
-            "parameters.reactor_snf": path_parameters / "reactor_snf.yaml",
-            "parameters.reactor_nonequilibrium_correction": path_parameters
-            / "reactor_nonequilibrium_correction.yaml",
-            "parameters.reactor_snf_fission_fractions": path_parameters
-            / "reactor_snf_fission_fractions.yaml",
-            "parameters.reactor_fission_fraction_scale": path_parameters
-            / "reactor_fission_fraction_scale.yaml",
-            "parameters.background_rate_scale_accidentals": path_parameters
-            / "background_rate_scale_accidentals.yaml",
-            "parameters.background_rates_uncorrelated": path_parameters
-            / f"background_rates_uncorrelated.yaml",
-            "parameters.background_rates_correlated": path_parameters
-            / f"background_rates_correlated.yaml",
-            "parameters.background_rate_uncertainty_scale_amc": path_parameters
-            / "background_rate_uncertainty_scale_amc.yaml",
-            "parameters.background_rate_uncertainty_scale_site": path_parameters
-            / f"background_rate_uncertainty_scale_site.yaml",
-            "reactor_antineutrino_spectra": path_data
-            / f"reactor_antineutrino_spectra_hm.{self.source_type}",
-            "reactor_antineutrino_spectra_uncertainties": path_data
-            / f"reactor_antineutrino_spectra_hm_uncertainties.{self.source_type}",
-            "nonequilibrium_correction": path_data
-            / f"nonequilibrium_correction.{self.source_type}",
-            "snf_correction": path_data / f"snf_correction.{self.source_type}",
-            "daily_detector_data": path_data
-            / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_data / f"reactors_operation_data.{self.source_type}",
-            "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
-            "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
-            "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
-            f"{self.source_type}",
-            "dataset": path_data / "dayabay_dataset/dayabay_ibd_spectra_{}." f"{self.source_type}",
+            "antineutrino_spectrum_segment_edges":               path_parameters / "reactor_antineutrino_spectrum_edges.tsv",
+            "final_erec_bin_edges":                              path_parameters / "final_erec_bin_edges.tsv",
+            "parameters.survival_probability":                   path_parameters / "survival_probability.yaml",
+            "parameters.survival_probability_solar":             path_parameters / "survival_probability_solar.yaml",
+            "parameters.survival_probability_constants":         path_parameters / "survival_probability_constants.yaml",
+            "parameters.pdg_constants":                          path_parameters / "pdg2024.yaml",
+            "parameters.ibd_constants":                          path_parameters / "ibd_constants.yaml",
+            "parameters.conversion_thermal_power":               path_parameters / "conversion_thermal_power.py",
+            "parameters.conversion_survival_probability":        path_parameters / "conversion_survival_probability_argument.py",
+            "parameters.baselines":                              path_parameters / "baselines.yaml",
+            "parameters.detector_normalization":                 path_parameters / "detector_normalization.yaml",
+            "parameters.detector_efficiency":                    path_parameters / "detector_efficiency.yaml",
+            "parameters.detector_n_protons_nominal":             path_parameters / "detector_n_protons_nominal.yaml",
+            "parameters.detector_n_protons_correction":          path_parameters / "detector_n_protons_correction.yaml",
+            "parameters.detector_eres":                          path_parameters / "detector_eres.yaml",
+            "parameters.detector_lsnl":                          path_parameters / "detector_lsnl.yaml",
+            "parameters.detector_iav_offdiag_scale":             path_parameters / "detector_iav_offdiag_scale.yaml",
+            "parameters.detector_relative":                      path_parameters / "detector_relative.yaml",
+            "parameters.detector_absolute":                      path_parameters / "extra/detector_absolute.yaml",
+            "parameters.reactor_thermal_power_nominal":          path_parameters / "reactor_thermal_power_nominal.yaml",
+            "parameters.reactor_energy_per_fission":             path_parameters / "reactor_energy_per_fission.yaml",
+            "parameters.reactor_snf":                            path_parameters / "reactor_snf.yaml",
+            "parameters.reactor_nonequilibrium_correction":      path_parameters / "reactor_nonequilibrium_correction.yaml",
+            "parameters.reactor_snf_fission_fractions":          path_parameters / "reactor_snf_fission_fractions.yaml",
+            "parameters.reactor_fission_fraction_scale":         path_parameters / "reactor_fission_fraction_scale.yaml",
+            "parameters.background_rate_scale_accidentals":      path_parameters / "background_rate_scale_accidentals.yaml",
+            "parameters.background_rates_uncorrelated":          path_parameters / f"background_rates_uncorrelated.yaml",
+            "parameters.background_rates_correlated":            path_parameters / f"background_rates_correlated.yaml",
+            "parameters.background_rate_uncertainty_scale_amc":  path_parameters / "background_rate_uncertainty_scale_amc.yaml",
+            "parameters.background_rate_uncertainty_scale_site": path_parameters / f"background_rate_uncertainty_scale_site.yaml",
+            "reactor_antineutrino_spectra":                      path_data / f"reactor_antineutrino_spectra_hm.{self.source_type}",
+            "reactor_antineutrino_spectra_uncertainties":        path_data / f"reactor_antineutrino_spectra_hm_uncertainties.{self.source_type}",
+            "nonequilibrium_correction":                         path_data / f"nonequilibrium_correction.{self.source_type}",
+            "snf_correction":                                    path_data / f"snf_correction.{self.source_type}",
+            "daily_detector_data":                               path_data / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
+            "daily_reactor_data":                                path_data / f"reactors_operation_data.{self.source_type}",
+            "iav_matrix":                                        path_data / f"detector_iav_matrix.{self.source_type}",
+            "lsnl_curves":                                       path_data / f"detector_lsnl_curves.{self.source_type}",
+            "background_spectra":                                path_data / "dayabay_dataset/dayabay_background_spectra_{}." f"{self.source_type}",
+            "dataset":                                           path_data / "dayabay_dataset/dayabay_ibd_spectra_{}." f"{self.source_type}",
         }
+        # fmt: on
         for cfg_name, path in override_cfg_files.items():
             cfg_file_mapping.update({cfg_name: Path(path)})
 
@@ -490,7 +471,7 @@ class model_dayabay_v1a:
 
         from ..bundles.refine_detector_data import refine_detector_data
         from ..bundles.refine_lsnl_data import refine_lsnl_data
-        from ..bundles.refine_reactor_data_variable_periods import refine_reactor_data
+        from ..bundles.refine_reactor_data import refine_reactor_data
         from ..bundles.sync_reactor_detector_data import sync_reactor_detector_data
 
         storage = self.storage
@@ -979,6 +960,111 @@ class model_dayabay_v1a:
                 },
             )
 
+            # Load "worst case distortion" parameters
+            load_parameters(
+                path="survival_probability_fake",
+                format="value",
+                state="fixed",
+                parameters={"baseline": 2000.0},
+                labels={
+                    "baseline": {
+                        "text": "Fake baseline for oscillation-like spectrum distortion [m]",
+                        "mark": "L'",
+                    }
+                },
+            )
+
+            load_parameters(
+                path="survival_probability_fake.target",
+                **{
+                    "format": "value",
+                    "state": "fixed",
+                    "parameters": {
+                        "nmo": 1,
+                        "SinSq2Theta13": 0.0856,
+                        "DeltaMSq31": 0.0025413,
+                        "DeltaMSq32": 0.002453,
+                        "DeltaMSq21": 0.0000753,
+                        "SinSq2Theta12": 0.851,
+                    },
+                    "labels": {
+                        "SinSq2Theta13": {
+                            "text": "Fake neutrino mixing amplitude sin²2θ₁₃'",
+                            "latex": "Fake neutrino mixing amplitude $\\sin^{2}2\\theta_{13}'$",
+                            "mark": "sin²2θ₁₃'",
+                        },
+                        "DeltaMSq31": {
+                            "text": "Fake neutrino mass splitting Δm²₃₁' [eV²]",
+                            "latex": "Fake neutrino mass splitting $\\Delta m^{2}_{31}'$ [eV$^2$]",
+                            "mark": "Δm²₃₁'",
+                        },
+                        "DeltaMSq32": {
+                            "text": "Fake neutrino mass splitting Δm²₃₂' [eV²]",
+                            "latex": "Fake neutrino mass splitting $\\Delta m^{2}_{32}'$ [eV$^2$]",
+                            "mark": "Δm²₃₂'",
+                        },
+                        "DeltaMSq21": {
+                            "text": "Fake solar neutrino mass splitting Δm²₂₁' [eV²]",
+                            "latex": "Fake solar neutrino mass splitting $\\Delta m^{2}_{21}'$ [eV$^2$]",
+                            "mark": "Δm²₂₁'",
+                        },
+                        "SinSq2Theta12": {
+                            "text": "Fake solar neutrino mixing angle sin²2θ₁₂'",
+                            "latex": "Fake solar neutrino mixing angle $\\sin^{2}2\\theta_{12}'$",
+                            "mark": "sin²2θ₁₂'",
+                        },
+                        "nmo": {"text": "Fake neutrino mass ordering: NO=1, IO=-1", "mark": "NMO'"},
+                    },
+                },
+            )
+
+            load_parameters(
+                path="survival_probability_fake.source",
+                **{
+                    "format": "value",
+                    "state": "fixed",
+                    "parameters": {
+                        "nmo": 1,
+                        "SinSq2Theta13": 0.0856,
+                        "DeltaMSq31": 0.0025413,
+                        "DeltaMSq32": 0.002453,
+                        "DeltaMSq21": 0.0000753,
+                        "SinSq2Theta12": 0.851,
+                    },
+                    "labels": {
+                        "SinSq2Theta13": {
+                            "text": "Compensated neutrino mixing amplitude sin²2θ₁₃⁰",
+                            "latex": "Compensated neutrino mixing amplitude $\\sin^{2}2\\theta_{13}^0$",
+                            "mark": "sin²2θ₁₃⁰",
+                        },
+                        "DeltaMSq31": {
+                            "text": "Compensated neutrino mass splitting Δm²₃₁⁰ [eV²]",
+                            "latex": "Compensated neutrino mass splitting $\\Delta m^{2}_{31}^0$ [eV$^2$]",
+                            "mark": "Δm²₃₁⁰",
+                        },
+                        "DeltaMSq32": {
+                            "text": "Compensated neutrino mass splitting Δm²₃₂⁰ [eV²]",
+                            "latex": "Compensated neutrino mass splitting $\\Delta m^{2}_{32}^0$ [eV$^2$]",
+                            "mark": "Δm²₃₂⁰",
+                        },
+                        "DeltaMSq21": {
+                            "text": "Compensated solar neutrino mass splitting Δm²₂₁⁰ [eV²]",
+                            "latex": "Compensated solar neutrino mass splitting $\\Delta m^{2}_{21}^0$ [eV$^2$]",
+                            "mark": "Δm²₂₁⁰",
+                        },
+                        "SinSq2Theta12": {
+                            "text": "Compensated solar neutrino mixing angle sin²2θ₁₂⁰",
+                            "latex": "Compensated solar neutrino mixing angle $\\sin^{2}2\\theta_{12}⁰$",
+                            "mark": "sin²2θ₁₂⁰",
+                        },
+                        "nmo": {
+                            "text": "Compensated neutrino mass ordering: NO=1, IO=-1",
+                            "mark": "NMO⁰",
+                        },
+                    },
+                },
+            )
+
             # Provide a few variable for handy read/write access of the model objects,
             # including:
             # - `nodes` - nested dictionary with nodes. Node is an instantiated function
@@ -1250,6 +1336,7 @@ class model_dayabay_v1a:
                 replicate_outputs=combinations["reactor.detector"],
                 surprobArgConversion=True,
             )
+
             # If created in the verbose mode one can see, that the following items are
             # created:
             # - nodes.survival_probability.R1.AD11
@@ -1298,6 +1385,51 @@ class model_dayabay_v1a:
             )
             nodes.get_dict("survival_probability") << parameters.get_dict(
                 "constant.survival_probability"
+            )
+
+            # Initialize two survival probability instances for fake distortion:
+            # - target (fake) to be used as nominator
+            # - source (quasi truth) to be used as denominator
+            NueSurvivalProbability.replicate(
+                name="survival_probability_fake.source",
+                leading_mass_splitting_3l_name=self._leading_mass_splitting_3l_name,
+                distance_unit="m",
+                surprobArgConversion=True,
+            )
+            NueSurvivalProbability.replicate(
+                name="survival_probability_fake.target",
+                leading_mass_splitting_3l_name=self._leading_mass_splitting_3l_name,
+                distance_unit="m",
+                surprobArgConversion=True,
+            )
+            kinematic_integrator_enu >> inputs.get_value("survival_probability_fake.source.enu")
+            kinematic_integrator_enu >> inputs.get_value("survival_probability_fake.target.enu")
+
+            parameters.get_value("constant.survival_probability_fake.baseline") >> inputs.get_value(
+                "survival_probability_fake.source.L"
+            )
+            parameters.get_value("constant.survival_probability_fake.baseline") >> inputs.get_value(
+                "survival_probability_fake.target.L"
+            )
+
+            parameters.get_value(
+                "all.conversion.survival_probability_argument_factor"
+            ) >> inputs.get_value("survival_probability_fake.source.surprobArgConversion")
+            parameters.get_value(
+                "all.conversion.survival_probability_argument_factor"
+            ) >> inputs.get_value("survival_probability_fake.target.surprobArgConversion")
+
+            nodes.get_value("survival_probability_fake.source") << parameters.get_dict(
+                "all.survival_probability_fake.source"
+            )
+            nodes.get_value("survival_probability_fake.target") << parameters.get_dict(
+                "all.survival_probability_fake.target"
+            )
+
+            Division.replicate(
+                outputs.get_value("survival_probability_fake.target"),
+                outputs.get_value("survival_probability_fake.source"),
+                name="survival_probability_fake.spectrum_distortion",
             )
 
             # The third component is the antineutrino spectrum as dN/dE per fission. We
@@ -2312,6 +2444,7 @@ class model_dayabay_v1a:
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
                 outputs.get_dict("reactor_antineutrino.part.neutrino_per_fission_per_MeV_main"),
+                outputs.get_value("survival_probability_fake.spectrum_distortion"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_main",
                 replicate_outputs=combinations["reactor.isotope.detector"],
             )
@@ -2323,6 +2456,7 @@ class model_dayabay_v1a:
                 outputs.get_dict(
                     "reactor_antineutrino.part.neutrino_per_fission_per_MeV_neq_nominal"
                 ),
+                outputs.get_value("survival_probability_fake.spectrum_distortion"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_neq",
                 replicate_outputs=combinations["reactor.isotope_neq.detector"],
             )
@@ -2331,6 +2465,7 @@ class model_dayabay_v1a:
             Product.replicate(
                 outputs.get_dict("kinematics.ibd.crosssection_jacobian_oscillations"),
                 outputs.get_dict("reactor_antineutrino.snf_antineutrino.neutrino_per_second_snf"),
+                outputs.get_value("survival_probability_fake.spectrum_distortion"),
                 name="kinematics.neutrino_cm2_per_MeV_per_fission_per_proton.part.nu_snf",
                 replicate_outputs=combinations["reactor.detector"],
             )

@@ -2,7 +2,7 @@ from os import environ
 
 from dag_modelling.tools.logger import set_verbosity
 from numpy import allclose, fabs
-from pytest import mark
+from pytest import fixture, mark
 
 from dgm_dayabay_dev.models import load_model
 
@@ -13,14 +13,18 @@ precision_requirement = {"tsv": 2.0e-10, "root": 0, "npz": 0}
 set_verbosity(1)
 
 
+@fixture(scope="session")
+def reference_model():
+    return load_model(version="v1a", path_data=f"data/dayabay-v1a/{source_type_reference}")
+
+
 @mark.parametrize("source_type", source_types_other)
-def test_dayabay_source_type(source_type: str):
+def test_dayabay_source_type(reference_model, source_type: str):
     # TODO: automize test with `latest` version
-    model_ref = load_model(version="v1a", path_data=f"data/dayabay-v1a/{source_type_reference}")
     model = load_model(version="v1a", path_data=f"data/dayabay-v1a/{source_type}")
 
     outname = "outputs.eventscount.final.concatenated.detector_period"
-    output_ref = model_ref.storage[outname]
+    output_ref = reference_model.storage[outname]
     output = model.storage[outname]
 
     data_ref = output_ref.data

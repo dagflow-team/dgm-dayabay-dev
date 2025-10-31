@@ -3,13 +3,13 @@
 """Check the Monotonize transformation."""
 from typing import Literal
 
+from dag_modelling.core.graph import Graph
+from dag_modelling.lib.common import Array
+from dag_modelling.plot.graphviz import savegraph
 from matplotlib import pyplot as plt
 from numpy import allclose, fabs, finfo, linspace, log
 from pytest import mark
 
-from dag_modelling.core.graph import Graph
-from dag_modelling.lib.common import Array
-from dag_modelling.plot.graphviz import savegraph
 from dgm_dayabay_dev.nodes.Monotonize import Monotonize
 
 
@@ -24,7 +24,7 @@ def test_monotonize(
     positive: bool,
     debug_graph,
     test_name: str,
-    output_path: str
+    output_path: str,
 ):
     x = linspace(0.0, 10, 101)[1:]
     y = log(x)
@@ -73,9 +73,7 @@ def test_monotonize(
     assert (ym == ym2).all()
 
     fig = plt.figure()
-    ax = plt.subplot(
-        111, xlabel="x", ylabel="y", title=f"Grad {gradient}, start {start}"
-    )
+    ax = plt.subplot(111, xlabel="x", ylabel="y", title=f"Grad {gradient}, start {start}")
     ax.grid()
     ax.plot(x, y, "+", label="input")
     ax.plot(x, ym, "x", label="monotonize 1")

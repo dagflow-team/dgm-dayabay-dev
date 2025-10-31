@@ -4,9 +4,6 @@ from os.path import relpath
 from pathlib import Path
 from typing import Any, Literal
 
-from numpy import ndarray
-from numpy.random import Generator
-
 from dag_modelling.bundles.file_reader import FileReader
 from dag_modelling.bundles.load_array import load_array
 from dag_modelling.bundles.load_graph import load_graph, load_graph_data
@@ -16,7 +13,8 @@ from dag_modelling.lib.arithmetic import Division, Product, Sum
 from dag_modelling.lib.interpolation import Interpolator
 from dag_modelling.tools.schema import LoadYaml
 from nested_mapping import NestedMapping
-
+from numpy import ndarray
+from numpy.random import Generator
 
 _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "oscprob": "oscprob",
@@ -549,8 +547,7 @@ class model_dayabay_v0:
             #   - correlated between isotopes
             #   - uncorrelated between energy intervals
             #
-            from dag_modelling.bundles.make_y_parameters_for_x import \
-                make_y_parameters_for_x
+            from dag_modelling.bundles.make_y_parameters_for_x import make_y_parameters_for_x
             make_y_parameters_for_x(
                     outputs.get_value("reactor_anue.spectrum_free_correction.spec_model_edges"),
                     namefmt = "spec_scale_{:02d}",
@@ -730,8 +727,7 @@ class model_dayabay_v0:
                 columns = ("day", "ndet", "livetime", "eff", "efflivetime"),
                 skip = self.inactive_detectors
             )
-            from ..bundles.refine_detector_data_v0ae import \
-                refine_detector_data
+            from ..bundles.refine_detector_data_v0ae import refine_detector_data
             refine_detector_data(
                 data("daily_data.detector_all"),
                 data.create_child("daily_data.detector"),
@@ -753,8 +749,7 @@ class model_dayabay_v0:
                 isotopes = index["isotope"],
             )
 
-            from ..bundles.sync_reactor_detector_data import \
-                sync_reactor_detector_data
+            from ..bundles.sync_reactor_detector_data import sync_reactor_detector_data
             sync_reactor_detector_data(
                     data("daily_data.reactor"),
                     data("daily_data.detector"),
@@ -1110,8 +1105,7 @@ class model_dayabay_v0:
             )
 
             # Coarse LSNL model, consistent with GNA implementation
-            from ..bundles.cross_check_refine_lsnl_data import \
-                cross_check_refine_lsnl_data
+            from ..bundles.cross_check_refine_lsnl_data import cross_check_refine_lsnl_data
             cross_check_refine_lsnl_data(
                 storage("data.detector.lsnl.curves"),
                 xname = 'edep',
@@ -1188,8 +1182,9 @@ class model_dayabay_v0:
             )
 
 
-            from dgm_dayabay_dev.nodes.AxisDistortionMatrixLinearLegacy import \
-                AxisDistortionMatrixLinearLegacy
+            from dgm_dayabay_dev.nodes.AxisDistortionMatrixLinearLegacy import (
+                AxisDistortionMatrixLinearLegacy,
+            )
             AxisDistortionMatrixLinearLegacy.replicate(
                     name="detector.lsnl.matrix",
                 replicate_outputs=index["detector"],
