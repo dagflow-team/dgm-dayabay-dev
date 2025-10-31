@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - feature: add `covariance_groups` parameter to control passed nuisance parameters to covarince matrix, works only with `strict=False`. Supported for `v1a` and `v1a_distorted`.
 - feature: add `pull_groups` parameter to control passed nuisance parameters to `nuisance.pull_extra`. Supported for `v1a` and `v1a_distorted`.
 - feature: add `is_absolute_efficiency_fixed` parameter to switch between fixed/variable absolute correlated detector efficiency. Supported for `v1a` and `v1a_distorted`.
+- feature: prepare code for reading variable periods of reactor data.
 - tests: optimize creation of models, ordering of tests.
 
 ## [0.4.2] - 2025-10-17
