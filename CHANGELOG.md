@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.5.0] - 2025-10-xx
+## [0.5.0] - 2025-10-31
 
 - feature: add `v1a_distorted` to study extreme spectral distortions.
 - feature: add `covariance_groups` parameter to control passed nuisance parameters to covarince matrix, works only with `strict=False`. Supported for `v1a` and `v1a_distorted`.
