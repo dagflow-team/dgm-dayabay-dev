@@ -1,10 +1,9 @@
 from collections.abc import Sequence
 
+from nested_mapping import NestedMapping
 from numba import njit
 from numpy import empty, isnan, logical_or
 from numpy.typing import NDArray
-
-from nested_mapping import NestedMapping
 
 
 @njit
@@ -135,21 +134,17 @@ def refine_reactor_data(
 
         ndays0 = ndays[0]
         if not (ndays[:-1] == ndays0).all():
-            raise ValueError(
-                "refine_reactor_data expects information with constant periodicity"
-            )
+            raise ValueError("refine_reactor_data expects information with constant periodicity")
 
         power = source["power"][corename]
         fission_fractions = {key: source[key.lower(), corename] for key in isotopes}
 
         step = period[1:] - period[:-1]
-        assert (
-            step == 1
-        ).all(), "Expect reactor data for with distinct period, no gaps"
+        assert (step == 1).all(), "Expect reactor data for with distinct period, no gaps"
 
         target["days"] = (days_storage := {})
         for period in periods:
-            mask_period = logical_or((ndet == period), (ndet==0))
+            mask_period = logical_or((ndet == period), (ndet > 8))
             periodname = f"{period}AD"
 
             mask = mask_period
