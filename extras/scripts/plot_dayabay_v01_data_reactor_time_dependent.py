@@ -26,7 +26,6 @@ def main(opts: Namespace) -> None:
     model = load_model(
         opts.version,
         model_options=opts.model_options,
-        source_type=opts.source_type,
         parameter_values=opts.par,
     )
 
@@ -42,7 +41,8 @@ def main(opts: Namespace) -> None:
     power_storage = storage["outputs.daily_data.reactor.power"]
     fission_fraction_storage = storage["outputs.daily_data.reactor.fission_fraction"]
 
-    reactors = ["DB1", "DB2", "LA1", "LA2", "LA3", "LA4"]
+    # reactors = ["DB1", "DB2", "LA1", "LA2", "LA3", "LA4"]
+    reactors = ["R1", "R2", "R3", "R4", "R5", "R6"]
     reactors = {ad: i for i, ad in enumerate(reactors)}
 
     gridspec_kw = {
@@ -154,13 +154,6 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
-    parser.add_argument(
-        "--source-type",
-        "--source",
-        choices=("tsv", "hdf5", "root", "npz"),
-        default="default:hdf5",
-        help="Data source type",
-    )
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
