@@ -1126,8 +1126,6 @@ statistic:
   full:
     covmat:
       chi2cnp:
-        text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum χ²"
-      chi2cnp_alt:
         text: "Combined Neyman-Pearson's χ²\\nstat+syst, covariance matrix, sum variance"
       chi2p_iterative:
         text: "Pearson's χ²\\nstat+syst, fixed stat uncertainties, covariance matrix"
