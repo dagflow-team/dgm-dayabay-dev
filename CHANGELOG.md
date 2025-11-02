@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.5.1] - 2025-11-02
 
-- hotfix: `full.covmat.chi2cnp` was removed to avoid confusions. `full.covmat.chi2cnp_alt` wes renamed to `full.covmat.chi2cnp`, it is defined as (18)-(19) equations from the [arXiv: 1903.07185](https://arxiv.org/pdf/1903.07185).
+- hotfix: `full.covmat.chi2cnp` was removed to avoid confusions. `full.covmat.chi2cnp_alt` wes renamed to `full.covmat.chi2cnp`, it is defined as (18)-(19) equations from the [arXiv: 1903.07185](https://arxiv.org/pdf/1903.07185). Only `v1a` and `v1a_distorted` were updated.
 
 ## [0.5.1] - 2025-11-02
 
