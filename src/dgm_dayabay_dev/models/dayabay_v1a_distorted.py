@@ -37,6 +37,7 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "background_rate": "background",
     "hm_corr": "reactor_antineutrino.spectrum_uncertainty.corr",
     "hm_uncorr": "reactor_antineutrino.spectrum_uncertainty.uncorr",
+    "absolute_efficiency": "detector.detector_absolute",
 }
 
 
@@ -236,11 +237,13 @@ class model_dayabay_v1a_distorted:
         assert monte_carlo_mode in {"asimov", "normal-stats", "poisson"}
         assert concatenation_mode in {"detector", "detector_period"}
 
+        self._is_absolute_efficiency_fixed = is_absolute_efficiency_fixed
+
         for covariance_group in covariance_groups:
-            assert covariance_group in _SYSTEMATIC_UNCERTAINTIES_GROUPS
+            assert covariance_group in self.systematic_uncertainties_groups
 
         if not covariance_groups:
-            covariance_groups = _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
+            covariance_groups = self.systematic_uncertainties_groups.keys()
 
         covariance_groups_set = set(covariance_groups)
         pull_groups_set = set(pull_groups)
@@ -252,7 +255,7 @@ class model_dayabay_v1a_distorted:
                 f"{pull_covariance_intersect}")
 
         systematic_groups_pull_covariance_intersect = set(
-            _SYSTEMATIC_UNCERTAINTIES_GROUPS.keys()
+            self.systematic_uncertainties_groups.keys()
         ).difference(covariance_groups_set).difference(pull_groups_set)
         if systematic_groups_pull_covariance_intersect:
             logger.log(
@@ -471,7 +474,7 @@ class model_dayabay_v1a_distorted:
 
         from ..bundles.refine_detector_data import refine_detector_data
         from ..bundles.refine_lsnl_data import refine_lsnl_data
-        from ..bundles.refine_reactor_data import refine_reactor_data
+        from ..bundles.refine_reactor_data_variable_periods import refine_reactor_data
         from ..bundles.sync_reactor_detector_data import sync_reactor_detector_data
 
         storage = self.storage
@@ -3082,7 +3085,7 @@ class model_dayabay_v1a_distorted:
             for group in self._covariance_groups:
                 self._covariance_matrix.add_covariance_for(
                     group, parameters_nuisance_normalized[
-                    self.systematic_uncertainties_groups()[group]
+                    self.systematic_uncertainties_groups[group]
                 ])
             self._covariance_matrix.add_covariance_sum()
 
@@ -3325,7 +3328,7 @@ class model_dayabay_v1a_distorted:
             if self._pull_groups:
                 Sum.replicate(
                     *[
-                        outputs[f"statistic.nuisance.parts.{self.systematic_uncertainties_groups()[group]}"] for group
+                        outputs[f"statistic.nuisance.parts.{self.systematic_uncertainties_groups[group]}"] for group
                         in self._pull_groups
                     ],
                     name="statistic.nuisance.pull_extra"
@@ -3730,9 +3733,20 @@ class model_dayabay_v1a_distorted:
             self.storage.get_value("nodes.mc.parameters.toymc").reset()
             self.storage.get_value("nodes.mc.parameters.inputs").touch()
 
-    @staticmethod
-    def systematic_uncertainties_groups() -> dict[str, str]:
-        return dict(_SYSTEMATIC_UNCERTAINTIES_GROUPS)
+    @property
+    def systematic_uncertainties_groups(self) -> dict[str, str]:
+        # TODO: update logic
+        if self._is_absolute_efficiency_fixed:
+            return {
+                group: parname
+                for group, parname in _SYSTEMATIC_UNCERTAINTIES_GROUPS.items()
+                if group != "absolute_efficiency"
+            }
+        else:
+            return {
+                group: parname
+                for group, parname in _SYSTEMATIC_UNCERTAINTIES_GROUPS.items()
+            }
 
     def _setup_labels(self):
         from dag_modelling.tools.schema import LoadYaml
