@@ -3457,14 +3457,6 @@ class model_dayabay_v1a:
                 name="statistic.full.pull.chi2p_unbiased",
             )
 
-            # CNP covmat
-            WeightedSumArgs.replicate(
-                outputs.get_value("statistic.full.covmat.chi2p"),
-                outputs.get_value("statistic.full.covmat.chi2n"),
-                name="statistic.full.covmat.chi2cnp",
-                weight=(2/3, 1/3),
-            )
-
             # CNP stat variance
             CNPStat.replicate(name="statistic.staterr.cnp_variance", mode="variance")
             outputs.get_value("data.proxy") >> inputs.get_value(
@@ -3488,16 +3480,16 @@ class model_dayabay_v1a:
             ) >> inputs.get_value("cholesky.covmat_full_cnp")
 
             # CNP, stat+syst, cov. matrix (as in the paper)
-            Chi2.replicate(name="statistic.full.covmat.chi2cnp_alt")
+            Chi2.replicate(name="statistic.full.covmat.chi2cnp")
             outputs.get_value("data.proxy") >> inputs.get_value(
-                "statistic.full.covmat.chi2cnp_alt.data"
+                "statistic.full.covmat.chi2cnp.data"
             )
             outputs.get_value(
                 "eventscount.final.concatenated.selected"
-            ) >> inputs.get_value("statistic.full.covmat.chi2cnp_alt.theory")
+            ) >> inputs.get_value("statistic.full.covmat.chi2cnp.theory")
             outputs.get_value(
                 "cholesky.covmat_full_cnp"
-            ) >> inputs.get_value("statistic.full.covmat.chi2cnp_alt.errors")
+            ) >> inputs.get_value("statistic.full.covmat.chi2cnp.errors")
 
             # Log Poisson Ratio, stat+syst, pull
             Sum.replicate(
