@@ -32,12 +32,12 @@ def inperiod_to_daily(array: NDArray, ndays: NDArray) -> NDArray:
 @njit
 def periods_to_days(array: NDArray, ndays: NDArray) -> NDArray:
     ndays_total = ndays.sum()
-    ret = empty(ndays_total)
+    ret = empty(ndays_total, dtype="i")
 
     i = 0
     for arr, ndays_p in zip(array, ndays):
         for day in range(ndays_p):
-            ret[i] = float(arr) + float(day)
+            ret[i] = arr + day
             i += 1
 
     return ret
@@ -133,7 +133,8 @@ def refine_neutrino_rate_data(
         period = source["period", corename]
         day = source["day", corename]
         ndays = source["n_days", corename]
-        ndet = source["n_det", corename]
+        ndet1 = source["n_det1", corename]
+        ndet2 = source["n_det2", corename]
 
         neutrino_rate = {key: source[key.lower(), corename] for key in isotopes}
 
@@ -142,7 +143,7 @@ def refine_neutrino_rate_data(
 
         target["days"] = (days_storage := {})
         for period in periods:
-            mask_period = logical_or((ndet == period), (ndet > 8))
+            mask_period = logical_or((ndet1 == period), (ndet2 == period))
             periodname = f"{period}AD"
 
             mask = mask_period
@@ -170,4 +171,3 @@ def refine_neutrino_rate_data(
     if clean_source:
         for key in tuple(source.walkkeys()):
             source.delete_with_parents(key)
-
