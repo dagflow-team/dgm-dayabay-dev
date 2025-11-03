@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from itertools import product
 from os.path import relpath
 from pathlib import Path
 from typing import TYPE_CHECKING
-from collections.abc import Mapping, Sequence
 
 from dag_modelling.core import Graph, NodeStorage
 from dag_modelling.tools.logger import INFO, logger
@@ -41,9 +41,8 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
 }
 
 
-class model_dayabay_v1a_neutrino_rate:
-    """The Daya Bay model implementation version v1. A candidate for the public
-    release.
+class model_dayabay:
+    """The Daya Bay model implementation version v1. A candidate for the public release.
 
     Purpose:
         - Replace power/fision fractions input with neutrino rate per isotope.
@@ -162,16 +161,43 @@ class model_dayabay_v1a_neutrino_rate:
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
     _arrays_dict: dict[str, Path | NDArray | None]
-    _covariance_groups: Sequence[Literal[
-            "survival_probability", "eres", "lsnl", "iav",
-            "detector_relative", "energy_per_fission", "nominal_thermal_power",
-            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
-    ]] | KeysView
-    _pull_groups: Sequence[Literal[
-            "survival_probability", "eres", "lsnl", "iav",
-            "detector_relative", "energy_per_fission", "nominal_thermal_power",
-            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
-    ]]
+    _covariance_groups: (
+        Sequence[
+            Literal[
+                "survival_probability",
+                "eres",
+                "lsnl",
+                "iav",
+                "detector_relative",
+                "energy_per_fission",
+                "nominal_thermal_power",
+                "snf",
+                "neq",
+                "fission_fraction",
+                "background_rate",
+                "hm_corr",
+                "hm_uncorr",
+            ]
+        ]
+        | KeysView
+    )
+    _pull_groups: Sequence[
+        Literal[
+            "survival_probability",
+            "eres",
+            "lsnl",
+            "iav",
+            "detector_relative",
+            "energy_per_fission",
+            "nominal_thermal_power",
+            "snf",
+            "neq",
+            "fission_fraction",
+            "background_rate",
+            "hm_corr",
+            "hm_uncorr",
+        ]
+    ]
     _arrays_dict: dict[str, Path | NDArray | None]
     _is_absolute_efficiency_fixed: bool
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
@@ -200,16 +226,43 @@ class model_dayabay_v1a_neutrino_rate:
         path_data: str | Path | None = None,
         antineutrino_spectrum_segment_edges: str | Path | None = None,
         final_erec_bin_edges: str | Path | Sequence[int | float] | NDArray | None = None,
-        covariance_groups: Sequence[Literal[
-            "survival_probability", "eres", "lsnl", "iav",
-            "detector_relative", "energy_per_fission", "nominal_thermal_power",
-            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
-        ]] | KeysView = [],
-        pull_groups: Sequence[Literal[
-            "survival_probability", "eres", "lsnl", "iav",
-            "detector_relative", "energy_per_fission", "nominal_thermal_power",
-            "snf", "neq", "fission_fraction", "background_rate", "hm_corr", "hm_uncorr"
-        ]] = [],
+        covariance_groups: (
+            Sequence[
+                Literal[
+                    "survival_probability",
+                    "eres",
+                    "lsnl",
+                    "iav",
+                    "detector_relative",
+                    "energy_per_fission",
+                    "nominal_thermal_power",
+                    "snf",
+                    "neq",
+                    "fission_fraction",
+                    "background_rate",
+                    "hm_corr",
+                    "hm_uncorr",
+                ]
+            ]
+            | KeysView
+        ) = [],
+        pull_groups: Sequence[
+            Literal[
+                "survival_probability",
+                "eres",
+                "lsnl",
+                "iav",
+                "detector_relative",
+                "energy_per_fission",
+                "nominal_thermal_power",
+                "snf",
+                "neq",
+                "fission_fraction",
+                "background_rate",
+                "hm_corr",
+                "hm_uncorr",
+            ]
+        ] = [],
         is_absolute_efficiency_fixed: bool = True,
     ):
         """Model initialization.
@@ -250,40 +303,51 @@ class model_dayabay_v1a_neutrino_rate:
         if pull_covariance_intersect:
             logger.log(
                 INFO,
-                "Pull groups intersect with covariance groups: "
-                f"{pull_covariance_intersect}")
+                "Pull groups intersect with covariance groups: " f"{pull_covariance_intersect}",
+            )
 
-        systematic_groups_pull_covariance_intersect = set(
-            self.systematic_uncertainties_groups.keys()
-        ).difference(covariance_groups_set).difference(pull_groups_set)
+        systematic_groups_pull_covariance_intersect = (
+            set(self.systematic_uncertainties_groups.keys())
+            .difference(covariance_groups_set)
+            .difference(pull_groups_set)
+        )
         if systematic_groups_pull_covariance_intersect:
             logger.log(
                 INFO,
                 "Several systematic groups are missing from `pull_groups` and `covariance_groups`: "
-                f"{systematic_groups_pull_covariance_intersect}"
+                f"{systematic_groups_pull_covariance_intersect}",
             )
 
-        from ..tools.validate_load_array import validate_load_array
+        from .tools.validate_load_array import validate_load_array
+
         self._arrays_dict = {
-            "antineutrino_spectrum_segment_edges": validate_load_array(antineutrino_spectrum_segment_edges),
+            "antineutrino_spectrum_segment_edges": validate_load_array(
+                antineutrino_spectrum_segment_edges
+            ),
             "final_erec_bin_edges": validate_load_array(final_erec_bin_edges),
         }
 
-        if antineutrino_spectrum_segment_edges is not None and override_cfg_files.get("antineutrino_spectrum_segment_edges"):
-            raise RuntimeError("Antineutrino bin edges couldn't be overloaded via `antineutrino_spectrum_segment_edges` and `override_cfg_files` simultaneously")
+        if antineutrino_spectrum_segment_edges is not None and override_cfg_files.get(
+            "antineutrino_spectrum_segment_edges"
+        ):
+            raise RuntimeError(
+                "Antineutrino bin edges couldn't be overloaded via `antineutrino_spectrum_segment_edges` and `override_cfg_files` simultaneously"
+            )
 
         if final_erec_bin_edges is not None and override_cfg_files.get("final_erec_bin_edges"):
-            raise RuntimeError("Final Erec bin edges couldn't be overloaded via `final_erec_bin_edges` and `override_cfg_files` simultaneously")
+            raise RuntimeError(
+                "Final Erec bin edges couldn't be overloaded via `final_erec_bin_edges` and `override_cfg_files` simultaneously"
+            )
 
         match path_data:
             case str() | Path():
                 self._path_data = Path(path_data)
             case None:
-                self._path_data = Path("data/dayabay-v1a/hdf5")
+                self._path_data = Path("data/dayabay-v1a_neutrino_rate/hdf5")
             case _:
                 raise RuntimeError(f"Unsupported path option: {path_data}")
 
-        from ..tools.validate_dataset import validate_dataset_get_source_type
+        from .tools.validate_dataset import validate_dataset_get_source_type
 
         self._source_type = validate_dataset_get_source_type(
             self._path_data, "dataset_info.yaml", version_min="0.1.0", version_max="1.0.0"
@@ -298,9 +362,12 @@ class model_dayabay_v1a_neutrino_rate:
         self._covariance_groups = covariance_groups
         self._pull_groups = pull_groups
 
-        from ..tools.validate_load_array import validate_load_array
+        from .tools.validate_load_array import validate_load_array
+
         self._arrays_dict = {
-            "antineutrino_spectrum_segment_edges": validate_load_array(antineutrino_spectrum_segment_edges),
+            "antineutrino_spectrum_segment_edges": validate_load_array(
+                antineutrino_spectrum_segment_edges
+            ),
             "final_erec_bin_edges": validate_load_array(final_erec_bin_edges),
         }
         self._random_generator = self._create_random_generator(seed)
@@ -397,6 +464,9 @@ class model_dayabay_v1a_neutrino_rate:
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
             "daily_reactor_data": path_data / f"reactors_operation_data.{self.source_type}",
+            "daily_neutrino_rate_data":
+            # path_data /
+            Path(f"./reactor_power_28days_by_neutrino_rate.hdf5"),
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
@@ -481,7 +551,7 @@ class model_dayabay_v1a_neutrino_rate:
             LogProdDiag,
             MonteCarlo,
         )
-        from dag_modelling.lib.summation import ArraySum, SumMatOrDiag, WeightedSumArgs
+        from dag_modelling.lib.summation import ArraySum, SumMatOrDiag
         from dgm_reactor_neutrino import (
             IBDXsecVBO1Group,
             InverseSquareLaw,
@@ -490,10 +560,11 @@ class model_dayabay_v1a_neutrino_rate:
         from nested_mapping.tools import remap_items
         from numpy import linspace
 
-        from ..bundles.refine_detector_data import refine_detector_data
-        from ..bundles.refine_lsnl_data import refine_lsnl_data
-        from ..bundles.refine_reactor_data_variable_periods import refine_reactor_data
-        from ..bundles.sync_reactor_detector_data import sync_reactor_detector_data
+        from ...bundles.refine_reactor_data_variable_periods import refine_reactor_data
+        from ...bundles.sync_reactor_detector_data import sync_reactor_detector_data
+        from .bundles.refine_neutrino_rate_data import refine_neutrino_rate_data
+        from .bundles.refine_detector_data import refine_detector_data
+        from .bundles.refine_lsnl_data import refine_lsnl_data
 
         storage = self.storage
 
@@ -502,7 +573,9 @@ class model_dayabay_v1a_neutrino_rate:
         # in the file and has type `ndarray`.
         if isinstance(self._arrays_dict["antineutrino_spectrum_segment_edges"], ndarray):
             antineutrino_model_edges = self._arrays_dict["antineutrino_spectrum_segment_edges"]
-            logger.info(f"Antineutrino model bin edges passed via argument: {antineutrino_model_edges!s}")
+            logger.info(
+                f"Antineutrino model bin edges passed via argument: {antineutrino_model_edges!s}"
+            )
         else:
             antineutrino_model_edges = FileReader.record[
                 cfg_file_mapping["antineutrino_spectrum_segment_edges"]
@@ -1914,6 +1987,22 @@ class model_dayabay_v1a_neutrino_rate:
                 filenames=cfg_file_mapping["daily_reactor_data"],
                 replicate_outputs=index["reactor"],
                 columns=("period", "day", "n_det", "n_days", "power") + index["isotope_lower"],
+            )
+
+            # TODO
+            load_record_data(
+                name="daily_data.neutrino_rate_all",
+                filenames=cfg_file_mapping["daily_neutrino_rate_data"],
+                replicate_outputs=index["reactor"],
+                columns=("period", "day", "n_det", "n_days") + index["isotope_lower"],
+            )
+
+            # TODO
+            refine_neutrino_rate_data(
+                data("daily_data.neutrino_rate_all"),
+                data.create_child("daily_data.neutrino_rate"),
+                reactors=index["reactor"],
+                isotopes=index["isotope"],
             )
 
             # Reactor data is then converted from monthly (TODO: specify) to daily (no
@@ -3599,15 +3688,12 @@ class model_dayabay_v1a_neutrino_rate:
                 if group != "absolute_efficiency"
             }
         else:
-            return {
-                group: parname
-                for group, parname in _SYSTEMATIC_UNCERTAINTIES_GROUPS.items()
-            }
+            return {group: parname for group, parname in _SYSTEMATIC_UNCERTAINTIES_GROUPS.items()}
 
     def _setup_labels(self):
         from dag_modelling.tools.schema import LoadYaml
 
-        labels = LoadYaml(relpath(__file__.replace(".py", "_labels.yaml")))
+        labels = LoadYaml(relpath(__file__.replace(".py", ".yaml")))
 
         processed_keys_set = set()
         self.storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)

@@ -12,6 +12,7 @@ from .dayabay_v0f import model_dayabay_v0f
 from .dayabay_v1 import model_dayabay_v1
 from .dayabay_v1a import model_dayabay_v1a
 from .dayabay_v1a_distorted import model_dayabay_v1a_distorted
+from .dayabay_v1a_neutrino_rate.model_dayabay import model_dayabay as model_dayabay_v1a_neutrino_rate
 
 AD_TO_EH = {
     "AD11": "EH1",
@@ -34,6 +35,7 @@ _dayabay_models = {
     "v1": model_dayabay_v1,
     "v1a": model_dayabay_v1a,
     "v1a_distorted": model_dayabay_v1a_distorted,
+    "v1a_neutrino_rate": model_dayabay_v1a_neutrino_rate,
 }
 _dayabay_models["latest"] = _dayabay_models["v1a"]
 
@@ -44,7 +46,7 @@ def available_models() -> tuple[str, ...]:
     return tuple(_dayabay_models.keys())
 
 
-def available_models_limited(*, first: str, last: str | None = None) -> tuple[str,...]:
+def available_models_limited(*, first: str, last: str | None = None) -> tuple[str, ...]:
     names = tuple(_dayabay_models.keys())
     assert names
     i = 0
