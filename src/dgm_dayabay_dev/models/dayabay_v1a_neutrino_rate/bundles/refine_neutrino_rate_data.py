@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from nested_mapping import NestedMapping
 from numba import njit
-from numpy import empty, isnan, logical_or
+from numpy import empty, isnan
 from numpy.typing import NDArray
 
 
@@ -101,7 +101,7 @@ def refine_neutrino_rate_data(
             },
             ...
         },
-        "fission_fraction": {
+        "neutrino_rate": {
             "isotope_name": {
                 "period_name": {
                     "reactor_name": array(),
@@ -123,7 +123,7 @@ def refine_neutrino_rate_data(
     reactors : Sequence[str]
         reactor names to use when writing data.
     isotopes : Sequence[str]
-        names of the isotopes to read and write fission fractions.
+        names of the isotopes to read and write neutrino rate.
     periods : Sequence[int], default=(6, 8, 7)
         periods (number of active detectors) to select.
     clean_source : bool, default=True
@@ -133,8 +133,7 @@ def refine_neutrino_rate_data(
         period = source["period", corename]
         day = source["day", corename]
         ndays = source["n_days", corename]
-        ndet1 = source["n_det1", corename]
-        ndet2 = source["n_det2", corename]
+        n_det_mask = source["n_det_mask", corename]
 
         neutrino_rate = {key: source[key.lower(), corename] for key in isotopes}
 
@@ -143,7 +142,12 @@ def refine_neutrino_rate_data(
 
         target["days"] = (days_storage := {})
         for period in periods:
-            mask_period = logical_or((ndet1 == period), (ndet2 == period))
+            period_bit = {
+                    6: 0b001,
+                    8: 0b010,
+                    7: 0b100,
+                    }[period]
+            mask_period = (n_det_mask & period_bit)>0
             periodname = f"{period}AD"
 
             mask = mask_period
@@ -153,7 +157,7 @@ def refine_neutrino_rate_data(
             )
             ndays_p = ndays[mask]
             for isotope in isotopes:
-                target[("fission_fraction",) + key + (isotope,)] = inperiod_to_daily(
+                target[("neutrino_rate",) + key + (isotope,)] = inperiod_to_daily(
                     neutrino_rate[isotope][mask], ndays_p
                 )
 
