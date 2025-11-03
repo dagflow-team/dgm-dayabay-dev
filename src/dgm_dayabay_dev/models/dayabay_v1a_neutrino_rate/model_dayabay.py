@@ -562,9 +562,10 @@ class model_dayabay:
 
         from ...bundles.refine_reactor_data_variable_periods import refine_reactor_data
         from ...bundles.sync_reactor_detector_data import sync_reactor_detector_data
-        from .bundles.refine_neutrino_rate_data import refine_neutrino_rate_data
         from .bundles.refine_detector_data import refine_detector_data
         from .bundles.refine_lsnl_data import refine_lsnl_data
+        from .bundles.refine_neutrino_rate_data import refine_neutrino_rate_data
+        from .bundles.sync_neutrino_rate_detector_data import sync_neutrino_rate_detector_data
 
         storage = self.storage
 
@@ -1994,7 +1995,7 @@ class model_dayabay:
                 name="daily_data.neutrino_rate_all",
                 filenames=cfg_file_mapping["daily_neutrino_rate_data"],
                 replicate_outputs=index["reactor"],
-                columns=("period", "day", "n_det", "n_days") + index["isotope_lower"],
+                columns=("period", "day", "n_det1", "n_det2", "n_days") + index["isotope_lower"],
             )
 
             # TODO
@@ -2021,6 +2022,12 @@ class model_dayabay:
             # procedure also checks that the data ranges are consistent.
             sync_reactor_detector_data(
                 data("daily_data.reactor"),
+                data("daily_data.detector"),
+            )
+
+            # TODO
+            sync_neutrino_rate_detector_data(
+                data("daily_data.neutrino_rate"),
                 data("daily_data.detector"),
             )
 
