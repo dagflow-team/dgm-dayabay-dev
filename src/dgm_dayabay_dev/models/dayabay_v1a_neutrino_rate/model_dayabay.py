@@ -1995,7 +1995,7 @@ class model_dayabay:
                 name="daily_data.neutrino_rate_all",
                 filenames=cfg_file_mapping["daily_neutrino_rate_data"],
                 replicate_outputs=index["reactor"],
-                columns=("period", "day", "n_det1", "n_det2", "n_days") + index["isotope_lower"],
+                columns=("period", "day", "n_det_mask", "n_days") + index["isotope_lower"],
             )
 
             # TODO
@@ -2043,6 +2043,15 @@ class model_dayabay:
             )
             data["daily_data.reactor.fission_fraction"] = remap_items(
                 data.get_dict("daily_data.reactor.fission_fraction"),
+                reorder_indices={
+                    "from": ["period", "reactor", "isotope"],
+                    "to": ["reactor", "isotope", "period"],
+                },
+            )
+
+            # TODO
+            data["daily_data.neutrino_rate.neutrino_rate"] = remap_items(
+                data.get_dict("daily_data.neutrino_rate.neutrino_rate"),
                 reorder_indices={
                     "from": ["period", "reactor", "isotope"],
                     "to": ["reactor", "isotope", "period"],
@@ -2117,6 +2126,13 @@ class model_dayabay:
 
             Array.from_storage(
                 "daily_data.reactor.fission_fraction",
+                storage.get_dict("data"),
+                remove_processed_arrays=True,
+                dtype="d",
+            )
+
+            Array.from_storage(
+                "daily_data.neutrino_rate.neutrino_rate",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
                 dtype="d",
