@@ -53,12 +53,14 @@ def main(opts: Namespace) -> None:
 
         return edges, data
 
-    source = opts.hist
-    sourceA = modelA.storage.get_dict(source)
-    sourceB = modelB.storage.get_dict(source)
+    sourceA_path = opts.hist
+    sourceB_path = opts.hist2 or sourceA_path
+    title = opts.hist2 and f"{opts.hist}↔{opts.hist2}" or opts.hist
+    sourceA = modelA.storage.get_dict(sourceA_path)
+    sourceB = modelB.storage.get_dict(sourceB_path)
     hists0_A = mkmap(get_hist, sourceA)
     hists0_B = mkmap(get_hist, sourceB)
-    plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=source, opts=opts)
+    plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=title, opts=opts)
 
     pars_set = False
     title = ""
@@ -175,7 +177,10 @@ def plot(
         rmin = min(nanmin(lratiom) * 0.9, nanmin(lratiom) * 1.1)
         rmax = max(nanmax(lratiom) * 0.9, nanmax(lratiom) * 1.1)
         if rmin != rmax:
-            axr.set_ylim(rmin, rmax)
+            if rmin!=float("inf") and rmin!=-float("inf"):
+                axr.set_ylim(bottom=rmin)
+            if rmax!=float("inf") and rmax!=-float("inf"):
+                axr.set_ylim(top=rmax)
         if opts.ylim:
             axr.set_ylim(*opts.ylim)
         if opts.llim:
@@ -209,6 +214,12 @@ if __name__ == "__main__":
         "--hist",
         default="outputs.eventscount.fine.ibd_normalized_detector",
         help="histogram to use for plotting and comparison",
+    )
+
+    model.add_argument(
+        "--hist2",
+        default=None,
+        help="optinal second histogram to use for plotting and comparison",
     )
 
     pars = parser.add_argument_group("pars", "setup pars")
