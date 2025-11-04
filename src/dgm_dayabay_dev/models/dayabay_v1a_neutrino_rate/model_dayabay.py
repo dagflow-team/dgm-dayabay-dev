@@ -2245,12 +2245,13 @@ class model_dayabay:
             # Compute number of fissions per second related to each isotope in each
             # reactor and each period: divide partial thermal power by average energy
             # per fission.
-            Division.replicate(
-                outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second"),
-                outputs.get_dict("reactor.energy_per_fission_average_MeV"),
-                name="reactor.fissions_per_second",
-                replicate_outputs=combinations["reactor.isotope.period"],
-            )
+            # TODO: remove
+            # Division.replicate(
+            #     outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second"),
+            #     outputs.get_dict("reactor.energy_per_fission_average_MeV"),
+            #     name="reactor.fissions_per_second",
+            #     replicate_outputs=combinations["reactor.isotope.period"],
+            # )
 
             # TODO
             Division.replicate(
@@ -2302,7 +2303,7 @@ class model_dayabay:
             # corresponding combination of indices may arise during iteration. Therefore
             # we provide a list of indices, which should not trigger an exception.
             Product.replicate(
-                outputs.get_dict("reactor.fissions_per_second"),
+                outputs.get_dict("reactor_neutrino_rate.fissions_per_second"),
                 outputs.get_dict("daily_data.detector.eff_livetime"),
                 name="reactor_detector.n_fissions_daily",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],

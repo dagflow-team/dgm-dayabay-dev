@@ -271,12 +271,6 @@ reactor:
       axis: '$W_i/W_{{\rm tot}}$'
       xaxis: "Day"
       unit: "MeV/s"
-  fissions_per_second:
-    group:
-      text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
-      axis: "$R$"
-      xaxis: "Day"
-      unit: "#fissions/s"
   energy_per_fission_snf_weighted_MeV:
     group:
       text: "Partial energy per fission for {key}\\nfor spent nuclear fuel, weighted with fission fraction"
@@ -292,6 +286,13 @@ reactor:
     group:
       text: "Fractional thermal power for {index[1]} in {index[0]}\\nreference for spent nuclear fuel"
       unit: "MeV/s"
+reactor_neutrino_rate:
+  fissions_per_second:
+    group:
+      text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
+      axis: "$R$"
+      xaxis: "Day"
+      unit: "#fissions/s"
 eventscount:
   parts:
     nu_main:
