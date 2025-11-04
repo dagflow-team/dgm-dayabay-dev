@@ -2,11 +2,11 @@
 
 from argparse import Namespace
 
-from dag_modelling.tools.logger import set_verbosity
+from dag_modelling.tools.logger import logger, set_verbosity
 from matplotlib import pyplot as plt
 from nested_mapping import NestedMapping
 from nested_mapping.tools import mkmap
-from numpy import log, nanmax, nanmin, where
+from numpy import arange, log, nanmax, nanmin, where
 
 from dgm_dayabay_dev.models import available_models, load_model
 
@@ -24,6 +24,7 @@ plt.style.use(
         "savefig.dpi": 300,
     }
 )
+
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
@@ -43,7 +44,14 @@ def main(opts: Namespace) -> None:
         parameter_values=opts.par0,
     )
 
-    get_hist = lambda output: (output.dd.axes_edges[0].data, output.data.copy())
+    def get_hist(output):
+        data = output.data.copy()
+        try:
+            edges = output.dd.axes_edges[0].data
+        except IndexError:
+            edges = arange(data.size + 1)
+
+        return edges, data
 
     source = opts.hist
     sourceA = modelA.storage.get_dict(source)
