@@ -433,6 +433,8 @@ class model_dayabay:
             / "detector_iav_offdiag_scale.yaml",
             "parameters.detector_relative": path_parameters / "detector_relative.yaml",
             "parameters.detector_absolute": path_parameters / "extra/detector_absolute.yaml",
+            "parameters.neutrinos_per_fission": path_parameters
+            / "neutrinos_per_fission_huber_mueller.yaml",
             "parameters.reactor_thermal_power_nominal": path_parameters
             / "reactor_thermal_power_nominal.yaml",
             "parameters.reactor_energy_per_fission": path_parameters
@@ -884,6 +886,11 @@ class model_dayabay:
             load_parameters(
                 path="conversion",
                 load=cfg_file_mapping["parameters.conversion_survival_probability"],
+            )
+
+            # TODO
+            load_parameters(
+                path="reactor", load=cfg_file_mapping["parameters.neutrinos_per_fission"]
             )
 
             # Load reactor-detector baselines
@@ -2001,7 +2008,7 @@ class model_dayabay:
             # TODO
             refine_neutrino_rate_data(
                 data("daily_data.neutrino_rate_all"),
-                data.create_child("daily_data.neutrino_rate"),
+                data.create_child("daily_data.reactor_neutrino_rate"),
                 reactors=index["reactor"],
                 isotopes=index["isotope"],
             )
@@ -2027,7 +2034,7 @@ class model_dayabay:
 
             # TODO
             sync_neutrino_rate_detector_data(
-                data("daily_data.neutrino_rate"),
+                data("daily_data.reactor_neutrino_rate"),
                 data("daily_data.detector"),
             )
 
@@ -2050,8 +2057,8 @@ class model_dayabay:
             )
 
             # TODO
-            data["daily_data.neutrino_rate.neutrino_rate"] = remap_items(
-                data.get_dict("daily_data.neutrino_rate.neutrino_rate"),
+            data["daily_data.reactor_neutrino_rate.neutrino_rate"] = remap_items(
+                data.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate"),
                 reorder_indices={
                     "from": ["period", "reactor", "isotope"],
                     "to": ["reactor", "isotope", "period"],
@@ -2132,7 +2139,7 @@ class model_dayabay:
             )
 
             Array.from_storage(
-                "daily_data.neutrino_rate.neutrino_rate",
+                "daily_data.reactor_neutrino_rate.neutrino_rate",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
                 dtype="d",
@@ -2242,6 +2249,14 @@ class model_dayabay:
                 outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second"),
                 outputs.get_dict("reactor.energy_per_fission_average_MeV"),
                 name="reactor.fissions_per_second",
+                replicate_outputs=combinations["reactor.isotope.period"],
+            )
+
+            # TODO
+            Division.replicate(
+                outputs.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate"),
+                parameters.get_dict("all.reactor.neutrinos_per_fission"),
+                name="reactor_neutrino_rate.fissions_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],
             )
 
