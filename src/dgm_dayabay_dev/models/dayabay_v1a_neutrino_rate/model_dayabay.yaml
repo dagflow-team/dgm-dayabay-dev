@@ -226,34 +226,15 @@ daily_data:
         axis: '$W_i/W_{{\rm tot}}$'
         xaxis: "Day"
         plotoptions: *daily_plotoptions
-    fission_fraction:
-      group:
-        text: "Daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
-        axis: '$f_i$'
-        xaxis: "Day"
-        plotoptions: *daily_plotoptions
-    fission_fraction_scaled:
-      group:
-        text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} during {index[2]}"
-        axis: '$f_i$'
-        xaxis: "Day"
-        plotoptions: *daily_plotoptions
-    fission_fraction_scaled_abs:
-      group:
-        text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} during {index[2]} (absolute values)"
-        axis: '$|f_i|$'
-        xaxis: "Day"
-        plotoptions: *daily_plotoptions
 reactor:
   energy_per_fission_weighted_MeV:
     group:
       text: "Partial energy per fission for {key}\\nweighted with fission fraction"
       axis: '$f_i\overline{{e}}_i$'
-      xaxis: "Day"
       unit: "MeV/fission"
   energy_per_fission_average_MeV:
     group:
-      text: "Average energy per fission in {index[0]} during {index[1]}"
+      text: "Average energy per fission in {index[0]}"
       axis: '$\overline{{e}}$'
       xaxis: "Day"
       unit: "MeV/fission"
@@ -265,12 +246,14 @@ reactor:
     group:
       text: "Reactor {key} fixed (central) thermal power Wth"
       unit: "MeV/s"
-  thermal_power_isotope_MeV_per_second:
+  fission_fraction_scaled:
     group:
-      text: "Fractional thermal power for {index[1]} in {index[0]} during {index[2]}"
-      axis: '$W_i/W_{{\rm tot}}$'
-      xaxis: "Day"
-      unit: "MeV/s"
+      text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]}"
+      axis: '$f_i$'
+  fission_fraction_scaled_abs:
+    group:
+      text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} (absolute values)"
+      axis: '$|f_i|$'
   energy_per_fission_snf_weighted_MeV:
     group:
       text: "Partial energy per fission for {key}\\nfor spent nuclear fuel, weighted with fission fraction"

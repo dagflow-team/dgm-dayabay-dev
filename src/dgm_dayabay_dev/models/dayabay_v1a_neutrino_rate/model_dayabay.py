@@ -437,6 +437,8 @@ class model_dayabay:
             / "neutrinos_per_fission_huber_mueller.yaml",
             "parameters.reactor_thermal_power_nominal": path_parameters
             / "reactor_thermal_power_nominal.yaml",
+            "parameters.reactor_thermal_power_uncertainty": path_parameters
+            / "reactor_thermal_power_uncertainty.yaml",
             "parameters.reactor_energy_per_fission": path_parameters
             / "reactor_energy_per_fission.yaml",
             "parameters.reactor_snf": path_parameters / "reactor_snf.yaml",
@@ -444,6 +446,8 @@ class model_dayabay:
             / "reactor_nonequilibrium_correction.yaml",
             "parameters.reactor_snf_fission_fractions": path_parameters
             / "reactor_snf_fission_fractions.yaml",
+            "parameters.reactor_fission_fractions": path_parameters
+            / "reactor_fission_fractions.yaml",
             "parameters.reactor_fission_fraction_scale": path_parameters
             / "reactor_fission_fraction_scale.yaml",
             "parameters.background_rate_scale_accidentals": path_parameters
@@ -967,7 +971,9 @@ class model_dayabay:
 
             # Load reactor related parameters:
             # - constrained nominal thermal power
+            # - constrained thermal power uncertainty, uncorrelated between reactors
             # - constrained mean energy release per fission
+            # - fixed values of mean fission fractions
             # - constrained Non-EQuilibrium (NEQ) correction scale
             # - constrained Spent Nuclear Fuel (SNF) scale
             # - fixed values of the fission fractions for the SNF calculation
@@ -977,7 +983,16 @@ class model_dayabay:
                 replicate=index["reactor"],
             )
             load_parameters(
+                path="reactor",
+                load=cfg_file_mapping["parameters.reactor_thermal_power_uncertainty"],
+                replicate=index["reactor"],
+            )
+            load_parameters(
                 path="reactor", load=cfg_file_mapping["parameters.reactor_energy_per_fission"]
+            )
+            load_parameters(
+                path="reactor",
+                load=cfg_file_mapping["parameters.reactor_fission_fractions"],
             )
             load_parameters(
                 path="reactor",
@@ -2132,13 +2147,6 @@ class model_dayabay:
             )
 
             Array.from_storage(
-                "daily_data.reactor.fission_fraction",
-                storage.get_dict("data"),
-                remove_processed_arrays=True,
-                dtype="d",
-            )
-
-            Array.from_storage(
                 "daily_data.reactor_neutrino_rate.neutrino_rate",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
@@ -2194,64 +2202,87 @@ class model_dayabay:
             # Apply the variable scale (nuisance) to the fiction fractions. Fission
             # fractions are time dependent and the scale is applied to each day. The
             # result is an array for each reactor, isotope, period triplet.
+            # TODO
             Product.replicate(
                 parameters.get_dict("all.reactor.fission_fraction_scale"),
-                outputs.get_dict("daily_data.reactor.fission_fraction"),
-                name="daily_data.reactor.fission_fraction_scaled",
-                replicate_outputs=combinations["reactor.isotope.period"],
+                parameters.get_dict("all.reactor.fission_fractions"),
+                name="reactor.fission_fraction_scaled",
+                replicate_outputs=combinations["reactor.isotope"],
             )
 
             # Compute absollute value of previous transformation. It is needed because
             # sometime minimization procedure goes to the non-physical values of
             # fission fraction. This transforamtion limits possible variations.
+            # TODO: code
             Abs.replicate(
-                name="daily_data.reactor.fission_fraction_scaled_abs",
-                replicate_outputs=combinations["reactor.isotope.period"],
+                name="reactor.fission_fraction_scaled_abs",
+                replicate_outputs=combinations["reactor.isotope"],
             )
-            outputs.get_dict("daily_data.reactor.fission_fraction_scaled") >> inputs.get_dict(
-                "daily_data.reactor.fission_fraction_scaled_abs"
+            outputs.get_dict("reactor.fission_fraction_scaled") >> inputs.get_dict(
+                "reactor.fission_fraction_scaled_abs"
             )
 
             # Using daily fission fractions compute weighted energy per fission in each
             # isotope in each reactor during each period. This is an intermediate step
             # to obtain average energy per fission in each reactor.
+            # TODO: check
             Product.replicate(
                 parameters.get_dict("all.reactor.energy_per_fission"),
-                outputs.get_dict("daily_data.reactor.fission_fraction_scaled_abs"),
+                outputs.get_dict("reactor.fission_fraction_scaled_abs"),
                 name="reactor.energy_per_fission_weighted_MeV",
-                replicate_outputs=combinations["reactor.isotope.period"],
+                replicate_outputs=combinations["reactor.isotope"],
+            )
+
+            Product.replicate(
+                parameters.get_dict("central.reactor.energy_per_fission"),
+                parameters.get_dict("all.reactor.fission_fractions"),
+                name="reactor.energy_per_fission_nominal_weighted_MeV",
+                replicate_outputs=combinations["isotope"],
             )
 
             # Sum weighted energy per fission within each reactor (isotope index
             # removed) to compute average energy per fission in each reactor during each
             # period.
+            # TODO: check
             Sum.replicate(
                 outputs.get_dict("reactor.energy_per_fission_weighted_MeV"),
                 name="reactor.energy_per_fission_average_MeV",
-                replicate_outputs=combinations["reactor.period"],
+                replicate_outputs=combinations["reactor"],
+            )
+
+            Sum.replicate(
+                outputs.get_dict("reactor.energy_per_fission_nominal_weighted_MeV"),
+                name="reactor.energy_per_fission_nominal_average_MeV",
             )
 
             # Compute daily contribution of each isotope to reactor's thermal power by
             # multiplying fission fractions, nominal thermal power [MeV/s] and fractional
             # thermal power.
-            Product.replicate(
-                outputs.get_dict("daily_data.reactor.power"),
-                outputs.get_dict("daily_data.reactor.fission_fraction_scaled_abs"),
-                outputs.get_dict("reactor.thermal_power_nominal_MeVs"),
-                name="reactor.thermal_power_isotope_MeV_per_second",
-                replicate_outputs=combinations["reactor.isotope.period"],
-            )
+            # TODO: code?
 
             # Compute number of fissions per second related to each isotope in each
             # reactor and each period: divide partial thermal power by average energy
             # per fission.
-            # TODO: remove
-            # Division.replicate(
-            #     outputs.get_dict("reactor.thermal_power_isotope_MeV_per_second"),
-            #     outputs.get_dict("reactor.energy_per_fission_average_MeV"),
-            #     name="reactor.fissions_per_second",
-            #     replicate_outputs=combinations["reactor.isotope.period"],
-            # )
+            Division.replicate(
+                outputs.get_dict("reactor.fission_fraction_scaled_abs"),
+                outputs.get_dict("reactor.energy_per_fission_average_MeV"),
+                name="reactor.fission_fractions_per_MeV",
+                replicate_outputs=combinations["reactor.isotope"],
+            )
+
+            Division.replicate(
+                parameters.get_dict("all.reactor.fission_fractions"),
+                outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
+                name="reactor.fission_fractions_per_MeV_nominal",
+                replicate_outputs=combinations["isotope"],
+            )
+
+            Division.replicate(
+                outputs.get_dict("reactor.fission_fractions_per_MeV"),
+                outputs.get_dict("reactor.fission_fractions_per_MeV_nominal"),
+                name="reactor.neutrino_rate_fission_fractions_uncertainty_scale",
+                replicate_outputs=combinations["reactor.isotope"],
+            )
 
             # TODO
             Division.replicate(
@@ -2355,11 +2386,19 @@ class model_dayabay:
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
 
+            Product.replicate(
+                outputs.get_dict("reactor_detector.n_fissions_n_protons_per_cm2"),
+                outputs.get_dict("reactor.neutrino_rate_fission_fractions_uncertainty_scale"),
+                parameters.get_dict("all.reactor.thermal_power_scale"),
+                name="reactor_detector.n_fissions_n_protons_per_cm2_scaled",
+                replicate_outputs=combinations["reactor.isotope.detector.period"],
+            )
+
             # A parallel branch will be used for NEQ correction, with previous value
             # multiplied by `neq_factor=1` (simple switch) and fit defined
             # `nonequilibrium_scale`.
             Product.replicate(
-                outputs.get_dict("reactor_detector.n_fissions_n_protons_per_cm2"),
+                outputs.get_dict("reactor_detector.n_fissions_n_protons_per_cm2_scaled"),
                 parameters.get_dict("all.reactor.nonequilibrium_scale"),
                 parameters.get_value("all.reactor.neq_factor"),
                 name="reactor_detector.n_fissions_n_protons_per_cm2_neq",
@@ -2480,7 +2519,7 @@ class model_dayabay:
             #             × efficiency[d]
             Product.replicate(
                 outputs.get_dict("kinematics.integral.nu_main"),
-                outputs.get_dict("reactor_detector.n_fissions_n_protons_per_cm2"),
+                outputs.get_dict("reactor_detector.n_fissions_n_protons_per_cm2_scaled"),
                 name="eventscount.parts.nu_main",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
