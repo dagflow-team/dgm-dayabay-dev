@@ -470,9 +470,7 @@ class model_dayabay:
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
             "daily_reactor_data": path_data / f"reactors_operation_data.{self.source_type}",
-            "daily_neutrino_rate_data":
-            # path_data /
-            Path(f"./reactor_power_28days_by_neutrino_rate.hdf5"),
+            "daily_neutrino_rate_data": path_data / "neutrino_rate_7days.hdf5",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
