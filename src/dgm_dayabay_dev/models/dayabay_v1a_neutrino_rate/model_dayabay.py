@@ -2288,7 +2288,7 @@ class model_dayabay:
             Division.replicate(
                 outputs.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate"),
                 parameters.get_dict("all.reactor.neutrinos_per_fission"),
-                name="reactor_neutrino_rate.fissions_per_second",
+                name="reactor.fissions_per_second",
                 replicate_outputs=combinations["reactor.isotope.period"],
             )
 
@@ -2334,7 +2334,7 @@ class model_dayabay:
             # corresponding combination of indices may arise during iteration. Therefore
             # we provide a list of indices, which should not trigger an exception.
             Product.replicate(
-                outputs.get_dict("reactor_neutrino_rate.fissions_per_second"),
+                outputs.get_dict("reactor.fissions_per_second"),
                 outputs.get_dict("daily_data.detector.eff_livetime"),
                 name="reactor_detector.n_fissions_daily",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],

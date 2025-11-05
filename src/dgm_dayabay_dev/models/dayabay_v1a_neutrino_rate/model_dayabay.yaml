@@ -269,7 +269,6 @@ reactor:
     group:
       text: "Fractional thermal power for {index[1]} in {index[0]}\\nreference for spent nuclear fuel"
       unit: "MeV/s"
-reactor_neutrino_rate:
   fissions_per_second:
     group:
       text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
