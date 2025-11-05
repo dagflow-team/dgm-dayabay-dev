@@ -469,7 +469,7 @@ class model_dayabay:
             "snf_correction": path_data / f"snf_correction.{self.source_type}",
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_data / f"reactors_operation_data.{self.source_type}",
+            "daily_reactor_data": path_data / f"reactor_power_7days.{self.source_type}",
             "daily_neutrino_rate_data": path_data / "neutrino_rate_7days.hdf5",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
@@ -1980,6 +1980,13 @@ class model_dayabay:
                 columns=("day", "n_det", "livetime", "eff", "eff_livetime", "rate_accidentals"),
                 skip=inactive_detectors,
             )
+            load_record_data(
+                name="daily_data.detector_all_old",
+                filenames=cfg_file_mapping["daily_detector_data"],
+                replicate_outputs=index["detector"],
+                columns=("day", "n_det", "livetime", "eff", "eff_livetime", "rate_accidentals"),
+                skip=inactive_detectors,
+            )
             # The data of each detector is stored for the whole period of data taking.
             # For this particular analysis the data should be split into arrays for each
             # particular period. This is done by the `refine_detector_data` function,
@@ -1990,6 +1997,14 @@ class model_dayabay:
             refine_detector_data(
                 data("daily_data.detector_all"),
                 data.create_child("daily_data.detector"),
+                detectors=index["detector"],
+                skip=inactive_detectors,
+                columns=("livetime", "eff", "eff_livetime", "rate_accidentals"),
+            )
+
+            refine_detector_data(
+                data("daily_data.detector_all_old"),
+                data.create_child("daily_data.detector_old"),
                 detectors=index["detector"],
                 skip=inactive_detectors,
                 columns=("livetime", "eff", "eff_livetime", "rate_accidentals"),
@@ -2042,7 +2057,7 @@ class model_dayabay:
             # procedure also checks that the data ranges are consistent.
             sync_reactor_detector_data(
                 data("daily_data.reactor"),
-                data("daily_data.detector"),
+                data("daily_data.detector_old"),
             )
 
             # TODO
