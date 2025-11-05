@@ -55,12 +55,12 @@ def main(opts: Namespace) -> None:
 
     sourceA_path = opts.hist
     sourceB_path = opts.hist2 or sourceA_path
-    title = opts.hist2 and f"{opts.hist}↔{opts.hist2}" or opts.hist
+    title0 = opts.hist2 and f"{opts.hist}↔{opts.hist2}" or opts.hist
     sourceA = modelA.storage.get_dict(sourceA_path)
     sourceB = modelB.storage.get_dict(sourceB_path)
     hists0_A = mkmap(get_hist, sourceA)
     hists0_B = mkmap(get_hist, sourceB)
-    plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=title, opts=opts)
+    plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=title0, opts=opts)
 
     pars_set = False
     title = ""
@@ -76,6 +76,11 @@ def main(opts: Namespace) -> None:
     if opts.par_b:
         title += "\nB: ".join(f"{par}={value}" for (par, value) in opts.par_b) + "\n"
         modelB.set_parameters(opts.par_b)
+        pars_set = True
+    if opts.norm_par:
+        title += "\nn: ".join(f"{par}={value}" for (par, value) in opts.norm_par) + "\n"
+        modelA.set_parameters(opts.norm_par, mode="normvalue")
+        modelB.set_parameters(opts.norm_par, mode="normvalue")
         pars_set = True
     if opts.norm_par_a:
         title += "\nAn: ".join(f"{par}={value}" for (par, value) in opts.norm_par_a) + "\n"
@@ -99,7 +104,7 @@ def main(opts: Namespace) -> None:
             histsD_B,
             opts.version_a,
             opts.version_b,
-            title=f"{source}\n{title}",
+            title=f"{title0}\n{title}",
             ylabel="mod−def",
             opts=opts,
         )
@@ -250,6 +255,13 @@ if __name__ == "__main__":
         action="append",
         default=[],
         help="set comparison parameter value for model B",
+    )
+    pars.add_argument(
+        "--norm-par",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set comparison parameter normalized value",
     )
     pars.add_argument(
         "--norm-par-a",
