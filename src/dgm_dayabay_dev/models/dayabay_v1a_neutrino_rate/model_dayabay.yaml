@@ -248,11 +248,11 @@ reactor:
       unit: "MeV/s"
   fission_fraction_scaled:
     group:
-      text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]}"
+      text: "Corrected (fit) fission fraction for {index[1]} in {index[0]}"
       axis: '$f_i$'
   fission_fraction_scaled_abs:
     group:
-      text: "Corrected (fit) daily fission fraction for {index[1]} in {index[0]} (absolute values)"
+      text: "Corrected (fit) fission fraction for {index[1]} in {index[0]} (absolute values)"
       axis: '$|f_i|$'
   energy_per_fission_snf_weighted_MeV:
     group:
