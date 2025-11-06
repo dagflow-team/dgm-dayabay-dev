@@ -343,7 +343,7 @@ class model_dayabay:
             case str() | Path():
                 self._path_data = Path(path_data)
             case None:
-                self._path_data = Path("data/dayabay-v1a_neutrino_rate/hdf5")
+                self._path_data = Path("data/dayabay-v1a_neutrino_rate_total/hdf5")
             case _:
                 raise RuntimeError(f"Unsupported path option: {path_data}")
 
@@ -470,7 +470,7 @@ class model_dayabay:
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
             "daily_reactor_data": path_data / f"reactor_power_7days.{self.source_type}",
-            "daily_neutrino_rate_data": path_data / "neutrino_rate_7days_total.hdf5",
+            "daily_neutrino_rate_data": path_data / f"neutrino_rate.{self.source_type}",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
