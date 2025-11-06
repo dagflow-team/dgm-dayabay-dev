@@ -94,13 +94,6 @@ def refine_neutrino_rate_data(
     ```python
     target = {
         "days": array(),
-        "power": {
-            "period_name": {
-                "reactor_name": array(),
-                ...
-            },
-            ...
-        },
         "neutrino_rate": {
             "isotope_name": {
                 "period_name": {
