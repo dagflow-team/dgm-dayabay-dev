@@ -2030,7 +2030,7 @@ class model_dayabay:
                 name="daily_data.neutrino_rate_all",
                 filenames=cfg_file_mapping["daily_neutrino_rate_data"],
                 replicate_outputs=index["reactor"],
-                columns=("period", "day", "n_det_mask", "n_days"),
+                columns=("period", "day", "n_det_mask", "n_days", "neutrino_rate_per_s"),
             )
 
             # TODO
@@ -2084,8 +2084,8 @@ class model_dayabay:
             )
 
             # TODO
-            data["daily_data.reactor_neutrino_rate.neutrino_rate"] = remap_items(
-                data.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate"),
+            data["daily_data.reactor_neutrino_rate.neutrino_rate_per_s"] = remap_items(
+                data.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate_per_s"),
                 reorder_indices={
                     "from": ["period", "reactor"],
                     "to": ["reactor", "period"],
@@ -2159,7 +2159,7 @@ class model_dayabay:
             )
 
             Array.from_storage(
-                "daily_data.reactor_neutrino_rate.neutrino_rate",
+                "daily_data.reactor_neutrino_rate.neutrino_rate_per_s",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
                 dtype="d",
@@ -2252,6 +2252,14 @@ class model_dayabay:
                 replicate_outputs=combinations["isotope"],
             )
 
+            # TODO
+            Product.replicate(
+                parameters.get_dict("all.reactor.neutrinos_per_fission"),
+                parameters.get_dict("all.reactor.fission_fractions"),
+                name="reactor.neutrinos_per_fission_nominal_weighted_MeV",
+                replicate_outputs=combinations["isotope"],
+            )
+
             # Sum weighted energy per fission within each reactor (isotope index
             # removed) to compute average energy per fission in each reactor during each
             # period.
@@ -2265,6 +2273,19 @@ class model_dayabay:
             Sum.replicate(
                 outputs.get_dict("reactor.energy_per_fission_nominal_weighted_MeV"),
                 name="reactor.energy_per_fission_nominal_average_MeV",
+            )
+
+            # TODO
+            Sum.replicate(
+                outputs.get_dict("reactor.neutrinos_per_fission_nominal_weighted_MeV"),
+                name="reactor.neutrinos_per_fission_nominal_average_MeV",
+            )
+
+            # TODO
+            Division.replicate(
+                outputs.get_value("reactor.neutrinos_per_fission_nominal_average_MeV"),
+                outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
+                name="reactor.neutrinos_per_MeV_nominal_average",
             )
 
             # Compute daily contribution of each isotope to reactor's thermal power by
@@ -2282,26 +2303,12 @@ class model_dayabay:
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
-            Division.replicate(
-                parameters.get_dict("all.reactor.fission_fractions"),
-                outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
-                name="reactor.fission_fractions_per_MeV_nominal",
-                replicate_outputs=combinations["isotope"],
-            )
-
-            Division.replicate(
-                outputs.get_dict("reactor.fission_fractions_per_MeV"),
-                outputs.get_dict("reactor.fission_fractions_per_MeV_nominal"),
-                name="reactor.neutrino_rate_fission_fractions_uncertainty_scale",
-                replicate_outputs=combinations["reactor.isotope"],
-            )
-
             # TODO
             Division.replicate(
-                outputs.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate"),
-                parameters.get_dict("all.reactor.neutrinos_per_fission"),
-                name="reactor.fissions_per_second",
-                replicate_outputs=combinations["reactor.isotope.period"],
+                outputs.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate_per_s"),
+                outputs.get_value("reactor.neutrinos_per_MeV_nominal_average"),
+                name="reactor.thermal_power_daily_average_MeV_per_s",
+                replicate_outputs=combinations["reactor.period"],
             )
 
             # In the few following operations repeat the calculation of fissions per
@@ -2345,10 +2352,11 @@ class model_dayabay:
             # Not all detectors are available during all the periods. Still
             # corresponding combination of indices may arise during iteration. Therefore
             # we provide a list of indices, which should not trigger an exception.
+            # TODO
             Product.replicate(
-                outputs.get_dict("reactor.fissions_per_second"),
+                outputs.get_dict("reactor.thermal_power_daily_average_MeV_per_s"),
                 outputs.get_dict("daily_data.detector.eff_livetime"),
-                name="reactor_detector.n_fissions_daily",
+                name="reactor_detector.thermal_energy_daily_MeV",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
@@ -2357,8 +2365,8 @@ class model_dayabay:
             # Sum up each array of daily data to obtain number of fissions as seen by
             # each detector from each isotope from each reactor during each period.
             ArraySum.replicate(
-                outputs.get_dict("reactor_detector.n_fissions_daily"),
-                name="reactor_detector.n_fissions",
+                outputs.get_dict("reactor_detector.thermal_energy_daily_MeV"),
+                name="reactor_detector.thermal_energy_MeV",
             )
 
             # Based on the distances compute baseline factors (1/[4πL²]) for
@@ -2389,8 +2397,9 @@ class model_dayabay:
             # corresponding baseline factor and efficiency:
             # - Number of fissions × N protons × ε / (4πL²) (main)
             # The result bears four indices: reactor, isotope, detector and period.
+            # TODO: change units since here
             Product.replicate(
-                outputs.get_dict("reactor_detector.n_fissions"),
+                outputs.get_dict("reactor_detector.thermal_energy_MeV"),
                 outputs.get_dict("detector.n_protons"),
                 outputs.get_dict("reactor_detector.baseline_factor_per_cm2"),
                 parameters.get_value("all.detector.efficiency"),
@@ -2398,9 +2407,10 @@ class model_dayabay:
                 replicate_outputs=combinations["reactor.isotope.detector.period"],
             )
 
+            # TODO
             Product.replicate(
                 outputs.get_dict("reactor_detector.n_fissions_n_protons_per_cm2"),
-                outputs.get_dict("reactor.neutrino_rate_fission_fractions_uncertainty_scale"),
+                outputs.get_dict("reactor.fission_fractions_per_MeV"),
                 parameters.get_dict("all.reactor.thermal_power_scale"),
                 name="reactor_detector.n_fissions_n_protons_per_cm2_scaled",
                 replicate_outputs=combinations["reactor.isotope.detector.period"],

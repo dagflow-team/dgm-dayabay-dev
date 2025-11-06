@@ -269,12 +269,12 @@ reactor:
     group:
       text: "Fractional thermal power for {index[1]} in {index[0]}\\nreference for spent nuclear fuel"
       unit: "MeV/s"
-  fissions_per_second:
-    group:
-      text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
-      axis: "$R$"
-      xaxis: "Day"
-      unit: "#fissions/s"
+  # fissions_per_second:
+  #   group:
+  #     text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
+  #     axis: "$R$"
+  #     xaxis: "Day"
+  #     unit: "#fissions/s"
 eventscount:
   parts:
     nu_main:
@@ -655,16 +655,16 @@ reactor_antineutrino:
         plotoptions:
           method: "slicesy"
 reactor_detector:
-  n_fissions_daily:
-    group:
-      text: "Daily observable # of fissions at {index[2]} for {index[1]} in {index[0]} during {index[3]}"
-      axis: "$N$"
-      unit: "#fissions"
-      xaxis: "Day"
-      plotoptions: *daily_plotoptions
-  n_fissions:
-    group:
-      text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during {index[3]} [#fissions]"
+  # n_fissions_daily:
+  #   group:
+  #     text: "Daily observable # of fissions at {index[2]} for {index[1]} in {index[0]} during {index[3]}"
+  #     axis: "$N$"
+  #     unit: "#fissions"
+  #     xaxis: "Day"
+  #     plotoptions: *daily_plotoptions
+  # n_fissions:
+  #   group:
+  #     text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during {index[3]} [#fissions]"
   n_fissions_n_protons_per_cm2:
     group:
       text: "#fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor main IBD flux"
