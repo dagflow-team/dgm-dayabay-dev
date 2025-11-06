@@ -12,7 +12,12 @@ from .dayabay_v0f import model_dayabay_v0f
 from .dayabay_v1 import model_dayabay_v1
 from .dayabay_v1a import model_dayabay_v1a
 from .dayabay_v1a_distorted import model_dayabay_v1a_distorted
-from .dayabay_v1a_neutrino_rate.model_dayabay import model_dayabay as model_dayabay_v1a_neutrino_rate
+from .dayabay_v1a_neutrino_rate.model_dayabay import (
+    model_dayabay as model_dayabay_v1a_neutrino_rate,
+)
+from .dayabay_v1a_neutrino_rate_total.model_dayabay import (
+    model_dayabay as model_dayabay_v1a_neutrino_rate_total,
+)
 
 AD_TO_EH = {
     "AD11": "EH1",
@@ -36,6 +41,7 @@ _dayabay_models = {
     "v1a": model_dayabay_v1a,
     "v1a_distorted": model_dayabay_v1a_distorted,
     "v1a_neutrino_rate": model_dayabay_v1a_neutrino_rate,
+    "v1a_neutrino_rate_total": model_dayabay_v1a_neutrino_rate_total,
 }
 _dayabay_models["latest"] = _dayabay_models["v1a"]
 
