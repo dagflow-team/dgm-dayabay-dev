@@ -30,7 +30,7 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "iav": "detector.iav_offdiag_scale_factor",
     "detector_relative": "detector.detector_relative",
     "energy_per_fission": "reactor.energy_per_fission",
-    "nominal_thermal_power": "reactor.nominal_thermal_power",
+    "thermal_power": "reactor.thermal_power_scale",
     "snf": "reactor.snf_scale",
     "neq": "reactor.nonequilibrium_scale",
     "fission_fraction": "reactor.fission_fraction_scale",
@@ -90,12 +90,12 @@ class model_dayabay:
               errors,
             - "poisson" - Poisson fluctuations.
     covariance_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
-        "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
+        "energy_per_fission", "thermal_power", "snf", "neq", "fission_fraction", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to covariance matrix. If no parameters passed,
         full covariance matrix will be created.
     pull_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
-        "energy_per_fission", "nominal_thermal_power", "snf", "neq", "fission_fraction", "background_rate",
+        "energy_per_fission", "thermal_power", "snf", "neq", "fission_fraction", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
@@ -170,7 +170,7 @@ class model_dayabay:
                 "iav",
                 "detector_relative",
                 "energy_per_fission",
-                "nominal_thermal_power",
+                "thermal_power",
                 "snf",
                 "neq",
                 "fission_fraction",
@@ -189,7 +189,7 @@ class model_dayabay:
             "iav",
             "detector_relative",
             "energy_per_fission",
-            "nominal_thermal_power",
+            "thermal_power",
             "snf",
             "neq",
             "fission_fraction",
@@ -235,7 +235,7 @@ class model_dayabay:
                     "iav",
                     "detector_relative",
                     "energy_per_fission",
-                    "nominal_thermal_power",
+                    "thermal_power",
                     "snf",
                     "neq",
                     "fission_fraction",
@@ -254,7 +254,7 @@ class model_dayabay:
                 "iav",
                 "detector_relative",
                 "energy_per_fission",
-                "nominal_thermal_power",
+                "thermal_power",
                 "snf",
                 "neq",
                 "fission_fraction",
