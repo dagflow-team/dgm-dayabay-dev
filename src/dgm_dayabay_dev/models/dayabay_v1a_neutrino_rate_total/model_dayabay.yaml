@@ -881,7 +881,7 @@ covariance:
       yunit: "#"
       plotoptions:
         mask_value: 0.0
-    nominal_thermal_power:
+    thermal_power:
       text: "Jacobian for reactor thermal power parameters"
       axis: "$J$"
       xaxis: "Bin"
@@ -976,7 +976,7 @@ covariance:
       unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
-    nominal_thermal_power:
+    thermal_power:
       text: "Systematic covariance matrix for reactor thermal power parameters"
       unit: "#²"
       axis: '$V_{\rm syst}$'
@@ -1148,6 +1148,8 @@ statistic:
         energy_per_fission:
           text: "χ² nuisance term for average fission energy parameters"
         nominal_thermal_power:
+          text: "χ² nuisance term for reactor thermal power parameters"
+        thermal_power_scale:
           text: "χ² nuisance term for reactor thermal power parameters"
         snf_scale:
           text: "χ² nuisance term for spent nuclear fuel parameters"
