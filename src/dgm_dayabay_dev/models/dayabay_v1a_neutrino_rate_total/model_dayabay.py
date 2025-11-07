@@ -444,8 +444,6 @@ class model_dayabay:
             "parameters.reactor_snf": path_parameters / "reactor_snf.yaml",
             "parameters.reactor_nonequilibrium_correction": path_parameters
             / "reactor_nonequilibrium_correction.yaml",
-            "parameters.reactor_snf_fission_fractions": path_parameters
-            / "reactor_snf_fission_fractions.yaml",
             "parameters.reactor_fission_fractions": path_parameters
             / "reactor_fission_fractions.yaml",
             "parameters.reactor_fission_fraction_scale": path_parameters
@@ -974,7 +972,6 @@ class model_dayabay:
             # - fixed values of mean fission fractions
             # - constrained Non-EQuilibrium (NEQ) correction scale
             # - constrained Spent Nuclear Fuel (SNF) scale
-            # - fixed values of the fission fractions for the SNF calculation
             load_parameters(
                 path="reactor",
                 load=cfg_file_mapping["parameters.reactor_thermal_power_nominal"],
@@ -1001,10 +998,6 @@ class model_dayabay:
                 path="reactor",
                 load=cfg_file_mapping["parameters.reactor_nonequilibrium_correction"],
                 replicate=combinations["reactor.isotope_neq"],
-            )
-            load_parameters(
-                path="reactor",
-                load=cfg_file_mapping["parameters.reactor_snf_fission_fractions"],
             )
             # The nominal thermal power is replicated for each reactor, making its
             # uncertainty uncorrelated. Energy per fission (and fission fraction) has
@@ -2315,21 +2308,10 @@ class model_dayabay:
             # second for SNF. This time we use fixed average fission fractions. The SNF
             # is defined as a fraction of nominal antineutrino spectrum from reactor.
             # Therefore the isotope index is used.
-            Product.replicate(
-                parameters.get_dict("central.reactor.energy_per_fission"),
-                parameters.get_dict("all.reactor.fission_fraction_snf"),
-                name="reactor.energy_per_fission_snf_weighted_MeV",
-                replicate_outputs=index["isotope"],
-            )
-
-            Sum.replicate(
-                outputs.get_dict("reactor.energy_per_fission_snf_weighted_MeV"),
-                name="reactor.energy_per_fission_snf_average_MeV",
-            )
 
             # For SNF contribution use central values for the nominal thermal power.
             Product.replicate(
-                parameters.get_dict("all.reactor.fission_fraction_snf"),
+                parameters.get_dict("all.reactor.fission_fractions"),
                 outputs.get_dict("reactor.thermal_power_nominal_MeVs_central"),
                 name="reactor.thermal_power_snf_isotope_MeV_per_second",
                 replicate_outputs=combinations["reactor.isotope"],
@@ -2338,7 +2320,7 @@ class model_dayabay:
             # Compute fissions per second for SNF calculation.
             Division.replicate(
                 outputs.get_dict("reactor.thermal_power_snf_isotope_MeV_per_second"),
-                outputs.get_value("reactor.energy_per_fission_snf_average_MeV"),
+                outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
                 name="reactor.fissions_per_second_snf",
                 replicate_outputs=combinations["reactor.isotope"],
             )

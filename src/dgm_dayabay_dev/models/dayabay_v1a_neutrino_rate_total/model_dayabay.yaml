@@ -254,13 +254,6 @@ reactor:
     group:
       text: "Corrected (fit) fission fraction for {index[1]} in {index[0]} (absolute values)"
       axis: '$|f_i|$'
-  energy_per_fission_snf_weighted_MeV:
-    group:
-      text: "Partial energy per fission for {key}\\nfor spent nuclear fuel, weighted with fission fraction"
-      unit: "MeV/fission"
-  energy_per_fission_snf_average_MeV:
-    text: "Average energy per fission for spent nuclear fuel"
-    unit: "MeV/fission"
   fissions_per_second_snf:
     group:
       text: "# of fissions per second for {key}\\nfor spent nuclear fuel"
@@ -647,13 +640,13 @@ reactor_antineutrino:
         unit: "#ν/s/MeV"
         plotoptions:
           method: "slicesy"
-    neutrino_per_second_snf:
-      group:
-        text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
-        axis: "SNF ν̅ rate"
-        unit: "#ν/s/MeV"
-        plotoptions:
-          method: "slicesy"
+    # neutrino_per_second_snf:
+    #   group:
+    #     text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
+    #     axis: "SNF ν̅ rate"
+    #     unit: "#ν/s/MeV"
+    #     plotoptions:
+    #       method: "slicesy"
 reactor_detector:
   # n_fissions_daily:
   #   group:
@@ -671,9 +664,9 @@ reactor_detector:
   n_fissions_n_protons_per_cm2_neq:
     group:
       text: "Scaled (fit) #fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor non-equilibrium IBD flux"
-  livetime_n_protons_per_cm2_snf:
-    group:
-      text: "Scaled (fit) #target protons × effective livetime × baseline factor {key} [#protons·s/cm²]\\nfor spent nuclear fuel IBD flux"
+  # livetime_n_protons_per_cm2_snf:
+  #   group:
+  #     text: "Scaled (fit) #target protons × effective livetime × baseline factor {key} [#protons·s/cm²]\\nfor spent nuclear fuel IBD flux"
   baseline_factor_per_cm2:
     group:
       text: "1/(4πL²) factor {key} [cm⁻²]"
