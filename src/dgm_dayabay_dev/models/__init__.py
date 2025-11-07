@@ -43,7 +43,7 @@ _dayabay_models = {
     # "v1a_neutrino_rate": model_dayabay_v1a_neutrino_rate,
     "v2": model_dayabay_v2,
 }
-_dayabay_models["latest"] = _dayabay_models["v1a"]
+_dayabay_models["latest"] = _dayabay_models["v2"]
 
 _available_sources = ("tsv", "hdf5", "root", "npz")
 
