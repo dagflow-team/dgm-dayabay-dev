@@ -350,7 +350,7 @@ class model_dayabay:
         from .tools.validate_dataset import validate_dataset_get_source_type
 
         self._source_type = validate_dataset_get_source_type(
-            self._path_data, "dataset_info.yaml", version_min="0.1.0", version_max="1.0.0"
+            self._path_data, "dataset_info.yaml", version_min="1.0.0", version_max="2.0.0"
         )
 
         self.storage = NodeStorage()
@@ -417,7 +417,6 @@ class model_dayabay:
             / "survival_probability_constants.yaml",
             "parameters.pdg_constants": path_parameters / "pdg2024.yaml",
             "parameters.ibd_constants": path_parameters / "ibd_constants.yaml",
-            "parameters.conversion_thermal_power": path_parameters / "conversion_thermal_power.py",
             "parameters.conversion_survival_probability": path_parameters
             / "conversion_survival_probability_argument.py",
             "parameters.baselines": path_parameters / "baselines.yaml",
@@ -879,9 +878,6 @@ class model_dayabay:
             # `scipy.constants` are used to provide the numbers.
             # There are no constants, except maybe 1, 1/3 and π, defined within the
             # code. All the numbers are read based on the configuration files.
-            load_parameters(
-                path="conversion", load=cfg_file_mapping["parameters.conversion_thermal_power"]
-            )
             load_parameters(
                 path="conversion",
                 load=cfg_file_mapping["parameters.conversion_survival_probability"],
