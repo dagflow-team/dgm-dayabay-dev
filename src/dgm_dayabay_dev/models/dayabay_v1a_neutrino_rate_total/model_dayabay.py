@@ -350,7 +350,7 @@ class model_dayabay:
         from .tools.validate_dataset import validate_dataset_get_source_type
 
         self._source_type = validate_dataset_get_source_type(
-            self._path_data, "dataset_info.yaml", version_min="0.1.0", version_max="1.0.0"
+            self._path_data, "dataset_info.yaml", version_min="1.0.0", version_max="2.0.0"
         )
 
         self.storage = NodeStorage()
