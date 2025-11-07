@@ -467,7 +467,6 @@ class model_dayabay:
             "snf_correction": path_data / f"snf_correction.{self.source_type}",
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_data / f"reactor_power_7days.{self.source_type}",
             "daily_neutrino_rate_data": path_data / f"neutrino_rate.{self.source_type}",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
@@ -1973,13 +1972,7 @@ class model_dayabay:
                 columns=("day", "n_det", "livetime", "eff", "eff_livetime", "rate_accidentals"),
                 skip=inactive_detectors,
             )
-            load_record_data(
-                name="daily_data.detector_all_old",
-                filenames=cfg_file_mapping["daily_detector_data"],
-                replicate_outputs=index["detector"],
-                columns=("day", "n_det", "livetime", "eff", "eff_livetime", "rate_accidentals"),
-                skip=inactive_detectors,
-            )
+
             # The data of each detector is stored for the whole period of data taking.
             # For this particular analysis the data should be split into arrays for each
             # particular period. This is done by the `refine_detector_data` function,
@@ -1995,14 +1988,6 @@ class model_dayabay:
                 columns=("livetime", "eff", "eff_livetime", "rate_accidentals"),
             )
 
-            refine_detector_data(
-                data("daily_data.detector_all_old"),
-                data.create_child("daily_data.detector_old"),
-                detectors=index["detector"],
-                skip=inactive_detectors,
-                columns=("livetime", "eff", "eff_livetime", "rate_accidentals"),
-            )
-
             # The reactor data is stored and read in a similar way and contains the
             # following columns:
             # - period - number of period for which data is presented, 0-based.
@@ -2011,13 +1996,6 @@ class model_dayabay:
             # - n_days - length of the period in days.
             # - power - average thermal power, relative to nominal.
             # - u235, u238, pu239, pu241 - fission fractions of corresponding isotope.
-            load_record_data(
-                name="daily_data.reactor_all",
-                filenames=cfg_file_mapping["daily_reactor_data"],
-                replicate_outputs=index["reactor"],
-                columns=("period", "day", "n_det", "n_days", "power") + index["isotope_lower"],
-            )
-
             # TODO
             load_record_data(
                 name="daily_data.neutrino_rate_all",
@@ -2036,21 +2014,12 @@ class model_dayabay:
             # Reactor data is then converted from monthly (TODO: specify) to daily (no
             # interpolation) and split them into data taking periods. The data is read
             # from "daily_data.reactor_all" and stored in "daily_data.reactor".
-            refine_reactor_data(
-                data("daily_data.reactor_all"),
-                data.create_child("daily_data.reactor"),
-                reactors=index["reactor"],
-                isotopes=index["isotope"],
-            )
+            # TODO
 
             # The detector and reactor data have different minimal period, therefore the
             # arrays are not matching. With the following procedure we produce matching
             # arrays for detector properties and reactor data based on the `day`. The
             # procedure also checks that the data ranges are consistent.
-            sync_reactor_detector_data(
-                data("daily_data.reactor"),
-                data("daily_data.detector_old"),
-            )
 
             # TODO
             sync_neutrino_rate_detector_data(
@@ -2061,21 +2030,6 @@ class model_dayabay:
             # Finally for convenience we change the nesting order making the data taking
             # period the innermost index. This does not affect matching the indices,
             # however is more convenient for plotting.
-            data["daily_data.reactor.power"] = remap_items(
-                data.get_dict("daily_data.reactor.power"),
-                reorder_indices={
-                    "from": ["period", "reactor"],
-                    "to": ["reactor", "period"],
-                },
-            )
-            data["daily_data.reactor.fission_fraction"] = remap_items(
-                data.get_dict("daily_data.reactor.fission_fraction"),
-                reorder_indices={
-                    "from": ["period", "reactor", "isotope"],
-                    "to": ["reactor", "isotope", "period"],
-                },
-            )
-
             # TODO
             data["daily_data.reactor_neutrino_rate.neutrino_rate_per_s"] = remap_items(
                 data.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate_per_s"),
@@ -2139,13 +2093,6 @@ class model_dayabay:
 
             Array.from_storage(
                 "daily_data.detector.rate_accidentals",
-                storage.get_dict("data"),
-                remove_processed_arrays=True,
-                dtype="d",
-            )
-
-            Array.from_storage(
-                "daily_data.reactor.power",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
                 dtype="d",

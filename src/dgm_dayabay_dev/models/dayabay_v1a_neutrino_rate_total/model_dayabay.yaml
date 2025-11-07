@@ -219,13 +219,6 @@ daily_data:
         unit: "#"
         xaxis: "Day"
         plotoptions: *daily_plotoptions
-  reactor:
-    power:
-      group:
-        text: "Daily fractional reactor power for {index[0]} during {index[1]}"
-        axis: '$W_i/W_{{\rm tot}}$'
-        xaxis: "Day"
-        plotoptions: *daily_plotoptions
 reactor:
   energy_per_fission_weighted_MeV:
     group:
