@@ -444,8 +444,6 @@ class model_dayabay:
             "parameters.reactor_snf": path_parameters / "reactor_snf.yaml",
             "parameters.reactor_nonequilibrium_correction": path_parameters
             / "reactor_nonequilibrium_correction.yaml",
-            "parameters.reactor_snf_fission_fractions": path_parameters
-            / "reactor_snf_fission_fractions.yaml",
             "parameters.reactor_fission_fractions": path_parameters
             / "reactor_fission_fractions.yaml",
             "parameters.reactor_fission_fraction_scale": path_parameters
@@ -469,7 +467,6 @@ class model_dayabay:
             "snf_correction": path_data / f"snf_correction.{self.source_type}",
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
-            "daily_reactor_data": path_data / f"reactor_power_7days.{self.source_type}",
             "daily_neutrino_rate_data": path_data / f"neutrino_rate.{self.source_type}",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
@@ -974,7 +971,6 @@ class model_dayabay:
             # - fixed values of mean fission fractions
             # - constrained Non-EQuilibrium (NEQ) correction scale
             # - constrained Spent Nuclear Fuel (SNF) scale
-            # - fixed values of the fission fractions for the SNF calculation
             load_parameters(
                 path="reactor",
                 load=cfg_file_mapping["parameters.reactor_thermal_power_nominal"],
@@ -1001,10 +997,6 @@ class model_dayabay:
                 path="reactor",
                 load=cfg_file_mapping["parameters.reactor_nonequilibrium_correction"],
                 replicate=combinations["reactor.isotope_neq"],
-            )
-            load_parameters(
-                path="reactor",
-                load=cfg_file_mapping["parameters.reactor_snf_fission_fractions"],
             )
             # The nominal thermal power is replicated for each reactor, making its
             # uncertainty uncorrelated. Energy per fission (and fission fraction) has
@@ -1980,13 +1972,7 @@ class model_dayabay:
                 columns=("day", "n_det", "livetime", "eff", "eff_livetime", "rate_accidentals"),
                 skip=inactive_detectors,
             )
-            load_record_data(
-                name="daily_data.detector_all_old",
-                filenames=cfg_file_mapping["daily_detector_data"],
-                replicate_outputs=index["detector"],
-                columns=("day", "n_det", "livetime", "eff", "eff_livetime", "rate_accidentals"),
-                skip=inactive_detectors,
-            )
+
             # The data of each detector is stored for the whole period of data taking.
             # For this particular analysis the data should be split into arrays for each
             # particular period. This is done by the `refine_detector_data` function,
@@ -2002,14 +1988,6 @@ class model_dayabay:
                 columns=("livetime", "eff", "eff_livetime", "rate_accidentals"),
             )
 
-            refine_detector_data(
-                data("daily_data.detector_all_old"),
-                data.create_child("daily_data.detector_old"),
-                detectors=index["detector"],
-                skip=inactive_detectors,
-                columns=("livetime", "eff", "eff_livetime", "rate_accidentals"),
-            )
-
             # The reactor data is stored and read in a similar way and contains the
             # following columns:
             # - period - number of period for which data is presented, 0-based.
@@ -2018,13 +1996,6 @@ class model_dayabay:
             # - n_days - length of the period in days.
             # - power - average thermal power, relative to nominal.
             # - u235, u238, pu239, pu241 - fission fractions of corresponding isotope.
-            load_record_data(
-                name="daily_data.reactor_all",
-                filenames=cfg_file_mapping["daily_reactor_data"],
-                replicate_outputs=index["reactor"],
-                columns=("period", "day", "n_det", "n_days", "power") + index["isotope_lower"],
-            )
-
             # TODO
             load_record_data(
                 name="daily_data.neutrino_rate_all",
@@ -2043,21 +2014,12 @@ class model_dayabay:
             # Reactor data is then converted from monthly (TODO: specify) to daily (no
             # interpolation) and split them into data taking periods. The data is read
             # from "daily_data.reactor_all" and stored in "daily_data.reactor".
-            refine_reactor_data(
-                data("daily_data.reactor_all"),
-                data.create_child("daily_data.reactor"),
-                reactors=index["reactor"],
-                isotopes=index["isotope"],
-            )
+            # TODO
 
             # The detector and reactor data have different minimal period, therefore the
             # arrays are not matching. With the following procedure we produce matching
             # arrays for detector properties and reactor data based on the `day`. The
             # procedure also checks that the data ranges are consistent.
-            sync_reactor_detector_data(
-                data("daily_data.reactor"),
-                data("daily_data.detector_old"),
-            )
 
             # TODO
             sync_neutrino_rate_detector_data(
@@ -2068,21 +2030,6 @@ class model_dayabay:
             # Finally for convenience we change the nesting order making the data taking
             # period the innermost index. This does not affect matching the indices,
             # however is more convenient for plotting.
-            data["daily_data.reactor.power"] = remap_items(
-                data.get_dict("daily_data.reactor.power"),
-                reorder_indices={
-                    "from": ["period", "reactor"],
-                    "to": ["reactor", "period"],
-                },
-            )
-            data["daily_data.reactor.fission_fraction"] = remap_items(
-                data.get_dict("daily_data.reactor.fission_fraction"),
-                reorder_indices={
-                    "from": ["period", "reactor", "isotope"],
-                    "to": ["reactor", "isotope", "period"],
-                },
-            )
-
             # TODO
             data["daily_data.reactor_neutrino_rate.neutrino_rate_per_s"] = remap_items(
                 data.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate_per_s"),
@@ -2146,13 +2093,6 @@ class model_dayabay:
 
             Array.from_storage(
                 "daily_data.detector.rate_accidentals",
-                storage.get_dict("data"),
-                remove_processed_arrays=True,
-                dtype="d",
-            )
-
-            Array.from_storage(
-                "daily_data.reactor.power",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
                 dtype="d",
@@ -2315,21 +2255,10 @@ class model_dayabay:
             # second for SNF. This time we use fixed average fission fractions. The SNF
             # is defined as a fraction of nominal antineutrino spectrum from reactor.
             # Therefore the isotope index is used.
-            Product.replicate(
-                parameters.get_dict("central.reactor.energy_per_fission"),
-                parameters.get_dict("all.reactor.fission_fraction_snf"),
-                name="reactor.energy_per_fission_snf_weighted_MeV",
-                replicate_outputs=index["isotope"],
-            )
-
-            Sum.replicate(
-                outputs.get_dict("reactor.energy_per_fission_snf_weighted_MeV"),
-                name="reactor.energy_per_fission_snf_average_MeV",
-            )
 
             # For SNF contribution use central values for the nominal thermal power.
             Product.replicate(
-                parameters.get_dict("all.reactor.fission_fraction_snf"),
+                parameters.get_dict("all.reactor.fission_fractions"),
                 outputs.get_dict("reactor.thermal_power_nominal_MeVs_central"),
                 name="reactor.thermal_power_snf_isotope_MeV_per_second",
                 replicate_outputs=combinations["reactor.isotope"],
@@ -2338,7 +2267,7 @@ class model_dayabay:
             # Compute fissions per second for SNF calculation.
             Division.replicate(
                 outputs.get_dict("reactor.thermal_power_snf_isotope_MeV_per_second"),
-                outputs.get_value("reactor.energy_per_fission_snf_average_MeV"),
+                outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
                 name="reactor.fissions_per_second_snf",
                 replicate_outputs=combinations["reactor.isotope"],
             )
