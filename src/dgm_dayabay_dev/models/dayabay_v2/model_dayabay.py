@@ -446,7 +446,7 @@ class model_dayabay:
             / "reactor_nonequilibrium_correction.yaml",
             "parameters.reactor_fission_fractions": path_parameters
             / "reactor_fission_fractions.yaml",
-            "parameters.reactor_fission_fraction_scale": path_parameters
+            "parameters.reactor_fission_fractions_scale": path_parameters
             / "reactor_fission_fraction_scale.yaml",
             "parameters.background_rate_scale_accidentals": path_parameters
             / "background_rate_scale_accidentals.yaml",
@@ -467,7 +467,7 @@ class model_dayabay:
             "snf_correction": path_data / f"snf_correction.{self.source_type}",
             "daily_detector_data": path_data
             / f"dayabay_dataset/dayabay_daily_detector_data.{self.source_type}",
-            "daily_neutrino_rate_data": path_data / f"neutrino_rate.{self.source_type}",
+            "daily_antineutrino_rate_data": path_data / f"neutrino_rate.{self.source_type}",
             "iav_matrix": path_data / f"detector_iav_matrix.{self.source_type}",
             "lsnl_curves": path_data / f"detector_lsnl_curves.{self.source_type}",
             "background_spectra": path_data / "dayabay_dataset/dayabay_background_spectra_{}."
@@ -1014,7 +1014,7 @@ class model_dayabay:
             # index is modified to have `isotope` as the innermost part.
             load_parameters(
                 path="reactor",
-                load=cfg_file_mapping["parameters.reactor_fission_fraction_scale"],
+                load=cfg_file_mapping["parameters.reactor_fission_fractions_scale"],
                 replicate=index["reactor"],
                 keys_order=(
                     ("par", "isotope", "reactor"),
@@ -1999,15 +1999,15 @@ class model_dayabay:
             # - u235, u238, pu239, pu241 - fission fractions of corresponding isotope.
             # TODO
             load_record_data(
-                name="daily_data.neutrino_rate_all",
-                filenames=cfg_file_mapping["daily_neutrino_rate_data"],
+                name="daily_data.antineutrino_rate_all",
+                filenames=cfg_file_mapping["daily_antineutrino_rate_data"],
                 replicate_outputs=index["reactor"],
                 columns=("period", "day", "n_det_mask", "n_days", "neutrino_rate_per_s"),
             )
 
             # TODO
             refine_neutrino_rate_data(
-                data("daily_data.neutrino_rate_all"),
+                data("daily_data.antineutrino_rate_all"),
                 data.create_child("daily_data.reactor"),
                 reactors=index["reactor"],
             )
@@ -2032,7 +2032,7 @@ class model_dayabay:
             # period the innermost index. This does not affect matching the indices,
             # however is more convenient for plotting.
             # TODO
-            data["daily_data.reactor.neutrino_rate_per_s"] = remap_items(
+            data["daily_data.reactor.antineutrino_rate_per_s"] = remap_items(
                 data.get_dict("daily_data.reactor.neutrino_rate_per_s"),
                 reorder_indices={
                     "from": ["period", "reactor"],
@@ -2057,7 +2057,7 @@ class model_dayabay:
             #   - rate_accidentals
             # - reactor data for each reactor and period:
             #   - power
-            #   - fission_fraction
+            #   - fission_fractions
             Array.from_storage(
                 "daily_data.detector.days",
                 storage.get_dict("data"),
@@ -2100,7 +2100,7 @@ class model_dayabay:
             )
 
             Array.from_storage(
-                "daily_data.reactor.neutrino_rate_per_s",
+                "daily_data.reactor.antineutrino_rate_per_s",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
                 dtype="d",
@@ -2159,7 +2159,7 @@ class model_dayabay:
             Product.replicate(
                 parameters.get_dict("all.reactor.fission_fraction_scale"),
                 parameters.get_dict("all.reactor.fission_fractions"),
-                name="reactor.fission_fraction_scaled",
+                name="reactor.fission_fractions_scaled",
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
@@ -2168,11 +2168,11 @@ class model_dayabay:
             # fission fraction. This transforamtion limits possible variations.
             # TODO: code
             Abs.replicate(
-                name="reactor.fission_fraction_scaled_abs",
+                name="reactor.fission_fractions_scaled_abs",
                 replicate_outputs=combinations["reactor.isotope"],
             )
-            outputs.get_dict("reactor.fission_fraction_scaled") >> inputs.get_dict(
-                "reactor.fission_fraction_scaled_abs"
+            outputs.get_dict("reactor.fission_fractions_scaled") >> inputs.get_dict(
+                "reactor.fission_fractions_scaled_abs"
             )
 
             # Using daily fission fractions compute weighted energy per fission in each
@@ -2181,7 +2181,7 @@ class model_dayabay:
             # TODO: check
             Product.replicate(
                 parameters.get_dict("all.reactor.energy_per_fission"),
-                outputs.get_dict("reactor.fission_fraction_scaled_abs"),
+                outputs.get_dict("reactor.fission_fractions_scaled_abs"),
                 name="reactor.energy_per_fission_weighted_MeV",
                 replicate_outputs=combinations["reactor.isotope"],
             )
@@ -2238,7 +2238,7 @@ class model_dayabay:
             # reactor and each period: divide partial thermal power by average energy
             # per fission.
             Division.replicate(
-                outputs.get_dict("reactor.fission_fraction_scaled_abs"),
+                outputs.get_dict("reactor.fission_fractions_scaled_abs"),
                 outputs.get_dict("reactor.energy_per_fission_average_MeV"),
                 name="reactor.fission_fractions_per_MeV",
                 replicate_outputs=combinations["reactor.isotope"],
@@ -2246,7 +2246,7 @@ class model_dayabay:
 
             # TODO
             Division.replicate(
-                outputs.get_dict("daily_data.reactor.neutrino_rate_per_s"),
+                outputs.get_dict("daily_data.reactor.antineutrino_rate_per_s"),
                 outputs.get_value("reactor.neutrinos_per_MeV_nominal_average"),
                 name="daily_data.reactor.thermal_power_average_MeV_per_s",
                 replicate_outputs=combinations["reactor.period"],

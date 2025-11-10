@@ -239,11 +239,11 @@ reactor:
     group:
       text: "Reactor {key} fixed (central) thermal power Wth"
       unit: "MeV/s"
-  fission_fraction_scaled:
+  fission_fractions_scaled:
     group:
       text: "Corrected (fit) fission fraction for {index[1]} in {index[0]}"
       axis: '$f_i$'
-  fission_fraction_scaled_abs:
+  fission_fractions_scaled_abs:
     group:
       text: "Corrected (fit) fission fraction for {index[1]} in {index[0]} (absolute values)"
       axis: '$|f_i|$'
