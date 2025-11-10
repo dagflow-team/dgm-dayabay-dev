@@ -38,7 +38,7 @@ def main(opts: Namespace) -> None:
         method()
 
     days_storage = storage["outputs.daily_data.days"]
-    neutrino_rate_storage = storage["outputs.daily_data.reactor_neutrino_rate.neutrino_rate"]
+    neutrino_rate_storage = storage["outputs.daily_data.reactor.antineutrino_rate_per_s"]
 
     reactors = ["R1", "R2", "R3", "R4", "R5", "R6"]
     reactors = {ad: i for i, ad in enumerate(reactors)}
@@ -56,7 +56,7 @@ def main(opts: Namespace) -> None:
         1,
         sharex=True,
         figsize=figsize,
-        subplot_kw={"ylabel": r"f, %"},
+        subplot_kw={"ylabel": r"rate, $s^{-1}$"},
         gridspec_kw=gridspec_kw,
     )
 
@@ -67,14 +67,12 @@ def main(opts: Namespace) -> None:
 
     plot_kwargs0 = dict(markersize=0.5)
     plot_kwargs = dict(color="C0", **plot_kwargs0)
-    isotopes = ["U235", "U238", "Pu239", "Pu241"]
-    for (reactor, isotope, period), output in neutrino_rate_storage.walkitems():
+    for (reactor, period), output in neutrino_rate_storage.walkitems():
         data_days = days_storage[period].data
 
         reactor_id = reactors[reactor]
 
         ax_nr = axes_nr[reactor_id]
-        iisotope = isotopes.index(isotope)
         nr_data = output.data
         mask = nr_data>0
 
@@ -82,8 +80,6 @@ def main(opts: Namespace) -> None:
             data_days[mask],
             nr_data[mask] * 100,
             ".",
-            color=f"C{iisotope}",
-            label=isotope,
             **plot_kwargs0,
         )
 
@@ -101,8 +97,8 @@ def main(opts: Namespace) -> None:
         ax_nr.tick_params(
             axis="y",
             which="both",
-            left=not ticks_right,
-            right=ticks_right,
+            left=True,
+            right=True,
             labelleft=not ticks_right,
             labelright=ticks_right,
         )
