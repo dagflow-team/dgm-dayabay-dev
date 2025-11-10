@@ -1133,8 +1133,8 @@ statistic:
           text: "χ² nuisance term for fission fraction uncertainty"
         energy_per_fission:
           text: "χ² nuisance term for average fission energy parameters"
-        nominal_thermal_power:
-          text: "χ² nuisance term for reactor thermal power parameters"
+        # nominal_thermal_power:
+        #   text: "χ² nuisance term for reactor thermal power parameters"
         thermal_power_scale:
           text: "χ² nuisance term for reactor thermal power parameters"
         snf_scale:

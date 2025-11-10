@@ -2146,7 +2146,7 @@ class model_dayabay:
             # "all.reactor.nominal_thermal_power", for the following product we use
             # "central.reactor.nominal_thermal_power", which do not depend on them.
             Product.replicate(
-                parameters.get_dict("central.reactor.nominal_thermal_power"),
+                parameters.get_dict("constant.reactor.nominal_thermal_power"),
                 parameters.get_value("all.conversion.conversion_reactor_power"),
                 name="reactor.thermal_power_nominal_MeVs_central",
                 replicate_outputs=index["reactor"],
