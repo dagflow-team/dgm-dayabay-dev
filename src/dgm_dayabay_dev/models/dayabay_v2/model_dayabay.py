@@ -145,6 +145,7 @@ class model_dayabay:
         "_source_type",
         "_strict",
         "_close",
+        "_process_labels",
         "_covariance_matrix",
         "_frozen_nodes",
         "_random_generator",
@@ -203,6 +204,7 @@ class model_dayabay:
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
+    _process_labels: bool
     _random_generator: Generator
     _covariance_matrix: MetaNode
     _frozen_nodes: dict[str, tuple]
@@ -212,6 +214,7 @@ class model_dayabay:
         *,
         strict: bool = True,
         close: bool = True,
+        process_labels: bool = True,
         override_indices: Mapping[str, Sequence[str]] = {},
         override_cfg_files: Mapping[str, str] = {},
         leading_mass_splitting_3l_name: Literal["DeltaMSq32", "DeltaMSq31"] = "DeltaMSq32",
@@ -280,6 +283,7 @@ class model_dayabay:
         """
         self._strict = strict
         self._close = close
+        self._process_labels = process_labels
 
         assert spectrum_correction_interpolation_mode in {"linear", "exponential"}
         assert spectrum_correction_location in {
@@ -3723,16 +3727,21 @@ class model_dayabay:
     def _setup_labels(self):
         from dag_modelling.tools.schema import LoadYaml
 
-        labels = LoadYaml(relpath(__file__.replace(".py", ".yaml")))
-
         processed_keys_set = set()
-        self.storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
-        self.storage("outputs").read_labels(labels, processed_keys_set=processed_keys_set)
+        if self._process_labels:
+            logger.log(INFO, "Processing labels")
+            labels = LoadYaml(relpath(__file__.replace(".py", ".yaml")))
+            self.storage("nodes").read_labels(labels, processed_keys_set=processed_keys_set)
+            self.storage("outputs").read_labels(labels, processed_keys_set=processed_keys_set)
+
         self.storage("inputs").remove_connected_inputs()
         self.storage.read_paths(index=self.index)
         self.graph.build_index_dict(self.index)
 
-        labels_mk = NestedMapping(labels, sep=".")
+        if not self._process_labels:
+            return
+
+        labels_mk = NestedMapping(labels, sep=".")  # pyright: ignore [reportPossiblyUnboundVariable]
         if not self._strict:
             return
 
