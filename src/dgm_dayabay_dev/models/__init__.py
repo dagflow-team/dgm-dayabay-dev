@@ -59,6 +59,8 @@ def available_models_limited(*, first: str, last: str | None = None) -> tuple[st
     for i, name in enumerate(names):
         if name == first:
             break
+    else:
+        raise ValueError(f"The first item {first} is not found")
 
     if last is None:
         return names[i:]
