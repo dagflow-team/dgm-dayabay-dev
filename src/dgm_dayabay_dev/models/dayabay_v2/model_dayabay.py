@@ -2008,7 +2008,7 @@ class model_dayabay:
             # TODO
             refine_neutrino_rate_data(
                 data("daily_data.neutrino_rate_all"),
-                data.create_child("daily_data.reactor_neutrino_rate"),
+                data.create_child("daily_data.reactor"),
                 reactors=index["reactor"],
             )
 
@@ -2024,7 +2024,7 @@ class model_dayabay:
 
             # TODO
             sync_neutrino_rate_detector_data(
-                data("daily_data.reactor_neutrino_rate"),
+                data("daily_data.reactor"),
                 data("daily_data.detector"),
             )
 
@@ -2032,8 +2032,8 @@ class model_dayabay:
             # period the innermost index. This does not affect matching the indices,
             # however is more convenient for plotting.
             # TODO
-            data["daily_data.reactor_neutrino_rate.neutrino_rate_per_s"] = remap_items(
-                data.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate_per_s"),
+            data["daily_data.reactor.neutrino_rate_per_s"] = remap_items(
+                data.get_dict("daily_data.reactor.neutrino_rate_per_s"),
                 reorder_indices={
                     "from": ["period", "reactor"],
                     "to": ["reactor", "period"],
@@ -2100,7 +2100,7 @@ class model_dayabay:
             )
 
             Array.from_storage(
-                "daily_data.reactor_neutrino_rate.neutrino_rate_per_s",
+                "daily_data.reactor.neutrino_rate_per_s",
                 storage.get_dict("data"),
                 remove_processed_arrays=True,
                 dtype="d",
@@ -2246,9 +2246,9 @@ class model_dayabay:
 
             # TODO
             Division.replicate(
-                outputs.get_dict("daily_data.reactor_neutrino_rate.neutrino_rate_per_s"),
+                outputs.get_dict("daily_data.reactor.neutrino_rate_per_s"),
                 outputs.get_value("reactor.neutrinos_per_MeV_nominal_average"),
-                name="reactor.thermal_power_daily_average_MeV_per_s",
+                name="daily_data.reactor.thermal_power_average_MeV_per_s",
                 replicate_outputs=combinations["reactor.period"],
             )
 
@@ -2284,10 +2284,10 @@ class model_dayabay:
             # we provide a list of indices, which should not trigger an exception.
             # TODO
             Product.replicate(
-                outputs.get_dict("reactor.thermal_power_daily_average_MeV_per_s"),
+                outputs.get_dict("daily_data.reactor.thermal_power_average_MeV_per_s"),
                 outputs.get_dict("daily_data.detector.eff_livetime"),
-                name="reactor_detector.thermal_energy_daily_MeV",
-                replicate_outputs=combinations["reactor.isotope.detector.period"],
+                name="daily_data.reactor_detector.thermal_energy_MeV",
+                replicate_outputs=combinations["reactor.detector.period"],
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
             )
@@ -2295,7 +2295,7 @@ class model_dayabay:
             # Sum up each array of daily data to obtain number of fissions as seen by
             # each detector from each isotope from each reactor during each period.
             ArraySum.replicate(
-                outputs.get_dict("reactor_detector.thermal_energy_daily_MeV"),
+                outputs.get_dict("daily_data.reactor_detector.thermal_energy_MeV"),
                 name="reactor_detector.thermal_energy_MeV",
             )
 
