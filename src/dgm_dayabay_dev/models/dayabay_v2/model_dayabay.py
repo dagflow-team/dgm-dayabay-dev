@@ -2043,6 +2043,7 @@ class model_dayabay:
                     "to": ["reactor", "period"],
                 },
             )
+            del data["daily_data.reactor.neutrino_rate_per_s"]
 
             # After the data is split into arrays and synchronized we create array nodes
             # for each input using `Array.from_storage` class method.

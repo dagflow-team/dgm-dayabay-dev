@@ -219,6 +219,27 @@ daily_data:
         unit: "#"
         xaxis: "Day"
         plotoptions: *daily_plotoptions
+  reactor:
+    antineutrino_rate_per_s:
+      group:
+        text: "Daily antineutrino rate from {index[0]} during {index[1]}"
+        axis: "$N$"
+        unit: "#ν/s"
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+    thermal_power_average_MeV_per_s:
+      group:
+        text: "Daily average thermal power of {index[0]} during {index[1]}"
+        unit: "MeV/s"
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
+  reactor_detector:
+    thermal_energy_MeV:
+      group:
+        text: "Daily ovservable energy from {index[0]} at {index[1]} during {index[2]}"
+        unit: "MeV"
+        xaxis: "Day"
+        plotoptions: *daily_plotoptions
 reactor:
   energy_per_fission_weighted_MeV:
     group:
@@ -255,12 +276,6 @@ reactor:
     group:
       text: "Fractional thermal power for {index[1]} in {index[0]}\\nreference for spent nuclear fuel"
       unit: "MeV/s"
-  # fissions_per_second:
-  #   group:
-  #     text: "Fissions per second of {index[1]} in {index[0]} during {index[2]}"
-  #     axis: "$R$"
-  #     xaxis: "Day"
-  #     unit: "#fissions/s"
 eventscount:
   parts:
     nu_main:
