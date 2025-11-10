@@ -2334,7 +2334,7 @@ class model_dayabay:
                 outputs.get_dict("reactor_detector.baseline_factor_per_cm2"),
                 parameters.get_value("all.detector.efficiency"),
                 name="reactor_detector.n_fissions_n_protons_per_cm2",
-                replicate_outputs=combinations["reactor.isotope.detector.period"],
+                replicate_outputs=combinations["reactor.detector.period"],
             )
 
             # TODO
