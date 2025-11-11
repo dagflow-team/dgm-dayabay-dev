@@ -2139,12 +2139,7 @@ class model_dayabay:
             # constant. While storages may be accessed with `[]` we explicitly use
             # `get_dict` and `get_value` methods to indicate whether we expect a single
             # object or a nested storage.
-            Product.replicate(
-                parameters.get_dict("all.reactor.nominal_thermal_power"),
-                parameters.get_value("all.conversion.conversion_reactor_power"),
-                name="reactor.thermal_power_nominal_MeVs",
-                replicate_outputs=index["reactor"],
-            )
+            #TODO
 
             # We repeat the same procedure for the central value. While the previous
             # "thermal_power_nominal_MeVs" depends on the minimization parameters
@@ -2338,13 +2333,13 @@ class model_dayabay:
                 outputs.get_dict("detector.n_protons"),
                 outputs.get_dict("reactor_detector.baseline_factor_per_cm2"),
                 parameters.get_value("all.detector.efficiency"),
-                name="reactor_detector.n_fissions_n_protons_per_cm2",
+                name="reactor_detector.energy_n_protons_per_cm2",
                 replicate_outputs=combinations["reactor.detector.period"],
             )
 
             # TODO
             Product.replicate(
-                outputs.get_dict("reactor_detector.n_fissions_n_protons_per_cm2"),
+                outputs.get_dict("reactor_detector.energy_n_protons_per_cm2"),
                 outputs.get_dict("reactor.fission_fractions_per_MeV"),
                 parameters.get_dict("all.reactor.thermal_power_scale"),
                 name="reactor_detector.n_fissions_n_protons_per_cm2_scaled",
@@ -2372,7 +2367,7 @@ class model_dayabay:
                 parameters.get_dict("all.reactor.snf_scale"),
                 parameters.get_value("all.reactor.snf_factor"),
                 parameters.get_value("all.detector.efficiency"),
-                name="reactor_detector.livetime_n_protons_per_cm2_snf",
+                name="reactor_detector.eff_livetime_n_protons_per_cm2_snf",
                 replicate_outputs=combinations["reactor.detector.period"],
                 allow_skip_inputs=True,
                 skippable_inputs_should_contain=inactive_detectors,
@@ -2505,7 +2500,7 @@ class model_dayabay:
             #             × snf_factor(=1)
             Product.replicate(
                 outputs.get_dict("kinematics.integral.nu_snf"),
-                outputs.get_dict("reactor_detector.livetime_n_protons_per_cm2_snf"),
+                outputs.get_dict("reactor_detector.eff_livetime_n_protons_per_cm2_snf"),
                 name="eventscount.parts.nu_snf",
                 replicate_outputs=combinations["reactor.detector.period"],
             )

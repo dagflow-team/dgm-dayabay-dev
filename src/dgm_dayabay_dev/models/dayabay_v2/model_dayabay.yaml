@@ -222,7 +222,7 @@ daily_data:
   reactor:
     antineutrino_rate_per_s:
       group:
-        text: "Daily antineutrino rate from {index[0]} during {index[1]}"
+        text: "Daily ν̅ rate from {index[0]} during {index[1]}"
         axis: "$N$"
         unit: "#ν/s"
         xaxis: "Day"
@@ -242,14 +242,14 @@ daily_data:
         plotoptions: *daily_plotoptions
 reactor:
   antineutrinos_per_fission_nominal_average:
-    text: "Nominal average # antineutrinos per fission"
+    text: "Nominal average # ν̅ per fission"
     unit: "#ν/fission"
   antineutrinos_per_fission_nominal_weighted:
     group:
-      text: "Nominal average # antineutrinos per fission from {index[0]}\\nweighted with fission fractions"
+      text: "Nominal average # ν̅ per fission from {index[0]}\\nweighted with fission fractions"
       unit: "#ν/fission"
   antineutrinos_per_MeV_nominal_average:
-    text: "Nominal average # antineutrinos per MeV"
+    text: "Nominal average # ν̅ per MeV"
     unit: "#ν/MeV"
   energy_per_fission_weighted_MeV:
     group:
@@ -270,10 +270,6 @@ reactor:
   energy_per_fission_nominal_average_MeV:
     text: "Nominal average energy per fission"
     unit: "MeV/fission"
-  thermal_power_nominal_MeVs:
-    group:
-      text: "Reactor {key} thermal power (fit) Wth"
-      unit: "MeV/s"
   thermal_power_nominal_MeVs_central:
     group:
       text: "Reactor {key} fixed (central) thermal power Wth"
@@ -286,6 +282,10 @@ reactor:
     group:
       text: "Corrected (fit) fission fractions for {index[1]} in {index[0]} (absolute values)"
       axis: '$|f_i|$'
+  fission_fractions_per_MeV:
+    group:
+      text: "Fission fractions per average fission energy for {index[1]} in {index[0]}"
+      unit: "MeV⁻¹"
   fissions_per_second_snf:
     group:
       text: "# of fissions per second for {key}\\nfor spent nuclear fuel"
@@ -674,25 +674,26 @@ reactor_antineutrino:
     #     plotoptions:
     #       method: "slicesy"
 reactor_detector:
-  # n_fissions_daily:
-  #   group:
-  #     text: "Daily observable # of fissions at {index[2]} for {index[1]} in {index[0]} during {index[3]}"
-  #     axis: "$N$"
-  #     unit: "#fissions"
-  #     xaxis: "Day"
-  #     plotoptions: *daily_plotoptions
-  # n_fissions:
-  #   group:
-  #     text: "Observable # of fissions of {index[1]} in {index[0]} in {index[2]} during {index[3]} [#fissions]"
-  n_fissions_n_protons_per_cm2:
+  thermal_energy_MeV:
     group:
-      text: "#fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor main IBD flux"
+      text: "Observable thermal energy of {index[0]} in {index[1]} during {index[2]}"
+      unit: "MeV"
+  energy_n_protons_per_cm2:
+    group:
+      text: "Observable energy × #target protons × baseline factor in {index[0]} at {index[1]} during {index[2]} \\nfor main IBD flux"
+      unit: "MeV·#protons/cm²"
+  n_fissions_n_protons_per_cm2_scaled:
+    group:
+      text: "Observable #fissions × #target protons × baseline factor from {index[1]} in {index[0]} at {index[2]} during {index[3]} \\nscaled (fit)"
+      unit: "#fissions·#protons/cm²"
   n_fissions_n_protons_per_cm2_neq:
     group:
-      text: "Scaled (fit) #fissions × #target protons × baseline factor {key} [#fissions·#protons/cm²]\\nfor non-equilibrium IBD flux"
-  # livetime_n_protons_per_cm2_snf:
-  #   group:
-  #     text: "Scaled (fit) #target protons × effective livetime × baseline factor {key} [#protons·s/cm²]\\nfor spent nuclear fuel IBD flux"
+      text: "Observable #fissions × #target protons × baseline factor from {index[1]} in {index[0]} at {index[2]} during {index[3]} \\nfor non-equilibrium IBD flux, scaled (fit)"
+      unit: "#fissions·#protons/cm²"
+  eff_livetime_n_protons_per_cm2_snf:
+    group:
+      text: "#target protons × effective livetime × baseline factor from {index[0]} at {index[1]} during {index[2]}\\nfor spent nuclear fuel IBD flux, scaled (fit) "
+      unit: "#protons·s/cm²"
   baseline_factor_per_cm2:
     group:
       text: "1/(4πL²) factor {key} [cm⁻²]"
