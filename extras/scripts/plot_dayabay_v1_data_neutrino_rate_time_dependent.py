@@ -66,7 +66,6 @@ def main(opts: Namespace) -> None:
     labels_added = set()
 
     plot_kwargs0 = dict(markersize=0.5)
-    plot_kwargs = dict(color="C0", **plot_kwargs0)
     for (reactor, period), output in neutrino_rate_storage.walkitems():
         data_days = days_storage[period].data
 
@@ -112,15 +111,8 @@ def main(opts: Namespace) -> None:
     ax.set_xlim(left=0)
 
     if opts.output:
-        for plot_type, fig in {
-            "neutrino_rate": fig_nr,
-        }.items():
-            if "{type" not in opts.output:  # }
-                raise RuntimeError("Output format should contain {type} for plot type")
-
-            fname = opts.output.format(type=plot_type)
-            fig.savefig(fname)
-            print(f"Save plot: {fname}")
+        fig_nr.savefig(opts.output)
+        print(f"Save plot: {opts.output}")
 
     if opts.show or not opts.output:
         plt.show()
@@ -149,7 +141,7 @@ if __name__ == "__main__":
     plot.add_argument(
         "-o",
         "--output",
-        help='output files (supported format keys: "type")',
+        help="output file",
     )
     plot.add_argument("-s", "--show", action="store_true", help="show")
 
