@@ -437,8 +437,8 @@ class model_dayabay:
             / "detector_iav_offdiag_scale.yaml",
             "parameters.detector_relative": path_parameters / "detector_relative.yaml",
             "parameters.detector_absolute": path_parameters / "extra/detector_absolute.yaml",
-            "parameters.neutrinos_per_fission": path_parameters
-            / "neutrinos_per_fission_huber_mueller.yaml",
+            "parameters.antineutrinos_per_fission": path_parameters
+            / "antineutrinos_per_fission_huber_mueller.yaml",
             "parameters.reactor_thermal_power_nominal": path_parameters
             / "reactor_thermal_power_nominal.yaml",
             "parameters.reactor_thermal_power_uncertainty": path_parameters
@@ -894,7 +894,7 @@ class model_dayabay:
 
             # TODO
             load_parameters(
-                path="reactor", load=cfg_file_mapping["parameters.neutrinos_per_fission"]
+                path="reactor", load=cfg_file_mapping["parameters.antineutrinos_per_fission"]
             )
 
             # Load reactor-detector baselines
@@ -2200,9 +2200,9 @@ class model_dayabay:
 
             # TODO
             Product.replicate(
-                parameters.get_dict("all.reactor.neutrinos_per_fission"),
+                parameters.get_dict("all.reactor.antineutrinos_per_fission"),
                 parameters.get_dict("all.reactor.fission_fractions"),
-                name="reactor.neutrinos_per_fission_nominal_weighted_MeV",
+                name="reactor.antineutrinos_per_fission_nominal_weighted",
                 replicate_outputs=combinations["isotope"],
             )
 
@@ -2223,15 +2223,15 @@ class model_dayabay:
 
             # TODO
             Sum.replicate(
-                outputs.get_dict("reactor.neutrinos_per_fission_nominal_weighted_MeV"),
-                name="reactor.neutrinos_per_fission_nominal_average_MeV",
+                outputs.get_dict("reactor.antineutrinos_per_fission_nominal_weighted"),
+                name="reactor.antineutrinos_per_fission_nominal_average",
             )
 
             # TODO
             Division.replicate(
-                outputs.get_value("reactor.neutrinos_per_fission_nominal_average_MeV"),
+                outputs.get_value("reactor.antineutrinos_per_fission_nominal_average"),
                 outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
-                name="reactor.neutrinos_per_MeV_nominal_average",
+                name="reactor.antineutrinos_per_MeV_nominal_average",
             )
 
             # Compute daily contribution of each isotope to reactor's thermal power by
@@ -2252,7 +2252,7 @@ class model_dayabay:
             # TODO
             Division.replicate(
                 outputs.get_dict("daily_data.reactor.antineutrino_rate_per_s"),
-                outputs.get_value("reactor.neutrinos_per_MeV_nominal_average"),
+                outputs.get_value("reactor.antineutrinos_per_MeV_nominal_average"),
                 name="daily_data.reactor.thermal_power_average_MeV_per_s",
                 replicate_outputs=combinations["reactor.period"],
             )

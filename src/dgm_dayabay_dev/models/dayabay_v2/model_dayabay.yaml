@@ -241,9 +241,24 @@ daily_data:
         xaxis: "Day"
         plotoptions: *daily_plotoptions
 reactor:
+  antineutrinos_per_fission_nominal_average:
+    text: "Nominal average # antineutrinos per fission"
+    unit: "#ν/fission"
+  antineutrinos_per_fission_nominal_weighted:
+    group:
+      text: "Nominal average # antineutrinos per fission from {index[0]}\\nweighted with fission fractions"
+      unit: "#ν/fission"
+  antineutrinos_per_MeV_nominal_average:
+    text: "Nominal average # antineutrinos per MeV"
+    unit: "#ν/MeV"
   energy_per_fission_weighted_MeV:
     group:
-      text: "Partial energy per fission for {key}\\nweighted with fission fraction"
+      text: "Partial energy per fission for {key}\\nweighted with fission fractions"
+      axis: '$f_i\overline{{e}}_i$'
+      unit: "MeV/fission"
+  energy_per_fission_nominal_weighted_MeV:
+    group:
+      text: "Nominal Partial energy per fission for {key}\\nweighted with fission fractions"
       axis: '$f_i\overline{{e}}_i$'
       unit: "MeV/fission"
   energy_per_fission_average_MeV:
@@ -252,6 +267,9 @@ reactor:
       axis: '$\overline{{e}}$'
       xaxis: "Day"
       unit: "MeV/fission"
+  energy_per_fission_nominal_average_MeV:
+    text: "Nominal average energy per fission"
+    unit: "MeV/fission"
   thermal_power_nominal_MeVs:
     group:
       text: "Reactor {key} thermal power (fit) Wth"
@@ -262,11 +280,11 @@ reactor:
       unit: "MeV/s"
   fission_fractions_scaled:
     group:
-      text: "Corrected (fit) fission fraction for {index[1]} in {index[0]}"
+      text: "Corrected (fit) fission fractions for {index[1]} in {index[0]}"
       axis: '$f_i$'
   fission_fractions_scaled_abs:
     group:
-      text: "Corrected (fit) fission fraction for {index[1]} in {index[0]} (absolute values)"
+      text: "Corrected (fit) fission fractions for {index[1]} in {index[0]} (absolute values)"
       axis: '$|f_i|$'
   fissions_per_second_snf:
     group:
@@ -910,7 +928,7 @@ covariance:
       plotoptions:
         mask_value: 0.0
     fission_fraction:
-      text: "Jacobian for fission fraction parameters"
+      text: "Jacobian for fission fractions' parameters"
       axis: "$J$"
       xaxis: "Bin"
       xunit: "#"
@@ -993,7 +1011,7 @@ covariance:
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
     fission_fraction:
-      text: "Systematic covariance matrix for fission fraction parameters"
+      text: "Systematic covariance matrix for fission fractions' parameters"
       unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
@@ -1145,7 +1163,7 @@ statistic:
           text: "χ² nuisance term for Liquid Scintillator Non-Linearity (LSNL) parameters"
       reactor:
         fission_fraction_scale:
-          text: "χ² nuisance term for fission fraction uncertainty"
+          text: "χ² nuisance term for fission fractions' uncertainty"
         energy_per_fission:
           text: "χ² nuisance term for average fission energy parameters"
         # nominal_thermal_power:
