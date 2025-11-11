@@ -989,7 +989,6 @@ class model_dayabay:
             load_parameters(
                 path="reactor",
                 load=cfg_file_mapping["parameters.reactor_thermal_power_nominal"],
-                replicate=index["reactor"],
             )
             load_parameters(
                 path="reactor",
@@ -2150,10 +2149,9 @@ class model_dayabay:
             # "all.reactor.nominal_thermal_power", for the following product we use
             # "central.reactor.nominal_thermal_power", which do not depend on them.
             Product.replicate(
-                parameters.get_dict("constant.reactor.nominal_thermal_power"),
+                parameters.get_value("constant.reactor.nominal_thermal_power"),
                 parameters.get_value("all.conversion.conversion_reactor_power"),
                 name="reactor.thermal_power_nominal_MeVs_central",
-                replicate_outputs=index["reactor"],
             )
 
             # Apply the variable scale (nuisance) to the nominal average fiction fractions' values.
@@ -2220,27 +2218,22 @@ class model_dayabay:
                 name="reactor.energy_per_fission_nominal_average_MeV",
             )
 
-            # And nominal average number of antineutrinos, released per fission.
+            # Nominal average number of antineutrinos, released per fission.
             Sum.replicate(
                 outputs.get_dict("reactor.antineutrinos_per_fission_nominal_weighted"),
                 name="reactor.antineutrinos_per_fission_nominal_average",
             )
 
-            # TODO
+            # Nominal average number of antineutrinos per fission.
             Division.replicate(
                 outputs.get_value("reactor.antineutrinos_per_fission_nominal_average"),
                 outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
                 name="reactor.antineutrinos_per_MeV_nominal_average",
             )
 
-            # Compute daily contribution of each isotope to reactor's thermal power by
-            # multiplying fission fractions, nominal thermal power [MeV/s] and fractional
-            # thermal power.
-            # TODO: code?
-
-            # Compute number of fissions per second related to each isotope in each
-            # reactor and each period: divide partial thermal power by average energy
-            # per fission.
+            # Compute fission fractions divided by average energy per fission for each reactor and
+            # each isotope. The difference between reactors and isotopes comes from fission
+            # fractions' uncertainties being uncorrelated between reactors.
             Division.replicate(
                 outputs.get_dict("reactor.fission_fractions_scaled_abs"),
                 outputs.get_dict("reactor.energy_per_fission_average_MeV"),
@@ -2248,7 +2241,9 @@ class model_dayabay:
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
-            # TODO
+            # Using daily antineutrino rate for each reactor and nominal average number of
+            # antineutrinos per MeV obtain an estimate of daily thermal power per reactor during
+            # each period.
             Division.replicate(
                 outputs.get_dict("daily_data.reactor.antineutrino_rate_per_s"),
                 outputs.get_value("reactor.antineutrinos_per_MeV_nominal_average"),
@@ -2256,17 +2251,17 @@ class model_dayabay:
                 replicate_outputs=combinations["reactor.period"],
             )
 
-            # In the few following operations repeat the calculation of fissions per
-            # second for SNF. This time we use fixed average fission fractions. The SNF
-            # is defined as a fraction of nominal antineutrino spectrum from reactor.
-            # Therefore the isotope index is used.
+            # In the few following operations we do similar calculations, but in a simplified form
+            # for SNF, which has a minor contribution and therefore we avoid it depending on some of
+            # the nuisance parameters.
 
-            # For SNF contribution use central values for the nominal thermal power.
+            # For SNF contribution use central values for the nominal thermal power and fixed
+            # values of fission fractions.
             Product.replicate(
                 parameters.get_dict("all.reactor.fission_fractions"),
-                outputs.get_dict("reactor.thermal_power_nominal_MeVs_central"),
+                outputs.get_value("reactor.thermal_power_nominal_MeVs_central"),
                 name="reactor.thermal_power_snf_isotope_MeV_per_second",
-                replicate_outputs=combinations["reactor.isotope"],
+                replicate_outputs=combinations["isotope"],
             )
 
             # Compute fissions per second for SNF calculation.
@@ -2274,7 +2269,7 @@ class model_dayabay:
                 outputs.get_dict("reactor.thermal_power_snf_isotope_MeV_per_second"),
                 outputs.get_value("reactor.energy_per_fission_nominal_average_MeV"),
                 name="reactor.fissions_per_second_snf",
-                replicate_outputs=combinations["reactor.isotope"],
+                replicate_outputs=combinations["isotope"],
             )
 
             # Now we need to incorporate the knowledge on the detector operation.
@@ -2381,7 +2376,7 @@ class model_dayabay:
                 outputs.get_dict("reactor_antineutrino.neutrino_per_fission_per_MeV_nominal"),
                 outputs.get_dict("reactor.fissions_per_second_snf"),
                 name="reactor_antineutrino.snf_antineutrino.neutrino_per_second_isotope",
-                replicate_outputs=combinations["reactor.isotope"],
+                replicate_outputs=index["isotope"],
             )
 
             Sum.replicate(
@@ -2389,11 +2384,10 @@ class model_dayabay:
                     "reactor_antineutrino.snf_antineutrino.neutrino_per_second_isotope"
                 ),
                 name="reactor_antineutrino.snf_antineutrino.neutrino_per_second",
-                replicate_outputs=index["reactor"],
             )
 
             Product.replicate(
-                outputs.get_dict("reactor_antineutrino.snf_antineutrino.neutrino_per_second"),
+                outputs.get_value("reactor_antineutrino.snf_antineutrino.neutrino_per_second"),
                 outputs.get_dict("reactor_antineutrino.snf_antineutrino.correction_interpolated"),
                 name="reactor_antineutrino.snf_antineutrino.neutrino_per_second_snf",
                 replicate_outputs=index["reactor"],

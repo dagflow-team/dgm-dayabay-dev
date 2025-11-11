@@ -292,7 +292,7 @@ reactor:
       unit: "#fissions/s"
   thermal_power_snf_isotope_MeV_per_second:
     group:
-      text: "Fractional thermal power for {index[1]} in {index[0]}\\nreference for spent nuclear fuel"
+      text: "Fractional nominal thermal power for {key}\\nreference for spent nuclear fuel"
       unit: "MeV/s"
 eventscount:
   parts:
@@ -664,14 +664,20 @@ reactor_antineutrino:
           method: "slicesy"
     neutrino_per_second_isotope:
       group:
-        text: "Partial rate of ν̅ from {index[1]} of {index[0]}, for spent nuclear fuel"
+        text: "Partial rate of ν̅ from {key}\\nfor spent nuclear fuel"
         axis: "SNF ν̅ rate"
         unit: "#ν/s/MeV"
         plotoptions:
           method: "slicesy"
     neutrino_per_second:
+      text: "Rate of ν̅ from from nominal reactor\\nfor spent nuclear fuel"
+      axis: "ν̅ rate (for SNF)"
+      unit: "#ν/s/MeV"
+      plotoptions:
+        method: "slicesy"
+    neutrino_per_second_snf:
       group:
-        text: "Rate of ν̅ from {key}, for spent nuclear fuel"
+        text: "Rate of ν̅ from from spent nuclear fuel for {key}"
         axis: "SNF ν̅ rate"
         unit: "#ν/s/MeV"
         plotoptions:
