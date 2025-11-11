@@ -8,7 +8,7 @@ from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
 from matplotlib import transforms
 
-from dgm_dayabay_dev.models import available_models, load_model
+from dgm_dayabay_dev.models import load_model
 
 plt.rcParams.update(
     {
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     model.add_argument(
         "--version",
         default="latest",
-        choices=available_models(),
+        choices=["v2"],
         help="model version",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
