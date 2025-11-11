@@ -348,6 +348,11 @@ eventscount:
         text: "Total # of background events at {index[0]} during {index[1]}\\nfine binning"
         axis: "Background events"
         unit: "#"
+    background_by_source:
+      group:
+        text: "Total # of '{index[0]}' background events at {index[1]}\\nfine binning"
+        axis: "Background events"
+        unit: "#"
     total:
       group:
         text: "# of IBD candidates at {index[0]} during {index[1]}\\nfine binning"
@@ -362,6 +367,11 @@ eventscount:
     background:
       group:
         text: "Total # of background events at {index[0]} during {index[1]}\\nfinal binning"
+        axis: "Background events"
+        unit: "#"
+    background_by_source:
+      group:
+        text: "Total # of '{index[0]}' background events at {index[1]}\\nfinal binning"
         axis: "Background events"
         unit: "#"
     detector_period:
@@ -666,13 +676,6 @@ reactor_antineutrino:
         unit: "#ν/s/MeV"
         plotoptions:
           method: "slicesy"
-    # neutrino_per_second_snf:
-    #   group:
-    #     text: "Rate of ν̅ from spent nuclear fuel from {key},  interpolated"
-    #     axis: "SNF ν̅ rate"
-    #     unit: "#ν/s/MeV"
-    #     plotoptions:
-    #       method: "slicesy"
 reactor_detector:
   thermal_energy_MeV:
     group:
@@ -747,6 +750,11 @@ detector:
         text: "Input coarse Evis(Escint) for LSNL"
         axis: '$E_{\rm vis}$'
         unit: "MeV"
+      evis_coarse_scaled:
+        group:
+          text: "Scaled coarse Evis(Escint) for LSNL for {key}\\nrelative energy scale (fit)"
+          axis: '$E_{\rm vis}$'
+          unit: "MeV"
       relative:
         evis_parts:
           group:
@@ -787,6 +795,14 @@ detector:
       plotoptions: *detector_response_plotoptions
     matrix_background:
       text: "Rebinning matrix for background events"
+      axis: "f"
+      plotoptions: *detector_response_plotoptions
+    matrix_background_by_source:
+      text: "Rebinning matrix for background events"
+      axis: "f"
+      plotoptions: *detector_response_plotoptions
+    matrix_data:
+      text: "Rebinning matrix for data events"
       axis: "f"
       plotoptions: *detector_response_plotoptions
 mc:
@@ -1167,8 +1183,6 @@ statistic:
           text: "χ² nuisance term for fission fractions' uncertainty"
         energy_per_fission:
           text: "χ² nuisance term for average fission energy parameters"
-        # nominal_thermal_power:
-        #   text: "χ² nuisance term for reactor thermal power parameters"
         thermal_power_scale:
           text: "χ² nuisance term for reactor thermal power parameters"
         snf_scale:

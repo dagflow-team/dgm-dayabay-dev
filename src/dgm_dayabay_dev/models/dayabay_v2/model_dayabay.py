@@ -3106,16 +3106,16 @@ class model_dayabay:
 
             Rebin.replicate(
                 names={
-                    "matrix": "detector.rebin_matrix.real",
+                    "matrix": "detector.rebin.matrix_data",
                     "product": "data.real.final.detector_period",
                 },
                 replicate_outputs=combinations["detector.period"],
             )
             edges_energy_erec >> inputs.get_value(
-                "detector.rebin_matrix.real.edges_old"
+                "detector.rebin.matrix_data.edges_old"
             )
             edges_energy_final >> inputs.get_value(
-                "detector.rebin_matrix.real.edges_new"
+                "detector.rebin.matrix_data.edges_new"
             )
             outputs["data.real.fine"] >> inputs.get_dict("data.real.final.detector_period")
 
