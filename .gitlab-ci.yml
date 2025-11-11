@@ -7,8 +7,7 @@ tests:
   stage: tests
 
   variables:
-    # DATA_BRANCH: main
-    DATA_BRANCH: "feat/v1a_neutrino_rate"
+    DATA_BRANCH: main
   script:
     - apt-get update
     - apt-get -y install libgraphviz-dev graphviz git-lfs
