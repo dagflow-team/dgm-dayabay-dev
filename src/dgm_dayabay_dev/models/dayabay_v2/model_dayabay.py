@@ -33,7 +33,7 @@ _SYSTEMATIC_UNCERTAINTIES_GROUPS = {
     "thermal_power": "reactor.thermal_power_scale",
     "snf": "reactor.snf_scale",
     "neq": "reactor.nonequilibrium_scale",
-    "fission_fraction": "reactor.fission_fraction_scale",
+    "fission_fractions": "reactor.fission_fractions_scale",
     "background_rate": "background",
     "hm_corr": "reactor_antineutrino.spectrum_uncertainty.corr",
     "hm_uncorr": "reactor_antineutrino.spectrum_uncertainty.uncorr",
@@ -90,12 +90,12 @@ class model_dayabay:
               errors,
             - "poisson" - Poisson fluctuations.
     covariance_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
-        "energy_per_fission", "thermal_power", "snf", "neq", "fission_fraction", "background_rate",
+        "energy_per_fission", "thermal_power", "snf", "neq", "fission_fractions", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to covariance matrix. If no parameters passed,
         full covariance matrix will be created.
     pull_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
-        "energy_per_fission", "thermal_power", "snf", "neq", "fission_fraction", "background_rate",
+        "energy_per_fission", "thermal_power", "snf", "neq", "fission_fractions", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
@@ -174,7 +174,7 @@ class model_dayabay:
                 "thermal_power",
                 "snf",
                 "neq",
-                "fission_fraction",
+                "fission_fractions",
                 "background_rate",
                 "hm_corr",
                 "hm_uncorr",
@@ -193,7 +193,7 @@ class model_dayabay:
             "thermal_power",
             "snf",
             "neq",
-            "fission_fraction",
+            "fission_fractions",
             "background_rate",
             "hm_corr",
             "hm_uncorr",
@@ -241,7 +241,7 @@ class model_dayabay:
                     "thermal_power",
                     "snf",
                     "neq",
-                    "fission_fraction",
+                    "fission_fractions",
                     "background_rate",
                     "hm_corr",
                     "hm_uncorr",
@@ -260,7 +260,7 @@ class model_dayabay:
                 "thermal_power",
                 "snf",
                 "neq",
-                "fission_fraction",
+                "fission_fractions",
                 "background_rate",
                 "hm_corr",
                 "hm_uncorr",
@@ -451,7 +451,7 @@ class model_dayabay:
             "parameters.reactor_fission_fractions": path_parameters
             / "reactor_fission_fractions.yaml",
             "parameters.reactor_fission_fractions_scale": path_parameters
-            / "reactor_fission_fraction_scale.yaml",
+            / "reactor_fission_fractions_scale.yaml",
             "parameters.background_rate_scale_accidentals": path_parameters
             / "background_rate_scale_accidentals.yaml",
             "parameters.background_rates_uncorrelated": path_parameters
@@ -1004,7 +1004,7 @@ class model_dayabay:
                 replicate=combinations["reactor.isotope_neq"],
             )
             # The nominal thermal power is replicated for each reactor, making its
-            # uncertainty uncorrelated. Energy per fission (and fission fraction) has
+            # uncertainty uncorrelated. Energy per fission (and fission fractions) has
             # distinct value (and uncertainties) for each isotope, therefore the
             # configuration files have an entry for each index and `replicate` argument
             # is not required. SNF and NEQ corrections are made uncorrelated between the
@@ -2131,7 +2131,7 @@ class model_dayabay:
             # TODO
             # - nominal thermal power [MeV/s], fit-dependent
             # - nominal thermal power [MeV/s], fit-independent (central values)
-            # - fission fraction, corrected based on nuisance parameters [fraction]
+            # - fission fractions, corrected based on nuisance parameters [fraction]
             # - average energy per fission
 
             # Thermal power [MeV/s] for each reactor is defined as multiplication of
@@ -2157,7 +2157,7 @@ class model_dayabay:
             # result is an array for each reactor, isotope, period triplet.
             # TODO
             Product.replicate(
-                parameters.get_dict("all.reactor.fission_fraction_scale"),
+                parameters.get_dict("all.reactor.fission_fractions_scale"),
                 parameters.get_dict("all.reactor.fission_fractions"),
                 name="reactor.fission_fractions_scaled",
                 replicate_outputs=combinations["reactor.isotope"],
@@ -2165,7 +2165,7 @@ class model_dayabay:
 
             # Compute absollute value of previous transformation. It is needed because
             # sometime minimization procedure goes to the non-physical values of
-            # fission fraction. This transforamtion limits possible variations.
+            # fission fractions. This transforamtion limits possible variations.
             # TODO: code
             Abs.replicate(
                 name="reactor.fission_fractions_scaled_abs",

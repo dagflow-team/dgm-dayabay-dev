@@ -944,7 +944,7 @@ covariance:
       yunit: "#"
       plotoptions:
         mask_value: 0.0
-    fission_fraction:
+    fission_fractions:
       text: "Jacobian for fission fractions' parameters"
       axis: "$J$"
       xaxis: "Bin"
@@ -1027,7 +1027,7 @@ covariance:
       unit: "#²"
       axis: '$V_{\rm syst}$'
       plotoptions: *covariance_plotoptions
-    fission_fraction:
+    fission_fractions:
       text: "Systematic covariance matrix for fission fractions' parameters"
       unit: "#²"
       axis: '$V_{\rm syst}$'
@@ -1179,7 +1179,7 @@ statistic:
         lsnl_scale_a:
           text: "χ² nuisance term for Liquid Scintillator Non-Linearity (LSNL) parameters"
       reactor:
-        fission_fraction_scale:
+        fission_fractions_scale:
           text: "χ² nuisance term for fission fractions' uncertainty"
         energy_per_fission:
           text: "χ² nuisance term for average fission energy parameters"
