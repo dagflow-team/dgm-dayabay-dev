@@ -347,7 +347,7 @@ class model_dayabay:
             case str() | Path():
                 self._path_data = Path(path_data)
             case None:
-                self._path_data = Path("data/dayabay-v1a_neutrino_rate_total/hdf5")
+                self._path_data = Path("data/dayabay-v2/hdf5")
             case _:
                 raise RuntimeError(f"Unsupported path option: {path_data}")
 
