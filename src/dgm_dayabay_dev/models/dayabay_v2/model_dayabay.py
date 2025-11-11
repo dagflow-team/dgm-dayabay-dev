@@ -643,15 +643,23 @@ class model_dayabay:
                 "amc",
                 "alpha_neutron",
             ),
+            # A separate list of backgrounds, that are used in a time independent way, i.e. their
+            # rate is same every day, although may be different during different periods of data
+            # taking.
             "background_stable": (
                 "lithium_helium",
                 "fast_neutrons",
                 "amc",
                 "alpha_neutron",
-            ),  # TODO: doc
-            "background_site_correlated": ("lithium_helium", "fast_neutrons"),  # TODO: doc
-            "background_not_site_correlated": ("accidentals", "amc", "alpha_neutron"),  # TODO: doc
-            "background_not_correlated": ("accidentals", "alpha_neutron"),  # TODO: doc
+            ),
+            # A list of backgrounds, rates of which are correlated between detectors of the same
+            # site.
+            "background_site_correlated": ("lithium_helium", "fast_neutrons"),
+            # A list of backgrounds, rates of which are uncorrelated between detectors of the same
+            # site.
+            "background_not_site_correlated": ("accidentals", "amc", "alpha_neutron"),
+            # A list of backgrounds, rates of which are uncorrelated between detectors.
+            "background_not_correlated": ("accidentals", "alpha_neutron"),
             # Experimental sites
             "site": ("EH1", "EH2", "EH3"),
             # Fissile isotopes
@@ -892,7 +900,13 @@ class model_dayabay:
                 load=cfg_file_mapping["parameters.conversion_survival_probability"],
             )
 
-            # TODO
+            # Load constants: number of neutrinos above IBD threshold released per fission for each
+            # isotope, which is used to compute total neutrino rate for each reactor (input data
+            # provided).
+            # For the reference these numbers are computed based on the Huber-Mueller antineutrino
+            # spectra, exponentially interpolated and extrapolated. The exact IBD threshold is used.
+            # These numbers will be used to switch from total neutrino rate to average fission rates
+            # per isotope, so any antineutrino spectra may be used as input.
             load_parameters(
                 path="reactor", load=cfg_file_mapping["parameters.antineutrinos_per_fission"]
             )
@@ -1713,7 +1727,11 @@ class model_dayabay:
             )
 
             # Alternative post-fit spectrum correction.
-            # TODO: doc
+            # The default antineutrino spectrum correction is applied before the integration to the
+            # continuous input antineutrino spectra. An alternative approach is provided, where the
+            # correction is applied after the integration to the IBD histograms. Therefore the
+            # correction curve is interpolated at the bin centers. The following lines define the
+            # interpolation nodes.
             Interpolator.replicate(
                 method="exp",
                 names={
@@ -1946,9 +1964,7 @@ class model_dayabay:
             # - Detector live time in seconds.
             # - Efficiency, related to muon veto and multiplicity cut.
             # - Rate of accidental events in inverse seconds.
-            # For reactors the data is ~monthly (TODO: specify). It includes:
-            # - Average thermal power, relative to the nominal value.
-            # - Average fission fractions for each isotope.
+            # For reactors the data is weekly: total antineutrino rate per reactor.
             #
             # A function `load_record_data` to load table data, which in general works
             # similarly to `load_graph` and `load_graph_data`. The function reads
@@ -1998,10 +2014,10 @@ class model_dayabay:
             # - period - number of period for which data is presented, 0-based.
             # - day - number of the first day of the period relative to the start of the
             #         data taking, 0-based.
-            # - n_days - length of the period in days.
-            # - power - average thermal power, relative to nominal.
-            # - u235, u238, pu239, pu241 - fission fractions of corresponding isotope.
-            # TODO
+            # - n_det_mask — binary mask, specifying which data taking periods are covered by the
+            #                current line (0b001 for 6AD, 0b010 for 8AD and 0b101 for 7AD).
+            # - n_days - length of the period in days. Weekly (7 days) data is provided.
+            # - neutrino_rate_per_s - average neutrino rate per period (week).
             load_record_data(
                 name="daily_data.antineutrino_rate_all",
                 filenames=cfg_file_mapping["daily_antineutrino_rate_data"],
@@ -2009,33 +2025,27 @@ class model_dayabay:
                 columns=("period", "day", "n_det_mask", "n_days", "neutrino_rate_per_s"),
             )
 
-            # TODO
+            # Antineutrino rate data is then converted from weekly to daily (no interpolation) and
+            # split into data taking periods. The data is read from "daily_data.neutrino_rate_all"
+            # and stored in "daily_data.reactor".
             refine_neutrino_rate_data(
                 data("daily_data.antineutrino_rate_all"),
                 data.create_child("daily_data.reactor"),
                 reactors=index["reactor"],
             )
 
-            # Reactor data is then converted from monthly (TODO: specify) to daily (no
-            # interpolation) and split them into data taking periods. The data is read
-            # from "daily_data.reactor_all" and stored in "daily_data.reactor".
-            # TODO
-
-            # The detector and reactor data have different minimal period, therefore the
-            # arrays are not matching. With the following procedure we produce matching
-            # arrays for detector properties and reactor data based on the `day`. The
-            # procedure also checks that the data ranges are consistent.
-
-            # TODO
+            # The detector and reactor data have different periods, therefore the arrays may not
+            # match. With the following procedure we produce matching arrays for detector properties
+            # and reactor data based on the `day`. The procedure also checks that the data ranges
+            # are consistent.
             sync_neutrino_rate_detector_data(
                 data("daily_data.reactor"),
                 data("daily_data.detector"),
             )
 
-            # Finally for convenience we change the nesting order making the data taking
-            # period the innermost index. This does not affect matching the indices,
-            # however is more convenient for plotting.
-            # TODO
+            # Finally for convenience we change the nesting order of the storage making the data
+            # taking period the innermost index. This does not affect matching the indices, however
+            # it is more convenient for plotting.
             data["daily_data.reactor.antineutrino_rate_per_s"] = remap_items(
                 data.get_dict("daily_data.reactor.neutrino_rate_per_s"),
                 reorder_indices={
@@ -2139,7 +2149,7 @@ class model_dayabay:
             # constant. While storages may be accessed with `[]` we explicitly use
             # `get_dict` and `get_value` methods to indicate whether we expect a single
             # object or a nested storage.
-            #TODO
+            # TODO
 
             # We repeat the same procedure for the central value. While the previous
             # "thermal_power_nominal_MeVs" depends on the minimization parameters
@@ -2152,10 +2162,8 @@ class model_dayabay:
                 replicate_outputs=index["reactor"],
             )
 
-            # Apply the variable scale (nuisance) to the fiction fractions. Fission
-            # fractions are time dependent and the scale is applied to each day. The
-            # result is an array for each reactor, isotope, period triplet.
-            # TODO
+            # Apply the variable scale (nuisance) to the nominal average fiction fractions' values.
+            # The result is computed each reactor, isotope pair.
             Product.replicate(
                 parameters.get_dict("all.reactor.fission_fractions_scale"),
                 parameters.get_dict("all.reactor.fission_fractions"),
@@ -2163,10 +2171,10 @@ class model_dayabay:
                 replicate_outputs=combinations["reactor.isotope"],
             )
 
-            # Compute absollute value of previous transformation. It is needed because
-            # sometime minimization procedure goes to the non-physical values of
-            # fission fractions. This transforamtion limits possible variations.
-            # TODO: code
+            # Compute absolute value of previous transformation. It is needed because sometime
+            # minimization procedure goes to the non-physical values of fission fractions. This
+            # transformation limits possible variations and helps if the fit jumps to the unphysical
+            # region.
             Abs.replicate(
                 name="reactor.fission_fractions_scaled_abs",
                 replicate_outputs=combinations["reactor.isotope"],
@@ -3737,7 +3745,9 @@ class model_dayabay:
         if not self._process_labels:
             return
 
-        labels_mk = NestedMapping(labels, sep=".")  # pyright: ignore [reportPossiblyUnboundVariable]
+        labels_mk = NestedMapping(
+            labels, sep="."
+        )  # pyright: ignore [reportPossiblyUnboundVariable]
         if not self._strict:
             return
 
