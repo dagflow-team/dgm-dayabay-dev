@@ -1,0 +1,1 @@
+../../../tools/validate_load_array.py

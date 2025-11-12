@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from pathlib import Path
 
 from dag_modelling.tools.logger import set_verbosity
 from matplotlib import pyplot as plt
@@ -26,7 +27,6 @@ def main(opts: Namespace) -> None:
     model = load_model(
         opts.version,
         model_options=opts.model_options,
-        source_type=opts.source_type,
         parameter_values=opts.par,
     )
 
@@ -140,8 +140,10 @@ def main(opts: Namespace) -> None:
             "eff_livetime": fig_eff_livetime,
             "rate_accidentals": fig_rate_accidentals,
         }.items():
-            if "{type" not in opts.output:  # }
-                raise RuntimeError("Output format should contain {type} for plot type")
+            if opts.output == opts.output.format(type="placeholder"):
+                output = Path(opts.output)
+                opts.output = f"{output.stem}_{{type}}{output.suffix}"
+                print("Appending `{type}` to filename: "+opts.output)
 
             if "data-a" in model._future:
                 selection = "A"
@@ -163,13 +165,6 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("-v", "--verbose", default=1, action="count", help="verbosity level")
-    parser.add_argument(
-        "--source-type",
-        "--source",
-        choices=("tsv", "hdf5", "root", "npz"),
-        default="default:hdf5",
-        help="Data source type",
-    )
 
     model = parser.add_argument_group("model", "model related options")
     model.add_argument(
@@ -188,7 +183,7 @@ if __name__ == "__main__":
     plot.add_argument(
         "-o",
         "--output",
-        help='output files (supported format keys: "type", "selection")',
+        help='output files with `{type}` and {`selection`}: `output_{type}.pdf`',
     )
     plot.add_argument("-s", "--show", action="store_true", help="show")
 
