@@ -5,23 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.5.3] - 2025-11-11
+## [0.6.0] - 2025-11-12
 
-- feature: new versions of model where added: `v1a_neutrino_rate` and `v2`. Calculation based on total neutrino rate of each reactor.
-
-## [0.5.2] - 2025-11-02
-
-- hotfix: `full.covmat.chi2cnp` was removed to avoid confusions. `full.covmat.chi2cnp_alt` wes renamed to `full.covmat.chi2cnp`, it is defined as (18)-(19) equations from the [arXiv: 1903.07185](https://arxiv.org/pdf/1903.07185). Only `v1a` and `v1a_distorted` were updated.
+- feature: new versions of model where added: `v1a_neutrino_rate` and `v2`. Calculation is based on total neutrino rate of each reactor.
+- fix: `full.covmat.chi2cnp` was removed to avoid confusions. `full.covmat.chi2cnp_alt` was renamed to `full.covmat.chi2cnp`, it is defined as (18)-(19) equations from the [arXiv: 1903.07185](https://arxiv.org/pdf/1903.07185). Only `v1a*` and `v2` were updated.
 
 ## [0.5.1] - 2025-11-02
 
-- hotfix: add `absolute_efficiency` gruop for covariance matrix and pull terms. Works with model `v1a`, and `v1a_distorted`.
+- hotfix: add `absolute_efficiency` group for covariance matrix and pull terms. Works with model `v1a`, and `v1a_distorted`.
 - hotfix: update `reactor_refine_data` function for model `v1a_distorted`.
 
 ## [0.5.0] - 2025-10-31
 
 - feature: add `v1a_distorted` to study extreme spectral distortions.
-- feature: add `covariance_groups` parameter to control passed nuisance parameters to covarince matrix, works only with `strict=False`. Supported for `v1a` and `v1a_distorted`.
+- feature: add `covariance_groups` parameter to control passed nuisance parameters to covariance matrix, works only with `strict=False`. Supported for `v1a` and `v1a_distorted`.
 - feature: add `pull_groups` parameter to control passed nuisance parameters to `nuisance.pull_extra`. Supported for `v1a` and `v1a_distorted`.
 - feature: add `is_absolute_efficiency_fixed` parameter to switch between fixed/variable absolute correlated detector efficiency. Supported for `v1a` and `v1a_distorted`.
 - feature: prepare code for reading variable periods of reactor data.
