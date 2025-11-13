@@ -45,7 +45,7 @@ def periods_to_days(array: NDArray, ndays: NDArray) -> NDArray:
 
 @njit
 def weeks_to_days(array: NDArray) -> NDArray:
-    ret = empty(array.shape[0] * 7)
+    ret = empty(array.shape[0] * 7, dtype="i")
 
     for i in range(7):
         ret[i::7] = array

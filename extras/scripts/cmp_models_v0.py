@@ -2,11 +2,11 @@
 
 from argparse import Namespace
 
-from dag_modelling.tools.logger import set_verbosity
+from dag_modelling.tools.logger import logger, set_verbosity
 from matplotlib import pyplot as plt
 from nested_mapping import NestedMapping
 from nested_mapping.tools import mkmap
-from numpy import log, nanmax, nanmin, where
+from numpy import arange, log, nanmax, nanmin, where
 
 from dgm_dayabay_dev.models import available_models, load_model
 
@@ -24,6 +24,7 @@ plt.style.use(
         "savefig.dpi": 300,
     }
 )
+
 
 def main(opts: Namespace) -> None:
     if opts.verbose:
@@ -43,14 +44,23 @@ def main(opts: Namespace) -> None:
         parameter_values=opts.par0,
     )
 
-    get_hist = lambda output: (output.dd.axes_edges[0].data, output.data.copy())
+    def get_hist(output):
+        data = output.data.copy()
+        try:
+            edges = output.dd.axes_edges[0].data
+        except IndexError:
+            edges = arange(data.size + 1)
 
-    source = opts.hist
-    sourceA = modelA.storage.get_dict(source)
-    sourceB = modelB.storage.get_dict(source)
+        return edges, data
+
+    sourceA_path = opts.hist
+    sourceB_path = opts.hist2 or sourceA_path
+    title0 = opts.hist2 and f"{opts.hist}↔{opts.hist2}" or opts.hist
+    sourceA = modelA.storage.get_dict(sourceA_path)
+    sourceB = modelB.storage.get_dict(sourceB_path)
     hists0_A = mkmap(get_hist, sourceA)
     hists0_B = mkmap(get_hist, sourceB)
-    plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=source, opts=opts)
+    plot(hists0_A, hists0_B, opts.version_a, opts.version_b, title=title0, opts=opts)
 
     pars_set = False
     title = ""
@@ -66,6 +76,11 @@ def main(opts: Namespace) -> None:
     if opts.par_b:
         title += "\nB: ".join(f"{par}={value}" for (par, value) in opts.par_b) + "\n"
         modelB.set_parameters(opts.par_b)
+        pars_set = True
+    if opts.norm_par:
+        title += "\nn: ".join(f"{par}={value}" for (par, value) in opts.norm_par) + "\n"
+        modelA.set_parameters(opts.norm_par, mode="normvalue")
+        modelB.set_parameters(opts.norm_par, mode="normvalue")
         pars_set = True
     if opts.norm_par_a:
         title += "\nAn: ".join(f"{par}={value}" for (par, value) in opts.norm_par_a) + "\n"
@@ -89,7 +104,7 @@ def main(opts: Namespace) -> None:
             histsD_B,
             opts.version_a,
             opts.version_b,
-            title=f"{source}\n{title}",
+            title=f"{title0}\n{title}",
             ylabel="mod−def",
             opts=opts,
         )
@@ -167,7 +182,10 @@ def plot(
         rmin = min(nanmin(lratiom) * 0.9, nanmin(lratiom) * 1.1)
         rmax = max(nanmax(lratiom) * 0.9, nanmax(lratiom) * 1.1)
         if rmin != rmax:
-            axr.set_ylim(rmin, rmax)
+            if rmin!=float("inf") and rmin!=-float("inf"):
+                axr.set_ylim(bottom=rmin)
+            if rmax!=float("inf") and rmax!=-float("inf"):
+                axr.set_ylim(top=rmax)
         if opts.ylim:
             axr.set_ylim(*opts.ylim)
         if opts.llim:
@@ -203,6 +221,12 @@ if __name__ == "__main__":
         help="histogram to use for plotting and comparison",
     )
 
+    model.add_argument(
+        "--hist2",
+        default=None,
+        help="optinal second histogram to use for plotting and comparison",
+    )
+
     pars = parser.add_argument_group("pars", "setup pars")
     pars.add_argument(
         "--par0",
@@ -231,6 +255,13 @@ if __name__ == "__main__":
         action="append",
         default=[],
         help="set comparison parameter value for model B",
+    )
+    pars.add_argument(
+        "--norm-par",
+        nargs=2,
+        action="append",
+        default=[],
+        help="set comparison parameter normalized value",
     )
     pars.add_argument(
         "--norm-par-a",
