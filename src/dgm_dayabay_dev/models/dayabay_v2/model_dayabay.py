@@ -16,7 +16,7 @@ from pandas import DataFrame
 # pyright: reportUnusedExpression=false
 
 if TYPE_CHECKING:
-    from typing import KeysView, Literal
+    from typing import KeysView, Literal, ValuesView
 
     from dag_modelling.core.meta_node import MetaNode
     from numpy.typing import NDArray
@@ -89,6 +89,10 @@ class model_dayabay:
             - "normal-stats" - normal fluctuations with statistical,
               errors,
             - "poisson" - Poisson fluctuations.
+    antineutrino_spectrum_segment_edges : Path | Sequence[int | float] | NDArray | None, default=None
+        Text file with bin edges for the antineutrino spectrum or the edges themselves, which is relevant for the χ² calculation.
+    final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
+        Text file with bin edges for the final binning or the edges themselves, which is relevant for the χ² calculation.
     covariance_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
         "energy_per_fission", "thermal_power", "snf", "neq", "fission_fractions", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
@@ -97,11 +101,10 @@ class model_dayabay:
     pull_groups: list[Literal["survival_probability", "eres", "lsnl", "iav", "detector_relative",
         "energy_per_fission", "thermal_power", "snf", "neq", "fission_fractions", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
-        List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it
-        will add all nuisance parameters.
-    final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
-        Text file with bin edges for the final binning or the edges themselves, which is relevant
-        for the χ² calculation.
+        List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
+    mc_parameters: Sequence
+        List of parameters to be sampled via Gaussian distribution, it contains paths to parameters groups or full paths to parameters.
+        Default values are all nuisance parameters.
     is_absolute_efficiency_fixed : bool, default=True
         Switch detector absolute correlated efficiency from fixed to constrained parameter.
     path_data : Path
@@ -142,6 +145,7 @@ class model_dayabay:
         "monte_carlo_mode",
         "_covariance_groups",
         "_pull_groups",
+        "_mc_parameters",
         "_is_absolute_efficiency_fixed",
         "_arrays_dict",
         "_source_type",
@@ -202,6 +206,7 @@ class model_dayabay:
         ]
     ]
     _arrays_dict: dict[str, Path | NDArray | None]
+    _mc_parameters: Sequence | ValuesView
     _is_absolute_efficiency_fixed: bool
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
@@ -268,6 +273,7 @@ class model_dayabay:
                 "hm_uncorr",
             ]
         ] = [],
+        mc_parameters: Sequence | ValuesView = [],
         is_absolute_efficiency_fixed: bool = True,
     ):
         """Model initialization.
@@ -324,6 +330,9 @@ class model_dayabay:
                 f"{systematic_groups_pull_covariance_intersect}",
             )
 
+        if not mc_parameters:
+            mc_parameters = self.systematic_uncertainties_groups.values()
+
         from .tools.validate_load_array import validate_load_array
 
         self._arrays_dict = {
@@ -367,6 +376,7 @@ class model_dayabay:
         self.monte_carlo_mode = monte_carlo_mode
         self._covariance_groups = covariance_groups
         self._pull_groups = pull_groups
+        self._mc_parameters = mc_parameters
 
         from .tools.validate_load_array import validate_load_array
 
@@ -567,13 +577,12 @@ class model_dayabay:
         from nested_mapping.tools import remap_items
         from numpy import linspace
 
-        from ...bundles.refine_reactor_data_variable_periods import refine_reactor_data
-        from ...bundles.sync_reactor_detector_data import sync_reactor_detector_data
         from .bundles.refine_detector_data import refine_detector_data
         from .bundles.refine_lsnl_data import refine_lsnl_data
         from .bundles.refine_neutrino_rate_data import refine_neutrino_rate_data
         from .bundles.sync_neutrino_rate_detector_data import sync_neutrino_rate_detector_data
 
+        # Initialize the storage and paths
         storage = self.storage
 
         # Read Eν edges for the parametrization of free antineutrino spectrum model
@@ -621,8 +630,7 @@ class model_dayabay:
                 "AD34",
             ),
             # A subset of detector names, which are considered for the χ² calculation.
-            # Will be applied for selection of the histograms for the model prediction and real
-            # data.
+            # Will be applied for selection of the histograms for the model prediction and real data.
             "detector_selected": (
                 "AD11",
                 "AD12",
@@ -3073,9 +3081,13 @@ class model_dayabay:
                 >> self._covariance_matrix
             )
 
-            list_parameters_nuisance_normalized = list(
-                parameters_nuisance_normalized.walkvalues()
-            )
+            # Here we filtering parameters that would be used in MC sampling
+            list_parameters_nuisance_normalized = []
+            for mc_parameter_prefix in self._mc_parameters:
+                list_parameters_nuisance_normalized.extend([
+                    parameter for parname, parameter in parameters_nuisance_normalized.walkjoineditems()
+                    if parname.startswith(mc_parameter_prefix)
+                ])
             npars_nuisance = len(list_parameters_nuisance_normalized)
 
             parinp_mc = ParArrayInput(
