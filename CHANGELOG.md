@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.7.0] - 2025-11-
+## [0.7.0] - 2025-11-14
 
 - feature: new versions of model where added: `v1a_neutrino_rate` and `v2`. Calculation is based on total neutrino rate of each reactor.
 - feature: add `mc_parameters` (v2) field to determine wich normalized parameters will be used to produce Monte-Carlo samples. It works with names of parameters from the storage, not their covariance uncertainties aliases.
