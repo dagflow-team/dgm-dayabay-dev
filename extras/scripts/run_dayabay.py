@@ -360,7 +360,7 @@ if __name__ == "__main__":
     model.add_argument(
         "--version",
         default="latest",
-        choices=available_models_limited(first="v0f"),
+        choices=available_models_limited(first="v1a"),
         help="model version",
     )
     model.add_argument("--model-options", "--mo", default={}, help="Model options as yaml dict")
