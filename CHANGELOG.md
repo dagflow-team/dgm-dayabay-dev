@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.7.0] - 2025-11-
+
+- feature: new versions of model where added: `v1a_neutrino_rate` and `v2`. Calculation is based on total neutrino rate of each reactor.
+- feature: add `mc_parameters` (v2) field to determine wich normalized parameters will be used to produce Monte-Carlo samples. It works with names of parameters from the storage, not their covariance uncertainties aliases.
+- fix: `full.covmat.chi2cnp` was removed to avoid confusions. `full.covmat.chi2cnp_alt` was renamed to `full.covmat.chi2cnp`, it is defined as (18)-(19) equations from the [arXiv: 1903.07185](https://arxiv.org/pdf/1903.07185). Only `v1a*` and `v2` were updated.
+
 ## [0.6.0] - 2025-11-13
 
 - feature: new versions of model where added: `v1a_neutrino_rate` and `v2`. Calculation is based on total neutrino rate of each reactor.
