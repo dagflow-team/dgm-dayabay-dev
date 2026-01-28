@@ -102,6 +102,7 @@ class model_dayabay:
         "energy_per_fission", "thermal_power", "snf", "neq", "fission_fractions", "background_rate",
         "hm_corr", "hm_uncorr"]], default=[]
         List of nuicance groups to be added to `nuisance.extra_pull`. If no parameters passed, it will add all nuisance parameters.
+        Use to build `statistics.nuisance.pull_extra`.
     mc_parameters: Sequence
         List of parameters to be sampled via Gaussian distribution, it contains paths to parameters groups or full paths to parameters.
         Default values are all nuisance parameters.
@@ -315,7 +316,9 @@ class model_dayabay:
         if pull_covariance_intersect:
             logger.log(
                 INFO,
-                "Pull groups intersect with covariance groups: " f"{pull_covariance_intersect}",
+                "Pull groups intersect with covariance groups: "
+                f"{pull_covariance_intersect}"
+                ". Ignore it, if you do not plan to use statistics from `statistics.full.covmat`",
             )
 
         systematic_groups_pull_covariance_intersect = (
