@@ -3838,3 +3838,26 @@ class model_dayabay:
     def print_summary_table(self):
         df = self.make_summary_table()
         print(df.to_string())
+
+    def sum_statistics(self, *statistics: NodeStorage, name: str) -> None:
+        """Add sum of statistics.
+
+        Parameters
+        ----------
+        statistics : list[str]
+            Statistics for summation
+        name : str
+            Name for the sum of statistics
+
+        Returns
+        -------
+        None
+        """
+        from dag_modelling.lib.arithmetic import Sum
+
+        with self.storage:
+            node, _ = Sum.replicate(
+                *statistics,
+                name=name,
+            )
+            node.close()
