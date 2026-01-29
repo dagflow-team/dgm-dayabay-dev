@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.7.1] - 2026-01-xx
+## [0.7.1] - 2026-01-29
 
 - fix: update docstrings, update warnings for `pull_groups`.
 - feature: add method of model to sum statistics.
