@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.7.1] - 2026-01-xx
 
 - fix: update docstrings, update warnings for `pull_groups`.
-- feature: add methodof model to sum statistics.
+- feature: add method of model to sum statistics.
 
 ## [0.7.0] - 2025-11-14
 
