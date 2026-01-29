@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.7.1] - 2026-01-xx
+
+- fix: update docstrings, update warnings for `pull_groups`.
+- feature: add method of model to sum statistics.
+
 ## [0.7.0] - 2025-11-14
 
 - feature: new versions of model where added: `v1a_neutrino_rate` and `v2`. Calculation is based on total neutrino rate of each reactor.
