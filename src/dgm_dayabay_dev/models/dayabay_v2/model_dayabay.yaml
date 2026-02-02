@@ -6,6 +6,8 @@ __common_definitions__:
       aspect: "equal"
       mask_value: 0.0
       plot_diagonal: {color: red, linestyle: dashed, linewidth: 0.5, alpha: 0.5}
+      swap_hist_2d_xy: True
+      invert_yaxis: True
   covariance_plotoptions: &covariance_plotoptions
       aspect: "equal"
       mask_value: 0.0
