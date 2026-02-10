@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - chore: raise minimal Python version to 3.12.
 - fix: improve plotting of 2d matrices (detector effects).
+- feature: add dynamic versioning.
 
 ## [0.7.1] - 2026-01-29
 
