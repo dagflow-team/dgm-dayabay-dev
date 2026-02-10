@@ -209,7 +209,6 @@ class model_dayabay:
             "hm_uncorr",
         ]
     ]
-    _arrays_dict: dict[str, Path | NDArray | None]
     _mc_parameters: Sequence | ValuesView
     _is_absolute_efficiency_fixed: bool
     _is_global_normalization_free: bool
