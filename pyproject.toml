@@ -1,11 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 
-requires = [ "packaging", "setuptools", "wheel" ]
+requires = [ "packaging", "setuptools", "setuptools-scm", "wheel" ]
 
 [project]
 name = "dgm-dayabay-dev"
-version = "0.8.0"
 description = "Implementation of the Daya Bay model for dag-modelling framework. Development version."
 readme = "README.md"
 license = "MIT"
@@ -18,6 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
+dynamic = [ "version" ]
 dependencies = [
   "colorama",
   "dgm-fit>=0.4",
@@ -49,6 +49,11 @@ where = [ "src" ]
 exclude = [
   "tests*",
 ]
+
+[tool.setuptools_scm]
+write_to = "src/dgm_dayabay_dev/__version__.py"
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
 
 [tool.black]
 line-length = 100
