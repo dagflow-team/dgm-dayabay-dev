@@ -108,6 +108,8 @@ class model_dayabay:
         Default values are all nuisance parameters.
     is_absolute_efficiency_fixed : bool, default=True
         Switch detector absolute correlated efficiency from fixed to constrained parameter.
+    is_global_normalization_free : bool, default=False
+        Switch global normaliazation from fixed to free parameter.
     path_data : Path
         Path to the data.
     leading_mass_splitting_3l_name: Literal["DeltaMSq32", "DeltaMSq31"], default="DeltaMSq32"
@@ -148,6 +150,7 @@ class model_dayabay:
         "_pull_groups",
         "_mc_parameters",
         "_is_absolute_efficiency_fixed",
+        "_is_global_normalization_free",
         "_arrays_dict",
         "_source_type",
         "_strict",
@@ -209,6 +212,7 @@ class model_dayabay:
     _arrays_dict: dict[str, Path | NDArray | None]
     _mc_parameters: Sequence | ValuesView
     _is_absolute_efficiency_fixed: bool
+    _is_global_normalization_free: bool
     _source_type: Literal["tsv", "hdf5", "root", "npz"]
     _strict: bool
     _close: bool
@@ -276,6 +280,7 @@ class model_dayabay:
         ] = [],
         mc_parameters: Sequence | ValuesView = [],
         is_absolute_efficiency_fixed: bool = True,
+        is_global_normalization_free: bool = False,
     ):
         """Model initialization.
 
@@ -303,6 +308,7 @@ class model_dayabay:
         assert concatenation_mode in {"detector", "detector_period"}
 
         self._is_absolute_efficiency_fixed = is_absolute_efficiency_fixed
+        self._is_global_normalization_free = is_global_normalization_free
 
         for covariance_group in covariance_groups:
             assert covariance_group in self.systematic_uncertainties_groups
@@ -929,7 +935,9 @@ class model_dayabay:
             #   "detector_relative.efficiency_factor").
             # - fixed correction to the number of protons in each detector.
             load_parameters(
-                path="detector", load=cfg_file_mapping["parameters.detector_normalization"]
+                path="detector",
+                load=cfg_file_mapping["parameters.detector_normalization"],
+                state="variable" if self._is_global_normalization_free else "fixed",
             )
             load_parameters(
                 path="detector", load=cfg_file_mapping["parameters.detector_efficiency"]
