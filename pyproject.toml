@@ -5,29 +5,29 @@ requires = [ "packaging", "setuptools", "wheel" ]
 
 [project]
 name = "dgm-dayabay-dev"
-version = "0.7.2"
+version = "0.8.0"
 description = "Implementation of the Daya Bay model for dag-modelling framework. Development version."
 readme = "README.md"
 license = "MIT"
 maintainers = [ { name = "DAGModelling Team", email = "dagflow@jinr.ru" } ]
 authors = [ { name = "DAGModelling Team", email = "dagflow@jinr.ru" } ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
   "colorama",
-  "dgm-fit>=0.2",
-  "dgm-reactor-neutrino>=0.2.2",
+  "dgm-fit>=0.4",
+  "dgm-reactor-neutrino>=0.3.0",
   "more-itertools",
   "semver",
 ]
 
 optional-dependencies.test = [
-  "dgm-reactor-neutrino[test]>=0.2.2",
+  "dgm-reactor-neutrino[test]>=0.3.0",
   "ipykernel",
   "ipython",
   "ipywidgets",
