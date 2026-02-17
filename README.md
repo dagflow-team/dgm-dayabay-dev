@@ -1,6 +1,6 @@
 # dgm-dayabay-dev
 
-[![python](https://img.shields.io/badge/python-3.11-purple.svg)](https://www.python.org/)
+[![python](https://img.shields.io/badge/python-3.12-purple.svg)](https://www.python.org/)
 [![pipeline](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/badges/main/pipeline.svg)](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/commits/main)
 [![coverage report](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/badges/main/coverage.svg)](https://git.jinr.ru/dagflow-team/dgm-dayabay-dev/-/commits/main)
 
