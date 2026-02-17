@@ -8,7 +8,7 @@ from pathlib import Path
 from time import time
 from typing import TYPE_CHECKING
 
-from dag_modelling.lib.common import Array
+from dag_modelling.core.storage import NodeStorage
 from dag_modelling.tools.logger import set_verbosity
 from dag_modelling.tools.profiling import (
     FitSimulationProfiler,
@@ -17,7 +17,7 @@ from dag_modelling.tools.profiling import (
     NodeProfiler,
 )
 from dag_modelling.tools.save_records import save_records
-from scripts import update_dict_parameters
+from extras.scripts import update_dict_parameters
 
 from dgm_dayabay_dev.models import available_models, load_model
 
