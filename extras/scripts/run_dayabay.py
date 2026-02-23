@@ -3,6 +3,7 @@
 # isort: off
 from __future__ import annotations
 from dag_modelling.tools import disable_implicit_numpy_multithreading
+from dag_modelling.tools.logger import INFO1, logger
 
 # isort: on
 
@@ -13,8 +14,9 @@ from typing import TYPE_CHECKING
 
 from dag_modelling.tools.logger import set_verbosity
 from dag_modelling.tools.save_records import save_records
-from dgm_dayabay_dev.models import available_models_limited, load_model
 from matplotlib import pyplot as plt
+
+from dgm_dayabay_dev.models import available_models_limited, load_model
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -197,6 +199,26 @@ def main(opts: Namespace) -> None:
                 accept_index=graph_accept_index,
                 filter=graph_accept_index,
             )
+    if opts.graph_whole is not None:
+        assert opts.graph_whole.suffix == ".dot"
+        node = storage.get_value("nodes.edges.energy_evis")
+
+        from dag_modelling.plot.graphviz import GraphDot
+
+        logger.log(INFO1, f"Start building the whole graph...")
+        gd = GraphDot.from_nodes(
+            [node],
+            enable_mid_node=False,
+            enable_common_attrs=False,
+            hide_nodes_marked_hidden=False,
+            process_meshes_edges=True,
+        )
+        gd.savegraph(
+            opts.graph_whole,
+            quiet=True,
+        )
+
+        logger.log(INFO1, f"Write: {opts.graph_whole}")
 
 
 def save_summary(model: Any, filenames: Sequence[str]):
@@ -354,6 +376,12 @@ if __name__ == "__main__":
         nargs="+",
         help="save partial graphs from every node",
         metavar=("folder", "storage"),
+    )
+    dot.add_argument(
+        "--graph-whole",
+        help="save the full graph",
+        type=Path,
+        metavar="output.dot",
     )
 
     model = parser.add_argument_group("model", "model related options")

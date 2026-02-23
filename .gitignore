@@ -144,3 +144,4 @@ cython_debug/
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 data/
+src/dgm_dayabay_dev/__version__.py
