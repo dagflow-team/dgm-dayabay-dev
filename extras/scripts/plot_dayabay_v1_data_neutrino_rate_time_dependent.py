@@ -5,10 +5,9 @@ from __future__ import annotations
 from argparse import Namespace
 
 from dag_modelling.tools.logger import set_verbosity
+from dgm_dayabay_dev.models import load_model
 from matplotlib import pyplot as plt
 from matplotlib import transforms
-
-from dgm_dayabay_dev.models import load_model
 
 plt.rcParams.update(
     {
@@ -73,7 +72,7 @@ def main(opts: Namespace) -> None:
 
         ax_nr = axes_nr[reactor_id]
         nr_data = output.data
-        mask = nr_data>0
+        mask = nr_data > 0
 
         ax_nr.plot(
             data_days[mask],
