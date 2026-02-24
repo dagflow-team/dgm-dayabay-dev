@@ -108,7 +108,7 @@ class model_dayabay:
         Default values are all nuisance parameters.
     is_absolute_efficiency_fixed : bool, default=True
         Switch detector absolute correlated efficiency from fixed to constrained parameter.
-    is_global_normalization_fixed : bool, default=False
+    is_global_normalization_fixed : bool, default=True
         Switch global normaliazation from fixed to free parameter.
     path_data : Path
         Path to the data.
@@ -279,7 +279,7 @@ class model_dayabay:
         ] = [],
         mc_parameters: Sequence | ValuesView = [],
         is_absolute_efficiency_fixed: bool = True,
-        is_global_normalization_fixed: bool = False,
+        is_global_normalization_fixed: bool = True,
     ):
         """Model initialization.
 
@@ -936,7 +936,7 @@ class model_dayabay:
             load_parameters(
                 path="detector",
                 load=cfg_file_mapping["parameters.detector_normalization"],
-                state="fixed" if self._is_global_normalization_fixed else "false",
+                state="fixed" if self._is_global_normalization_fixed else "variable",
             )
             load_parameters(
                 path="detector", load=cfg_file_mapping["parameters.detector_efficiency"]
