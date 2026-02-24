@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.8.0] - 2026-02-17
+## [0.8.0] - 2026-02-24
 
 - chore: raise minimal Python version to 3.12.
 - fix: improve plotting of 2d matrices (detector effects).
 - feature: add dynamic versioning.
+- feature: add switcher `is_global_normalization_fixed` to control state of `global_normalization` parameter. Default state of it is fixed.
 
 ## [0.7.1] - 2026-01-29
 
