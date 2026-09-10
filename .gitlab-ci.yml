@@ -3,7 +3,7 @@ stages:
   - publish
 
 tests:
-  image: 'python:3.12.7-bullseye'
+  image: 'python:3.12.14-bookworm'
   stage: tests
 
   variables:
@@ -36,7 +36,7 @@ tests:
     - merge_requests
 
 pypi:
-  image: 'python:3.12.7-bullseye'
+  image: 'python:3.12.14-bookworm'
   stage: publish
   script:
     - pip install twine build
