@@ -1,5 +1,4 @@
 from dag_modelling.tools.logger import set_verbosity
-from dayabay_data_official import get_path_data
 from numpy import allclose, fabs
 from pytest import fixture, mark
 
