@@ -219,6 +219,8 @@ class model_dayabay_v0:
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
 
+        no_neq_reactor_detector_period = tuple((reactor, "U238", detector, period) for reactor, detector, period in combinations["reactor.detector.period"])
+
         with (
             Graph(close_on_exit=self._close, strict=self._strict) as graph,
             storage,
@@ -922,7 +924,9 @@ class model_dayabay_v0:
                     parameters("all.reactor.nonequilibrium_scale"),
                     parameters.get_value("all.reactor.neq_factor"),
                     name = "reactor_detector.nfissions_nprotons_per_cm2_neq",
-                    replicate_outputs=combinations["reactor.isotope.detector.period"],
+                    replicate_outputs=combinations["reactor.isotope_neq.detector.period"],
+                    allow_skip_inputs=True,
+                    skippable_inputs_should_contain=no_neq_reactor_detector_period,
                     )
 
             # Detector live time

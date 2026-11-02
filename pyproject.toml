@@ -20,7 +20,7 @@ classifiers = [
 dynamic = [ "version" ]
 dependencies = [
   "colorama",
-  "dag-modelling",
+  "dag-modelling>0.16.2",
   "dgm-fit>=0.4.0",
   "dgm-reactor-neutrino>=0.3.0",
   "more-itertools",
