@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.8.1] - 2026-11-02
+
+- chore: explicitly allow ignoring ²³⁸U for while calculating number of fissions for NEQ. This
+  became required due to elevated protection level.
+- bug: `.root`-data doesn't work currently, will be fixed in a new release of the dag-modelling.
+
 ## [0.8.0] - 2026-02-24
 
 - chore: raise minimal Python version to 3.12.
