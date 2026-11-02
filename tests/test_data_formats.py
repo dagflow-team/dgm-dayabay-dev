@@ -1,13 +1,12 @@
-from os import environ
-
 from dag_modelling.tools.logger import set_verbosity
+from dayabay_data_official import get_path_data
 from numpy import allclose, fabs
 from pytest import fixture, mark
 
 from dgm_dayabay_dev.models import load_model
 
 source_type_reference = "hdf5"
-source_types_other = ["tsv", "npz", "root"]
+source_types_other = ["tsv", "npz"]  # FIXME: add support of "root"
 
 precision_requirement = {"tsv": 2.0e-10, "root": 0, "npz": 0}
 set_verbosity(1)
