@@ -658,6 +658,8 @@ class model_dayabay_v1a_distorted:
             + tuple(("nu_snf",) + cmb for cmb in combinations["reactor.detector"])
         )
 
+        no_neq_reactor_detector_period = tuple((reactor, "U238", detector, period) for reactor, detector, period in combinations["reactor.detector.period"])
+
         # Start building the computational graph within a dedicated context, which
         # includes:
         # - graph - the graph instance.
@@ -2368,7 +2370,9 @@ class model_dayabay_v1a_distorted:
                 parameters.get_dict("all.reactor.nonequilibrium_scale"),
                 parameters.get_value("all.reactor.neq_factor"),
                 name="reactor_detector.n_fissions_n_protons_per_cm2_neq",
-                replicate_outputs=combinations["reactor.isotope.detector.period"],
+                replicate_outputs=combinations["reactor.isotope_neq.detector.period"],
+                allow_skip_inputs=True,
+                skippable_inputs_should_contain=no_neq_reactor_detector_period,
             )
 
             # Compute similar values for SNF. Note, that it should be also multiplied by
