@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.0] - 2026-11-17
+
+- feature: add version of model with damping neutrino oscillation.
+- fix: fix usage of `detector_selected`, add test for `detector_selected` (v2 only).
+
 ## [0.8.1] - 2026-11-02
 
 - chore: explicitly allow ignoring ²³⁸U for while calculating number of fissions for NEQ. This
