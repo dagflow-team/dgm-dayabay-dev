@@ -179,7 +179,7 @@ class model_dayabay:
     spectrum_correction_location: Literal["before-integration", "after-integration"]
     concatenation_mode: Literal["detector", "detector_period"]
     monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"]
-    damping_mode: Literal["none", "alpha", "wpd1", "wpd2"]
+    damping_mode: Literal["none", "decay", "wpd1", "wpd2"]
     _arrays_dict: dict[str, Path | NDArray | None]
     _covariance_groups: (
         Sequence[
@@ -244,7 +244,7 @@ class model_dayabay:
         ] = "before-integration",
         seed: int = 0,
         monte_carlo_mode: Literal["asimov", "normal-stats", "poisson"] = "asimov",
-        damping_mode: Literal["none", "alpha", "wpd1", "wpd2"] = "none",
+        damping_mode: Literal["none", "decay", "wpd1", "wpd2"] = "none",
         concatenation_mode: Literal["detector", "detector_period"] = "detector_period",
         parameter_values: dict[str, float | str] = {},
         path_data: str | Path | None = None,
