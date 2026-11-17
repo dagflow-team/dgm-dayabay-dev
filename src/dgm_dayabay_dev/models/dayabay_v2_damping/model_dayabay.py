@@ -94,8 +94,7 @@ class model_dayabay:
             - none: turn off any damping mode
             - decay: d = alpha * L_m / E_MeV; alpha in MeV/m.
             - wpd1: D_ij = exp[-alpha * (DeltaMSq_ij)^2 * L_km^2 / E_MeV^4]; alpha in MeV^4 / (eV^4 km^2).
-            - wpd2: same expression with E_MeV^2 in the denominator;
-          alpha in MeV^2 / (eV^4 km^2).
+            - wpd2: same expression with E_MeV^2 in the denominator; alpha in MeV^2 / (eV^4 km^2).
     antineutrino_spectrum_segment_edges : Path | Sequence[int | float] | NDArray | None, default=None
         Text file with bin edges for the antineutrino spectrum or the edges themselves, which is relevant for the χ² calculation.
     final_erec_bin_edges : Path | Sequence[int | float] | NDArray | None, default=None
